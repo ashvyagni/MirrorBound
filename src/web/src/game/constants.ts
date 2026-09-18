@@ -64,6 +64,8 @@ export const COMBAT = {
   hurtDuration: 0.36,
   hurtKnockback: 240,
   respawnDelay: 1.1,
+  /** Time after a swing in which the next hit continues the combo. */
+  comboWindow: 0.62,
 } as const;
 
 /**

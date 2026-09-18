@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import { BRO_TEXTURE, registerBroAnimations } from '../animation/broClips';
 import { registerFxAnimations } from '../animation/fx';
 import { GOAT_TEXTURE, registerGoatAnimations } from '../animation/goatClips';
+import { registerWeaponAnimations, WEAPON_TEXTURES } from '../animation/weaponClips';
 import { PALETTE } from '../constants';
 import { eventBus } from '../EventBus';
 
@@ -38,7 +39,7 @@ export class PreloadScene extends Phaser.Scene {
       eventBus.emit('game:loading', { progress });
     });
 
-    for (const texture of [GOAT_TEXTURE, BRO_TEXTURE]) {
+    for (const texture of [GOAT_TEXTURE, BRO_TEXTURE, ...WEAPON_TEXTURES]) {
       this.load.setPath(`game/${texture}`);
       this.load.atlas(texture, `${texture}.png`, `${texture}.json`);
     }
@@ -47,6 +48,7 @@ export class PreloadScene extends Phaser.Scene {
   create(): void {
     registerGoatAnimations(this.anims);
     registerBroAnimations(this.anims);
+    registerWeaponAnimations(this.anims);
     registerFxAnimations(this.anims);
     this.scene.start('play');
   }

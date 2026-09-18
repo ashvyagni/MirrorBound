@@ -14,7 +14,7 @@ ASSETS = Path(__file__).resolve().parents[3] / "assets"
 
 # --- goat -------------------------------------------------------------------
 
-def _goat_body(rgb: np.ndarray) -> np.ndarray:
+def _goat_body(rgb: np.ndarray, _alpha: np.ndarray) -> np.ndarray:
     """Warm cream artwork only.
 
     `G >= B` is what rejects the pink FX: cream is warm so green leads blue,
@@ -36,7 +36,7 @@ def _goat_swirl(rgb: np.ndarray) -> np.ndarray:
     return (rgb.max(axis=2) > 110) & (rgb[:, :, 2] > rgb[:, :, 1] + 25)
 
 
-def _goat_fx(rgb: np.ndarray) -> np.ndarray:
+def _goat_fx(rgb: np.ndarray, _alpha: np.ndarray) -> np.ndarray:
     """Bright cores of the pink attack swirls, excluding their dim glow.
 
     The glow haloes merge every swirl into one blob; the cores stay separate,
@@ -73,7 +73,7 @@ GOAT = SheetSpec(
 
 # --- bro --------------------------------------------------------------------
 
-def _bro_body(rgb: np.ndarray) -> np.ndarray:
+def _bro_body(rgb: np.ndarray, _alpha: np.ndarray) -> np.ndarray:
     """The companion's white body.
 
     This sheet is cold -- white body, cyan bow, violet eyes -- so the goat's
@@ -114,4 +114,60 @@ BRO = SheetSpec(
     ),
 )
 
-SHEETS = (GOAT, BRO)
+
+# --- weapons ----------------------------------------------------------------
+
+def _weapon_body(rgb: np.ndarray, alpha: np.ndarray) -> np.ndarray:
+    """The solid weapon, without its trail.
+
+    Clustering only needs to find where each weapon *is*; including the glow
+    would let a long trail drag a frame's measured centre off the blade.
+    """
+    return (alpha > 0.55) & (rgb.max(axis=2) > 70)
+
+
+def _weapon_grip(rgb: np.ndarray, alpha: np.ndarray) -> np.ndarray:
+    """The dark wooden grip -- the part a hand would be wrapped around.
+
+    Every weapon on these sheets has one, and it is the only landmark that
+    stays put while the rest of the weapon rotates, so it is what each frame
+    pivots on.
+    """
+    value = rgb.max(axis=2)
+    return (alpha > 0.5) & (value < 150) & (rgb[:, :, 0] > rgb[:, :, 2] + 12)
+
+
+def _weapon(name: str, source: str, key: str) -> SheetSpec:
+    """Every weapon sheet has the same shape: 8 frames, 4 across and 2 down.
+
+    Anchoring on the grid rather than on content is what keeps the swing a
+    swing -- the artwork travels within its cell, and pinning each frame to its
+    own centre would cancel exactly that motion out.
+    """
+    return SheetSpec(
+        name=name,
+        source=ASSETS / source,
+        body=_weapon_body,
+        pivot=_weapon_grip,
+        anchor="center",
+        key=key,
+        body_min_area=150,
+        bands=(
+            Band("swing", 0, 512, 0, 1536, 4, grid_cols=4,
+                 names=tuple(f"swing-{i:02d}" for i in range(4))),
+            Band("swing_b", 512, 1024, 0, 1536, 4, grid_cols=4,
+                 names=tuple(f"swing-{i:02d}" for i in range(4, 8))),
+        ),
+    )
+
+
+SWORD_A = _weapon("swordA", "swordspritea.png", "green")
+SWORD_B = _weapon("swordB", "swordspriteb.png", "green")
+SWORD_C = _weapon("swordC", "swordspritec.png", "green")
+BOW = _weapon("bow", "bowsprite.png", "green")
+FIRE_STAFF = _weapon("fireStaff", "firewandsprite.png", "green")
+ICE_STAFF = _weapon("iceStaff", "icewandsprite.png", "alpha")
+
+WEAPONS = (SWORD_A, SWORD_B, SWORD_C, BOW, FIRE_STAFF, ICE_STAFF)
+
+SHEETS = (GOAT, BRO, *WEAPONS)

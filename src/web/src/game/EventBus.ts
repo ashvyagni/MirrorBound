@@ -1,5 +1,6 @@
 import type { BroClipName } from './animation/broClips';
 import type { ClipName } from './animation/goatClips';
+import type { WeaponId } from './animation/weaponClips';
 import type { PlayerSnapshot, PlayerState } from './types';
 
 /**
@@ -27,6 +28,16 @@ export interface GameEventMap {
   'bro:perform': { clip: BroClipName };
   /** Emitted when the companion changes what it is doing. */
   'bro:changed': { clip: BroClipName; mood: string };
+  /** Equip a weapon, or pass null to put it away. */
+  'weapon:equip': { id: WeaponId | null };
+  /** Reports the equipped weapon and where the combo is up to. */
+  'weapon:changed': { id: WeaponId | null; step: number; length: number };
+  /** Ask the game to enter or leave fullscreen. Must originate from a click:
+   *  browsers only grant fullscreen inside a user gesture, and the bus is
+   *  synchronous, so the gesture survives the hop into Phaser. */
+  'game:toggle-fullscreen': Record<string, never>;
+  /** Reports whether the game is currently fullscreen. */
+  'game:fullscreen': { active: boolean };
   /** Toggle physics body overlays. */
   'debug:toggle-bodies': { enabled: boolean };
 }

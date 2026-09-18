@@ -11,7 +11,7 @@ import { PreloadScene } from './scenes/PreloadScene';
  * module scope -- is never pulled into a non-browser context, and so the
  * ~1.4 MB engine chunk is fetched only when the game is actually shown.
  */
-export function createGame(parent: HTMLElement): Phaser.Game {
+export function createGame(parent: HTMLElement, fullscreenTarget?: HTMLElement): Phaser.Game {
   const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent,
@@ -24,6 +24,9 @@ export function createGame(parent: HTMLElement): Phaser.Game {
     scale: {
       mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH,
+      // Fullscreen the whole stage rather than the canvas alone, so the exit
+      // button -- a sibling of the canvas -- stays on screen.
+      ...(fullscreenTarget ? { fullscreenTarget } : {}),
     },
     physics: {
       default: 'arcade',

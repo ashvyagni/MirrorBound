@@ -31,7 +31,7 @@ from typing import Callable
 import numpy as np
 from PIL import Image, ImageFilter
 
-Mask = Callable[[np.ndarray], np.ndarray]
+Mask = Callable[[np.ndarray, np.ndarray], np.ndarray]
 
 MASK_SMOOTH = 1.1        # round off the blocky dilation
 EDGE_FEATHER = 0.6       # final alpha feather
@@ -49,6 +49,12 @@ class Band:
     expected: int
     #: Per-frame names. Defaults to `<key>-00`, `<key>-01`, ...
     names: tuple[str, ...] | None = None
+    #: Number of equal columns the band is divided into. Set it for sheets drawn
+    #: as a grid: each frame then anchors to its cell's centre rather than to
+    #: its own content, which preserves the travel the artist drew *inside* the
+    #: cell. Anchoring on content would pin every frame in place and flatten a
+    #: sweeping swing into a rotation on the spot.
+    grid_cols: int | None = None
     #: Also emit this band a second time keeping only its effects -- the swirl
     #: and its glow, with the character itself removed -- under this anim name.
     #: Lets one character's effect be drawn over another without dragging the
@@ -71,6 +77,13 @@ class SheetSpec:
     #: body's vertical middle (floaters, which have no ground contact).
     anchor: str = "feet"
     fx: Mask | None = None          # bright effect cores worth seeding separately
+    #: Pixels to pivot each frame around -- a weapon's grip, say. When set, a
+    #: frame anchors on the centroid of its own pivot pixels instead of on its
+    #: cell or its bounds. This is what makes a swing read as a swing: the
+    #: handle stays put in the hand and the blade sweeps around it. Anchoring a
+    #: swing on anything else sends the whole weapon skating across the screen,
+    #: because the artist moves it within its cell from frame to frame.
+    pivot: Mask | None = None
     #: Stricter mask used when lifting an effect out on its own for `fx_alias`.
     #: Seeding only needs to find the effect; isolating it must also reject the
     #: character's own pale-pink features, which the looser test lets through.
@@ -91,6 +104,14 @@ class SheetSpec:
     #: sheets whose size differences are real posing (a goat lying down is
     #: genuinely smaller than one standing up).
     normalize_to: str | None = None
+    #: How the background is separated from the art.
+    #: "black"  -- artwork on black with near-black outlines. Outline and
+    #:            background share a value, so only geometry can tell them
+    #:            apart: grow the bright core outward, fill holes, smooth.
+    #: "green"  -- chroma key. Far easier, because the key colour appears
+    #:            nowhere in the art, so outlines survive on their own.
+    #: "alpha"  -- the source already carries a usable alpha channel.
+    key: str = "black"
 
 
 # --- morphology -------------------------------------------------------------
@@ -165,6 +186,14 @@ def components(mask: np.ndarray, min_area: int) -> list[np.ndarray]:
     return [blob for _, blob in found]
 
 
+def band_mask(spec: SheetSpec, shape: tuple[int, int]) -> np.ndarray:
+    """True inside any declared band."""
+    keep = np.zeros(shape, dtype=bool)
+    for band in spec.bands:
+        keep[band.y0:band.y1, band.x0:band.x1] = True
+    return keep
+
+
 def mask_to_bands(rgb: np.ndarray, spec: SheetSpec) -> np.ndarray:
     """Blank everything outside the declared bands.
 
@@ -175,10 +204,33 @@ def mask_to_bands(rgb: np.ndarray, spec: SheetSpec) -> np.ndarray:
     welded to that row's first frame. Clearing it before keying rather than
     cropping after is what keeps that from happening.
     """
-    keep = np.zeros(rgb.shape[:2], dtype=bool)
-    for band in spec.bands:
-        keep[band.y0:band.y1, band.x0:band.x1] = True
-    return rgb * keep[:, :, None]
+    return rgb * band_mask(spec, rgb.shape[:2])[:, :, None]
+
+
+def chroma_alpha(rgb: np.ndarray) -> np.ndarray:
+    """Key a pure-green background, with a soft edge and green spill removed.
+
+    Unlike the black sheets this needs no morphology at all: the key colour is
+    absent from the artwork, so a dark outline is simply not green and survives
+    on its own. The ramp exists only to keep edges from going stair-stepped.
+    """
+    red, green, blue = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+    greenness = green - np.maximum(red, blue)
+    # Fully transparent past 60, fully opaque below 20, ramped between.
+    return np.clip((60.0 - greenness) / 40.0, 0.0, 1.0)
+
+
+def despill(rgb: np.ndarray) -> np.ndarray:
+    """Pull green back to the level of the other channels.
+
+    Semi-transparent edge pixels carry a green cast from the backdrop; left in,
+    it shows as a lime rim once the sprite is composited over anything else.
+    """
+    out = rgb.copy()
+    ceiling = np.maximum(out[..., 0], out[..., 2])
+    spilled = out[..., 1] > ceiling
+    out[..., 1] = np.where(spilled, ceiling, out[..., 1])
+    return out
 
 
 def build_alpha(rgb: np.ndarray, spec: SheetSpec) -> np.ndarray:
@@ -189,6 +241,9 @@ def build_alpha(rgb: np.ndarray, spec: SheetSpec) -> np.ndarray:
     that outward by the outline's thickness and filling the interior recovers
     the true silhouette with the outlines intact.
     """
+    if spec.key == "green":
+        return chroma_alpha(rgb)
+
     core = rgb.max(axis=2) > spec.bright_threshold
     silhouette = ~flood_from_border(~dilate(core, spec.outline_dilate))
 
@@ -217,6 +272,23 @@ def cluster_bodies(body: np.ndarray, band: Band, spec: SheetSpec) -> list[tuple[
         spans.append([int(cols[0]) + band.x0, int(cols[-1]) + band.x0])
 
     spans.sort()
+
+    # On a grid sheet the cells are the ground truth, so blobs are bucketed by
+    # the cell their centre falls in. Merging by overlap instead would split a
+    # frame whose artwork happens to break into two pieces a pixel apart, which
+    # is exactly what a glowing trail detaching from a blade looks like.
+    if band.grid_cols:
+        cell = (band.x1 - band.x0) / band.grid_cols
+        buckets: dict[int, list[int]] = {}
+        for lo, hi in spans:
+            index = int(((lo + hi) / 2 - band.x0) / cell)
+            index = max(0, min(band.grid_cols - 1, index))
+            if index in buckets:
+                buckets[index] = [min(buckets[index][0], lo), max(buckets[index][1], hi)]
+            else:
+                buckets[index] = [lo, hi]
+        return [(lo, hi) for _, (lo, hi) in sorted(buckets.items())]
+
     merged: list[list[int]] = []
     for span in spans:
         if merged and span[0] <= merged[-1][1] - spec.cluster_overlap:
@@ -451,8 +523,9 @@ def _cut(name: str, anim: str, index: int, owned: np.ndarray,
 
 
 def collect_frames(rgb: np.ndarray, alpha: np.ndarray, spec: SheetSpec) -> list[Frame]:
-    body = spec.body(rgb)
-    fx = spec.fx(rgb) if spec.fx else None
+    body = spec.body(rgb, alpha)
+    fx = spec.fx(rgb, alpha) if spec.fx else None
+    pivot = spec.pivot(rgb, alpha) if spec.pivot else None
     isolate_mask = spec.fx_isolate or spec.fx
     isolate = isolate_mask(rgb) if isolate_mask else None
     scales = band_scales(body, spec)
@@ -470,6 +543,7 @@ def collect_frames(rgb: np.ndarray, alpha: np.ndarray, spec: SheetSpec) -> list[
 
         labels = segment(band, spec, alpha, body, fx, clusters)
         anchor_y = _band_anchor_y(body, band, spec.anchor)
+        ys, xs = slice(band.y0, band.y1), slice(band.x0, band.x1)
         band_rgb = rgb[band.y0:band.y1, band.x0:band.x1]
         band_alpha = alpha[band.y0:band.y1, band.x0:band.x1]
 
@@ -503,7 +577,17 @@ def collect_frames(rgb: np.ndarray, alpha: np.ndarray, spec: SheetSpec) -> list[
             body_rows = np.nonzero(frame_body.any(axis=1))[0]
             body_h = (int(body_rows[-1] - body_rows[0]) + 1) * scale if len(body_rows) else 0.0
 
-            anchor_x = (lo + hi) // 2
+            anchor_y_frame = anchor_y
+            pivot_here = pivot[ys, xs] & owned if pivot is not None else None
+            if pivot_here is not None and pivot_here.sum() >= 80:
+                py, px = np.nonzero(pivot_here)
+                anchor_x = int(px.mean()) + band.x0
+                anchor_y_frame = int(py.mean()) + band.y0
+            elif band.grid_cols:
+                cell = (band.x1 - band.x0) / band.grid_cols
+                anchor_x = int(band.x0 + (i + 0.5) * cell)
+            else:
+                anchor_x = (lo + hi) // 2
             name = band.names[i] if band.names else f"{band.key}-{i:02d}"
 
             if band.fx_alias and isolate is not None:
@@ -523,7 +607,7 @@ def collect_frames(rgb: np.ndarray, alpha: np.ndarray, spec: SheetSpec) -> list[
                 anim=band.key,
                 index=i,
                 dx=(left + band.x0 - anchor_x) * scale,
-                dy=(top + band.y0 - anchor_y) * scale,
+                dy=(top + band.y0 - anchor_y_frame) * scale,
                 body_h=body_h,
                 image=image,
             ))
@@ -625,9 +709,25 @@ def build(spec: SheetSpec, out_dir: Path, ts_out: Path) -> None:
     if not spec.source.exists():
         raise SystemExit(f"source art not found: {spec.source}")
 
-    rgb = np.asarray(Image.open(spec.source).convert("RGB")).astype(np.float32)
-    rgb = mask_to_bands(rgb, spec)
-    alpha = build_alpha(rgb, spec)
+    source = Image.open(spec.source).convert("RGBA")
+    pixels = np.asarray(source).astype(np.float32)
+    rgb, source_alpha = pixels[:, :, :3], pixels[:, :, 3] / 255.0
+    keep = band_mask(spec, rgb.shape[:2])
+
+    if spec.key == "black":
+        # Blank outside the bands *before* keying: this mode dilates outward,
+        # far enough to drag a label's rule line into the row beneath it.
+        alpha = build_alpha(rgb * keep[:, :, None], spec)
+    elif spec.key == "green":
+        # Masking the colour here would turn the gaps black, and black is not
+        # green -- the whole sheet would key as opaque. Mask the alpha instead.
+        alpha = chroma_alpha(rgb) * keep
+        rgb = despill(rgb)
+    elif spec.key == "alpha":
+        alpha = source_alpha * keep
+    else:
+        raise SystemExit(f"[{spec.name}] unknown key mode {spec.key!r}")
+
     frames = collect_frames(rgb, alpha, spec)
 
     left, right, up, down = cell = measure_cell(frames)

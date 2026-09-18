@@ -20,7 +20,8 @@ npm run lint
 | `←` `→` / `A` `D` | Move |
 | `Shift` | Run |
 | `Space` / `W` | Jump (hold for height) |
-| `J` | Attack |
+| `J` | Attack — swings the equipped weapon |
+| `K` | Companion attack |
 
 ## Layout
 
@@ -28,8 +29,10 @@ npm run lint
 scripts/build_atlas.py     asset pipeline: character sheet -> texture atlas
 public/game/goat/          generated atlas (png + phaser json)
 src/game/                  everything Phaser. Never imported by React directly.
-  animation/               clip table + the generated frame manifest
+  animation/               clip tables + the generated frame manifests
   entities/Goat.ts         the character: physics, state, animation
+  entities/Bro.ts          the floating companion
+  entities/Weapon.ts       the equipped weapon and its combo
   input/                   keyboard -> Intent
   scenes/                  preload, play
   state/StateMachine.ts    generic, explicit state machine
@@ -37,7 +40,30 @@ src/game/                  everything Phaser. Never imported by React directly.
 src/ui/                    React. Talks to the game only through EventBus.
 ```
 
+## Weapons
+
+Eight sheets feed the game: the goat, the companion, and six weapon sheets. The
+sword is three of those -- one per swing -- because a combo needs its hits to
+look different, and the thing that actually distinguishes a swing at this speed
+is the *shape* of its trail, not the blade's angle. So the three are a crescent
+sweep, a straight wedge with a ground burst, and a closed ring.
+
+Weapon sheets carry no character. They are drawn swinging through empty space
+and composited over the goat, the same way the companion's attack borrows the
+goat's swirl. That keeps one weapon usable by anything, and avoids asking an
+image generator to redraw a character consistently across six sheets -- which is
+exactly where the companion sheet fell down.
+
+`assets/prompts/` used to hold the generation prompts; they have served their
+purpose and the rules they encoded now live in `scripts/sheets.py`, where they
+are enforced rather than described.
+
 ## Three decisions worth knowing
+
+**Backgrounds are keyed three different ways.** `SheetSpec.key` picks one:
+`black` for the two character sheets, `green` for the chroma-keyed weapons,
+`alpha` for the one sheet that arrived with real transparency. The black path is
+by far the most work, for a reason worth remembering -- see below.
 
 **The art is generated, not hand-sliced.** `assets/goatsprite.jpg` is a JPEG on
 black: no alpha, no uniform grid, and the artwork is outlined in near-black —
