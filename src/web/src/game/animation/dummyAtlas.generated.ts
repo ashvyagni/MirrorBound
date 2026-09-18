@@ -7,13 +7,13 @@ export const DUMMY_TEXTURE_KEY = "dummy" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const DUMMY_BODY_RATIO = 0.96394 as const;
+export const DUMMY_BODY_RATIO = 0.95139 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const DUMMY_FRAME_SIZE = { width: 337, height: 416 } as const;
+export const DUMMY_FRAME_SIZE = { width: 327, height: 432 } as const;
 
 /** Origin on the body centre and its feet. */
-export const DUMMY_ANCHOR = { x: 0.47774, y: 0.99760 } as const;
+export const DUMMY_ANCHOR = { x: 0.46177, y: 1.00000 } as const;
 
 export const DUMMY_FRAMES = {
   hit: ["hit-00", "hit-01", "hit-02", "hit-03"],

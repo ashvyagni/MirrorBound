@@ -109,6 +109,12 @@ class SheetSpec:
     #: sheets whose size differences are real posing (a goat lying down is
     #: genuinely smaller than one standing up).
     normalize_to: str | None = None
+    #: Uniform factor applied to every frame on the way out. The source sheets
+    #: are drawn far larger than anything is displayed at, which is right for
+    #: the game -- a sprite is scaled up on big screens -- but wrong for UI
+    #: chrome that is never drawn above a few dozen pixels, where it only buys
+    #: a megabyte of atlas nobody sees. Resampled once here with a good kernel.
+    downscale: float = 1.0
     #: How the background is separated from the art.
     #: "black"  -- artwork on black with near-black outlines. Outline and
     #:            background share a value, so only geometry can tell them
@@ -422,7 +428,9 @@ def band_scales(body: np.ndarray, spec: SheetSpec) -> dict[str, float]:
     judging by height alone would wrongly inflate every travel animation.
     """
     if spec.normalize_to is None:
-        return {}
+        # Still a per-band table, so `downscale` travels the same path as a
+        # normalisation factor rather than needing a second one of its own.
+        return {band.key: spec.downscale for band in spec.bands}
 
     areas: dict[str, float] = {}
     for band in spec.bands:
@@ -437,7 +445,7 @@ def band_scales(body: np.ndarray, spec: SheetSpec) -> dict[str, float]:
     if not reference:
         raise SystemExit(f"[{spec.name}] normalize_to band {spec.normalize_to!r} has no body")
     return {
-        key: (reference / area) ** 0.5 if area else 1.0
+        key: ((reference / area) ** 0.5 if area else 1.0) * spec.downscale
         for key, area in areas.items()
     }
 

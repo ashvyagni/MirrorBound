@@ -3,17 +3,31 @@ import Phaser from 'phaser';
 import type { ClipName } from '../animation/goatClips';
 import { COMPANION, GROUND_Y, HIT_RANGE, PALETTE, RENDER_SCALE, VIEW } from '../constants';
 import type { AbilityId } from '../animation/abilityClips';
-import { WEAPONS } from '../animation/weaponClips';
+import {
+  GUARD, isSpell, slotInfo, WEAPONS, WEAPON_ORDER, type SlotId, type WeaponId,
+} from '../animation/weaponClips';
 import { Bro } from '../entities/Bro';
 import { Dummy } from '../entities/Dummy';
 import { Projectile } from '../entities/Projectile';
+import { Shield } from '../entities/Shield';
 import { Weapon } from '../entities/Weapon';
 import { Goat } from '../entities/Goat';
+import { HudScene } from './HudScene';
 import { eventBus } from '../EventBus';
-import { KeyboardIntentSource } from '../input/KeyboardIntentSource';
+import { DeviceIntentSource } from '../input/DeviceIntentSource';
+import { Cooldowns } from '../state/Cooldowns';
 import type { IntentSource, PlayerSnapshot } from '../types';
 
 const SPAWN = { x: VIEW.width * 0.32, y: GROUND_Y } as const;
+
+/** What Q and E step through. Bare hands are a position on the wheel rather
+ *  than a separate un-equip key, so one pair of keys covers everything. */
+const CAROUSEL: readonly (WeaponId | null)[] = [null, ...WEAPON_ORDER];
+
+/** How often recharge state is pushed to the views, in seconds. Ten a second
+ *  is smooth enough for a sweep and a tenth-of-a-second label, and costs
+ *  nothing next to the sixty a naive per-frame push would send. */
+const COOLDOWN_PUSH = 0.1;
 
 /** Floor ticks: enough to cover the view twice over, wrapped by position. */
 const MARK_SPACING = 120;
@@ -25,9 +39,14 @@ export class PlayScene extends Phaser.Scene {
   #goat!: Goat;
   #bro!: Bro;
   #weapon!: Weapon;
+  #shield!: Shield;
   #dummies: Dummy[] = [];
   #shots: Projectile[] = [];
   #source!: IntentSource;
+  readonly #cooldowns = new Cooldowns<SlotId>();
+  /** Seconds until the next cooldown push. */
+  #cooldownPush = 0;
+  #wasRecharging = false;
   #ground!: Phaser.GameObjects.Rectangle;
   #groundFill!: Phaser.GameObjects.Rectangle;
   #marks: Phaser.GameObjects.Rectangle[] = [];
@@ -56,13 +75,18 @@ export class PlayScene extends Phaser.Scene {
     this.#weapon = new Weapon(this);
     this.children.moveAbove(this.#weapon, this.#goat);
 
+    // And the shield in front of the sword, since it is what the goat puts
+    // between itself and whatever is coming.
+    this.#shield = new Shield(this);
+    this.children.moveAbove(this.#shield, this.#weapon);
+
     // A few targets to test against, spaced out along the endless floor.
     for (const x of [SPAWN.x + 420, SPAWN.x + 900, SPAWN.x - 460]) {
       this.#dummies.push(new Dummy(this, x, GROUND_Y));
     }
     this.#shots = Array.from({ length: 12 }, () => new Projectile(this));
 
-    this.#source = new KeyboardIntentSource(this.input.keyboard!);
+    this.#source = new DeviceIntentSource(this.input.keyboard!, this.input);
 
     this.cameras.main.setZoom(RENDER_SCALE);
     this.cameras.main.setBackgroundColor(PALETTE.dusk);
@@ -76,6 +100,12 @@ export class PlayScene extends Phaser.Scene {
       this.scale.on(event, () => eventBus.emit('game:fullscreen', { active: this.scale.isFullscreen }));
     }
 
+    // The HUD is its own scene so it can use an unzoomed camera. The play
+    // camera is zoomed by `RENDER_SCALE`, and anything pinned to it has to be
+    // positioned in that transformed space -- which is exactly the arithmetic
+    // a second camera does for free.
+    this.scene.launch(HudScene.KEY);
+
     this.#emitWeapon();
     eventBus.emit('game:ready', { scene: PlayScene.KEY });
   }
@@ -86,9 +116,15 @@ export class PlayScene extends Phaser.Scene {
     const dt = Math.min(deltaMs, 50) / 1000;
 
     const intent = this.#source.sample(dt);
+    this.#cooldowns.step(dt);
+    this.#pushCooldowns(dt);
     this.#goat.step(dt, intent);
     this.#bro.step(dt, this.#followTarget());
-    this.#weapon.step(dt, { x: this.#goat.x, y: this.#goat.y, facing: this.#goat.facing });
+    const held = { x: this.#goat.x, y: this.#goat.y, facing: this.#goat.facing };
+    this.#weapon.step(dt, held);
+    // A guard that drops on its own starts its cooldown from that moment,
+    // rather than from when it went up.
+    if (this.#shield.step(dt, held)) this.#startCooldown(GUARD);
     this.#recycleWorld();
     if (intent.companionAttack) this.#bro.attack();
 
@@ -97,14 +133,15 @@ export class PlayScene extends Phaser.Scene {
     if (intent.attack && this.#weapon.equipped) {
       this.#weapon.strike();
       this.#emitWeapon();
-      this.#strikeNearby(this.#goat.x + 70 * this.#goat.facing);
+      this.#strikeNearby(this.#goat.x + 70 * this.#goat.facing);   // a swing is a point
     }
 
     if (intent.ability !== null) this.#cast(intent.ability);
+    if (intent.weaponCycle !== 0) this.#cycleWeapon(intent.weaponCycle);
 
     for (const shot of this.#shots) {
       if (!shot.busy) continue;
-      if (shot.step(dt)) this.#strikeNearby(shot.reach);
+      if (shot.step(dt)) this.#strikeNearby(shot.span);
     }
 
     if (this.#bro.clip !== this.#lastBroClip) {
@@ -121,24 +158,104 @@ export class PlayScene extends Phaser.Scene {
     }
   }
 
-  /** Fire the ability in a slot, if the equipped weapon has one there. */
+  /** Fire the ability in a slot, if the equipped weapon has one there and it
+   *  has finished recharging. */
   #cast(slot: number): void {
     const id = this.#weapon.equipped;
     if (!id) return;
-    const ability = WEAPONS[id].abilities[slot] as AbilityId | undefined;
-    if (!ability) return;
+    const entry = WEAPONS[id].abilities[slot];
+    if (!entry) return;
 
-    const shot = this.#shots.find((s) => !s.busy);
-    if (!shot) return;   // all twelve in flight; dropping one beats stuttering
+    // A second press inside the parry window is a counter, not a new guard, so
+    // it has to reach the shield even though the slot is still recharging.
+    if (entry === GUARD && this.#shield.parryOpen) {
+      this.#shield.trigger();
+      eventBus.emit('weapon:cast-done', { id: GUARD, cooldown: 0 });
+      return;
+    }
 
-    shot.launch(ability, this.#goat.x, this.#goat.y, this.#goat.facing);
-    eventBus.emit('weapon:cast-done', { id: ability });
+    if (!this.#cooldowns.ready(entry)) {
+      eventBus.emit('weapon:cast-blocked', {
+        id: entry,
+        remaining: this.#cooldowns.remaining(entry),
+      });
+      return;
+    }
+
+    if (!isSpell(entry)) {
+      this.#shield.trigger();
+      // No cooldown yet: it starts when the guard comes down, so holding one up
+      // does not eat into the wait for the next.
+      eventBus.emit('weapon:cast-done', { id: entry, cooldown: 0 });
+      return;
+    }
+
+    if (!this.#shots.some((s) => !s.busy)) return;   // all twelve in flight
+
+    this.#startCooldown(entry);
+    // The weapon's own motion, if it has one for this spell. Without it the
+    // staff carries on idling and the spell reads as arriving from nowhere.
+    //
+    // The spell waits for the frame that throws it rather than leaving on the
+    // same tick the wind-up starts, so it comes off the head once the staff
+    // has actually swung out. A weapon with no cast sheet fires immediately,
+    // since there is no motion to wait for.
+    const swung = this.#weapon.cast(entry, () => this.#launch(entry));
+    if (!swung) this.#launch(entry);
   }
 
-  /** Anything within reach of `x` reacts. */
-  #strikeNearby(x: number): void {
+  /** Put a spell in the air, wherever the goat is by the time it is thrown. */
+  #launch(ability: AbilityId): void {
+    const shot = this.#shots.find((s) => !s.busy);
+    if (!shot) return;   // dropping one beats stuttering
+    shot.launch(ability, this.#goat.x, this.#goat.y, this.#goat.facing);
+  }
+
+  #startCooldown(slot: SlotId): void {
+    const { cooldown } = slotInfo(slot);
+    this.#cooldowns.start(slot, cooldown);
+    eventBus.emit('weapon:cast-done', { id: slot, cooldown });
+  }
+
+  /**
+   * Tell the views what is recharging.
+   *
+   * Pushed on a timer rather than every frame, and only while something is
+   * actually recharging -- plus one final push as the last timer ends, so a
+   * view is never left holding a stale sweep.
+   */
+  #pushCooldowns(deltaSeconds: number): void {
+    const recharging = this.#cooldowns.busy;
+    this.#cooldownPush -= deltaSeconds;
+
+    if (!recharging && !this.#wasRecharging) return;
+    if (recharging && this.#cooldownPush > 0) return;
+
+    this.#cooldownPush = COOLDOWN_PUSH;
+    this.#wasRecharging = recharging;
+    eventBus.emit('weapon:cooldowns', { active: this.#cooldowns.snapshot() });
+  }
+
+  /** Step the carousel. Equipping goes through the same path a click does, so
+   *  there is one place that decides what being armed means. */
+  #cycleWeapon(step: number): void {
+    const here = CAROUSEL.indexOf(this.#weapon.equipped);
+    const next = CAROUSEL[(here + step + CAROUSEL.length) % CAROUSEL.length]!;
+    eventBus.emit('weapon:equip', { id: next });
+  }
+
+  /**
+   * Anything the given stretch of ground touches reacts.
+   *
+   * Takes a span rather than a point because effects are not all points: a
+   * swing lands in one place, but a beam covers everything along its length,
+   * and `HIT_RANGE` is the slop around either.
+   */
+  #strikeNearby(where: number | { from: number; to: number }): void {
+    const { from, to } = typeof where === 'number' ? { from: where, to: where } : where;
     for (const dummy of this.#dummies) {
-      if (!dummy.reacting && Math.abs(dummy.x - x) < HIT_RANGE) dummy.hit();
+      if (dummy.reacting) continue;
+      if (dummy.x > from - HIT_RANGE && dummy.x < to + HIT_RANGE) dummy.hit();
     }
   }
 
@@ -210,6 +327,7 @@ export class PlayScene extends Phaser.Scene {
 
       eventBus.on('weapon:equip', ({ id }) => {
         this.#weapon.equip(id);
+        this.#shield.lower();
         this.#goat.setArmed(id !== null);
         this.#emitWeapon();
       }),
@@ -227,6 +345,8 @@ export class PlayScene extends Phaser.Scene {
     for (const off of this.#teardown) off();
     this.#teardown = [];
     this.#source?.destroy?.();
+    this.#cooldowns.clear();
+    this.scene.stop(HudScene.KEY);
   }
 
   // --- scenery ---------------------------------------------------------------

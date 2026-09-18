@@ -6,7 +6,11 @@ import { GOAT_TEXTURE, registerGoatAnimations } from '../animation/goatClips';
 import { ABILITY_TEXTURES, registerAbilityAnimations } from '../animation/abilityClips';
 import { registerWeaponAnimations, WEAPON_TEXTURES } from '../animation/weaponClips';
 import { DUMMY_TEXTURE_KEY } from '../animation/dummyAtlas.generated';
+import { ICONS_TEXTURE_KEY } from '../animation/iconsAtlas.generated';
+import { SHIELDBLOCK_TEXTURE_KEY } from '../animation/shieldBlockAtlas.generated';
+import { SHIELDPARRY_TEXTURE_KEY } from '../animation/shieldParryAtlas.generated';
 import { Dummy } from '../entities/Dummy';
+import { Shield } from '../entities/Shield';
 import { PALETTE } from '../constants';
 import { eventBus } from '../EventBus';
 
@@ -42,7 +46,13 @@ export class PreloadScene extends Phaser.Scene {
       eventBus.emit('game:loading', { progress });
     });
 
-    for (const texture of [GOAT_TEXTURE, BRO_TEXTURE, ...WEAPON_TEXTURES, ...ABILITY_TEXTURES, DUMMY_TEXTURE_KEY]) {
+    // The icon sheet is loaded here too: the in-game bar draws from it, so it
+    // has to be a Phaser texture and not only a CSS background.
+    for (const texture of [
+      GOAT_TEXTURE, BRO_TEXTURE, ...WEAPON_TEXTURES, ...ABILITY_TEXTURES,
+      DUMMY_TEXTURE_KEY, ICONS_TEXTURE_KEY,
+      SHIELDBLOCK_TEXTURE_KEY, SHIELDPARRY_TEXTURE_KEY,
+    ]) {
       this.load.setPath(`game/${texture}`);
       this.load.atlas(texture, `${texture}.png`, `${texture}.json`);
     }
@@ -54,6 +64,7 @@ export class PreloadScene extends Phaser.Scene {
     registerWeaponAnimations(this.anims);
     registerAbilityAnimations(this.anims);
     Dummy.register(this.anims);
+    Shield.register(this.anims);
     registerFxAnimations(this.anims);
     this.scene.start('play');
   }

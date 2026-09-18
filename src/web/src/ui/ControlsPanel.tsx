@@ -2,9 +2,10 @@ const KEYS: Array<[string, string]> = [
   ['← →', 'Move'],
   ['Shift', 'Run'],
   ['Space', 'Jump — hold for height'],
-  ['J', 'Attack'],
+  ['J  /  M1', 'Attack'],
   ['K', 'Companion'],
   ['1 2 3', 'Weapon abilities'],
+  ['Q  E', 'Switch weapon'],
 ];
 
 export function ControlsPanel() {
@@ -23,6 +24,8 @@ export function ControlsPanel() {
       </dl>
       <p className="card__note">
         Arrow keys or <kbd>A</kbd>&thinsp;<kbd>D</kbd>. <kbd>W</kbd> also jumps.
+        The bar along the bottom of the game does the same job, and stays with
+        you in fullscreen.
       </p>
     </section>
   );

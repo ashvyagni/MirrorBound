@@ -127,14 +127,25 @@ def _weapon_body(rgb: np.ndarray, alpha: np.ndarray) -> np.ndarray:
 
 
 def _weapon_grip(rgb: np.ndarray, alpha: np.ndarray) -> np.ndarray:
-    """The dark wooden grip -- the part a hand would be wrapped around.
+    """The dark leather grip -- the part a hand would be wrapped around.
 
     Every weapon on these sheets has one, and it is the only landmark that
     stays put while the rest of the weapon rotates, so it is what each frame
     pivots on.
+
+    `G >= B` is what rejects the magenta trails. Brown runs R > G > B; magenta
+    runs R > B > G, and its darker outline passes both the brightness and the
+    `R > B` tests -- a fifth to a third of everything the looser version caught
+    on these sheets was trail outline, which drags the pivot off the handle and
+    makes the weapon skate as it swings.
     """
     value = rgb.max(axis=2)
-    return (alpha > 0.5) & (value < 150) & (rgb[:, :, 0] > rgb[:, :, 2] + 12)
+    return (
+        (alpha > 0.5)
+        & (value < 150)
+        & (rgb[:, :, 0] > rgb[:, :, 2] + 12)
+        & (rgb[:, :, 1] >= rgb[:, :, 2])
+    )
 
 
 def _weapon(name: str, source: str, key: str) -> SheetSpec:
@@ -161,18 +172,66 @@ def _weapon(name: str, source: str, key: str) -> SheetSpec:
     )
 
 
+#: Melee swings. Every sheet in this round arrived chroma-keyed, so there is no
+#: longer a mix of keying modes to keep track of.
 SWORD_A = _weapon("swordA", "weapons/sword-a.png", "green")
 SWORD_B = _weapon("swordB", "weapons/sword-b.png", "green")
 SWORD_C = _weapon("swordC", "weapons/sword-c.png", "green")
 BOW = _weapon("bow", "weapons/bow.png", "green")
 FIRE_STAFF = _weapon("fireStaff", "weapons/fire-staff.png", "green")
-ICE_STAFF = _weapon("iceStaff", "weapons/ice-staff.png", "alpha")
+ICE_STAFF = _weapon("iceStaff", "weapons/ice-staff.png", "green")
 
 #: Idle loops. Same shape as a swing, so the same builder covers them.
 SWORD_IDLE = _weapon("swordIdle", "weapons/sword-idle.png", "green")
 BOW_IDLE = _weapon("bowIdle", "weapons/bow-idle.png", "green")
-FIRE_STAFF_IDLE = _weapon("fireStaffIdle", "weapons/fire-staff-idle.png", "alpha")
+FIRE_STAFF_IDLE = _weapon("fireStaffIdle", "weapons/fire-staff-idle.png", "green")
 ICE_STAFF_IDLE = _weapon("iceStaffIdle", "weapons/ice-staff-idle.png", "green")
+
+#: Cast animations: the weapon's own motion while an ability fires. Shaped
+#: exactly like a swing -- the weapon rotating about its grip -- so the same
+#: builder covers them, and they pivot on the grip for the same reason.
+ARROW_CAST = _weapon("arrowCast", "casts/arrow.png", "green")
+FIRE_BALL_CAST = _weapon("fireBallCast", "casts/fire-ball.png", "green")
+FIRE_PILLAR_CAST = _weapon("firePillarCast", "casts/fire-pillar.png", "green")
+FIRE_WAVE_CAST = _weapon("fireWaveCast", "casts/fire-wave.png", "green")
+ICE_SHARDS_CAST = _weapon("iceShardsCast", "casts/ice-shards.png", "green")
+ICE_NOVA_CAST = _weapon("iceNovaCast", "casts/ice-nova.png", "green")
+ICE_BEAM_CAST = _weapon("iceBeamCast", "casts/ice-beam.png", "green")
+
+CASTS = (ARROW_CAST, FIRE_BALL_CAST, FIRE_PILLAR_CAST, FIRE_WAVE_CAST,
+         ICE_SHARDS_CAST, ICE_NOVA_CAST, ICE_BEAM_CAST)
+
+
+# --- shields ----------------------------------------------------------------
+
+def _shield(name: str, source: str, anim: str) -> SheetSpec:
+    """A shield sheet.
+
+    No `pivot`, unlike every other weapon. A shield is not swung around a
+    handle -- it is *raised* -- and the whole point of the block clip is that
+    rise. Pinning each frame to the shield's own centre would hold it still and
+    delete the only motion in the sheet, so these anchor on their cell instead.
+    """
+    return SheetSpec(
+        name=name,
+        source=ASSETS / source,
+        body=_weapon_body,
+        anchor="center",
+        key="green",
+        body_min_area=150,
+        bands=(
+            Band(anim, 0, 512, 0, 1536, 4, grid_cols=4,
+                 names=tuple(f"{anim}-{i:02d}" for i in range(4))),
+            Band(f"{anim}_b", 512, 1024, 0, 1536, 4, grid_cols=4,
+                 names=tuple(f"{anim}-{i:02d}" for i in range(4, 8))),
+        ),
+    )
+
+
+SHIELD_BLOCK = _shield("shieldBlock", "weapons/shield-block.png", "block")
+SHIELD_PARRY = _shield("shieldParry", "weapons/shield-parry.png", "parry")
+
+SHIELDS = (SHIELD_BLOCK, SHIELD_PARRY)
 
 
 # --- spells and projectiles -------------------------------------------------
@@ -205,13 +264,34 @@ def _spell(name: str, source: str, key: str) -> SheetSpec:
     )
 
 
-ARROW = _spell("arrow", "spells/arrow.png", "alpha")
+ARROW = _spell("arrow", "spells/arrow.png", "green")
 ICE_NOVA = _spell("iceNova", "spells/ice-nova.png", "green")
 ICE_SHARDS = _spell("iceShards", "spells/ice-shards.png", "green")
-ICE_BEAM = _spell("iceBeam", "spells/ice-beam.png", "green")
 FIRE_BALL = _spell("fireBall", "spells/fire-ball.png", "green")
 FIRE_PILLAR = _spell("firePillar", "spells/fire-pillar.png", "green")
 FIRE_WAVE = _spell("fireWave", "spells/fire-wave.png", "green")
+
+#: The beam is the one sheet not drawn four across and two down.
+#:
+#: Reach is the whole point of it, and a 384px cell caps how long a beam can be
+#: drawn relative to its own thickness. Laid out two across and four down the
+#: cell is 768x256, so the same image holds a beam at roughly four times the
+#: aspect -- which is why this one needs no runtime stretching while the old
+#: sheet needed 2.2x.
+ICE_BEAM = SheetSpec(
+    name="iceBeam",
+    source=ASSETS / "spells" / "ice-beam.png",
+    body=_effect_body,
+    anchor="center",
+    key="green",
+    body_min_area=120,
+    bands=tuple(
+        Band(f"cast{'' if row == 0 else f'_{row}'}",
+             row * 256, (row + 1) * 256, 0, 1536, 2, grid_cols=2,
+             names=(f"cast-{row * 2:02d}", f"cast-{row * 2 + 1:02d}"))
+        for row in range(4)
+    ),
+)
 
 SPELLS = (ARROW, ICE_NOVA, ICE_SHARDS, ICE_BEAM, FIRE_BALL, FIRE_PILLAR, FIRE_WAVE)
 
@@ -240,4 +320,36 @@ DUMMY = SheetSpec(
 WEAPONS = (SWORD_A, SWORD_B, SWORD_C, BOW, FIRE_STAFF, ICE_STAFF,
            SWORD_IDLE, BOW_IDLE, FIRE_STAFF_IDLE, ICE_STAFF_IDLE)
 
-SHEETS = (GOAT, BRO, DUMMY, *WEAPONS, *SPELLS)
+
+# --- ability icons ----------------------------------------------------------
+
+def _icon_body(rgb: np.ndarray, alpha: np.ndarray) -> np.ndarray:
+    """The icon itself. These arrive with clean alpha, so it is the whole test."""
+    return alpha > 0.5
+
+
+#: Static single-frame icons, one per ability plus the sword for melee. Laid
+#: out on the same 4x2 grid as the spell sheets, so the same builder covers it.
+#: `grid_cols` matters here for the same reason it does there: the artist
+#: centred each icon in its cell, and pinning one to its own bounds would
+#: make a wide icon and a tall one disagree about where their middle is.
+ICONS = SheetSpec(
+    name="icons",
+    source=ASSETS / "ui" / "icons.png",
+    body=_icon_body,
+    anchor="center",
+    key="alpha",
+    body_min_area=200,
+    #: Drawn at ~370px but never rendered above ~34, so the full-size sheet is
+    #: a megabyte of atlas spent on nothing. 128px leaves room for a retina
+    #: screen and still fits in a tenth of the space.
+    downscale=128 / 374,
+    bands=(
+        Band("icon", 0, 512, 0, 1536, 4, grid_cols=4,
+             names=("fireBall", "firePillar", "fireWave", "arrow")),
+        Band("icon_b", 512, 1024, 0, 1536, 4, grid_cols=4,
+             names=("iceNova", "iceShards", "iceBeam", "sword")),
+    ),
+)
+
+SHEETS = (GOAT, BRO, DUMMY, *WEAPONS, *CASTS, *SHIELDS, *SPELLS, ICONS)

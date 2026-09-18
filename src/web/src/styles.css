@@ -199,10 +199,12 @@ kbd {
 
 .stage:fullscreen .stage__full { opacity: 1; }
 
+/* Top right, not bottom right: the game draws its own bar along the bottom
+   edge, and the two were sitting on top of each other. */
 .stage__full {
   position: absolute;
   right: 10px;
-  bottom: 10px;
+  top: 10px;
   padding: 6px 12px;
   border: 1px solid #ffffff1f;
   border-radius: 999px;
@@ -284,9 +286,10 @@ kbd {
 
 .weapon {
   position: relative;
-  display: grid;
-  gap: 3px;
-  padding: 11px 13px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 13px;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: #1b1624;
@@ -306,8 +309,13 @@ kbd {
   box-shadow: 0 0 0 1px #d62e6c40, 0 10px 26px -18px var(--magenta);
 }
 
+.weapon__text { display: grid; gap: 3px; min-width: 0; }
 .weapon__name { font-weight: 600; font-size: 14px; }
 .weapon__blurb { color: var(--ink-faint); font-size: 12px; line-height: 1.45; }
+
+/* Only a tagged weapon needs its corner kept clear -- reserving it on all four
+   would just narrow three blurbs for nothing. */
+.weapon:has(.weapon__tag) .weapon__text { padding-right: 42px; }
 
 .weapon__tag {
   position: absolute;
@@ -320,6 +328,35 @@ kbd {
   font-size: 10.5px;
   letter-spacing: 0.05em;
 }
+
+/* ---------- icons ---------- */
+
+/* A fixed box the art is laid out inside, so icons of different shapes share
+   one centre and the row does not jog as they load. */
+.icon {
+  position: relative;
+  flex: none;
+  display: block;
+}
+
+.icon__art {
+  display: block;
+  background-repeat: no-repeat;
+  /* The sheet is downscaled at build time and drawn at about that size, so a
+     smooth filter is right here -- these are painted icons, not pixel art. */
+  image-rendering: auto;
+  filter: drop-shadow(0 2px 5px #0008);
+}
+
+/* Dimmed until chosen: four lit icons in a column all compete at once, and the
+   equipped one should be the thing the eye lands on. */
+.weapon .icon__art { opacity: 0.62; transition: opacity 0.14s; }
+.weapon:hover .icon__art,
+.weapon[data-active='true'] .icon__art { opacity: 1; }
+
+.slot .icon__art { opacity: 0.72; transition: opacity 0.14s; }
+.slot:hover .icon__art,
+.slot[data-flash='true'] .icon__art { opacity: 1; }
 
 /* Combo pips: which hit lands next. */
 .chain { display: inline-flex; gap: 4px; }
@@ -370,6 +407,34 @@ kbd {
 }
 
 .slot__name { flex: 1; }
+.slot kbd { flex: none; min-width: 34px; text-align: center; }
+
+/* The recharge fill. Positioned behind the slot's own content, growing up from
+   the bottom, and driven entirely by CSS -- React sets the duration once and a
+   negative delay seeks it to wherever the game already is, so a slot that was
+   already recharging when the panel mounted comes up in the right place. */
+.slot { position: relative; overflow: hidden; }
+
+.slot > * { position: relative; z-index: 1; }
+
+.slot__sweep {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  transform-origin: bottom;
+  background: linear-gradient(180deg, #d62e6c1f, #d62e6c33);
+  transform: scaleY(0);
+  /* Slightly longer than the game's push interval, so each step is smoothed
+     into the next instead of arriving as ten visible jumps a second. */
+  transition: transform 0.12s linear;
+}
+
+.slot[data-cooling='true'] { color: var(--ink-faint); }
+.slot[data-cooling='true'] .icon__art { opacity: 0.4; }
+
+@media (prefers-reduced-motion: reduce) {
+  .slot__sweep { transition: none; }
+}
 
 /* ---------- buttons ---------- */
 

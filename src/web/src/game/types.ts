@@ -37,6 +37,14 @@ export interface Intent {
   ability: number | null;
   /** True only on the frame the companion was told to attack. */
   companionAttack: boolean;
+  /**
+   * Step through the weapon carousel: -1 back, 1 forward, 0 stay.
+   *
+   * Switching is an intent like any other, so the same feed that walks and
+   * swings can also change what is in hand -- rather than weapons being a
+   * thing only a mouse on a React panel can reach.
+   */
+  weaponCycle: -1 | 0 | 1;
 }
 
 export const NEUTRAL_INTENT: Readonly<Intent> = Object.freeze({
@@ -47,6 +55,7 @@ export const NEUTRAL_INTENT: Readonly<Intent> = Object.freeze({
   run: false,
   companionAttack: false,
   ability: null,
+  weaponCycle: 0,
 });
 
 /** Anything that can drive the character. */

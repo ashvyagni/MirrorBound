@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "swing-00": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 72,
+    "h": 423
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 212,
+    "y": 14,
+    "w": 72,
+    "h": 423
+   },
+   "sourceSize": {
+    "w": 522,
+    "h": 437
+   }
+  },
+  "swing-01": {
+   "frame": {
+    "x": 382,
+    "y": 2,
+    "w": 192,
+    "h": 398
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 152,
+    "y": 33,
+    "w": 192,
+    "h": 398
+   },
+   "sourceSize": {
+    "w": 522,
+    "h": 437
+   }
+  },
+  "swing-02": {
+   "frame": {
+    "x": 576,
+    "y": 2,
+    "w": 310,
+    "h": 384
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 91,
+    "y": 0,
+    "w": 310,
+    "h": 384
+   },
+   "sourceSize": {
+    "w": 522,
+    "h": 437
+   }
+  },
+  "swing-03": {
+   "frame": {
+    "x": 2,
+    "y": 427,
+    "w": 322,
+    "h": 376
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 84,
+    "y": 17,
+    "w": 322,
+    "h": 376
+   },
+   "sourceSize": {
+    "w": 522,
+    "h": 437
+   }
+  },
+  "swing-04": {
+   "frame": {
+    "x": 326,
+    "y": 427,
+    "w": 374,
+    "h": 147
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 68,
+    "y": 143,
+    "w": 374,
+    "h": 147
+   },
+   "sourceSize": {
+    "w": 522,
+    "h": 437
+   }
+  },
+  "swing-05": {
+   "frame": {
+    "x": 2,
+    "y": 805,
+    "w": 522,
+    "h": 138
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 156,
+    "w": 522,
+    "h": 138
+   },
+   "sourceSize": {
+    "w": 522,
+    "h": 437
+   }
+  },
+  "swing-06": {
+   "frame": {
+    "x": 526,
+    "y": 805,
+    "w": 271,
+    "h": 130
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 108,
+    "y": 164,
+    "w": 271,
+    "h": 130
+   },
+   "sourceSize": {
+    "w": 522,
+    "h": 437
+   }
+  },
+  "swing-07": {
+   "frame": {
+    "x": 76,
+    "y": 2,
+    "w": 304,
+    "h": 419
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 34,
+    "y": 1,
+    "w": 304,
+    "h": 419
+   },
+   "sourceSize": {
+    "w": 522,
+    "h": 437
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "fireWaveCast.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 1024,
+   "h": 945
+  },
+  "scale": "1"
+ }
+}

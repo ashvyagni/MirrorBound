@@ -1,0 +1,110 @@
+import Phaser from 'phaser';
+
+import { eventBus } from '../EventBus';
+import type { Intent, IntentSource } from '../types';
+
+/**
+ * Translates this machine's input devices into an `Intent`.
+ *
+ * The rest of the game never sees a key code or a mouse button. Swapping this
+ * for a gamepad, a replay, or an agent feed from the backend is a one-line
+ * change at the call site, because everything downstream only consumes
+ * `Intent`.
+ */
+export class DeviceIntentSource implements IntentSource {
+  readonly #keys: Record<'left' | 'right' | 'altLeft' | 'altRight' | 'jump' | 'altJump' | 'run' | 'attack' | 'slot1' | 'slot2' | 'slot3' | 'companionAttack' | 'prevWeapon' | 'nextWeapon', Phaser.Input.Keyboard.Key>;
+
+  /** Left mouse button, latched until the next sample so a click between
+   *  frames is never dropped. */
+  #clicked = false;
+  /** A click the in-game bar has already used. Without this, equipping a
+   *  weapon from the bar would also swing it on the way past. */
+  #consumed = false;
+  readonly #release: Array<() => void> = [];
+
+  constructor(
+    keyboard: Phaser.Input.Keyboard.KeyboardPlugin,
+    pointer?: Phaser.Input.InputPlugin,
+  ) {
+    const { KeyCodes } = Phaser.Input.Keyboard;
+    this.#keys = {
+      left: keyboard.addKey(KeyCodes.LEFT),
+      right: keyboard.addKey(KeyCodes.RIGHT),
+      altLeft: keyboard.addKey(KeyCodes.A),
+      altRight: keyboard.addKey(KeyCodes.D),
+      jump: keyboard.addKey(KeyCodes.SPACE),
+      altJump: keyboard.addKey(KeyCodes.W),
+      run: keyboard.addKey(KeyCodes.SHIFT),
+      attack: keyboard.addKey(KeyCodes.J),
+      // Abilities sit on the number row, one per slot the weapon offers.
+      slot1: keyboard.addKey(KeyCodes.ONE),
+      slot2: keyboard.addKey(KeyCodes.TWO),
+      slot3: keyboard.addKey(KeyCodes.THREE),
+      companionAttack: keyboard.addKey(KeyCodes.K),
+      // Weapons cycle rather than sitting on their own number keys: the number
+      // row is already the ability bar, and a carousel needs no more keys as
+      // weapons are added.
+      prevWeapon: keyboard.addKey(KeyCodes.Q),
+      nextWeapon: keyboard.addKey(KeyCodes.E),
+    };
+
+    // Stop the browser scrolling the page when the player jumps or walks.
+    keyboard.addCapture([
+      KeyCodes.LEFT, KeyCodes.RIGHT, KeyCodes.UP, KeyCodes.DOWN, KeyCodes.SPACE,
+    ]);
+
+    if (pointer) {
+      const onDown = (p: Phaser.Input.Pointer) => {
+        if (p.leftButtonDown()) this.#clicked = true;
+      };
+      pointer.on(Phaser.Input.Events.POINTER_DOWN, onDown);
+      this.#release.push(() => pointer.off(Phaser.Input.Events.POINTER_DOWN, onDown));
+    }
+
+    // The bar runs in its own scene, whose input is processed before this one
+    // is sampled, so a flag set there is always seen on the right frame.
+    this.#release.push(
+      eventBus.on('hud:pointer-used', () => { this.#consumed = true; }),
+    );
+  }
+
+  sample(): Intent {
+    const k = this.#keys;
+    const left = k.left.isDown || k.altLeft.isDown;
+    const right = k.right.isDown || k.altRight.isDown;
+    // Taken before the `||` below could short-circuit past it: a click that
+    // lands on the same frame as a key press still has to be consumed, or it
+    // sits latched and fires a phantom swing on some later frame.
+    const clicked = this.#takeClick();
+
+    return {
+      moveX: (right ? 1 : 0) - (left ? 1 : 0),
+      // JustDown consumes the press, so an edge is reported exactly once.
+      jump: Phaser.Input.Keyboard.JustDown(k.jump) || Phaser.Input.Keyboard.JustDown(k.altJump),
+      jumpHeld: k.jump.isDown || k.altJump.isDown,
+      attack: Phaser.Input.Keyboard.JustDown(k.attack) || clicked,
+      ability: Phaser.Input.Keyboard.JustDown(k.slot1) ? 0
+        : Phaser.Input.Keyboard.JustDown(k.slot2) ? 1
+        : Phaser.Input.Keyboard.JustDown(k.slot3) ? 2
+        : null,
+      run: k.run.isDown,
+      companionAttack: Phaser.Input.Keyboard.JustDown(k.companionAttack),
+      weaponCycle: Phaser.Input.Keyboard.JustDown(k.nextWeapon) ? 1
+        : Phaser.Input.Keyboard.JustDown(k.prevWeapon) ? -1
+        : 0,
+    };
+  }
+
+  /** Consume a pending click, unless the in-game bar got to it first. */
+  #takeClick(): boolean {
+    const clicked = this.#clicked && !this.#consumed;
+    this.#clicked = false;
+    this.#consumed = false;
+    return clicked;
+  }
+
+  destroy(): void {
+    for (const off of this.#release) off();
+    for (const key of Object.values(this.#keys)) key.destroy();
+  }
+}

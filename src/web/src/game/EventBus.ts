@@ -1,7 +1,6 @@
 import type { BroClipName } from './animation/broClips';
 import type { ClipName } from './animation/goatClips';
-import type { AbilityId } from './animation/abilityClips';
-import type { WeaponId } from './animation/weaponClips';
+import type { SlotId, WeaponId } from './animation/weaponClips';
 import type { PlayerSnapshot, PlayerState } from './types';
 
 /**
@@ -41,8 +40,26 @@ export interface GameEventMap {
   'game:fullscreen': { active: boolean };
   /** Cast the ability in the given slot of the equipped weapon. */
   'weapon:cast': { slot: number };
-  /** Reports what was cast, for the UI to flash. */
-  'weapon:cast-done': { id: AbilityId };
+  /** Reports what was cast, and how long it is now recharging for. The UI
+   *  runs its own timer off this rather than being told every frame: the game
+   *  stays the authority on whether a cast is allowed, and a sweep is purely
+   *  something to look at. */
+  'weapon:cast-done': { id: SlotId; cooldown: number };
+  /** A cast was refused because the ability is still recharging. */
+  'weapon:cast-blocked': { id: SlotId; remaining: number };
+  /**
+   * Everything currently recharging, pushed a few times a second while any
+   * ability is, and once more as the last one finishes.
+   *
+   * The game is the only clock. Letting each view run its own timer instead
+   * looked cheaper -- until the game paused, because a scene counts in game
+   * time and `performance.now()` does not, and the two then disagree about
+   * whether a spell is ready.
+   */
+  'weapon:cooldowns': { active: Partial<Record<SlotId, { left: number; total: number }>> };
+  /** The in-game bar handled this frame's click, so nothing else should also
+   *  act on it -- clicking a weapon slot must not swing the weapon too. */
+  'hud:pointer-used': Record<string, never>;
   /** Toggle physics body overlays. */
   'debug:toggle-bodies': { enabled: boolean };
 }

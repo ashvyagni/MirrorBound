@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 
 import { PALETTE, PHYSICS, RENDER_SCALE, VIEW } from './constants';
+import { HudScene } from './scenes/HudScene';
 import { PlayScene } from './scenes/PlayScene';
 import { PreloadScene } from './scenes/PreloadScene';
 
@@ -35,7 +36,9 @@ export function createGame(parent: HTMLElement, fullscreenTarget?: HTMLElement):
         debug: false,
       },
     },
-    scene: [PreloadScene, PlayScene],
+    // HudScene is listed but inactive; PlayScene launches it once the world
+    // exists, so the bar can never paint against a weapon that is not there.
+    scene: [PreloadScene, PlayScene, HudScene],
   });
 
   // Dev-only handle, for poking at scenes and input from the console.

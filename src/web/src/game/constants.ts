@@ -127,6 +127,81 @@ export const DUMMY_HEIGHT = 168;
 /** How close a swing or a shot has to be to register on the dummy. */
 export const HIT_RANGE = 96;
 
+/**
+ * The sword's shield.
+ *
+ * Guard is a press rather than a hold: the intent stream reports abilities as
+ * edge-triggered, and a held variant would be a second kind of ability for one
+ * mechanic. So raising it starts a timer, and pressing again inside the parry
+ * window turns the block into a counter.
+ */
+export const SHIELD = {
+  /** How long the guard stays up before dropping on its own, in seconds. */
+  holdTime: 1.1,
+  /** Press again within this long of raising it to parry instead. */
+  parryWindow: 0.45,
+  /** Seconds before guard can be raised again, measured from when it drops. */
+  cooldown: 1.2,
+  /** Drawn size as a fraction of the goat's body height. */
+  sizeRatio: 0.66,
+  /** Where it sits relative to the goat's origin, its feet. */
+  offset: { x: 46, y: -96 },
+} as const;
+
+/**
+ * The in-game bar, in canvas pixels.
+ *
+ * Canvas pixels, not world units: the HUD runs in its own scene on an unzoomed
+ * camera, so one unit here is one pixel of the backing canvas -- which is
+ * `VIEW` multiplied by `RENDER_SCALE`. That is also why it survives fullscreen
+ * unchanged: the canvas is scaled to fit, and the bar scales with it.
+ */
+export const HUD = {
+  /**
+   * The grid everything in the bar snaps to.
+   *
+   * Every size below is a multiple of it, which is the whole trick behind the
+   * frames reading as pixel art: an edge that lands between units is an edge
+   * the renderer has to antialias, and one soft edge is enough to give the
+   * whole bar away.
+   */
+  pixel: 4,
+  slot: 104,
+  gap: 12,
+  margin: 32,
+  /** Space between a slot and its label. */
+  labelGap: 10,
+  /** Weapon names, which have to fit under a slot. */
+  nameSize: 14,
+  /** Key numbers and countdowns, which are short and want to be read fast. */
+  labelSize: 18,
+  hintSize: 15,
+  /** Border thickness and corner cut, in `pixel` units. */
+  border: 2,
+  chamfer: 3,
+  /** How much of a slot the icon fills. */
+  iconFill: 0.62,
+  /** Seconds a refused cast flashes its slot for. */
+  blockFlash: 0.35,
+  frameLine: 0x53456a,
+  frameFill: 0x191322,
+  ink: '#cfc3d4',
+  dimInk: '#7d7188',
+  activeInk: '#f5a4c0',
+} as const;
+
+/**
+ * The bar's typeface.
+ *
+ * A pixel face, to sit with the frames. Canvas text has no fallback chain of
+ * its own once it has rasterised, so the stack matters only until the webfont
+ * arrives -- after which the scene redraws every label against `family`.
+ */
+export const PIXEL_FONT = {
+  family: 'Silkscreen',
+  stack: '"Silkscreen", "Courier New", ui-monospace, monospace',
+} as const;
+
 /** Sampled from the palette swatches on the source character sheet. */
 export const PALETTE = {
   cream: 0xf2e8df,

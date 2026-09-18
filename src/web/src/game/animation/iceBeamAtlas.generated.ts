@@ -7,17 +7,19 @@ export const ICEBEAM_TEXTURE_KEY = "iceBeam" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const ICEBEAM_BODY_RATIO = 0.91367 as const;
+export const ICEBEAM_BODY_RATIO = 0.97479 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const ICEBEAM_FRAME_SIZE = { width: 400, height: 139 } as const;
+export const ICEBEAM_FRAME_SIZE = { width: 756, height: 119 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const ICEBEAM_ANCHOR = { x: 0.50000, y: 0.50360 } as const;
+export const ICEBEAM_ANCHOR = { x: 0.49735, y: 0.49580 } as const;
 
 export const ICEBEAM_FRAMES = {
-  cast: ["cast-00", "cast-01", "cast-02", "cast-03"],
-  cast_b: ["cast-04", "cast-05", "cast-06", "cast-07"],
+  cast: ["cast-00", "cast-01"],
+  cast_1: ["cast-02", "cast-03"],
+  cast_2: ["cast-04", "cast-05"],
+  cast_3: ["cast-06", "cast-07"],
 } as const;
 
 export type IcebeamClip = keyof typeof ICEBEAM_FRAMES;
