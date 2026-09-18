@@ -1,3 +1,4 @@
+from mirrorbound.agent.patterns.detector import PatternDetector
 from mirrorbound.agent.player_model.traits import PlayerTraitModel
 from mirrorbound.agent.prediction.predictor import SequencePredictor
 from mirrorbound.agent.spatial.zones import SpatialModel
@@ -55,3 +56,25 @@ def test_collector_without_a_spatial_model_still_works():
     )
 
     assert len(collector.buffer) == 1
+
+
+def test_collector_runs_pattern_detection_on_every_event_including_tokenless_ones():
+    predictor = SequencePredictor(max_order=1, half_life_seconds=float("inf"))
+    traits = PlayerTraitModel()
+    detector = PatternDetector(predictor, detection_threshold=0.7, staleness_ticks=5.0)
+    collector = TelemetryCollector(predictor=predictor, traits=traits, pattern_detector=detector)
+
+    tick = 1
+    for _ in range(20):
+        collector.ingest(Event(tick=tick, type="PLAYER_DASHED"))
+        tick += 1
+        collector.ingest(Event(tick=tick, type="PLAYER_ABILITY_CAST", data={"ability": "FIRE"}))
+        tick += 1
+
+    assert ("DASH",) in detector.active
+
+    # An event with no action token (so predictor.observe is never called) still
+    # runs check() -- which is how staleness-driven LOST events get a chance to
+    # fire even during a stretch of non-action gameplay events.
+    collector.ingest(Event(tick=tick + 100, type="ENEMY_KILLED"))
+    assert ("DASH",) not in detector.active

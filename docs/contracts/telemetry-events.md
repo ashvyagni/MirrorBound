@@ -108,9 +108,31 @@ there, same half-life-in-seconds calibration and actual storage pruning as
 `agent/prediction/markov.py`. The snapshot's `spatial` field gives each
 layer's top-N most active cells.
 
+## Pattern detection (doc sections 33-34)
+
+Code: `agent/patterns/`. Not a new input contract — it's a derived layer on
+top of `agent/prediction/predictor.py`'s own output, so it needs no new event
+fields. Audience here is really the AI-agent teammate (twin/utility/boss),
+not the game backend dev.
+
+The predictor's `predict()` gives a ranked candidate every time you call it,
+continuously. `PatternDetector` turns that into discrete state-transition
+events instead — a `"DETECTED"` the moment a context's top prediction first
+crosses `detection_threshold` (default `0.7`), and a `"LOST"` when either the
+top token for that context changes (the old pattern is replaced, not updated)
+or the context simply stops recurring for `staleness_ticks` (default 1800 —
+30s at 60Hz) even though nothing has actively contradicted it yet. Reconfirming
+the *same* dominant token repeatedly does **not** re-fire `"DETECTED"` — you
+get one event per genuinely new pattern, not one per tick it holds.
+
+`PlayerModelSnapshot.patterns` is the current active set (one `Pattern` per
+context); `pattern_events` is the last N `PatternEvent`s (`DETECTED`/`LOST`),
+for a HUD notification feed like the doc's own "NEW PATTERN DETECTED:
+RETREAT -> SPELL -> DODGE" example.
+
 ## What isn't covered yet
 
-Pattern detection beyond raw sequence prediction, and any combat-outcome
-events (damage/kills/loot) are out of scope for this slice. Extending the
-trait set, zone-layer set, or event vocabulary is expected — update this
-table and the corresponding `agent/features/*.py` file together.
+Any combat-outcome events (damage/kills/loot) are out of scope for this
+slice. Extending the trait set, zone-layer set, or event vocabulary is
+expected — update this table and the corresponding `agent/features/*.py`
+file together.
