@@ -1,0 +1,154 @@
+"""Whole-simulation tests: scripted inputs through the real GameSession.
+
+These are the replay contract for the full game (not the toy in
+test_determinism.py): same seed + same tick-stamped inputs -> same event log
+and same final state.
+"""
+
+from __future__ import annotations
+
+import json
+
+from mirrorbound.api.session import GameSession
+from mirrorbound.game.entities.entity import Vec2
+from mirrorbound.game.entities.player import PlayerInput
+from tests.conftest import DT
+
+# A scripted "player": walk north to the gate, into the combat room, fight.
+def scripted_input(tick: int) -> PlayerInput:
+    if tick < 200:
+        return PlayerInput(move_y=-1, run=True)
+    if tick < 260:
+        return PlayerInput(move_y=-1)
+    phase = tick % 90
+    attack = phase in (5, 35, 65)
+    ability = 1 if phase == 20 else 2 if phase == 50 else 3 if phase == 80 else None
+    move_x = 1 if (tick // 60) % 2 == 0 else -1
+    return PlayerInput(move_x=move_x, move_y=-1 if phase < 45 else 0, attack=attack, ability=ability)
+
+
+def run_session(seed: int, ticks: int) -> tuple[GameSession, list[dict]]:
+    s = GameSession("sim", seed=seed, record=False)
+    log: list[dict] = []
+    for t in range(ticks):
+        s.pending_input = scripted_input(t)
+        s.step(DT)
+        log.extend(e.to_json_dict() for e in s.state.drain_events())
+    return s, log
+
+
+def test_full_simulation_is_deterministic():
+    a, log_a = run_session(2024, 900)
+    b, log_b = run_session(2024, 900)
+    assert log_a == log_b
+    assert a.state.to_dict() == b.state.to_dict()
+    assert a.pipeline.snapshot().to_json_dict() == b.pipeline.snapshot().to_json_dict()
+    assert a.style.snapshot() == b.style.snapshot()
+
+
+def test_different_seeds_diverge():
+    _, log_a = run_session(1, 400)
+    _, log_b = run_session(2, 400)
+    assert log_a != log_b
+
+
+def test_scripted_run_reaches_combat_fights_and_the_twin_acts():
+    s, log = run_session(77, 1500)
+    types = {e["type"] for e in log}
+    # The walk north crosses into room 1 through the unlocked entrance gate.
+    assert "ROOM_ENTER" in types and s.state.room.index >= 1
+    assert "PLAYER_ATTACKED" in types and "PLAYER_ABILITY_CAST" in types
+    assert "DAMAGE_DEALT" in types
+    assert "TWIN_ACTION" in types, "the twin must make decisions"
+    twin_intents = {e["data"]["intent"] for e in log if e["type"] == "TWIN_ACTION"}
+    assert len(twin_intents) >= 2, f"twin only ever chose {twin_intents}"
+    assert "TWIN_ATTACKED" in types, "the twin must fight independently"
+    assert s.last_error is None
+    # The player model saw real player actions.
+    model = s.pipeline.snapshot().to_json_dict()
+    assert model["traits"]["aggression"]["samples"] > 0
+    assert model["spatial"]["combat"], "combat heatmap should have cells from real positions"
+    # Everything in the snapshot is JSON serialisable.
+    json.dumps(s.snapshot())
+
+
+def test_snapshot_shape_has_every_hud_field():
+    s = GameSession("snap", seed=9, record=False)
+    s.step(DT)
+    snap = s.snapshot()
+    assert snap["type"] == "SNAPSHOT" and snap["roomFull"] is True
+    player = snap["player"]
+    for key in ("health", "maxHealth", "mana", "maxMana", "xp", "xpToNext", "level", "abilities", "inventory",
+                "weapon", "facing", "state", "skillTree", "skillPoints"):
+        assert key in player, key
+    assert len(player["abilities"]) == 4
+    twin = snap["twin"]
+    assert "intent" in twin and "utilities" in twin["intent"]
+    assert "twinModel" in snap and "dims" in snap["twinModel"]
+    assert "playerModel" in snap and "traits" in snap["playerModel"]
+    room = snap["room"]
+    assert room["tiles"] and room["decor"] and room["doors"]
+    # A second snapshot is lite unless the room changed.
+    snap2 = s.snapshot()
+    assert snap2["roomFull"] is False and "tiles" not in snap2["room"]
+
+
+def test_room_transition_through_an_unlocked_door():
+    s = GameSession("doors", seed=5, record=False)
+    room0 = s.state.room
+    door = room0.door_to(1)
+    assert door is not None and not door.locked
+    s.state.transition_timer = 0
+    s.state.player.position = Vec2(door.x, door.y + 10)
+    s.step(DT)
+    assert s.state.room.index == 1
+    assert s.state.enemies, "combat room spawns enemies on first visit"
+    assert s.state.room.door_to(0) is not None and s.state.room.door_to(0).locked
+
+
+def test_clearing_a_room_unlocks_it_and_pause_freezes_the_sim():
+    s = GameSession("clear", seed=5, record=False)
+    s._enter_room(s.dungeon.rooms[1], from_side="south")
+    for e in s.state.enemies:
+        e.take_hit(10_000, s.state.player.id)
+    s.step(DT)
+    assert s.state.room.cleared and all(not d.locked for d in s.state.room.doors)
+    assert s.state.stats.rooms_cleared == 1
+    tick = s.state.tick
+    s.handle_input({"type": "COMMAND", "action": "PAUSE"})
+    s.step(DT)
+    s.step(DT)
+    assert s.state.tick == tick and s.state.paused
+    s.handle_input({"type": "COMMAND", "action": "RESUME"})
+    s.step(DT)
+    assert s.state.tick == tick + 1
+
+
+def test_commands_equip_unlock_and_use_items():
+    s = GameSession("cmds", seed=5, record=False)
+    p = s.state.player
+    p.inventory.add_weapon("hunter_bow")
+    s.handle_input({"type": "COMMAND", "action": "EQUIP_WEAPON", "weaponId": "hunter_bow"})
+    s.step(DT)
+    assert p.current_weapon == "hunter_bow"
+    p.skill_points = 2
+    s.handle_input({"type": "COMMAND", "action": "UNLOCK_SKILL", "skillId": "vitality"})
+    s.step(DT)
+    assert "vitality" in p.unlocked_skills and p.max_health == 130
+    p.health = 50
+    p.inventory.add_consumable("health_potion")
+    s.handle_input({"type": "COMMAND", "action": "USE_ITEM", "itemId": "health_potion"})
+    s.step(DT)
+    assert p.health == 95 and not p.inventory.consumables
+    s.handle_input({"type": "COMMAND", "action": "TWIN_EQUIP", "weaponId": "hunter_bow"})
+    s.step(DT)
+    assert s.state.twin.weapon.id == "hunter_bow"
+    s.handle_input({"type": "COMMAND", "action": "RESTART", "seed": 77})
+    s.step(DT)
+    assert s.seed == 77 and s.state.tick <= 1 and s.state.player.current_weapon == "iron_sword"
+
+
+def test_seed_from_session_id_is_stable():
+    from mirrorbound.api.session import seed_from_session
+    assert seed_from_session("default") == seed_from_session("default")
+    assert seed_from_session("a") != seed_from_session("b")
