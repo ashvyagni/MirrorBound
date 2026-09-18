@@ -1,4 +1,4 @@
-import type { ClipName } from './animation/clips';
+import type { ClipName } from './animation/goatClips';
 
 /** What the goat is doing. One of these is always true, and only one. */
 export type PlayerState =
@@ -33,6 +33,8 @@ export interface Intent {
   attack: boolean;
   /** Hold to run instead of walk. */
   run: boolean;
+  /** True only on the frame the companion was told to attack. */
+  companionAttack: boolean;
 }
 
 export const NEUTRAL_INTENT: Readonly<Intent> = Object.freeze({
@@ -41,6 +43,7 @@ export const NEUTRAL_INTENT: Readonly<Intent> = Object.freeze({
   jumpHeld: false,
   attack: false,
   run: false,
+  companionAttack: false,
 });
 
 /** Anything that can drive the character. */

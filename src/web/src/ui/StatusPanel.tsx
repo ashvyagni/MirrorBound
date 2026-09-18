@@ -8,6 +8,7 @@ const KEYS: Array<[string, string]> = [
   ['Shift', 'Run'],
   ['Space  /  W', 'Jump · hold for height'],
   ['J', 'Attack'],
+  ['K', 'Companion attack'],
 ];
 
 export function StatusPanel({ snapshot }: { snapshot: PlayerSnapshot | null }) {

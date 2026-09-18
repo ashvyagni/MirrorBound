@@ -1,7 +1,9 @@
 import Phaser from 'phaser';
 
-import { animationKey, CLIPS, type ClipName } from '../animation/clips';
-import { ANCHOR, FRAME_SIZE, TEXTURE_KEY } from '../animation/goatAtlas.generated';
+import { CLIPS, goatAnimationKey, type ClipName } from '../animation/goatClips';
+import {
+  GOAT_ANCHOR, GOAT_FRAME_SIZE, GOAT_TEXTURE_KEY,
+} from '../animation/goatAtlas.generated';
 import { COMBAT, GOAT_DISPLAY_HEIGHT, MOVEMENT, PHYSICS } from '../constants';
 import { StateMachine, type StateDef } from '../state/StateMachine';
 import {
@@ -40,13 +42,13 @@ export class Goat extends Phaser.Physics.Arcade.Sprite {
   #previewing: ClipName | null = null;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
-    super(scene, x, y, TEXTURE_KEY, CLIPS.idle.frames[0]);
+    super(scene, x, y, GOAT_TEXTURE_KEY, CLIPS.idle.frames[0]);
 
     scene.add.existing(this);
     scene.physics.add.existing(this);
 
-    this.setOrigin(ANCHOR.x, ANCHOR.y);
-    this.setScale(GOAT_DISPLAY_HEIGHT / FRAME_SIZE.height);
+    this.setOrigin(GOAT_ANCHOR.x, GOAT_ANCHOR.y);
+    this.setScale(GOAT_DISPLAY_HEIGHT / GOAT_FRAME_SIZE.height);
     this.#fitBody();
 
     this.body.setCollideWorldBounds(true);
@@ -64,10 +66,10 @@ export class Goat extends Phaser.Physics.Arcade.Sprite {
    * even if the art is re-exported at another resolution.
    */
   #fitBody(): void {
-    const width = FRAME_SIZE.width * PHYSICS.bodyWidthRatio;
-    const height = FRAME_SIZE.height * PHYSICS.bodyHeightRatio;
-    const originX = ANCHOR.x * FRAME_SIZE.width;
-    const originY = ANCHOR.y * FRAME_SIZE.height;
+    const width = GOAT_FRAME_SIZE.width * PHYSICS.bodyWidthRatio;
+    const height = GOAT_FRAME_SIZE.height * PHYSICS.bodyHeightRatio;
+    const originX = GOAT_ANCHOR.x * GOAT_FRAME_SIZE.width;
+    const originY = GOAT_ANCHOR.y * GOAT_FRAME_SIZE.height;
 
     this.body.setSize(width, height, false);
     this.body.setOffset(originX - width / 2, originY - height);
@@ -209,18 +211,18 @@ export class Goat extends Phaser.Physics.Arcade.Sprite {
   /** Play a clip directly, bypassing the state machine, until input resumes. */
   previewClip(clip: ClipName): void {
     this.#previewing = clip;
-    this.anims.play(animationKey(clip), true);
+    this.anims.play(goatAnimationKey(clip), true);
   }
 
   #clearPreview(): void {
     if (!this.#previewing) return;
     this.#previewing = null;
-    this.anims.play(animationKey(CLIP_FOR_STATE[this.#machine.current]), true);
+    this.anims.play(goatAnimationKey(CLIP_FOR_STATE[this.#machine.current]), true);
   }
 
   #playClip(clip: ClipName): void {
     if (this.#previewing) return;
-    this.anims.play(animationKey(clip), true);
+    this.anims.play(goatAnimationKey(clip), true);
   }
 
 

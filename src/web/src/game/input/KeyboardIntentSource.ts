@@ -10,7 +10,7 @@ import type { Intent, IntentSource } from '../types';
  * site, because everything downstream only consumes `Intent`.
  */
 export class KeyboardIntentSource implements IntentSource {
-  readonly #keys: Record<'left' | 'right' | 'altLeft' | 'altRight' | 'jump' | 'altJump' | 'run' | 'attack', Phaser.Input.Keyboard.Key>;
+  readonly #keys: Record<'left' | 'right' | 'altLeft' | 'altRight' | 'jump' | 'altJump' | 'run' | 'attack' | 'companionAttack', Phaser.Input.Keyboard.Key>;
 
   constructor(keyboard: Phaser.Input.Keyboard.KeyboardPlugin) {
     const { KeyCodes } = Phaser.Input.Keyboard;
@@ -23,6 +23,7 @@ export class KeyboardIntentSource implements IntentSource {
       altJump: keyboard.addKey(KeyCodes.W),
       run: keyboard.addKey(KeyCodes.SHIFT),
       attack: keyboard.addKey(KeyCodes.J),
+      companionAttack: keyboard.addKey(KeyCodes.K),
     };
 
     // Stop the browser scrolling the page when the player jumps or walks.
@@ -43,6 +44,7 @@ export class KeyboardIntentSource implements IntentSource {
       jumpHeld: k.jump.isDown || k.altJump.isDown,
       attack: Phaser.Input.Keyboard.JustDown(k.attack),
       run: k.run.isDown,
+      companionAttack: Phaser.Input.Keyboard.JustDown(k.companionAttack),
     };
   }
 

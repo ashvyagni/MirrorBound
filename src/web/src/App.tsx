@@ -1,4 +1,5 @@
 import { AnimationDock } from './ui/AnimationDock';
+import { CompanionDock } from './ui/CompanionDock';
 import { GameMount } from './ui/GameMount';
 import { StatusPanel } from './ui/StatusPanel';
 import { usePlayerSnapshot } from './ui/usePlayerSnapshot';
@@ -11,7 +12,7 @@ export default function App() {
       <header className="masthead">
         <div>
           <h1 className="masthead__title">Mirrorbound</h1>
-          <p className="masthead__sub">Character sandbox · goat</p>
+          <p className="masthead__sub">Character sandbox · goat & companion</p>
         </div>
         <span className="masthead__badge">
           {snapshot ? snapshot.state : 'booting'}
@@ -23,6 +24,7 @@ export default function App() {
         <aside className="sidebar">
           <StatusPanel snapshot={snapshot} />
           <AnimationDock active={snapshot?.clip ?? null} />
+          <CompanionDock />
         </aside>
       </main>
     </div>

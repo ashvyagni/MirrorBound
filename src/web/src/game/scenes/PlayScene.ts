@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 
-import type { ClipName } from '../animation/clips';
-import { GROUND_Y, PALETTE, VIEW } from '../constants';
+import type { ClipName } from '../animation/goatClips';
+import { COMPANION, GROUND_Y, PALETTE, RENDER_SCALE, VIEW } from '../constants';
+import { Bro } from '../entities/Bro';
 import { Goat } from '../entities/Goat';
 import { eventBus } from '../EventBus';
 import { KeyboardIntentSource } from '../input/KeyboardIntentSource';
@@ -13,9 +14,11 @@ export class PlayScene extends Phaser.Scene {
   static readonly KEY = 'play';
 
   #goat!: Goat;
+  #bro!: Bro;
   #source!: IntentSource;
   #ground!: Phaser.GameObjects.Rectangle;
   #lastSnapshot: PlayerSnapshot | null = null;
+  #lastBroClip: string | null = null;
   #teardown: Array<() => void> = [];
 
   constructor() {
@@ -29,9 +32,15 @@ export class PlayScene extends Phaser.Scene {
     this.#goat = new Goat(this, SPAWN.x, SPAWN.y);
     this.physics.add.collider(this.#goat, this.#ground);
 
+    // Behind the goat in the display list, so it reads as hanging back.
+    this.#bro = new Bro(this, SPAWN.x, SPAWN.y + COMPANION.neckOffsetY);
+    this.children.moveBelow(this.#bro, this.#goat);
+    this.#bro.snapTo(this.#followTarget());
+
     this.#source = new KeyboardIntentSource(this.input.keyboard!);
 
-    this.cameras.main.setBackgroundColor(PALETTE.night);
+    this.cameras.main.setZoom(RENDER_SCALE);
+    this.cameras.main.setBackgroundColor(PALETTE.dusk);
     this.cameras.main.startFollow(this.#goat, true, 0.09, 0.09, 0, 60);
     this.cameras.main.setDeadzone(VIEW.width * 0.28, VIEW.height);
 
@@ -46,14 +55,48 @@ export class PlayScene extends Phaser.Scene {
     // teleport the goat straight through the floor.
     const dt = Math.min(deltaMs, 50) / 1000;
 
-    this.#goat.step(dt, this.#source.sample(dt));
+    const intent = this.#source.sample(dt);
+    this.#goat.step(dt, intent);
+    this.#bro.step(dt, this.#followTarget());
+    if (intent.companionAttack) this.#bro.attack();
+
+    if (this.#bro.clip !== this.#lastBroClip) {
+      this.#lastBroClip = this.#bro.clip;
+      eventBus.emit('bro:changed', { clip: this.#bro.clip, mood: this.#bro.mood });
+    }
 
     const snapshot = this.#goat.snapshot();
     eventBus.emit('player:tick', snapshot);
     if (this.#changed(snapshot)) {
       this.#lastSnapshot = snapshot;
+      this.#reactTo(snapshot.state);
       eventBus.emit('player:changed', snapshot);
     }
+  }
+
+  /** What the companion is told about the goat each frame. */
+  #followTarget() {
+    const state = this.#goat.state;
+    return {
+      x: this.#goat.x,
+      y: this.#goat.y,
+      facing: this.#goat.facing,
+      // Only a genuinely idle goat lets the companion start performing.
+      resting: state === 'idle',
+      speed: Math.abs(this.#goat.body.velocity.x),
+    };
+  }
+
+  /**
+   * Let the companion answer what the goat just did.
+   *
+   * This is the whole reason it reads as a companion rather than a trailing
+   * decoration -- it looks up when something happens.
+   */
+  #reactTo(state: PlayerSnapshot['state']): void {
+    if (state === 'attack') this.#bro.perform('danceExcited');
+    else if (state === 'hurt') this.#bro.perform('surprised');
+    else if (state === 'die') this.#bro.perform('lookAround');
   }
 
   #changed(next: PlayerSnapshot): boolean {
@@ -72,10 +115,15 @@ export class PlayScene extends Phaser.Scene {
       eventBus.on('debug:play-clip', ({ clip }) => this.#goat.previewClip(clip as ClipName)),
 
       eventBus.on('debug:force-state', ({ state }) => {
-        if (state === 'reset') this.#goat.revive(SPAWN.x, SPAWN.y - 40);
+        if (state === 'reset') {
+          this.#goat.revive(SPAWN.x, SPAWN.y - 40);
+          this.#bro.snapTo(this.#followTarget());
+        }
         else if (state === 'hurt') this.#goat.hit(this.#goat.facing === 1 ? -1 : 1);
         else this.#goat.kill();
       }),
+
+      eventBus.on('bro:perform', ({ clip }) => this.#bro.perform(clip)),
 
       eventBus.on('debug:toggle-bodies', ({ enabled }) => {
         const world = this.physics.world;
@@ -99,21 +147,20 @@ export class PlayScene extends Phaser.Scene {
    * character clearly, so nothing behind it competes for attention.
    */
   #buildBackdrop(): void {
-    const { width, height } = VIEW;
-    const far = width * 3;
+    // The flat backdrop is the camera's own clear colour rather than a
+    // screen-fixed rectangle: a scroll-factor-zero object has to be positioned
+    // in the camera's transformed space, which the zoom would throw off.
+    const far = VIEW.width * 12;
 
-    this.add
-      .rectangle(width / 2, height / 2, width, height, PALETTE.dusk)
-      .setScrollFactor(0);
-
-    // Two parallax bands give the running a sense of speed without art.
+    // Two parallax bands give running a sense of speed without needing art.
     for (const [depth, alpha, y, h] of [
       [0.15, 0.35, GROUND_Y - 120, 240],
       [0.4, 0.5, GROUND_Y - 40, 160],
     ] as const) {
-      const band = this.add.rectangle(0, y, far, h, PALETTE.night, alpha).setOrigin(0, 0.5);
-      band.setScrollFactor(depth, 1);
-      band.setX(-far / 3);
+      this.add
+        .rectangle(-far / 2, y, far, h, PALETTE.night, alpha)
+        .setOrigin(0, 0.5)
+        .setScrollFactor(depth, 1);
     }
   }
 

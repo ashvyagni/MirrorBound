@@ -1,4 +1,4 @@
-import { CLIP_ORDER, CLIPS, type ClipName } from '@/game/animation/clips';
+import { CLIP_ORDER, CLIPS, type ClipName } from '@/game/animation/goatClips';
 import { eventBus } from '@/game/EventBus';
 
 const LABELS: Record<ClipName, string> = {

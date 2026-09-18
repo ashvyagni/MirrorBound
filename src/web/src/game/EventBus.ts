@@ -1,4 +1,5 @@
-import type { ClipName } from './animation/clips';
+import type { BroClipName } from './animation/broClips';
+import type { ClipName } from './animation/goatClips';
 import type { PlayerSnapshot, PlayerState } from './types';
 
 /**
@@ -22,6 +23,10 @@ export interface GameEventMap {
   'debug:play-clip': { clip: ClipName };
   /** Ask the character to take a hit, die, or reset. */
   'debug:force-state': { state: Extract<PlayerState, 'hurt' | 'die'> | 'reset' };
+  /** Make the companion perform an emote now. */
+  'bro:perform': { clip: BroClipName };
+  /** Emitted when the companion changes what it is doing. */
+  'bro:changed': { clip: BroClipName; mood: string };
   /** Toggle physics body overlays. */
   'debug:toggle-bodies': { enabled: boolean };
 }

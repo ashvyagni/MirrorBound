@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
 
-import { registerAnimations } from '../animation/clips';
-import { TEXTURE_KEY } from '../animation/goatAtlas.generated';
-import { PALETTE, VIEW } from '../constants';
+import { BRO_TEXTURE, registerBroAnimations } from '../animation/broClips';
+import { registerFxAnimations } from '../animation/fx';
+import { GOAT_TEXTURE, registerGoatAnimations } from '../animation/goatClips';
+import { PALETTE } from '../constants';
 import { eventBus } from '../EventBus';
 
 /**
@@ -20,7 +21,9 @@ export class PreloadScene extends Phaser.Scene {
   }
 
   preload(): void {
-    const { width, height } = VIEW;
+    // The loading screen has no camera zoom, so it is laid out against the
+    // canvas itself rather than world units.
+    const { width, height } = this.cameras.main;
     const barWidth = Math.round(width * 0.36);
 
     const track = this.add
@@ -35,12 +38,16 @@ export class PreloadScene extends Phaser.Scene {
       eventBus.emit('game:loading', { progress });
     });
 
-    this.load.setPath('game/goat');
-    this.load.atlas(TEXTURE_KEY, `${TEXTURE_KEY}.png`, `${TEXTURE_KEY}.json`);
+    for (const texture of [GOAT_TEXTURE, BRO_TEXTURE]) {
+      this.load.setPath(`game/${texture}`);
+      this.load.atlas(texture, `${texture}.png`, `${texture}.json`);
+    }
   }
 
   create(): void {
-    registerAnimations(this.anims);
+    registerGoatAnimations(this.anims);
+    registerBroAnimations(this.anims);
+    registerFxAnimations(this.anims);
     this.scene.start('play');
   }
 }

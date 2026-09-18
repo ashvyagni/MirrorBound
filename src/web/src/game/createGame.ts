@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-import { PALETTE, PHYSICS, VIEW } from './constants';
+import { PALETTE, PHYSICS, RENDER_SCALE, VIEW } from './constants';
 import { PlayScene } from './scenes/PlayScene';
 import { PreloadScene } from './scenes/PreloadScene';
 
@@ -15,8 +15,8 @@ export function createGame(parent: HTMLElement): Phaser.Game {
   const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent,
-    width: VIEW.width,
-    height: VIEW.height,
+    width: VIEW.width * RENDER_SCALE,
+    height: VIEW.height * RENDER_SCALE,
     backgroundColor: PALETTE.night,
     // The art is painted, not pixel art, so let it filter smoothly.
     pixelArt: false,
