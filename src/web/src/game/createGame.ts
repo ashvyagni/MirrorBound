@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-import { PALETTE, VIEW } from './constants';
+import { PALETTE, RENDER_SCALE, VIEW } from './constants';
 import { PlayScene } from './scenes/PlayScene';
 import { PreloadScene } from './scenes/PreloadScene';
 
@@ -9,14 +9,14 @@ import { PreloadScene } from './scenes/PreloadScene';
  *
  * Imported lazily by the React mount so Phaser -- which needs `window` at
  * module scope -- is never pulled into a non-browser context, and so the
- * ~1.4 MB engine chunk is fetched only when the game is actually shown.
+ * engine chunk is fetched only when the game is actually shown.
  */
-export function createGame(parent: HTMLElement): Phaser.Game {
+export function createGame(parent: HTMLElement, fullscreenTarget?: HTMLElement): Phaser.Game {
   const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent,
-    width: VIEW.width,
-    height: VIEW.height,
+    width: VIEW.width * RENDER_SCALE,
+    height: VIEW.height * RENDER_SCALE,
     backgroundColor: PALETTE.night,
     // The art is painted, not pixel art, so let it filter smoothly.
     pixelArt: false,
@@ -24,21 +24,14 @@ export function createGame(parent: HTMLElement): Phaser.Game {
     scale: {
       mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH,
+      ...(fullscreenTarget ? { fullscreenTarget } : {}),
     },
-    physics: {
-      default: 'arcade',
-      arcade: {
-        gravity: { x: 0, y: 0 },
-        debug: false,
-      },
-    },
+    // No client-side physics: the server owns movement and collisions.
     scene: [PreloadScene, PlayScene],
   });
 
-  // Dev-only handle, for poking at scenes and input from the console.
   if (import.meta.env.DEV) {
     (window as unknown as { game?: Phaser.Game }).game = game;
   }
-
   return game;
 }

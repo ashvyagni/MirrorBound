@@ -1,272 +1,494 @@
+/**
+ * The play scene: renders whatever the server says the world is.
+ *
+ * Responsibilities: connect, sample input and send it, keep entity views in
+ * sync with snapshots, turn server events into VFX/audio/reactions, drive the
+ * camera, and draw the optional AI debug overlay. It decides nothing about
+ * gameplay.
+ */
+
 import Phaser from 'phaser';
 
-import { ROOM, PALETTE, VIEW } from '../constants';
-import { Goat } from '../entities/Goat';
+import { audio } from '../audio/AudioManager';
+import { CAMERA, DEPTH, PALETTE, RENDER_SCALE } from '../constants';
+import type { CommandMessage, EnemySnap, GameSnapshot, RoomFull, ServerEvent, Vec2 } from '../contracts';
+import { isRoomFull } from '../contracts';
+import { Vfx } from '../effects/Vfx';
+import { EnemyView } from '../entities/EnemyView';
+import { PickupView } from '../entities/PickupView';
+import { PlayerView } from '../entities/PlayerView';
+import { ProjectileView } from '../entities/ProjectileView';
+import { TwinView } from '../entities/TwinView';
+import { WeaponOverlay } from '../entities/WeaponOverlay';
 import { eventBus } from '../EventBus';
 import { KeyboardIntentSource } from '../input/KeyboardIntentSource';
 import { WebSocketClient } from '../network/WebSocketClient';
-import type { IntentSource, PlayerSnapshot, GameSnapshot, EnemySnapshot, TwinSnapshot } from '../types';
+import type { PlayerSnapshot } from '../types';
+import { Ambient } from '../world/Ambient';
+import { TextureFactory } from '../world/TextureFactory';
+import { WorldRenderer } from '../world/WorldRenderer';
+import { getSettings, type Settings } from '../../ui/settings';
 
-const SPAWN = { x: ROOM.width / 2, y: ROOM.height / 2 } as const;
+const ENEMY_COLOUR: Record<string, number> = {
+  skeleton: 0xdcd4c4, archer: 0xffd27a, hound: 0x6a5a8a, slime: 0x63c26d, mirror: 0xd62e6c,
+};
 
 export class PlayScene extends Phaser.Scene {
   static readonly KEY = 'play';
 
-  goat!: Goat;
-  #source!: IntentSource;
-  #wsClient!: WebSocketClient;
-  #lastSnapshot: PlayerSnapshot | null = null;
+  #ws!: WebSocketClient;
+  #textures!: TextureFactory;
+  #world!: WorldRenderer;
+  #ambient!: Ambient;
+  #vfx!: Vfx;
+  #source!: KeyboardIntentSource;
+  #weapon!: WeaponOverlay;
+  #player: PlayerView | null = null;
+  #twin: TwinView | null = null;
+  #enemies = new Map<string, EnemyView>();
+  #projectiles = new Map<string, ProjectileView>();
+  #pickups = new Map<string, PickupView>();
+  #snapshot: GameSnapshot | null = null;
+  #room: RoomFull | null = null;
+  #settings: Settings = getSettings();
+  #modalOpen = false;
+  #debug!: Phaser.GameObjects.Graphics;
+  #vignette!: Phaser.GameObjects.Image;
   #teardown: Array<() => void> = [];
-  #roomGraphics!: Phaser.GameObjects.Graphics;
-  #enemyGraphics!: Phaser.GameObjects.Graphics;
-  #twinGraphics!: Phaser.GameObjects.Graphics;
-  #gameSnapshot: GameSnapshot | null = null;
+  #lastUiSnapshot: PlayerSnapshot | null = null;
+  #cameraBound = false;
 
   constructor() {
     super(PlayScene.KEY);
   }
 
   create(): void {
-    this.#buildRoom();
-    this.#buildLighting();
-
-    this.goat = new Goat(this, SPAWN.x, SPAWN.y);
-    this.physics.world.setBounds(0, 0, ROOM.width, ROOM.height);
+    this.#textures = new TextureFactory(this);
+    this.#textures.ensureCommon();
+    this.#world = new WorldRenderer(this, this.#textures, this.#settings.quality);
+    this.#ambient = new Ambient(this, this.#settings.quality);
+    this.#vfx = new Vfx(this, this.#settings);
+    this.#weapon = new WeaponOverlay(this);
+    this.#debug = this.add.graphics().setDepth(DEPTH.debug);
+    this.#vignette = this.add.image(0, 0, 'fx:vignette').setDepth(DEPTH.vignette).setAlpha(0.8);
 
     this.#source = new KeyboardIntentSource(this.input.keyboard!);
-    if (this.#source instanceof KeyboardIntentSource) {
-      this.#source.setScene(this);
-    }
-
-    // Initialize graphics for entities
-    this.#enemyGraphics = this.add.graphics();
-    this.#twinGraphics = this.add.graphics();
-
     this.cameras.main.setBackgroundColor(PALETTE.night);
-    this.cameras.main.startFollow(this.goat, true, 0.09, 0.09);
-    this.cameras.main.setBounds(0, 0, ROOM.width, ROOM.height);
+    this.cameras.main.setZoom(RENDER_SCALE * this.#settings.zoom);
 
-    // Connect to server
-    this.#wsClient = new WebSocketClient();
-    this.#wsClient.connect();
+    // Audio can only start on a gesture; the first key or click unlocks it.
+    const unlock = () => audio.unlock();
+    this.input.on('pointerdown', unlock);
+    this.input.keyboard?.on('keydown', unlock);
+    audio.applySettings(this.#settings);
 
-    // Listen for game snapshots
+    this.#ws = new WebSocketClient();
+    this.#ws.connect();
+
     this.#teardown.push(
-      eventBus.on('game:snapshot', (snapshot) => {
-        this.#gameSnapshot = snapshot;
-        this.#updateFromSnapshot(snapshot);
-      })
+      eventBus.on('game:snapshot', (snap) => this.#onSnapshot(snap)),
+      eventBus.on('game:events', (events) => this.#onEvents(events)),
+      eventBus.on('ui:command', (cmd) => this.#onCommand(cmd)),
+      eventBus.on('ui:modal', ({ open }) => {
+        this.#modalOpen = open;
+        this.#source.muted = open;
+      }),
+      eventBus.on('ui:settings', (settings) => this.#applySettings(settings)),
+      eventBus.on('game:toggle-fullscreen', () => {
+        if (this.scale.isFullscreen) this.scale.stopFullscreen();
+        else this.scale.startFullscreen();
+      }),
     );
-
-    this.#wireCommands();
+    for (const event of [Phaser.Scale.Events.ENTER_FULLSCREEN, Phaser.Scale.Events.LEAVE_FULLSCREEN]) {
+      this.scale.on(event, () => eventBus.emit('game:fullscreen', { active: this.scale.isFullscreen }));
+    }
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.#dispose());
-
     eventBus.emit('game:ready', { scene: PlayScene.KEY });
   }
 
-  override update(_time: number, deltaMs: number): void {
+  // --- frame -----------------------------------------------------------------------
+
+  override update(time: number, deltaMs: number): void {
     const dt = Math.min(deltaMs, 50) / 1000;
+    const intent = this.#source.sample();
+    const snap = this.#snapshot;
+    const playing = snap !== null && snap.phase === 'playing' && !snap.paused && !this.#modalOpen;
 
-    const intent = this.#source.sample(dt);
-    this.goat.step(dt, intent);
+    if (this.#player) {
+      if (playing) this.#player.predict(dt, intent);
+      this.#player.update(dt);
+      this.#weapon.place({ x: this.#player.x, y: this.#player.y }, this.#player.facingVec);
+      const ui = this.#player.snapshot();
+      if (!this.#lastUiSnapshot || ui.state !== this.#lastUiSnapshot.state || ui.facing !== this.#lastUiSnapshot.facing) {
+        this.#lastUiSnapshot = ui;
+        eventBus.emit('player:changed', ui);
+      }
+    }
+    this.#ws.sendInput(playing ? intent : { moveX: 0, moveY: 0, attack: false, run: false, ability: null }, time);
 
-    // Send input to server
-    this.#wsClient.sendInput({
-      moveX: intent.moveX,
-      moveY: intent.moveY,
-      attack: intent.attack,
-      run: intent.run,
-      aimAngle: intent.aimAngle,
-      ability: intent.ability,
-    });
+    this.#twin?.update(dt);
+    for (const e of this.#enemies.values()) e.update(dt);
+    for (const p of this.#projectiles.values()) p.update(dt);
+    for (const p of this.#pickups.values()) p.update(dt);
+    this.#ambient.update(dt, this.#player ? { x: this.#player.x, y: this.#player.y } : null);
 
-    // Update local snapshot for UI
-    const snapshot = this.goat.snapshot();
-    eventBus.emit('player:tick', snapshot);
-    if (this.#changed(snapshot)) {
-      this.#lastSnapshot = snapshot;
-      eventBus.emit('player:changed', snapshot);
+    const cam = this.cameras.main;
+    this.#vignette.setPosition(cam.midPoint.x, cam.midPoint.y);
+    this.#vignette.setScale((cam.displayWidth / this.#vignette.width) * 1.02, (cam.displayHeight / this.#vignette.height) * 1.02);
+    this.#drawDebug();
+  }
+
+  // --- snapshots ------------------------------------------------------------------------
+
+  #onSnapshot(snap: GameSnapshot): void {
+    const prev = this.#snapshot;
+    this.#snapshot = snap;
+
+    if (isRoomFull(snap.room)) {
+      if (!this.#room || this.#room.index !== snap.room.index || this.#room.seed !== snap.room.seed) {
+        this.#enterRoom(snap.room);
+      } else {
+        this.#room = snap.room;
+        this.#world.updateDoors(snap.room.doors);
+      }
+    } else if (this.#room) {
+      this.#room.cleared = snap.room.cleared;
+      this.#room.doors = snap.room.doors;
+      this.#world.updateDoors(snap.room.doors);
     }
 
-    // Render enemies and twin from server data
-    this.#renderEntities();
+    if (!this.#player) {
+      this.#player = new PlayerView(this, snap.player.position);
+      this.#player.setRoom(this.#room);
+      this.#bindCamera();
+    }
+    this.#player.applySnapshot(snap.player, snap.player.stats?.speed);
+    if (snap.player.currentWeapon !== this.#weapon.equipped) {
+      const weapon = snap.player.weapon;
+      this.#weapon.equip(weapon ? weapon.animation : this.#animationFor(snap.player.currentWeapon));
+    }
+
+    if (!this.#twin) this.#twin = new TwinView(this, snap.twin.position);
+    this.#twin.showThoughts = this.#settings.showTwinThoughts;
+    this.#twin.applySnapshot(snap.twin);
+
+    this.#syncEnemies(snap.enemies);
+    this.#syncProjectiles(snap);
+    this.#syncPickups(snap);
+
+    if (prev?.paused !== snap.paused) audio.setPaused(snap.paused);
   }
 
-  #updateFromSnapshot(snapshot: GameSnapshot): void {
-    // Update player position from server (smooth interpolation could be added here)
-    if (snapshot.player) {
-      // For now, trust server position
-      // this.goat.setPosition(snapshot.player.positionX, snapshot.player.positionY);
+  #animationFor(weaponId: string): string {
+    if (weaponId.includes('bow')) return 'bow';
+    if (weaponId.includes('ember') || weaponId.includes('fire')) return 'fireStaff';
+    if (weaponId.includes('frost') || weaponId.includes('ice')) return 'iceStaff';
+    return 'sword';
+  }
+
+  #enterRoom(room: RoomFull): void {
+    this.#room = room;
+    for (const e of this.#enemies.values()) e.destroy();
+    this.#enemies.clear();
+    for (const p of this.#projectiles.values()) p.destroy();
+    this.#projectiles.clear();
+    for (const p of this.#pickups.values()) p.destroy();
+    this.#pickups.clear();
+    this.#world.build(room);
+    this.#ambient.build(room);
+    this.#player?.setRoom(room);
+    const cam = this.cameras.main;
+    cam.setBounds(0, 0, room.width, room.height);
+    this.#vfx.roomTransition(false);
+  }
+
+  #bindCamera(): void {
+    if (!this.#player || this.#cameraBound) return;
+    this.#cameraBound = true;
+    const cam = this.cameras.main;
+    cam.startFollow(this.#player.sprite, false, CAMERA.lerp, CAMERA.lerp, 0, 18);
+    cam.setDeadzone(CAMERA.deadzone.width, CAMERA.deadzone.height);
+    if (this.#room) cam.setBounds(0, 0, this.#room.width, this.#room.height);
+    cam.centerOn(this.#player.x, this.#player.y);
+  }
+
+  #syncEnemies(enemies: EnemySnap[]): void {
+    const seen = new Set<string>();
+    for (const e of enemies) {
+      seen.add(e.id);
+      const view = this.#enemies.get(e.id);
+      if (view) view.applySnapshot(e);
+      else this.#enemies.set(e.id, new EnemyView(this, e));
+    }
+    for (const [id, view] of this.#enemies) {
+      if (!seen.has(id)) {
+        // Killed (the ENEMY_KILLED event usually gets here first) or room changed.
+        const pos = view.die();
+        this.#vfx.deathBurst(pos, ENEMY_COLOUR[view.snap.sprite] ?? 0xaaaaaa, view.snap.boss);
+        this.#enemies.delete(id);
+      }
     }
   }
 
-  #renderEntities(): void {
-    if (!this.#gameSnapshot) return;
-
-    // Clear previous frame
-    this.#enemyGraphics.clear();
-    this.#twinGraphics.clear();
-
-    // Render enemies
-    for (const enemy of this.#gameSnapshot.enemies) {
-      this.#renderEnemy(enemy);
+  #syncProjectiles(snap: GameSnapshot): void {
+    const seen = new Set<string>();
+    for (const p of snap.projectiles) {
+      seen.add(p.id);
+      const view = this.#projectiles.get(p.id);
+      if (view) view.applySnapshot(p);
+      else this.#projectiles.set(p.id, new ProjectileView(this, p, this.#settings.quality === 'high'));
     }
-
-    // Render twin
-    if (this.#gameSnapshot.twin) {
-      this.#renderTwin(this.#gameSnapshot.twin);
+    for (const [id, view] of this.#projectiles) {
+      if (!seen.has(id)) {
+        view.destroy();
+        this.#projectiles.delete(id);
+      }
     }
   }
 
-  #renderEnemy(enemy: EnemySnapshot): void {
-    const gfx = this.#enemyGraphics;
-    const x = enemy.positionX;
-    const y = enemy.positionY;
-    const radius = 14;
-
-    // Enemy body
-    gfx.fillStyle(PALETTE.skeleton, 0.8);
-    gfx.fillCircle(x, y, radius);
-
-    // Health bar
-    const barWidth = 30;
-    const barHeight = 4;
-    const healthPercent = enemy.health / enemy.maxHealth;
-    const barX = x - barWidth / 2;
-    const barY = y - radius - 10;
-
-    gfx.fillStyle(PALETTE.healthRed, 1);
-    gfx.fillRect(barX, barY, barWidth, barHeight);
-    gfx.fillStyle(PALETTE.healthGreen, 1);
-    gfx.fillRect(barX, barY, barWidth * healthPercent, barHeight);
+  #syncPickups(snap: GameSnapshot): void {
+    const seen = new Set<string>();
+    for (const p of snap.pickups) {
+      seen.add(p.id);
+      const view = this.#pickups.get(p.id);
+      if (view) view.applySnapshot(p);
+      else this.#pickups.set(p.id, new PickupView(this, p));
+    }
+    for (const [id, view] of this.#pickups) {
+      if (!seen.has(id)) {
+        view.collect();
+        this.#pickups.delete(id);
+      }
+    }
   }
 
-  #renderTwin(twin: TwinSnapshot): void {
-    const gfx = this.#twinGraphics;
-    const x = twin.positionX;
-    const y = twin.positionY;
-    const radius = 12;
+  // --- events ---------------------------------------------------------------------------
 
-    // Twin body (blue tint)
-    gfx.fillStyle(PALETTE.twin, 0.8);
-    gfx.fillCircle(x, y, radius);
-
-    // Glow effect
-    gfx.lineStyle(2, PALETTE.twin, 0.4);
-    gfx.strokeCircle(x, y, radius + 4);
-
-    // Health bar
-    const barWidth = 24;
-    const barHeight = 3;
-    const healthPercent = twin.health / twin.maxHealth;
-    const barX = x - barWidth / 2;
-    const barY = y - radius - 8;
-
-    gfx.fillStyle(PALETTE.healthRed, 1);
-    gfx.fillRect(barX, barY, barWidth, barHeight);
-    gfx.fillStyle(PALETTE.healthGreen, 1);
-    gfx.fillRect(barX, barY, barWidth * healthPercent, barHeight);
+  #onEvents(events: ServerEvent[]): void {
+    for (const e of events) this.#onEvent(e);
   }
 
-  #changed(next: PlayerSnapshot): boolean {
-    const prev = this.#lastSnapshot;
-    return (
-      prev === null ||
-      prev.state !== next.state ||
-      prev.clip !== next.clip ||
-      prev.facing !== next.facing
-    );
+  #pos(e: ServerEvent, key = 'position'): Vec2 {
+    const p = e.data[key] as Vec2 | undefined;
+    return p ?? (this.#player ? { x: this.#player.x, y: this.#player.y } : { x: 0, y: 0 });
   }
 
-  #wireCommands(): void {
-    this.#teardown.push(
-      eventBus.on('debug:play-clip', ({ clip }) => this.goat.previewClip(clip as any)),
+  #onEvent(e: ServerEvent): void {
+    const player = this.#player;
+    switch (e.type) {
+      case 'PLAYER_ATTACKED': {
+        if (!player) break;
+        const facing = (e.data.facing as Vec2) ?? player.facingVec;
+        const weapon = String(e.data.weapon ?? '');
+        const finisher = String(e.data.action_token ?? '').endsWith('FINISHER');
+        this.#weapon.strike(Number(e.data.comboStep ?? 1), { x: player.x, y: player.y }, facing);
+        if (weapon.includes('sword')) {
+          this.#vfx.slash({ x: player.x, y: player.y }, facing, finisher ? PALETTE.pink : 0xffffff, finisher ? 1.35 : 1);
+          audio.play(finisher ? 'slash_heavy' : 'slash', { pitch: 0.95 + Number(e.data.comboStep ?? 1) * 0.06 });
+        } else if (weapon.includes('bow')) audio.play('arrow');
+        else if (weapon.includes('ember')) audio.play('fire', { volume: 0.7 });
+        else audio.play('ice', { volume: 0.7 });
+        break;
+      }
+      case 'PLAYER_ABILITY_CAST': {
+        if (!player) break;
+        const facing = (e.data.facing as Vec2) ?? player.facingVec;
+        const pos = { x: player.x, y: player.y };
+        switch (String(e.data.ability_id)) {
+          case 'arcane_bolt': this.#vfx.arcaneCast(pos); audio.play('arcane'); break;
+          case 'flame_burst': this.#vfx.flameCone(pos, facing); audio.play('fire'); break;
+          case 'shadow_dash': this.#vfx.dash(pos, (e.data.direction as Vec2) ?? facing); audio.play('dash'); break;
+          case 'binding_nova': this.#vfx.nova(pos, 150); audio.play('nova'); break;
+          default: break;
+        }
+        break;
+      }
+      case 'DAMAGE_DEALT': {
+        const pos = this.#pos(e);
+        const target = String(e.data.target);
+        this.#enemies.get(target)?.hit();
+        const source = String(e.data.source ?? '');
+        const colour = source.includes('ember') || source.includes('flame') ? PALETTE.ember
+          : source.includes('frost') ? PALETTE.ice : source.includes('arcane') || source.includes('nova') ? PALETTE.arcane : 0xffffff;
+        this.#vfx.hitSparks({ x: pos.x, y: pos.y }, colour, Boolean(e.data.crit) ? 14 : 7);
+        this.#vfx.damageNumber(pos, Number(e.data.damage), Boolean(e.data.crit),
+          String(e.data.attacker).startsWith('twin') ? '#bfe6ff' : '#fff1c9');
+        audio.play('hit', { volume: 0.6, pitch: Boolean(e.data.crit) ? 0.8 : 1 });
+        break;
+      }
+      case 'DAMAGE_TAKEN':
+        this.#vfx.hurtFlash();
+        this.#vfx.damageNumber(this.#pos(e), Number(e.data.damage), false, '#ff8a8a');
+        audio.play('hit_player');
+        break;
+      case 'ENEMY_KILLED': {
+        const id = String(e.data.enemy_id);
+        const view = this.#enemies.get(id);
+        const pos = view ? view.die() : this.#pos(e);
+        this.#enemies.delete(id);
+        const boss = Boolean(e.data.boss);
+        this.#vfx.deathBurst(pos, ENEMY_COLOUR[String(e.data.enemy_type)] ?? 0xaaaaaa, boss);
+        audio.play(boss ? 'boss_death' : 'enemy_death');
+        if (String(e.data.killer).startsWith('twin')) this.#twin?.onCelebrate();
+        break;
+      }
+      case 'PROJECTILE_HIT':
+        this.#vfx.impact(this.#pos(e), String(e.data.kind));
+        break;
+      case 'PROJECTILE_EXPIRED':
+        this.#vfx.hitSparks(this.#pos(e), 0xcccccc, 3);
+        break;
+      case 'ITEM_PICKUP': {
+        const kind = String(e.data.kind);
+        const colour = kind === 'essence' ? 0xc05bff : kind === 'shards' ? 0x9fe3ff : kind.includes('potion') ? 0xe04a5a : PALETTE.gold;
+        this.#vfx.pickup(this.#pos(e), colour);
+        audio.play(kind.includes('potion') ? 'potion' : 'pickup', { pitch: kind === 'essence' ? 1.1 : 0.9 });
+        if (kind === 'weapon' || kind === 'relic') this.#twin?.onCelebrate();
+        break;
+      }
+      case 'LEVEL_UP':
+        if (player) this.#vfx.levelUp({ x: player.x, y: player.y });
+        audio.play('levelup');
+        this.#twin?.onCelebrate();
+        break;
+      case 'PLAYER_HEALED':
+      case 'ITEM_USED':
+        if (player && Number(e.data.healed ?? e.data.amount ?? 0) > 0) this.#vfx.heal({ x: player.x, y: player.y }, Number(e.data.healed ?? e.data.amount));
+        audio.play('potion');
+        break;
+      case 'ROOM_EXIT':
+        this.#vfx.roomTransition(true);
+        audio.play('door');
+        break;
+      case 'ROOM_CLEARED':
+        audio.play('room_clear');
+        if (player) this.#vfx.callout({ x: player.x, y: player.y }, 'ROOM CLEARED', '#f0c060', 15);
+        this.#twin?.onCelebrate();
+        break;
+      case 'TWIN_ATTACKED':
+        this.#twin?.onAttack();
+        audio.play(String(e.data.weapon).includes('frost') ? 'ice' : String(e.data.weapon).includes('bow') ? 'arrow' : 'slash', { volume: 0.45 });
+        break;
+      case 'TWIN_DAMAGED':
+        this.#twin?.onHurt();
+        break;
+      case 'TWIN_DOWNED':
+        audio.play('twin_down');
+        break;
+      case 'TWIN_REVIVED':
+        this.#twin?.onCelebrate();
+        break;
+      case 'TWIN_ACTION': {
+        const intent = String(e.data.intent);
+        if (intent === 'INTERCEPT' || intent === 'RETREAT' || intent === 'DISTRACT') audio.play('twin_action', { volume: 0.5 });
+        if (intent === 'EXPLORE') this.#twin?.onLookAround();
+        break;
+      }
+      case 'PLAYER_DIED':
+        audio.play('death');
+        this.#vfx.shake(CAMERA.shake.heavy, 400);
+        break;
+      case 'PLAYER_RESPAWNED':
+        this.#vfx.roomTransition(false);
+        break;
+      case 'BOSS_COUNTER': {
+        const label = {
+          kite: 'keeps its distance', rush: 'closes in', dodge_aoe: 'reads the burst', riposte: 'punishes the swing',
+          predict_dash: 'predicts the dash', deny_zone: 'takes your ground',
+        }[String(e.data.counter)] ?? String(e.data.counter);
+        this.#vfx.callout(this.#pos(e), `THE MIRROR ${label.toUpperCase()}`, '#f5a4c0', 12);
+        audio.play('boss_counter', { volume: 0.6 });
+        break;
+      }
+      case 'BOSS_NOVA_CHARGE':
+        this.#vfx.telegraphRing(this.#pos(e), Number(e.data.radius), Number(e.data.duration));
+        break;
+      case 'BOSS_NOVA':
+        this.#vfx.nova(this.#pos(e), Number(e.data.radius));
+        this.#vfx.shake(CAMERA.shake.heavy, 300);
+        audio.play('nova');
+        break;
+      case 'ENEMY_ATTACKED':
+        if (Boolean(e.data.ranged)) audio.play('arrow', { volume: 0.5, pitch: 0.8 });
+        break;
+      case 'SKILL_UNLOCKED':
+        audio.play('levelup', { volume: 0.5 });
+        break;
+      default:
+        break;
+    }
+  }
 
-      eventBus.on('debug:force-state', ({ state }) => {
-        if (state === 'reset') this.goat.revive(SPAWN.x, SPAWN.y);
-        else if (state === 'hurt') this.goat.hit(this.goat.facing === 1 ? -1 : 1);
-        else this.goat.kill();
-      }),
+  // --- commands & settings ---------------------------------------------------------------
 
-      eventBus.on('debug:toggle-bodies', ({ enabled }) => {
-        const world = this.physics.world;
-        if (enabled && !world.debugGraphic) world.createDebugGraphic();
-        world.drawDebug = enabled;
-        world.debugGraphic?.setVisible(enabled).clear();
-      }),
-    );
+  #onCommand(cmd: CommandMessage): void {
+    const { type: _type, ...rest } = cmd;
+    this.#ws.sendCommand(rest);
+    audio.play('ui_click', { volume: 0.5 });
+  }
+
+  #applySettings(settings: Settings): void {
+    const qualityChanged = settings.quality !== this.#settings.quality;
+    this.#settings = settings;
+    this.cameras.main.setZoom(RENDER_SCALE * settings.zoom);
+    this.#vfx.setSettings(settings);
+    audio.applySettings(settings);
+    if (this.#twin) this.#twin.showThoughts = settings.showTwinThoughts;
+    if (qualityChanged) {
+      this.#world.setQuality(settings.quality);
+      this.#ambient.setQuality(settings.quality);
+      if (this.#room) this.#world.build(this.#room);
+    }
+    if (!settings.debugOverlay) this.#debug.clear();
+  }
+
+  // --- debug --------------------------------------------------------------------------------
+
+  #drawDebug(): void {
+    const g = this.#debug;
+    if (!this.#settings.debugOverlay || !this.#snapshot) return;
+    g.clear();
+    const snap = this.#snapshot;
+    const cell = snap.playerModel.cellSize || 64;
+    const layers: Array<[string, number]> = [['combat', 0xd62e6c], ['retreat', 0x4f8fe6], ['dodge', 0xa0cae4], ['death', 0x000000]];
+    for (const [layer, colour] of layers) {
+      const cells = snap.playerModel.spatial[layer] ?? [];
+      const max = cells[0]?.weight ?? 1;
+      for (const c of cells) {
+        g.fillStyle(colour, 0.08 + 0.32 * (c.weight / max));
+        g.fillRect(c.cell[0] * cell, c.cell[1] * cell, cell, cell);
+      }
+    }
+    // Twin intent.
+    const twin = snap.twin;
+    const goal = twin.intent.position ?? (twin.intent.targetId ? snap.enemies.find((e) => e.id === twin.intent.targetId)?.position : null);
+    if (goal) {
+      g.lineStyle(2, 0xa0cae4, 0.8);
+      g.lineBetween(twin.position.x, twin.position.y, goal.x, goal.y);
+      g.strokeCircle(goal.x, goal.y, 10);
+    }
+    // Enemy targeting.
+    for (const e of snap.enemies) {
+      const target = e.targetId === snap.player.id ? snap.player.position : e.targetId === twin.id ? twin.position : null;
+      if (target) {
+        g.lineStyle(1, e.windingUp ? 0xff4d4d : 0xffffff, e.windingUp ? 0.9 : 0.25);
+        g.lineBetween(e.position.x, e.position.y, target.x, target.y);
+      }
+      g.lineStyle(1, 0xffffff, 0.15);
+      g.strokeCircle(e.position.x, e.position.y, e.radius);
+    }
+    // Player facing.
+    const p = snap.player;
+    g.lineStyle(2, 0x63c26d, 0.9);
+    g.lineBetween(p.position.x, p.position.y, p.position.x + p.facing.x * 40, p.position.y + p.facing.y * 40);
   }
 
   #dispose(): void {
     for (const off of this.#teardown) off();
     this.#teardown = [];
-    this.#source?.destroy?.();
-    this.#wsClient?.disconnect();
-  }
-
-  // --- room rendering --------------------------------------------------------
-
-  #buildRoom(): void {
-    this.#roomGraphics = this.add.graphics();
-    this.#drawRoom();
-  }
-
-  #drawRoom(): void {
-    const gfx = this.#roomGraphics;
-    gfx.clear();
-
-    // Floor
-    gfx.fillStyle(PALETTE.floor, 1);
-    gfx.fillRect(0, 0, ROOM.width, ROOM.height);
-
-    // Floor tile grid
-    gfx.lineStyle(1, 0x252540, 0.3);
-    for (let x = 0; x <= ROOM.width; x += ROOM.tileSize) {
-      gfx.lineBetween(x, 0, x, ROOM.height);
-    }
-    for (let y = 0; y <= ROOM.height; y += ROOM.tileSize) {
-      gfx.lineBetween(0, y, ROOM.width, y);
-    }
-
-    // Walls
-    const wallThickness = 16;
-    gfx.fillStyle(PALETTE.wall, 1);
-    gfx.fillRect(0, 0, ROOM.width, wallThickness); // top
-    gfx.fillRect(0, ROOM.height - wallThickness, ROOM.width, wallThickness); // bottom
-    gfx.fillRect(0, 0, wallThickness, ROOM.height); // left
-    gfx.fillRect(ROOM.width - wallThickness, 0, wallThickness, ROOM.height); // right
-
-    // Wall edge highlight
-    gfx.fillStyle(PALETTE.wallEdge, 0.5);
-    gfx.fillRect(0, wallThickness, ROOM.width, 4); // top inner
-    gfx.fillRect(0, ROOM.height - wallThickness - 4, ROOM.width, 4); // bottom inner
-    gfx.fillRect(wallThickness, 0, 4, ROOM.height); // left inner
-    gfx.fillRect(ROOM.width - wallThickness - 4, 0, 4, ROOM.height); // right inner
-
-    // Door openings (visual only - collision handled by server)
-    const doorWidth = 64;
-    const doorX = ROOM.width / 2 - doorWidth / 2;
-    gfx.fillStyle(PALETTE.floor, 1);
-    gfx.fillRect(doorX, 0, doorWidth, wallThickness + 4); // top door
-    gfx.fillRect(doorX, ROOM.height - wallThickness - 4, doorWidth, wallThickness + 4); // bottom door
-  }
-
-  #buildLighting(): void {
-    // Atmospheric vignette effect
-    const vignette = this.add.graphics();
-    vignette.setScrollFactor(0);
-    vignette.setDepth(100);
-
-    const cx = VIEW.width / 2;
-    const cy = VIEW.height / 2;
-    const radius = Math.max(VIEW.width, VIEW.height) * 0.7;
-
-    // Radial darkening from edges
-    for (let i = 0; i < 8; i++) {
-      const r = radius - i * 30;
-      const alpha = 0.02 * (8 - i);
-      vignette.fillStyle(0x000000, alpha);
-      vignette.fillCircle(cx, cy, r);
-    }
+    this.#source.destroy();
+    this.#ws.disconnect();
+    this.#world.destroy();
+    this.#ambient.destroy();
   }
 }

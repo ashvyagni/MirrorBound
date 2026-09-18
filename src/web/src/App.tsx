@@ -1,30 +1,35 @@
-import { AnimationDock } from './ui/AnimationDock';
+import { DebugOverlay } from './ui/DebugOverlay';
 import { GameMount } from './ui/GameMount';
-import { StatusPanel } from './ui/StatusPanel';
-import { usePlayerSnapshot } from './ui/usePlayerSnapshot';
+import { Hud } from './ui/Hud';
+import { InventoryScreen } from './ui/InventoryScreen';
+import { ConnectionOverlay, ControlsScreen, DeathOverlay, PauseMenu, Toasts, VictoryOverlay } from './ui/Overlays';
+import { SettingsScreen } from './ui/SettingsScreen';
+import { SkillTreeScreen } from './ui/SkillTreeScreen';
+import { useHotkeys } from './ui/useHotkeys';
+import './ui/store';
 
+/**
+ * The page is the game. Phaser fills the stage; React draws the HUD and the
+ * menus on top of it and never touches the world directly.
+ */
 export default function App() {
-  const snapshot = usePlayerSnapshot();
-
+  useHotkeys();
   return (
-    <div className="shell">
-      <header className="masthead">
-        <div>
-          <h1 className="masthead__title">Mirrorbound</h1>
-          <p className="masthead__sub">Dark Fantasy Dungeon</p>
-        </div>
-        <span className="masthead__badge">
-          {snapshot ? snapshot.state : 'booting'}
-        </span>
-      </header>
-
-      <main className="layout">
-        <GameMount />
-        <aside className="sidebar">
-          <StatusPanel snapshot={snapshot} />
-          <AnimationDock active={snapshot?.clip ?? null} />
-        </aside>
-      </main>
+    <div className="stage">
+      <GameMount />
+      <div className="viewport">
+        <Hud />
+        <Toasts />
+        <DebugOverlay />
+      </div>
+      <DeathOverlay />
+      <VictoryOverlay />
+      <PauseMenu />
+      <InventoryScreen />
+      <SkillTreeScreen />
+      <SettingsScreen />
+      <ControlsScreen />
+      <ConnectionOverlay />
     </div>
   );
 }

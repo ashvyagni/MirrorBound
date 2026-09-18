@@ -1,35 +1,38 @@
-import type { ClipName } from './animation/clips';
-import type { PlayerSnapshot, PlayerState, GameSnapshot, EnemySnapshot, TwinSnapshot } from './types';
+import type { CommandMessage, GameSnapshot, ServerEvent } from './contracts';
+import type { ConnectionStatus, PlayerSnapshot } from './types';
+import type { Settings } from '../ui/settings';
 
 /**
- * The only channel between React and Phaser.
+ * The only channel between React and Phaser (and the network).
  *
- * Keeping it to one typed bus means the game never reaches into the DOM and
- * React never reaches into a scene -- so the game can later be driven by a
- * WebSocket feed from the backend through the same events, with nothing in the
- * UI needing to know the difference.
+ * React never reaches into a scene; Phaser never touches the DOM. Everything
+ * crosses here, typed.
  */
 export interface GameEventMap {
   /** The play scene finished booting and is accepting commands. */
   'game:ready': { scene: string };
   /** Asset loading progress, 0..1. */
   'game:loading': { progress: number };
-  /** Emitted whenever the player's state or facing changes. */
-  'player:changed': PlayerSnapshot;
-  /** Emitted every frame; the UI throttles this itself. */
-  'player:tick': PlayerSnapshot;
-  /** Force a specific clip, ignoring the state machine. For the debug dock. */
-  'debug:play-clip': { clip: ClipName };
-  /** Ask the character to take a hit, die, or reset. */
-  'debug:force-state': { state: Extract<PlayerState, 'hurt' | 'die'> | 'reset' };
-  /** Toggle physics body overlays. */
-  'debug:toggle-bodies': { enabled: boolean };
-  /** Full game snapshot from server. */
+  /** A full authoritative snapshot arrived from the server. */
   'game:snapshot': GameSnapshot;
-  /** Enemy update from server. */
-  'enemy:update': EnemySnapshot[];
-  /** Twin update from server. */
-  'twin:update': TwinSnapshot;
+  /** Server events since the previous snapshot (VFX / audio / toasts). */
+  'game:events': ServerEvent[];
+  /** WebSocket state. */
+  'game:connection': { status: ConnectionStatus; attempt: number };
+  /** Emitted whenever the local player view's state or facing changes. */
+  'player:changed': PlayerSnapshot;
+  /** UI asks the server to do something discrete (equip, unlock, pause...). */
+  'ui:command': CommandMessage;
+  /** UI opened or closed a screen; the game stops sending movement while open. */
+  'ui:modal': { open: boolean };
+  /** Settings changed (volume, zoom, quality, debug overlay). */
+  'ui:settings': Settings;
+  /** Ask the game to enter or leave fullscreen. Must originate from a click. */
+  'game:toggle-fullscreen': Record<string, never>;
+  /** Reports whether the game is currently fullscreen. */
+  'game:fullscreen': { active: boolean };
+  /** Toggle physics/debug drawing in-world. */
+  'debug:toggle-overlay': { enabled: boolean };
 }
 
 type Handler<K extends keyof GameEventMap> = (payload: GameEventMap[K]) => void;
@@ -54,6 +57,7 @@ class TypedEventBus {
   emit<K extends keyof GameEventMap>(event: K, payload: GameEventMap[K]): void {
     const set = this.#handlers.get(event);
     if (!set) return;
+    // Copy first: a handler may unsubscribe itself while we iterate.
     for (const handler of [...set]) (handler as Handler<K>)(payload);
   }
 
