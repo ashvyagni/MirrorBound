@@ -31,17 +31,17 @@ it only renders what the server already decided.
 - `client/` sends input commands and renders snapshots; it holds no authoritative logic.
 - Combat/movement/etc. code never imports the agent. It publishes an event
   (`EventBus.publish`) and lets the agent's telemetry subscriber react. See
-  `apps/server/mirrorbound/game/core/events.py`.
+  `src/server/mirrorbound/game/core/events.py`.
 
 ## Determinism is mandatory
 
 Same `run_seed` + same tick-stamped inputs must always produce the same final state and
 the same event log. This is what makes replay, debugging, and regression testing
-possible — see `apps/server/tests/integration/test_determinism.py` for the shape that
+possible — see `src/server/tests/integration/test_determinism.py` for the shape that
 proof takes.
 
 - Never call `random.random()` / bare `random.*` anywhere in `game/` or `agent/`. Every
-  random decision goes through a `DeterministicRNG` (`apps/server/mirrorbound/game/core/rng.py`).
+  random decision goes through a `DeterministicRNG` (`src/server/mirrorbound/game/core/rng.py`).
 - Independent systems (combat, dungeon generation, loot, ...) each get their own
   `rng.spawn("label")` sub-stream, so one system's RNG usage can't perturb another's and
   call order between systems doesn't affect the sequence either sees.
@@ -79,7 +79,7 @@ Use plain dataclasses for entities (Player, Twin, Enemy, ...), not a full ECS.
   in isolation isn't enough on its own.
 - Before changing shared primitives (`game/core/*`), run the full suite:
   ```bash
-  cd apps/server && uv run pytest -q
+  cd src/server && uv run pytest -q
   ```
 
 ## Git / branch safety
@@ -92,14 +92,21 @@ Use plain dataclasses for entities (Player, Twin, Enemy, ...), not a full ECS.
 - Prefer new commits over amending, except to fix an unpushed commit's own mistake
   (e.g. a missing required trailer) before anyone else has based work on it.
 
+## Repo layout
+
+`src/<component>/`, not `apps/<component>/` — matches what's actually on the
+`logesh` branch (`src/web/`). This was renamed from an earlier `apps/server/`
+once a second branch established the real convention; keep it consistent
+rather than reopening the question per-branch.
+
 ## Team ownership boundaries (see project doc for the full rationale)
 
-- Frontend/game design: `apps/client/` (Phaser/React).
-- Deterministic simulation + probabilistic modeling: `apps/server/mirrorbound/game/`
+- Frontend/game design: `src/web/` (Phaser/React).
+- Deterministic simulation + probabilistic modeling: `src/server/mirrorbound/game/`
   (core/entities/movement/combat/dungeon/progression) and the modeling half of
-  `apps/server/mirrorbound/agent/` (telemetry, features, player_model, prediction,
+  `src/server/mirrorbound/agent/` (telemetry, features, player_model, prediction,
   patterns, spatial).
-- AI agent decision-making: the decision half of `apps/server/mirrorbound/agent/`
+- AI agent decision-making: the decision half of `src/server/mirrorbound/agent/`
   (twin policy, utility AI, boss counter-policy).
 
 Crossing one of these boundaries in a PR is fine when the change genuinely needs it,
@@ -107,7 +114,7 @@ but call it out explicitly rather than quietly expanding scope.
 
 ## Definition of done
 
-1. Tests exist and pass (`uv run pytest -q` from `apps/server`).
+1. Tests exist and pass (`uv run pytest -q` from `src/server`).
 2. No dependency-direction violation introduced (see above).
 3. Determinism preserved for anything touching `game/core`, `agent/prediction`, or
    `game/core/events.py`.
