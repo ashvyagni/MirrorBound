@@ -30,6 +30,7 @@ rather than guessing a value.** No signal is safer than a wrong signal.
 | `data["tags"]` | `list[str]` | aggression, melee/ranged/spell dependency | From the ability tag vocabulary (doc section 30): `MELEE`, `RANGED`, `SPELL`, `AOE`, `BURST`, `MOBILITY`, `DEFENSIVE`, `SINGLE_TARGET`, `HIGH_RISK`. `SPELL` is a project-specific addition to the doc's original list — needed to separate `spell_dependency` from `ranged_dependency` (a thrown weapon is `RANGED` but not `SPELL`). |
 | `data["distance"]` | `float` | mobility | World units moved by this event. |
 | `data["ability"]` | `str` | sequence prediction | Required on `PLAYER_ABILITY_CAST` events (see below) — without it the event contributes no prediction token, only telemetry buffering. |
+| `data["position"]` | `[float, float]` | spatial heatmaps | World `[x, y]` where this event happened. Must be a 2-element list/tuple — anything else (missing, wrong length, a dict) is treated as absent. |
 
 ## Recognized event `type`s (fallback when there's no `action_token` override)
 
@@ -84,9 +85,32 @@ than old ones; confidence rises with sample count but is capped short of
 `1.0`, and a handful of observations never reads as high confidence regardless
 of how consistent they are.
 
+## Spatial heatmaps (doc section 18)
+
+Code: `agent/features/spatial_features.py`, `agent/spatial/`. Requires
+`data["position"]` — no position, no observation, same rule as everywhere
+else. Each event can land in more than one layer at once (a melee attack in a
+dangerous spot is `combat`, `melee`, *and* `high_risk`).
+
+| Layer | Rule |
+|---|---|
+| `combat` | `type` is `PLAYER_ATTACKED` or `PLAYER_ABILITY_CAST`. |
+| `melee` | `combat` rule *and* `tags` contains `MELEE`. |
+| `spell` | `type` is `PLAYER_ABILITY_CAST` *and* `tags` contains `SPELL`. |
+| `retreat` | `type` is `PLAYER_RETREATED`. |
+| `dodge` | `type` is `PLAYER_DODGED`. |
+| `death` | `type` is `PLAYER_DIED` (not otherwise used by telemetry — publish it purely for this layer). |
+| `high_risk` | `tags` contains `HIGH_RISK`, regardless of `type`. |
+
+Each layer is its own decaying grid (`GridHeatmap`, `cell_size` world units per
+cell) — positions get bucketed into a cell and accumulate decayed weight
+there, same half-life-in-seconds calibration and actual storage pruning as
+`agent/prediction/markov.py`. The snapshot's `spatial` field gives each
+layer's top-N most active cells.
+
 ## What isn't covered yet
 
-Spatial heatmaps, pattern detection beyond raw sequence prediction, and any
-combat-outcome events (damage/kills/loot) are out of scope for this slice.
-Extending the trait set or event vocabulary is expected — update this table
-and the corresponding `agent/features/*.py` file together.
+Pattern detection beyond raw sequence prediction, and any combat-outcome
+events (damage/kills/loot) are out of scope for this slice. Extending the
+trait set, zone-layer set, or event vocabulary is expected — update this
+table and the corresponding `agent/features/*.py` file together.
