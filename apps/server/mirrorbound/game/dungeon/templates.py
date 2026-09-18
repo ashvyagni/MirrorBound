@@ -1,140 +1,150 @@
-"""Room templates for dungeon generation."""
+"""Handcrafted room pieces the generator arranges.
+
+A template fixes the things a designer wants to control — shape, where enemies
+stand, where the doors are, what the room is called — and leaves floor
+variation and decoration to seeded procedural placement.
+"""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 
 from mirrorbound.game.entities.entity import Vec2
 
 
 class RoomType(Enum):
-    """Types of rooms in the dungeon."""
     ENTRANCE = "entrance"
     COMBAT = "combat"
+    EXPLORATION = "exploration"
     TREASURE = "treasure"
+    EVENT = "event"
     ELITE = "elite"
     BOSS = "boss"
 
 
-@dataclass
-class EnemySpawn:
-    """Enemy spawn point."""
-    enemy_type: str  # "skeleton", "slime", "ranged_skeleton"
-    position: Vec2
+@dataclass(frozen=True)
+class SpawnSpec:
+    enemy_type: str
+    # Fractions of room width/height, so a template works at any size.
+    fx: float
+    fy: float
 
 
-@dataclass
+@dataclass(frozen=True)
 class RoomTemplate:
-    """Template for a room layout."""
     name: str
+    room_type: RoomType
     width: int
     height: int
-    room_type: RoomType
-    enemy_spawns: list[EnemySpawn]
-    player_spawn: Vec2
-    twin_spawn: Vec2
-    door_positions: list[Vec2]
+    spawns: tuple[SpawnSpec, ...] = ()
+    # Fractional positions for chests / treasure pickups.
+    treasure: tuple[tuple[str, float, float], ...] = ()
+    # Decor density multipliers per category.
+    tree_density: float = 1.0
+    rock_density: float = 1.0
+    ruin_density: float = 0.0
+    flora_density: float = 1.0
+    torches: int = 4
+    has_water: bool = False
+    title_pool: tuple[str, ...] = ("Hall",)
 
 
-# Room templates
-ENTRANCE_ROOM = RoomTemplate(
-    name="entrance",
-    width=1280,
-    height=960,
-    room_type=RoomType.ENTRANCE,
-    enemy_spawns=[],
-    player_spawn=Vec2(640, 480),
-    twin_spawn=Vec2(600, 500),
-    door_positions=[Vec2(640, 16), Vec2(640, 944)],
+ENTRANCE = RoomTemplate(
+    name="entrance_clearing", room_type=RoomType.ENTRANCE, width=1280, height=960,
+    tree_density=1.4, rock_density=0.6, flora_density=1.6, torches=2, has_water=True,
+    title_pool=("Wakewood Clearing", "The Mossy Threshold"),
 )
 
-COMBAT_ROOM_SMALL = RoomTemplate(
-    name="combat_small",
-    width=1280,
-    height=960,
-    room_type=RoomType.COMBAT,
-    enemy_spawns=[
-        EnemySpawn("skeleton", Vec2(300, 300)),
-        EnemySpawn("skeleton", Vec2(900, 300)),
-        EnemySpawn("slime", Vec2(640, 600)),
-    ],
-    player_spawn=Vec2(640, 800),
-    twin_spawn=Vec2(600, 820),
-    door_positions=[Vec2(640, 16), Vec2(640, 944)],
+COMBAT_GLADE = RoomTemplate(
+    name="combat_glade", room_type=RoomType.COMBAT, width=1280, height=960,
+    spawns=(
+        SpawnSpec("skeleton", 0.25, 0.30), SpawnSpec("skeleton", 0.72, 0.30),
+        SpawnSpec("hound", 0.50, 0.22), SpawnSpec("archer", 0.50, 0.62),
+    ),
+    tree_density=1.0, rock_density=0.8, flora_density=1.0, torches=4,
+    title_pool=("Hollow Glade", "Briar Court", "The Thornfield"),
 )
 
-COMBAT_ROOM_LARGE = RoomTemplate(
-    name="combat_large",
-    width=1600,
-    height=1200,
-    room_type=RoomType.COMBAT,
-    enemy_spawns=[
-        EnemySpawn("skeleton", Vec2(400, 400)),
-        EnemySpawn("skeleton", Vec2(1200, 400)),
-        EnemySpawn("ranged_skeleton", Vec2(800, 300)),
-        EnemySpawn("slime", Vec2(600, 800)),
-        EnemySpawn("slime", Vec2(1000, 800)),
-    ],
-    player_spawn=Vec2(800, 1000),
-    twin_spawn=Vec2(760, 1020),
-    door_positions=[Vec2(800, 16), Vec2(800, 1184)],
+COMBAT_RUIN = RoomTemplate(
+    name="combat_ruin", room_type=RoomType.COMBAT, width=1600, height=1200,
+    spawns=(
+        SpawnSpec("skeleton", 0.22, 0.32), SpawnSpec("skeleton", 0.78, 0.32),
+        SpawnSpec("archer", 0.50, 0.24), SpawnSpec("slime", 0.36, 0.66),
+        SpawnSpec("hound", 0.64, 0.66), SpawnSpec("hound", 0.50, 0.44),
+    ),
+    tree_density=0.4, rock_density=1.0, ruin_density=1.3, flora_density=0.5, torches=6,
+    title_pool=("Sunken Colonnade", "Ruined Antechamber", "Hall of Fallen Kings"),
 )
 
-TREASURE_ROOM = RoomTemplate(
-    name="treasure",
-    width=960,
-    height=720,
-    room_type=RoomType.TREASURE,
-    enemy_spawns=[
-        EnemySpawn("skeleton", Vec2(480, 360)),
-    ],
-    player_spawn=Vec2(480, 600),
-    twin_spawn=Vec2(440, 620),
-    door_positions=[Vec2(480, 16)],
+EXPLORATION_GROVE = RoomTemplate(
+    name="exploration_grove", room_type=RoomType.EXPLORATION, width=1600, height=1120,
+    spawns=(SpawnSpec("hound", 0.78, 0.26), SpawnSpec("skeleton", 0.30, 0.70)),
+    treasure=(("essence", 0.16, 0.24), ("essence", 0.84, 0.72), ("health_potion", 0.50, 0.14), ("shards", 0.14, 0.78)),
+    tree_density=1.8, rock_density=0.9, flora_density=2.0, torches=3, has_water=True,
+    title_pool=("Whisperfen", "The Drowned Orchard", "Lanternmoss Reach"),
 )
 
-ELITE_ROOM = RoomTemplate(
-    name="elite",
-    width=1280,
-    height=960,
-    room_type=RoomType.ELITE,
-    enemy_spawns=[
-        EnemySpawn("ranged_skeleton", Vec2(300, 300)),
-        EnemySpawn("ranged_skeleton", Vec2(900, 300)),
-        EnemySpawn("slime", Vec2(640, 500)),
-    ],
-    player_spawn=Vec2(640, 800),
-    twin_spawn=Vec2(600, 820),
-    door_positions=[Vec2(640, 16), Vec2(640, 944)],
+TREASURE_VAULT = RoomTemplate(
+    name="treasure_vault", room_type=RoomType.TREASURE, width=960, height=768,
+    spawns=(SpawnSpec("skeleton", 0.50, 0.32),),
+    treasure=(("chest", 0.50, 0.50), ("shards", 0.30, 0.55), ("shards", 0.70, 0.55), ("mana_potion", 0.50, 0.72)),
+    tree_density=0.0, rock_density=0.5, ruin_density=1.6, flora_density=0.3, torches=6,
+    title_pool=("The Reliquary", "Vault of Quiet Gold"),
 )
 
-BOSS_ROOM = RoomTemplate(
-    name="boss",
-    width=1600,
-    height=1200,
-    room_type=RoomType.BOSS,
-    enemy_spawns=[
-        EnemySpawn("slime", Vec2(800, 400)),  # Boss placeholder
-    ],
-    player_spawn=Vec2(800, 1000),
-    twin_spawn=Vec2(760, 1020),
-    door_positions=[Vec2(800, 16)],
+ELITE_ARENA = RoomTemplate(
+    name="elite_arena", room_type=RoomType.ELITE, width=1280, height=960,
+    spawns=(
+        SpawnSpec("elite_skeleton", 0.50, 0.32), SpawnSpec("archer", 0.24, 0.30),
+        SpawnSpec("archer", 0.76, 0.30), SpawnSpec("slime", 0.50, 0.64),
+    ),
+    tree_density=0.2, rock_density=0.8, ruin_density=1.8, flora_density=0.3, torches=8,
+    title_pool=("The Bone Court", "Champion's Ring"),
 )
 
-# Template registry
-ROOM_TEMPLATES: dict[RoomType, list[RoomTemplate]] = {
-    RoomType.ENTRANCE: [ENTRANCE_ROOM],
-    RoomType.COMBAT: [COMBAT_ROOM_SMALL, COMBAT_ROOM_LARGE],
-    RoomType.TREASURE: [TREASURE_ROOM],
-    RoomType.ELITE: [ELITE_ROOM],
-    RoomType.BOSS: [BOSS_ROOM],
+BOSS_MIRROR = RoomTemplate(
+    name="boss_mirror", room_type=RoomType.BOSS, width=1600, height=1200,
+    spawns=(SpawnSpec("mirror", 0.50, 0.34),),
+    tree_density=0.0, rock_density=0.3, ruin_density=2.2, flora_density=0.1, torches=10,
+    title_pool=("The Mirror Sanctum",),
+)
+
+TEMPLATES: dict[RoomType, tuple[RoomTemplate, ...]] = {
+    RoomType.ENTRANCE: (ENTRANCE,),
+    RoomType.COMBAT: (COMBAT_GLADE, COMBAT_RUIN),
+    RoomType.EXPLORATION: (EXPLORATION_GROVE,),
+    RoomType.TREASURE: (TREASURE_VAULT,),
+    RoomType.EVENT: (EXPLORATION_GROVE,),
+    RoomType.ELITE: (ELITE_ARENA,),
+    RoomType.BOSS: (BOSS_MIRROR,),
 }
+
+# The vertical slice's fixed progression (section 12 of the directive).
+DEFAULT_SEQUENCE: tuple[RoomType, ...] = (
+    RoomType.ENTRANCE, RoomType.COMBAT, RoomType.EXPLORATION, RoomType.TREASURE,
+    RoomType.COMBAT, RoomType.ELITE, RoomType.BOSS,
+)
+
+
+def biome_for(index: int, total: int) -> str:
+    """Grove near the surface, ruins in the middle, crypt at the bottom."""
+    frac = index / max(1, total - 1)
+    if frac < 0.4:
+        return "grove"
+    if frac < 0.8:
+        return "ruins"
+    return "crypt"
 
 
 def get_random_template(room_type: RoomType, rng) -> RoomTemplate:
-    """Get a random template for the given room type."""
-    templates = ROOM_TEMPLATES.get(room_type, [])
+    templates = TEMPLATES.get(room_type)
     if not templates:
         raise ValueError(f"No templates for room type: {room_type}")
     return rng.choice(templates)
+
+
+__all__ = [
+    "RoomType", "RoomTemplate", "SpawnSpec", "TEMPLATES", "DEFAULT_SEQUENCE",
+    "biome_for", "get_random_template",
+]

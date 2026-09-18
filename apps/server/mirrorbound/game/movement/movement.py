@@ -1,63 +1,127 @@
-"""Movement system - integrates velocity into position."""
+"""Movement system: integrates velocity + knockback into position, keeps
+entities inside the room and out of blocking decor, separates crowding
+enemies, and emits sampled movement telemetry.
+"""
 
 from __future__ import annotations
 
-from mirrorbound.game.core.events import Event, EventBus
+from mirrorbound.game.core.events import EventBus
+from mirrorbound.game.entities.enemy import Enemy
 from mirrorbound.game.entities.entity import Entity, Vec2
 from mirrorbound.game.state import GameState
 
+MOVE_SAMPLE_TICKS = 20          # emit PLAYER_MOVED at most every third of a second
+RETREAT_HOLD_SECONDS = 0.6      # moving away from a threat for this long counts as a retreat
+RETREAT_COOLDOWN_SECONDS = 2.5
+
 
 class MovementSystem:
-    """Handles entity movement and room bounds collision."""
+    """Handles entity movement and room-bounds collision."""
 
     def __init__(self, bus: EventBus):
         self.bus = bus
+        self._moved_since_sample = 0.0
+        self._last_sample_tick = 0
+        self._retreat_hold = 0.0
+        self._retreat_cooldown = 0.0
 
     def update(self, dt: float, state: GameState) -> None:
-        """Update all entity positions based on velocity."""
-        # Update player
-        self._move_entity(dt, state.player, state)
+        room = state.room
+        player = state.player
 
-        # Update twin
-        self._move_entity(dt, state.twin, state)
+        self._move(dt, player, state)
+        if not state.twin.downed:
+            self._move(dt, state.twin, state)
+        enemies = state.get_active_enemies()
+        for enemy in enemies:
+            self._move(dt, enemy, state)
+        self._separate(enemies, state)
 
-        # Update enemies
-        for enemy in state.get_active_enemies():
-            self._move_entity(dt, enemy, state)
-
-        # Update projectiles
         for projectile in state.projectiles:
             if projectile.active:
                 projectile.update(dt)
+                if room.is_wall(projectile.position.x, projectile.position.y):
+                    projectile.active = False
+                    state.emit("PROJECTILE_EXPIRED", projectile=projectile.id, kind=projectile.kind,
+                               position=projectile.position.to_dict(), reason="wall")
+                else:
+                    for d in room.decor:
+                        if d.blocking and d.kind != "pond" and (projectile.position - Vec2(d.x, d.y)).length() < d.radius * 0.7:
+                            projectile.active = False
+                            state.emit("PROJECTILE_EXPIRED", projectile=projectile.id, kind=projectile.kind,
+                                       position=projectile.position.to_dict(), reason="decor")
+                            break
 
-    def _move_entity(self, dt: float, entity: Entity, state: GameState) -> None:
-        """Move a single entity, clamping to room bounds."""
+        self._player_telemetry(dt, state)
+
+    def _move(self, dt: float, entity: Entity, state: GameState) -> None:
         if not entity.active:
             return
+        room = state.room
+        motion = (entity.velocity + entity.knockback) * dt
+        if motion.is_zero():
+            return
+        new_pos = entity.position + motion
+        new_pos = room.clamp(new_pos, entity.radius)
+        new_pos = room.resolve_decor_collision(new_pos, entity.radius)
+        new_pos = room.clamp(new_pos, entity.radius)
+        if entity.id == state.player.id:
+            self._moved_since_sample += (new_pos - entity.position).length()
+        entity.position = new_pos
 
-        # Store old position for event
-        old_pos = Vec2(entity.position.x, entity.position.y)
+    def _separate(self, enemies: list[Enemy], state: GameState) -> None:
+        """Soft push-apart so enemies don't stack into one sprite."""
+        n = len(enemies)
+        for i in range(n):
+            a = enemies[i]
+            for j in range(i + 1, n):
+                b = enemies[j]
+                diff = b.position - a.position
+                dist = diff.length()
+                min_dist = a.radius + b.radius
+                if 0 < dist < min_dist:
+                    push = diff.normalized() * ((min_dist - dist) * 0.5)
+                    a.position = state.room.clamp(a.position - push, a.radius)
+                    b.position = state.room.clamp(b.position + push, b.radius)
+        # Keep enemies from standing inside the player/twin as well.
+        for who in (state.player, state.twin):
+            if who.id == state.twin.id and state.twin.downed:
+                continue
+            for e in enemies:
+                diff = e.position - who.position
+                dist = diff.length()
+                min_dist = e.radius + who.radius - 2
+                if 0 < dist < min_dist:
+                    e.position = state.room.clamp(e.position + diff.normalized() * (min_dist - dist), e.radius)
 
-        # Apply velocity
-        new_x = entity.position.x + entity.velocity.x * dt
-        new_y = entity.position.y + entity.velocity.y * dt
+    def _player_telemetry(self, dt: float, state: GameState) -> None:
+        player = state.player
+        if player.state == "dead":
+            return
+        # Sampled movement: one event per MOVE_SAMPLE_TICKS with the distance covered.
+        if state.tick - self._last_sample_tick >= MOVE_SAMPLE_TICKS:
+            if self._moved_since_sample > 4:
+                state.emit("PLAYER_MOVED", position=player.position.to_dict(),
+                           distance=round(self._moved_since_sample, 1),
+                           direction=player.facing.to_dict(), running=player.is_running)
+            self._moved_since_sample = 0.0
+            self._last_sample_tick = state.tick
 
-        # Clamp to room bounds (accounting for entity radius)
-        wall = 16
-        new_x = max(wall + entity.radius, min(state.room.width - wall - entity.radius, new_x))
-        new_y = max(wall + entity.radius, min(state.room.height - wall - entity.radius, new_y))
-
-        entity.position = Vec2(new_x, new_y)
-
-        # Publish movement event for player
-        if entity.id == "player_1":
-            distance = (entity.position - old_pos).length()
-            if distance > 0.1:
-                self.bus.publish(Event(
-                    tick=state.tick,
-                    type="PLAYER_MOVED",
-                    data={
-                        "position": entity.position.to_dict(),
-                        "distance": distance,
-                    }
-                ))
+        # Retreat detection: moving away from the nearest engaged enemy.
+        if self._retreat_cooldown > 0:
+            self._retreat_cooldown -= dt
+        nearest = state.nearest_enemy(player.position, max_dist=320)
+        if nearest is not None and not player.velocity.is_zero():
+            away = (player.position - nearest.position).normalized()
+            if player.velocity.normalized().dot(away) > 0.6:
+                self._retreat_hold += dt
+            else:
+                self._retreat_hold = 0.0
+        else:
+            self._retreat_hold = 0.0
+        if self._retreat_hold >= RETREAT_HOLD_SECONDS and self._retreat_cooldown <= 0 and nearest is not None:
+            self._retreat_cooldown = RETREAT_COOLDOWN_SECONDS
+            self._retreat_hold = 0.0
+            state.emit("PLAYER_RETREATED", tags=["DEFENSIVE"], position=player.position.to_dict(),
+                       from_enemy=nearest.id, distance=round((player.position - nearest.position).length(), 1),
+                       health_fraction=round(player.health / max(1.0, player.max_health), 2))

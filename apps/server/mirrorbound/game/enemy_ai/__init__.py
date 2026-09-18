@@ -1,4 +1,1 @@
-from mirrorbound.game.enemy_ai.controller import BasicEnemyController
-from mirrorbound.game.enemy_ai.behaviors import EnemyBehavior
-
-__all__ = ["BasicEnemyController", "EnemyBehavior"]
+"""Enemy controllers: `controller.py` for the archetypes, `mirror.py` for the boss."""

@@ -3,48 +3,45 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 from mirrorbound.game.core.clock import SimClock
-from mirrorbound.game.core.events import EventBus
+from mirrorbound.game.core.events import Event, EventBus
 from mirrorbound.game.core.ids import IdAllocator
 from mirrorbound.game.core.rng import DeterministicRNG
-from mirrorbound.game.entities.player import Player, PlayerInput
-from mirrorbound.game.entities.twin import Twin
-from mirrorbound.game.entities.enemy import Enemy, EnemyDef
+from mirrorbound.game.dungeon.room import Room
+from mirrorbound.game.entities.enemy import Enemy, get_archetype
+from mirrorbound.game.entities.entity import Entity, Vec2
+from mirrorbound.game.entities.pickup import Pickup
+from mirrorbound.game.entities.player import Player
 from mirrorbound.game.entities.projectile import Projectile
-from mirrorbound.game.entities.entity import Vec2
+from mirrorbound.game.entities.twin import Twin
+
+# Re-exported for older imports (`from mirrorbound.game.state import Room`).
+__all__ = ["GameState", "Room", "RunStats"]
+
+PHASES = ("playing", "dead", "victory")
 
 
 @dataclass
-class Room:
-    """Room in the dungeon."""
-    width: int = 1280
-    height: int = 960
-    room_type: str = "combat"
-    tiles: list[list[int]] = field(default_factory=list)
-    door_positions: list[Vec2] = field(default_factory=list)
-
-    def __post_init__(self):
-        if not self.tiles:
-            # Initialize empty floor
-            self.tiles = [[0 for _ in range(self.width // 32)] for _ in range(self.height // 32)]
-
-    def is_wall(self, x: float, y: float) -> bool:
-        """Check if position is inside wall bounds."""
-        wall_thickness = 16
-        return (
-            x < wall_thickness or
-            x > self.width - wall_thickness or
-            y < wall_thickness or
-            y > self.height - wall_thickness
-        )
+class RunStats:
+    enemies_killed: int = 0
+    rooms_cleared: int = 0
+    damage_dealt: float = 0.0
+    damage_taken: float = 0.0
+    essence_collected: int = 0
+    abilities_cast: int = 0
+    ticks: int = 0
 
     def to_dict(self) -> dict:
         return {
-            "width": self.width,
-            "height": self.height,
-            "roomType": self.room_type,
-            "tiles": self.tiles,
+            "enemiesKilled": self.enemies_killed,
+            "roomsCleared": self.rooms_cleared,
+            "damageDealt": round(self.damage_dealt),
+            "damageTaken": round(self.damage_taken),
+            "essenceCollected": self.essence_collected,
+            "abilitiesCast": self.abilities_cast,
+            "seconds": round(self.ticks / 60.0, 1),
         }
 
 
@@ -62,46 +59,133 @@ class GameState:
     twin: Twin = field(default_factory=lambda: Twin(id="twin_1"))
     enemies: list[Enemy] = field(default_factory=list)
     projectiles: list[Projectile] = field(default_factory=list)
+    pickups: list[Pickup] = field(default_factory=list)
     room: Room = field(default_factory=Room)
+    dungeon: Any = None            # DungeonRun; typed loosely to avoid an import cycle
+    phase: str = "playing"
+    paused: bool = False
+    transition_timer: float = 0.0  # > 0 while fading between rooms
+    stats: RunStats = field(default_factory=RunStats)
+    # Everything published since the last snapshot; drained by the session so the
+    # client can react to events (VFX, sounds) instead of diffing entity state.
+    pending_events: list[Event] = field(default_factory=list)
 
     def __post_init__(self):
         self.rng = DeterministicRNG(self.seed)
-        self.player.position = Vec2(640, 480)
-        self.twin.position = Vec2(600, 500)
+        self.player.position = self.room.player_spawn.copy()
+        self.twin.position = self.room.twin_spawn.copy()
+        self.bus.subscribe_all(self._collect)
 
-    def spawn_enemies(self, count: int = 3) -> None:
-        """Spawn enemies in the room."""
-        combat_rng = self.rng.spawn("enemies")
-        for _ in range(count):
-            enemy_id = self.ids.next("enemy")
-            # Random position avoiding walls
-            x = combat_rng.randint(100, self.room.width - 100)
-            y = combat_rng.randint(100, self.room.height - 100)
+    def _collect(self, event: Event) -> None:
+        self.pending_events.append(event)
+        if len(self.pending_events) > 400:
+            self.pending_events = self.pending_events[-400:]
 
-            # Random archetype
-            archetypes = [
-                EnemyDef.skeleton(),
-                EnemyDef.slime(),
-                EnemyDef.ranged_skeleton(),
-            ]
-            enemy_def = combat_rng.choice(archetypes)
+    # --- events -----------------------------------------------------------------
 
-            enemy = Enemy(
-                id=enemy_id,
-                position=Vec2(x, y),
-                enemy_def=enemy_def,
-            )
-            self.enemies.append(enemy)
+    def emit(self, event_type: str, **data: Any) -> Event:
+        event = Event(tick=self.tick, type=event_type, data=data)
+        self.bus.publish(event)
+        return event
+
+    def drain_events(self) -> list[Event]:
+        events, self.pending_events = self.pending_events, []
+        # The bus keeps its own buffer for replay tooling; keep it bounded too.
+        self.bus.drain()
+        return events
+
+    # --- spawning ------------------------------------------------------------------
+
+    def spawn_enemy(self, enemy_type: str, position: Vec2) -> Enemy:
+        enemy_def = get_archetype(enemy_type)
+        kind = "boss" if enemy_def.boss else "enemy"
+        enemy = Enemy(id=self.ids.next(kind), position=position.copy(), enemy_def=enemy_def)
+        enemy.home = position.copy()
+        self.enemies.append(enemy)
+        self.emit("ENEMY_SPAWNED", enemy_id=enemy.id, enemy_type=enemy_def.id, role=enemy_def.role,
+                  position=position.to_dict(), room_id=self.room.id)
+        return enemy
+
+    def spawn_enemies_for_room(self, room: Room) -> None:
+        for spawn in room.enemy_spawns:
+            self.spawn_enemy(spawn.enemy_type, spawn.position)
+
+    def spawn_pickup(self, kind: str, position: Vec2, amount: int = 1, item_id: str = "",
+                     scatter: Vec2 | None = None) -> Pickup:
+        pickup = Pickup(id=self.ids.next("pickup"), position=position.copy(), kind=kind,
+                        amount=amount, item_id=item_id)
+        if scatter is not None:
+            pickup.velocity = scatter
+        self.pickups.append(pickup)
+        return pickup
+
+    def spawn_room_treasure(self, room: Room) -> None:
+        loot_rng = self.rng.spawn(f"treasure:{room.index}")
+        for kind, pos in room.treasure:
+            if kind == "chest":
+                # A chest is a burst of everything.
+                self.spawn_pickup("shards", pos + Vec2(-26, 18), amount=loot_rng.randint(2, 4))
+                self.spawn_pickup("essence", pos + Vec2(26, 18), amount=loot_rng.randint(6, 10))
+                self.spawn_pickup("health_potion", pos + Vec2(0, 30))
+                weapon = loot_rng.choice(["hunter_bow", "ember_staff", "frost_staff"])
+                self.spawn_pickup("weapon", pos + Vec2(0, -26), item_id=weapon)
+                relic = loot_rng.choice(["ember_heart", "wolf_fang", "mirror_eye"])
+                self.spawn_pickup("relic", pos + Vec2(40, -10), item_id=relic)
+            elif kind == "essence":
+                self.spawn_pickup("essence", pos, amount=loot_rng.randint(2, 5))
+            elif kind == "shards":
+                self.spawn_pickup("shards", pos, amount=1)
+            else:
+                self.spawn_pickup(kind, pos)
+
+    # --- queries --------------------------------------------------------------------
 
     def get_active_enemies(self) -> list[Enemy]:
-        """Get all active enemies."""
         return [e for e in self.enemies if e.active]
 
-    def to_dict(self) -> dict:
-        return {
+    def entity_by_id(self, entity_id: str | None) -> Entity | None:
+        if entity_id is None:
+            return None
+        if entity_id == self.player.id:
+            return self.player
+        if entity_id == self.twin.id:
+            return self.twin
+        for e in self.enemies:
+            if e.id == entity_id:
+                return e
+        return None
+
+    def nearest_enemy(self, pos: Vec2, max_dist: float = float("inf")) -> Enemy | None:
+        best, best_d = None, max_dist
+        for e in self.get_active_enemies():
+            d = (e.position - pos).length()
+            if d < best_d:
+                best, best_d = e, d
+        return best
+
+    def boss_alive(self) -> bool:
+        return any(e.active and e.enemy_def.boss for e in self.enemies)
+
+    # --- serialisation ------------------------------------------------------------------
+
+    def to_dict(self, include_room: bool = True) -> dict:
+        d = {
             "tick": self.tick,
+            "seed": self.seed,
+            "phase": self.phase,
+            "paused": self.paused,
+            "transition": round(self.transition_timer, 2),
             "player": self.player.to_dict(),
             "twin": self.twin.to_dict(),
             "enemies": [e.to_dict() for e in self.get_active_enemies()],
-            "room": self.room.to_dict(),
+            "projectiles": [p.to_dict() for p in self.projectiles if p.active],
+            "pickups": [p.to_dict() for p in self.pickups if p.active],
+            "stats": self.stats.to_dict(),
+            "dungeon": self.dungeon.to_dict() if self.dungeon is not None else None,
         }
+        if include_room:
+            d["room"] = self.room.to_dict()
+        else:
+            d["room"] = {"id": self.room.id, "index": self.room.index, "cleared": self.room.cleared,
+                         "doors": [door.to_dict() for door in self.room.doors]}
+        return d

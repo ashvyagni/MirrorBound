@@ -1,4 +1,4 @@
-from mirrorbound.game.state import GameState, Room
-from mirrorbound.game.entities import Entity, Player, Twin, Enemy, Projectile
-
-__all__ = ["GameState", "Room", "Entity", "Player", "Twin", "Enemy", "Projectile"]
+"""Deterministic game simulation. Import submodules directly
+(`mirrorbound.game.state`, `mirrorbound.game.combat.combat`, ...): the package
+itself stays import-free so the modules can reference each other without cycles.
+"""

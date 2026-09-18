@@ -1,113 +1,193 @@
-"""Weapon definitions and data."""
+"""Weapon definitions. Pure data — the combat system interprets it.
+
+Four families, each of which has a matching swing sheet on the client
+(`src/web/public/game/{swordA,swordB,swordC,bow,fireStaff,iceStaff}`), so
+every weapon here is something the player can actually see swing.
+"""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 
 
 class WeaponType(Enum):
-    """Types of weapons."""
     MELEE = "melee"
     RANGED = "ranged"
-    PROJECTILE = "projectile"
+    MAGIC = "magic"
 
 
-@dataclass
+class Rarity(Enum):
+    COMMON = "common"
+    UNCOMMON = "uncommon"
+    RARE = "rare"
+
+
+@dataclass(frozen=True)
+class ProjectileSpec:
+    kind: str            # client texture key: "arrow", "fire_bolt", "ice_bolt", "arcane_bolt"
+    speed: float
+    radius: float
+    lifetime: float
+    count: int = 1
+    spread: float = 0.0  # radians between projectiles when count > 1
+    aoe_radius: float = 0.0
+    pierce: bool = False
+    slow: float = 0.0    # 0 = none, else target speed multiplier (0.6 = 40% slow)
+    slow_duration: float = 0.0
+
+
+@dataclass(frozen=True)
 class WeaponDef:
-    """Weapon definition."""
+    id: str
     name: str
     type: WeaponType
+    family: str                 # "sword" | "bow" | "staff"
     damage: float
-    range: float  # World units
-    cooldown: float  # Seconds
-    hitbox_size: float  # Width for melee, radius for projectile
+    cooldown: float             # seconds between attacks (attack speed)
+    range: float                # melee reach / projectile effective range
+    resource_cost: float        # mana per attack (0 for physical weapons)
     knockback: float
-    tags: list[str]  # For telemetry: MELEE, RANGED, SPELL, AOE, etc.
-    projectile_speed: float = 0.0
-    projectile_count: int = 1
-    crit_chance: float = 0.1
-    crit_multiplier: float = 1.5
+    tags: tuple[str, ...]       # telemetry vocabulary: MELEE, RANGED, MAGIC, FAST, HEAVY, AOE, BURST, SPELL
+    # Damage multiplier per hit in a combo chain; length 1 = no combo.
+    combo_chain: tuple[float, ...] = (1.0,)
+    combo_window: float = 0.9
+    arc_angle: float = 1.9      # radians, melee only
+    projectile: ProjectileSpec | None = None
+    crit_chance: float = 0.08
+    crit_multiplier: float = 1.6
+    rarity: Rarity = Rarity.COMMON
+    animation: str = "sword"    # client swing sheet id
+    vfx: str = "slash"
+    sound: str = "slash"
+    description: str = ""
 
     def get_tags(self) -> list[str]:
-        """Get tags for telemetry events."""
-        return self.tags.copy()
+        return list(self.tags)
+
+    @property
+    def is_melee(self) -> bool:
+        return self.type is WeaponType.MELEE
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "type": self.type.value,
+            "family": self.family,
+            "damage": self.damage,
+            "cooldown": self.cooldown,
+            "range": self.range,
+            "resourceCost": self.resource_cost,
+            "tags": list(self.tags),
+            "comboLength": len(self.combo_chain),
+            "rarity": self.rarity.value,
+            "animation": self.animation,
+            "description": self.description,
+        }
 
 
-# Concrete weapons
-SWORD = WeaponDef(
-    name="sword",
+IRON_SWORD = WeaponDef(
+    id="iron_sword",
+    name="Iron Sword",
     type=WeaponType.MELEE,
-    damage=15,
-    range=50,
-    cooldown=0.4,
-    hitbox_size=40,
-    knockback=100,
-    tags=["MELEE"],
+    family="sword",
+    damage=14,
+    cooldown=0.42,
+    range=64,
+    resource_cost=0,
+    knockback=180,
+    tags=("MELEE", "FAST"),
+    combo_chain=(1.0, 1.1, 1.5),
+    combo_window=0.9,
+    arc_angle=2.0,
+    animation="sword",
+    vfx="slash",
+    sound="slash",
+    description="Three-hit chain. The finisher hits hardest and knocks back.",
 )
 
-BATTLE_AXE = WeaponDef(
-    name="battle_axe",
-    type=WeaponType.MELEE,
-    damage=25,
-    range=55,
-    cooldown=0.7,
-    hitbox_size=50,
-    knockback=150,
-    tags=["MELEE", "AOE"],
-)
-
-BOW = WeaponDef(
-    name="bow",
+HUNTER_BOW = WeaponDef(
+    id="hunter_bow",
+    name="Hunter's Bow",
     type=WeaponType.RANGED,
+    family="bow",
+    damage=16,
+    cooldown=0.7,
+    range=380,
+    resource_cost=0,
+    knockback=60,
+    tags=("RANGED",),
+    projectile=ProjectileSpec(kind="arrow", speed=520, radius=5, lifetime=1.1),
+    crit_chance=0.15,
+    animation="bow",
+    vfx="arrow",
+    sound="bow",
+    rarity=Rarity.UNCOMMON,
+    description="Fast arrows with a high critical chance. Keep your distance.",
+)
+
+EMBER_STAFF = WeaponDef(
+    id="ember_staff",
+    name="Ember Staff",
+    type=WeaponType.MAGIC,
+    family="staff",
     damage=20,
-    range=250,
-    cooldown=0.8,
-    hitbox_size=4,
-    knockback=50,
-    tags=["RANGED"],
-    projectile_speed=400,
-    projectile_count=1,
+    cooldown=0.85,
+    range=320,
+    resource_cost=6,
+    knockback=120,
+    tags=("RANGED", "MAGIC", "SPELL", "AOE", "BURST"),
+    projectile=ProjectileSpec(kind="fire_bolt", speed=380, radius=9, lifetime=1.2, aoe_radius=56),
+    animation="fireStaff",
+    vfx="fire",
+    sound="fire",
+    rarity=Rarity.RARE,
+    description="Slow fireballs that burst on impact and hurt everything nearby.",
 )
 
-FIRE_STAFF = WeaponDef(
-    name="fire_staff",
-    type=WeaponType.PROJECTILE,
-    damage=18,
-    range=200,
-    cooldown=1.0,
-    hitbox_size=30,
-    knockback=80,
-    tags=["RANGED", "SPELL", "AOE", "BURST"],
-    projectile_speed=300,
-    projectile_count=1,
+FROST_STAFF = WeaponDef(
+    id="frost_staff",
+    name="Frost Staff",
+    type=WeaponType.MAGIC,
+    family="staff",
+    damage=11,
+    cooldown=0.5,
+    range=340,
+    resource_cost=4,
+    knockback=40,
+    tags=("RANGED", "MAGIC", "SPELL", "FAST"),
+    projectile=ProjectileSpec(kind="ice_bolt", speed=440, radius=6, lifetime=1.1, slow=0.55, slow_duration=1.6),
+    animation="iceStaff",
+    vfx="ice",
+    sound="ice",
+    rarity=Rarity.RARE,
+    description="Rapid frost bolts that slow whatever they touch.",
 )
 
-ICE_STAFF = WeaponDef(
-    name="ice_staff",
-    type=WeaponType.PROJECTILE,
-    damage=12,
-    range=220,
-    cooldown=0.6,
-    hitbox_size=5,
-    knockback=30,
-    tags=["RANGED", "SPELL"],
-    projectile_speed=350,
-    projectile_count=1,
-)
-
-# Weapon registry
 WEAPONS: dict[str, WeaponDef] = {
-    "sword": SWORD,
-    "battle_axe": BATTLE_AXE,
-    "bow": BOW,
-    "fire_staff": FIRE_STAFF,
-    "ice_staff": ICE_STAFF,
+    w.id: w for w in (IRON_SWORD, HUNTER_BOW, EMBER_STAFF, FROST_STAFF)
 }
+
+# Backwards-compatible aliases for callers written against the earlier names.
+WEAPONS["sword"] = IRON_SWORD
+WEAPONS["bow"] = HUNTER_BOW
+WEAPONS["fire_staff"] = EMBER_STAFF
+WEAPONS["ice_staff"] = FROST_STAFF
+
+STARTING_WEAPON = IRON_SWORD.id
+TWIN_STARTING_WEAPON = FROST_STAFF.id
 
 
 def get_weapon(name: str) -> WeaponDef:
-    """Get weapon by name."""
     if name not in WEAPONS:
         raise ValueError(f"Unknown weapon: {name}")
     return WEAPONS[name]
+
+
+def canonical_weapon_ids() -> list[str]:
+    seen: list[str] = []
+    for w in WEAPONS.values():
+        if w.id not in seen:
+            seen.append(w.id)
+    return seen

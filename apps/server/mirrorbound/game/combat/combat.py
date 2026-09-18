@@ -1,19 +1,27 @@
-"""Combat system - handles attacks, damage, and abilities."""
+"""Combat system: attacks, abilities, and the single damage pipeline.
+
+Flow for every hit, regardless of who threw it:
+
+    INPUT/INTENT -> validation (cooldown, resource, state)
+                 -> hit detection (arc / cone / radius / projectile)
+                 -> damage (`damage_enemy` / `damage_player` / `damage_twin`)
+                 -> effects (knockback, slow, stagger, death, loot, xp)
+                 -> events on the bus (telemetry, client VFX)
+"""
 
 from __future__ import annotations
 
 import math
 
-from mirrorbound.game.core.events import Event, EventBus
-from mirrorbound.game.core.rng import DeterministicRNG
-from mirrorbound.game.entities.entity import Vec2
-from mirrorbound.game.entities.player import Player
-from mirrorbound.game.entities.twin import Twin
-from mirrorbound.game.entities.enemy import Enemy
-from mirrorbound.game.entities.projectile import Projectile
-from mirrorbound.game.combat.weapons import WeaponDef, get_weapon, SWORD
-from mirrorbound.game.combat.abilities import AbilityDef, get_ability_by_slot
+from mirrorbound.game.combat.abilities import AbilityDef, AbilityType
 from mirrorbound.game.combat.hitbox import Hitbox, HitboxShape
+from mirrorbound.game.combat.weapons import ProjectileSpec, WeaponDef
+from mirrorbound.game.core.events import EventBus
+from mirrorbound.game.core.rng import DeterministicRNG
+from mirrorbound.game.entities.enemy import Enemy
+from mirrorbound.game.entities.entity import Entity, Vec2
+from mirrorbound.game.entities.projectile import Projectile
+from mirrorbound.game.loot import LootSystem
 from mirrorbound.game.state import GameState
 
 
@@ -22,237 +30,411 @@ class CombatSystem:
 
     def __init__(self, bus: EventBus, rng: DeterministicRNG):
         self.bus = bus
-        self.rng = rng
+        self.rng = rng.spawn("combat")
+        self.loot = LootSystem(rng)
 
-    def update(self, dt: float, state: GameState) -> None:
-        """Update combat state (cooldowns, etc.)."""
-        state.player.update_cooldowns(dt)
+    # ------------------------------------------------------------------ player
 
-        # Update enemy attack timers
-        for enemy in state.get_active_enemies():
-            if enemy.attack_timer > 0:
-                enemy.attack_timer -= dt
-
-    def process_player_attack(self, state: GameState, aim_angle: float) -> None:
-        """Process a player attack."""
+    def process_player_attack(self, state: GameState) -> bool:
+        """Basic attack in the player's facing direction. Returns True if it fired."""
         player = state.player
-        weapon = get_weapon(player.current_weapon)
-
+        weapon = player.weapon
         if not player.can_attack():
-            return
+            return False
+        if weapon.resource_cost > 0 and player.mana < weapon.resource_cost:
+            state.emit("ACTION_REJECTED", actor=player.id, action="ATTACK", reason="mana")
+            return False
 
-        player.start_attack()
+        combo_mult = player.start_attack(weapon)
+        if weapon.resource_cost > 0:
+            player.mana -= weapon.resource_cost
+        facing = player.facing
+        hits: list[Enemy] = []
 
-        if weapon.type.value in ["melee"]:
-            self._process_melee_attack(player, weapon, aim_angle, state)
+        if weapon.is_melee:
+            hits = self._melee_sweep(state, player, weapon, facing, combo_mult, attacker_id=player.id)
         else:
-            self._process_ranged_attack(player, weapon, aim_angle, state)
+            self._fire_projectiles(state, player, weapon.projectile, facing, weapon.damage * combo_mult
+                                   * player.weapon_damage_multiplier(), weapon.knockback, weapon.tags,
+                                   source=weapon.id)
 
-    def _process_melee_attack(self, player: Player, weapon: WeaponDef, aim_angle: float, state: GameState) -> None:
-        """Process a melee attack."""
-        # Create arc hitbox
+        token = f"{weapon.family.upper()}_{'STRIKE' if weapon.is_melee else 'SHOT'}"
+        if weapon.is_melee and player.combo_step == len(weapon.combo_chain) and len(weapon.combo_chain) > 1:
+            token = f"{weapon.family.upper()}_FINISHER"
+        state.emit(
+            "PLAYER_ATTACKED",
+            action_token=token,
+            tags=weapon.get_tags(),
+            weapon=weapon.id,
+            position=player.position.to_dict(),
+            facing=facing.to_dict(),
+            comboStep=player.combo_step,
+            targets=[e.id for e in hits],
+            hitCount=len(hits),
+            nearestEnemyDistance=self._nearest_enemy_distance(state, player.position),
+        )
+        return True
+
+    def _melee_sweep(self, state: GameState, attacker: Entity, weapon: WeaponDef, facing: Vec2,
+                     mult: float, attacker_id: str) -> list[Enemy]:
         hitbox = Hitbox(
             shape=HitboxShape.ARC,
-            position=player.position,
+            position=attacker.position,
             size=weapon.range,
-            direction=aim_angle,
-            arc_angle=math.pi / 2,  # 90 degree arc
+            direction=facing.angle(),
+            arc_angle=weapon.arc_angle,
         )
-
-        # Check hits against enemies
-        hits = []
-        for enemy in state.get_active_enemies():
-            if hitbox.overlaps_circle(enemy.position, enemy.radius):
-                hits.append(enemy)
-
-        # Apply damage to hits
+        hits = [e for e in state.get_active_enemies() if hitbox.overlaps_circle(e.position, e.radius)]
+        is_player = attacker_id == state.player.id
+        dmg_mult = state.player.weapon_damage_multiplier() if is_player else 1.0
+        crit_bonus = state.player.crit_chance_bonus() if is_player else 0.0
+        knock_mult = state.player.mods.knockback_mult if is_player else 1.0
         for enemy in hits:
-            damage = self._calculate_damage(player, weapon, enemy)
-            actual = enemy.take_damage(damage)
+            crit = self.rng.chance(weapon.crit_chance + crit_bonus)
+            damage = weapon.damage * mult * dmg_mult * (weapon.crit_multiplier if crit else 1.0)
+            direction = (enemy.position - attacker.position).normalized()
+            self.damage_enemy(state, enemy, damage, attacker_id, weapon.get_tags(), direction,
+                              weapon.knockback * knock_mult * (1.4 if mult > 1.2 else 1.0), weapon.id, crit)
+        return hits
 
-            # Apply knockback
-            diff = enemy.position - player.position
-            if diff.length() > 0:
-                knockback_dir = diff.normalized()
-                enemy.velocity = Vec2(
-                    knockback_dir.x * weapon.knockback,
-                    knockback_dir.y * weapon.knockback,
-                )
-
-            # Publish events
-            self.bus.publish(Event(
-                tick=state.tick,
-                type="DAMAGE_DEALT",
-                data={
-                    "attacker": player.id,
-                    "target": enemy.id,
-                    "damage": actual,
-                    "remaining": enemy.health,
-                    "position": enemy.position.to_dict(),
-                }
-            ))
-
-            if not enemy.active:
-                self.bus.publish(Event(
-                    tick=state.tick,
-                    type="ENEMY_KILLED",
-                    data={
-                        "enemy_id": enemy.id,
-                        "enemy_type": enemy.enemy_def.name,
-                        "xp_reward": enemy.xp_reward,
-                        "position": enemy.position.to_dict(),
-                    }
-                ))
-
-        # Publish player attack event
-        self.bus.publish(Event(
-            tick=state.tick,
-            type="PLAYER_ATTACKED",
-            data={
-                "action_token": f"{weapon.name.upper()}_STRIKE",
-                "tags": weapon.get_tags(),
-                "distance": weapon.range,
-                "targets": [e.id for e in hits],
-                "hitCount": len(hits),
-                "aimAngle": aim_angle,
-            }
-        ))
-
-    def _process_ranged_attack(self, player: Player, weapon: WeaponDef, aim_angle: float, state: GameState) -> None:
-        """Process a ranged attack."""
-        for i in range(weapon.projectile_count):
-            # Calculate spread for multiple projectiles
-            spread = 0
-            if weapon.projectile_count > 1:
-                spread = (i - (weapon.projectile_count - 1) / 2) * 0.2
-
+    def _fire_projectiles(self, state: GameState, owner: Entity, spec: ProjectileSpec | None, facing: Vec2,
+                          damage: float, knockback: float, tags: tuple[str, ...], source: str) -> list[Projectile]:
+        if spec is None:
+            return []
+        out = []
+        base_angle = facing.angle()
+        for i in range(spec.count):
+            spread = (i - (spec.count - 1) / 2) * spec.spread
+            direction = Vec2.from_angle(base_angle + spread)
             projectile = Projectile(
                 id=state.ids.next("projectile"),
-                owner_id=player.id,
-                position=Vec2(player.position.x, player.position.y),
-                velocity=Vec2(
-                    math.cos(aim_angle + spread) * weapon.projectile_speed,
-                    math.sin(aim_angle + spread) * weapon.projectile_speed,
-                ),
-                damage=weapon.damage,
-                speed=weapon.projectile_speed,
-                radius=weapon.hitbox_size,
-                lifetime=2.0,
+                owner_id=owner.id,
+                kind=spec.kind,
+                position=owner.position + direction * (owner.radius + spec.radius + 2),
+                velocity=direction * spec.speed,
+                facing=direction,
+                damage=damage,
+                speed=spec.speed,
+                radius=spec.radius,
+                lifetime=spec.lifetime,
+                pierce=spec.pierce,
+                aoe_radius=spec.aoe_radius,
+                knockback=knockback,
+                slow=spec.slow,
+                slow_duration=spec.slow_duration,
+                tags=tuple(tags),
+                source=source,
             )
             state.projectiles.append(projectile)
+            out.append(projectile)
+        return out
 
-        # Publish player attack event
-        self.bus.publish(Event(
-            tick=state.tick,
-            type="PLAYER_ATTACKED",
-            data={
-                "action_token": f"{weapon.name.upper()}_SHOT",
-                "tags": weapon.get_tags(),
-                "distance": weapon.range,
-                "projectileCount": weapon.projectile_count,
-                "aimAngle": aim_angle,
-            }
-        ))
-
-    def process_ability(self, state: GameState, slot: int) -> None:
-        """Process an ability use."""
+    def process_ability(self, state: GameState, slot: int) -> bool:
         player = state.player
-        ability = get_ability_by_slot(slot)
+        ability = player.ability_in_slot(slot)
+        if ability is None:
+            return False
+        ok, reason = player.can_use_ability(ability)
+        if not ok:
+            state.emit("ACTION_REJECTED", actor=player.id, action=f"ABILITY_{slot}", ability=ability.id, reason=reason)
+            return False
 
-        if ability is None or not player.can_use_ability(slot):
-            return
+        player.start_ability(ability)
+        state.stats.abilities_cast += 1
+        facing = player.facing
+        hits: list[str] = []
+        extra: dict = {}
 
-        player.start_ability(slot, ability.cooldown)
+        if ability.type is AbilityType.PROJECTILE:
+            spec = ability.projectile
+            dmg = ability.damage * player.spell_damage_multiplier()
+            self._fire_projectiles(state, player, spec, facing, dmg, 90, ability.tags, source=ability.id)
+        elif ability.type is AbilityType.CONE:
+            hitbox = Hitbox(shape=HitboxShape.ARC, position=player.position, size=ability.area,
+                            direction=facing.angle(), arc_angle=ability.cone_angle)
+            for enemy in state.get_active_enemies():
+                if hitbox.overlaps_circle(enemy.position, enemy.radius):
+                    dist = (enemy.position - player.position).length()
+                    falloff = 1.0 - 0.35 * min(1.0, dist / max(ability.area, 1))
+                    dmg = ability.damage * player.spell_damage_multiplier() * falloff
+                    direction = (enemy.position - player.position).normalized()
+                    self.damage_enemy(state, enemy, dmg, player.id, list(ability.tags), direction, 160, ability.id)
+                    if "BURN" in ability.effect_tags:
+                        enemy.apply_status("burn", 1.5)
+                    hits.append(enemy.id)
+        elif ability.type is AbilityType.DASH:
+            direction = player.last_move_dir if not player.velocity.is_zero() else player.facing
+            invuln = ability.duration + player.mods.dash_invuln_bonus
+            start = player.position.copy()
+            player.begin_dash(direction, ability.effect_value, ability.duration, invuln)
+            dodged = [
+                e.id for e in state.get_active_enemies()
+                if e.is_winding_up and e.target_id == player.id and (e.position - start).length() < e.enemy_def.attack_range * 2.5
+            ]
+            extra = {"distance": ability.effect_value, "dodged": dodged}
+            state.emit("PLAYER_DASHED", action_token="DASH", tags=["MOBILITY"], distance=ability.effect_value,
+                       position=start.to_dict(), direction=direction.normalized().to_dict())
+            if dodged:
+                state.emit("PLAYER_DODGED", tags=["MOBILITY", "DEFENSIVE"], position=start.to_dict(),
+                           dodged=dodged, distance=ability.effect_value)
+        elif ability.type is AbilityType.NOVA:
+            for enemy in state.get_active_enemies():
+                dist = (enemy.position - player.position).length()
+                if dist <= ability.area + enemy.radius:
+                    dmg = ability.damage * player.spell_damage_multiplier()
+                    direction = (enemy.position - player.position).normalized()
+                    self.damage_enemy(state, enemy, dmg, player.id, list(ability.tags), direction, 120, ability.id)
+                    if "SLOW" in ability.effect_tags and enemy.active:
+                        enemy.apply_status("slow", ability.duration, slow_factor=ability.effect_value)
+                    hits.append(enemy.id)
+        elif ability.type is AbilityType.HEAL:
+            healed = player.heal(ability.effect_value)
+            state.emit("PLAYER_HEALED", amount=healed, remaining=player.health, source=ability.id)
 
-        if ability.type.value == "dash":
-            self._process_dash(player, ability, state)
-        elif ability.type.value == "aoe":
-            self._process_aoe(player, ability, state)
-        elif ability.type.value == "heal":
-            self._process_heal(player, ability, state)
-
-        # Publish ability cast event
-        self.bus.publish(Event(
-            tick=state.tick,
-            type="PLAYER_ABILITY_CAST",
-            data={
-                "ability": ability.name.upper(),
-                "tags": ability.tags,
-                "slot": slot,
-            }
-        ))
-
-    def _process_dash(self, player: Player, ability: AbilityDef, state: GameState) -> None:
-        """Process dash ability."""
-        # Dash in the direction the player is facing or moving
-        dash_distance = ability.effect_value
-        direction = player.velocity.normalized()
-        if direction.length() == 0:
-            # Default dash forward based on last facing
-            direction = Vec2(1, 0)  # Could be improved with facing direction
-
-        dash_velocity = Vec2(
-            direction.x * dash_distance * 2,
-            direction.y * dash_distance * 2,
+        state.emit(
+            "PLAYER_ABILITY_CAST",
+            ability=ability.id.upper(),
+            ability_id=ability.id,
+            tags=list(ability.tags),
+            slot=slot,
+            position=player.position.to_dict(),
+            facing=facing.to_dict(),
+            targets=hits,
+            hitCount=len(hits),
+            nearestEnemyDistance=self._nearest_enemy_distance(state, player.position),
+            **extra,
         )
-        player.velocity = dash_velocity
+        return True
 
-    def _process_aoe(self, player: Player, ability: AbilityDef, state: GameState) -> None:
-        """Process AoE ability."""
-        radius = ability.range
-        damage = ability.effect_value
+    # -------------------------------------------------------------------- twin
 
+    def process_twin_attack(self, state: GameState, target: Enemy) -> bool:
+        twin = state.twin
+        if not twin.can_attack() or not target.active:
+            return False
+        weapon = twin.weapon
+        if weapon.resource_cost > 0 and twin.mana < weapon.resource_cost:
+            return False
+        direction = (target.position - twin.position).normalized()
+        twin.face(direction)
+        twin.start_attack()
+        if weapon.resource_cost > 0:
+            twin.mana -= weapon.resource_cost
+        hits: list[str] = []
+        if weapon.is_melee:
+            hits = [e.id for e in self._melee_sweep(state, twin, weapon, direction, 1.0, attacker_id=twin.id)]
+        else:
+            self._fire_projectiles(state, twin, weapon.projectile, direction, weapon.damage, weapon.knockback,
+                                   weapon.tags, source=weapon.id)
+        state.emit("TWIN_ATTACKED", target=target.id, weapon=weapon.id, tags=weapon.get_tags(),
+                   position=twin.position.to_dict(), hitCount=len(hits),
+                   distance=(target.position - twin.position).length())
+        return True
+
+    # ------------------------------------------------------------------ enemies
+
+    def process_enemy_attack(self, state: GameState, enemy: Enemy, target: Entity,
+                             ranged: bool | None = None) -> bool:
+        """The wind-up finished: land the hit or fire the projectile.
+
+        `ranged` forces the mode; by default an enemy with a projectile shoots
+        unless the target is practically touching it.
+        """
+        edef = enemy.enemy_def
+        to_target = target.position - enemy.position
+        dist = to_target.length()
+        direction = to_target.normalized() if dist > 0 else enemy.facing
+        enemy.face(direction)
+        enemy.attack_timer = edef.attack_cooldown
+        landed = False
+
+        if ranged is None:
+            ranged = edef.projectile is not None and dist > edef.attack_range * 0.35
+        if ranged and edef.projectile is not None:
+            # Lead the shot slightly toward where the target is heading.
+            lead = target.velocity * min(0.35, dist / max(edef.projectile.speed, 1))
+            aim = ((target.position + lead) - enemy.position).normalized()
+            self._fire_projectiles(state, enemy, edef.projectile, aim, edef.damage, edef.knockback,
+                                   edef.tags, source=edef.id)
+            landed = True
+        else:
+            reach = edef.attack_range + target.radius + 6
+            if dist <= reach:
+                landed = self._damage_ally(state, target, edef.damage, enemy.id, direction, edef.knockback) > 0
+
+        state.emit("ENEMY_ATTACKED", enemy_id=enemy.id, enemy_type=edef.id, target=target.id, hit=landed,
+                   position=enemy.position.to_dict(), ranged=edef.projectile is not None)
+        return landed
+
+    # ------------------------------------------------------------- damage core
+
+    def _damage_ally(self, state: GameState, target: Entity, amount: float, attacker_id: str,
+                     direction: Vec2, knockback: float) -> float:
+        if target.id == state.player.id:
+            return self.damage_player(state, amount, attacker_id, direction, knockback)
+        if target.id == state.twin.id:
+            return self.damage_twin(state, amount, attacker_id, direction, knockback)
+        return 0.0
+
+    def damage_enemy(self, state: GameState, enemy: Enemy, amount: float, attacker_id: str, tags: list[str],
+                     direction: Vec2, knockback: float, source: str, crit: bool = False) -> float:
+        if not enemy.active:
+            return 0.0
+        actual = enemy.take_hit(amount, attacker_id)
+        if actual <= 0:
+            return 0.0
+        resist = 1.0 - enemy.enemy_def.knockback_resist
+        if knockback > 0 and resist > 0:
+            enemy.knockback = enemy.knockback + direction * (knockback * resist)
+        state.stats.damage_dealt += actual
+        if attacker_id == state.twin.id:
+            state.twin.damage_dealt += actual
+        if attacker_id == state.player.id and state.player.target_id != enemy.id:
+            previous = state.player.target_id
+            state.player.target_id = enemy.id
+            state.emit("TARGET_CHANGE", actor=state.player.id, previous=previous, target=enemy.id,
+                       target_type=enemy.enemy_def.id, position=state.player.position.to_dict())
+        state.emit(
+            "DAMAGE_DEALT",
+            attacker=attacker_id,
+            target=enemy.id,
+            target_type=enemy.enemy_def.id,
+            damage=round(actual, 1),
+            remaining=round(enemy.health, 1),
+            position=enemy.position.to_dict(),
+            crit=crit,
+            source=source,
+            tags=list(tags),
+        )
+        if not enemy.active:
+            self.on_enemy_killed(state, enemy, attacker_id)
+        return actual
+
+    def on_enemy_killed(self, state: GameState, enemy: Enemy, killer_id: str) -> None:
+        edef = enemy.enemy_def
+        state.stats.enemies_killed += 1
+        if killer_id == state.twin.id:
+            state.twin.kills += 1
+        else:
+            state.player.kills += 1
+        # XP is shared: the twin's kills still grow the player.
+        levels = state.player.add_xp(edef.xp_reward)
+        self.loot.drop_for(state, enemy)
+        state.emit(
+            "ENEMY_KILLED",
+            enemy_id=enemy.id,
+            enemy_type=edef.id,
+            role=edef.role,
+            elite=edef.elite,
+            boss=edef.boss,
+            xp_reward=edef.xp_reward,
+            killer=killer_id,
+            position=enemy.position.to_dict(),
+            room_id=state.room.id,
+        )
+        for reward in levels:
+            state.emit("LEVEL_UP", level=reward["level"], skillPoints=state.player.skill_points,
+                       maxHealth=state.player.max_health, position=state.player.position.to_dict())
+        if edef.boss:
+            state.emit("BOSS_DEFEATED", enemy_id=enemy.id, position=enemy.position.to_dict())
+
+    def damage_player(self, state: GameState, amount: float, attacker_id: str, direction: Vec2,
+                      knockback: float) -> float:
+        player = state.player
+        if player.state == "dead" or player.invulnerable_for > 0:
+            if player.invulnerable_for > 0 and player.state == "dash":
+                state.emit("PLAYER_DODGED", tags=["MOBILITY", "DEFENSIVE"], position=player.position.to_dict(),
+                           dodged=[attacker_id], distance=0.0)
+            return 0.0
+        actual = player.take_hit(amount)
+        if actual <= 0:
+            return 0.0
+        if knockback > 0:
+            player.knockback = player.knockback + direction * knockback * 0.6
+        state.stats.damage_taken += actual
+        attacker = state.entity_by_id(attacker_id)
+        state.emit(
+            "DAMAGE_TAKEN",
+            actor=player.id,
+            attacker=attacker_id,
+            attacker_type=attacker.enemy_def.id if isinstance(attacker, Enemy) else "unknown",
+            damage=round(actual, 1),
+            remaining=round(player.health, 1),
+            position=player.position.to_dict(),
+        )
+        if player.state == "dead":
+            state.phase = "dead"
+            state.emit("PLAYER_DIED", position=player.position.to_dict(), killer=attacker_id,
+                       room_id=state.room.id, tags=["HIGH_RISK"])
+        return actual
+
+    def damage_twin(self, state: GameState, amount: float, attacker_id: str, direction: Vec2,
+                    knockback: float) -> float:
+        twin = state.twin
+        if twin.downed or twin.invulnerable_for > 0:
+            return 0.0
+        actual = twin.take_hit(amount)
+        if actual <= 0:
+            return 0.0
+        if knockback > 0:
+            twin.knockback = twin.knockback + direction * knockback * 0.6
+        state.emit("TWIN_DAMAGED", actor=twin.id, attacker=attacker_id, damage=round(actual, 1),
+                   remaining=round(twin.health, 1), position=twin.position.to_dict(),
+                   intent=twin.intent.intent_type)
+        if twin.downed:
+            state.emit("TWIN_DOWNED", position=twin.position.to_dict(), attacker=attacker_id,
+                       intent=twin.intent.intent_type)
+        return actual
+
+    def projectile_hit_enemy(self, state: GameState, projectile: Projectile, enemy: Enemy) -> None:
+        direction = projectile.velocity.normalized()
+        if projectile.aoe_radius > 0:
+            centre = enemy.position
+            for other in state.get_active_enemies():
+                d = (other.position - centre).length()
+                if d <= projectile.aoe_radius + other.radius:
+                    falloff = 1.0 if other.id == enemy.id else max(0.45, 1.0 - d / (projectile.aoe_radius + other.radius))
+                    self.damage_enemy(state, other, projectile.damage * falloff, projectile.owner_id,
+                                      list(projectile.tags), (other.position - centre).normalized() if other.id != enemy.id else direction,
+                                      projectile.knockback, projectile.source)
+                    if projectile.slow > 0 and other.active:
+                        other.apply_status("slow", projectile.slow_duration, slow_factor=projectile.slow)
+                    projectile.hit_ids.add(other.id)
+        else:
+            self.damage_enemy(state, enemy, projectile.damage, projectile.owner_id, list(projectile.tags),
+                              direction, projectile.knockback, projectile.source)
+            if projectile.slow > 0 and enemy.active:
+                enemy.apply_status("slow", projectile.slow_duration, slow_factor=projectile.slow)
+        state.emit("PROJECTILE_HIT", projectile=projectile.id, kind=projectile.kind, target=enemy.id,
+                   position=enemy.position.to_dict(), aoe=projectile.aoe_radius)
+        projectile.hit_target(enemy.id)
+
+    def projectile_hit_ally(self, state: GameState, projectile: Projectile, target: Entity) -> None:
+        direction = projectile.velocity.normalized()
+        dealt = self._damage_ally(state, target, projectile.damage, projectile.owner_id, direction, projectile.knockback)
+        state.emit("PROJECTILE_HIT", projectile=projectile.id, kind=projectile.kind, target=target.id,
+                   position=target.position.to_dict(), aoe=0, dealt=dealt)
+        projectile.hit_target(target.id)
+
+    # ------------------------------------------------------------------- misc
+
+    @staticmethod
+    def _nearest_enemy_distance(state: GameState, pos: Vec2) -> float | None:
+        enemy = state.nearest_enemy(pos)
+        return round((enemy.position - pos).length(), 1) if enemy else None
+
+    def update(self, dt: float, state: GameState) -> None:
+        """Per-tick combat bookkeeping (entities own their cooldown timers)."""
         for enemy in state.get_active_enemies():
-            dist = player.distance_to(enemy)
-            if dist <= radius:
-                # Damage falls off with distance
-                damage_mult = 1.0 - (dist / radius) * 0.5
-                actual = enemy.take_damage(damage * damage_mult)
+            enemy.tick_status(dt)
+            if enemy.stagger > 0:
+                enemy.stagger -= dt
+            if "burn" in enemy.status_effects:
+                # Burn ticks 4 dps, attributed to the player.
+                tick_damage = 4.0 * dt
+                if enemy.health > tick_damage:
+                    enemy.health -= tick_damage
+                    state.stats.damage_dealt += tick_damage
 
-                self.bus.publish(Event(
-                    tick=state.tick,
-                    type="DAMAGE_DEALT",
-                    data={
-                        "attacker": player.id,
-                        "target": enemy.id,
-                        "damage": actual,
-                        "remaining": enemy.health,
-                        "position": enemy.position.to_dict(),
-                        "ability": ability.name,
-                    }
-                ))
 
-                if not enemy.active:
-                    self.bus.publish(Event(
-                        tick=state.tick,
-                        type="ENEMY_KILLED",
-                        data={
-                            "enemy_id": enemy.id,
-                            "enemy_type": enemy.enemy_def.name,
-                            "xp_reward": enemy.xp_reward,
-                            "position": enemy.position.to_dict(),
-                        }
-                    ))
-
-    def _process_heal(self, player: Player, ability: AbilityDef, state: GameState) -> None:
-        """Process heal ability."""
-        healed = player.heal(ability.effect_value)
-        if healed > 0:
-            self.bus.publish(Event(
-                tick=state.tick,
-                type="PLAYER_HEALED",
-                data={
-                    "amount": healed,
-                    "remaining": player.health,
-                }
-            ))
-
-    def _calculate_damage(self, attacker: Player, weapon: WeaponDef, target: Enemy) -> float:
-        """Calculate damage with crit chance."""
-        base_damage = weapon.damage
-
-        # Crit check
-        if self.rng.chance(weapon.crit_chance):
-            base_damage *= weapon.crit_multiplier
-
-        return base_damage
+__all__ = ["CombatSystem", "math"]
