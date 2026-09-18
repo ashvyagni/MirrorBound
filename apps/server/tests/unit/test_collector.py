@@ -1,5 +1,6 @@
 from mirrorbound.agent.player_model.traits import PlayerTraitModel
 from mirrorbound.agent.prediction.predictor import SequencePredictor
+from mirrorbound.agent.spatial.zones import SpatialModel
 from mirrorbound.agent.telemetry.collector import TelemetryCollector
 from mirrorbound.game.core.events import Event, EventBus
 
@@ -29,3 +30,28 @@ def test_collector_attaches_to_a_live_event_bus():
 
     assert len(collector.buffer) == 1
     assert predictor.history == ["DASH"]
+
+
+def test_collector_feeds_the_spatial_model_when_one_is_given():
+    predictor = SequencePredictor()
+    traits = PlayerTraitModel()
+    spatial = SpatialModel(half_life_seconds=float("inf"))
+    collector = TelemetryCollector(predictor=predictor, traits=traits, spatial=spatial)
+
+    collector.ingest(
+        Event(tick=1, type="PLAYER_ATTACKED", data={"tags": ["MELEE"], "position": [1.0, 1.0]})
+    )
+
+    assert spatial.layers["combat"].weight_at(1.0, 1.0, tick=1) == 1.0
+
+
+def test_collector_without_a_spatial_model_still_works():
+    predictor = SequencePredictor()
+    traits = PlayerTraitModel()
+    collector = TelemetryCollector(predictor=predictor, traits=traits)  # spatial=None
+
+    collector.ingest(
+        Event(tick=1, type="PLAYER_ATTACKED", data={"tags": ["MELEE"], "position": [1.0, 1.0]})
+    )
+
+    assert len(collector.buffer) == 1
