@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "cast-00": {
+   "frame": {
+    "x": 2,
+    "y": 309,
+    "w": 227,
+    "h": 129
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 99,
+    "y": 8,
+    "w": 227,
+    "h": 129
+   },
+   "sourceSize": {
+    "w": 361,
+    "h": 163
+   }
+  },
+  "cast-01": {
+   "frame": {
+    "x": 529,
+    "y": 167,
+    "w": 278,
+    "h": 132
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 55,
+    "y": 7,
+    "w": 278,
+    "h": 132
+   },
+   "sourceSize": {
+    "w": 361,
+    "h": 163
+   }
+  },
+  "cast-02": {
+   "frame": {
+    "x": 365,
+    "y": 2,
+    "w": 310,
+    "h": 144
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 38,
+    "y": 4,
+    "w": 310,
+    "h": 144
+   },
+   "sourceSize": {
+    "w": 361,
+    "h": 163
+   }
+  },
+  "cast-03": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 361,
+    "h": 163
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 361,
+    "h": 163
+   },
+   "sourceSize": {
+    "w": 361,
+    "h": 163
+   }
+  },
+  "cast-04": {
+   "frame": {
+    "x": 677,
+    "y": 2,
+    "w": 322,
+    "h": 140
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 24,
+    "y": 13,
+    "w": 322,
+    "h": 140
+   },
+   "sourceSize": {
+    "w": 361,
+    "h": 163
+   }
+  },
+  "cast-05": {
+   "frame": {
+    "x": 2,
+    "y": 167,
+    "w": 276,
+    "h": 140
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 60,
+    "y": 8,
+    "w": 276,
+    "h": 140
+   },
+   "sourceSize": {
+    "w": 361,
+    "h": 163
+   }
+  },
+  "cast-06": {
+   "frame": {
+    "x": 280,
+    "y": 167,
+    "w": 247,
+    "h": 135
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 85,
+    "y": 14,
+    "w": 247,
+    "h": 135
+   },
+   "sourceSize": {
+    "w": 361,
+    "h": 163
+   }
+  },
+  "cast-07": {
+   "frame": {
+    "x": 231,
+    "y": 309,
+    "w": 227,
+    "h": 129
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 106,
+    "y": 13,
+    "w": 227,
+    "h": 129
+   },
+   "sourceSize": {
+    "w": 361,
+    "h": 163
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "iceShards.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 1024,
+   "h": 440
+  },
+  "scale": "1"
+ }
+}

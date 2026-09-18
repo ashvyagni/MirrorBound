@@ -1,8 +1,14 @@
 import type Phaser from 'phaser';
 
+import type { AbilityId } from './abilityClips';
+
 import {
   BOW_ANCHOR, BOW_BODY_RATIO, BOW_FRAMES, BOW_FRAME_SIZE, BOW_TEXTURE_KEY,
 } from './bowAtlas.generated';
+import { BOWIDLE_ANCHOR, BOWIDLE_BODY_RATIO, BOWIDLE_FRAMES, BOWIDLE_FRAME_SIZE, BOWIDLE_TEXTURE_KEY } from './bowIdleAtlas.generated';
+import { FIRESTAFFIDLE_ANCHOR, FIRESTAFFIDLE_BODY_RATIO, FIRESTAFFIDLE_FRAMES, FIRESTAFFIDLE_FRAME_SIZE, FIRESTAFFIDLE_TEXTURE_KEY } from './fireStaffIdleAtlas.generated';
+import { ICESTAFFIDLE_ANCHOR, ICESTAFFIDLE_BODY_RATIO, ICESTAFFIDLE_FRAMES, ICESTAFFIDLE_FRAME_SIZE, ICESTAFFIDLE_TEXTURE_KEY } from './iceStaffIdleAtlas.generated';
+import { SWORDIDLE_ANCHOR, SWORDIDLE_BODY_RATIO, SWORDIDLE_FRAMES, SWORDIDLE_FRAME_SIZE, SWORDIDLE_TEXTURE_KEY } from './swordIdleAtlas.generated';
 import { animationKey, registerClips, type ClipDef } from './clips';
 import {
   FIRESTAFF_ANCHOR, FIRESTAFF_BODY_RATIO, FIRESTAFF_FRAMES, FIRESTAFF_FRAME_SIZE, FIRESTAFF_TEXTURE_KEY,
@@ -46,6 +52,10 @@ export interface WeaponDef {
   blurb: string;
   /** Swings played in order on consecutive hits. More than one means a combo. */
   swings: readonly SwingDef[];
+  /** Loop shown while the weapon is held but not swinging. */
+  idle: SwingDef;
+  /** Abilities on keys 1, 2 and 3, in that order. */
+  abilities: readonly AbilityId[];
   /** Weapon length as a fraction of the goat's own body height.
    *  Solved per sheet from its body ratio, because the frame boxes are padded
    *  by trails and each sheet is padded differently -- matching frame heights
@@ -77,6 +87,18 @@ function swing(
   };
 }
 
+/** Idle sheets are laid out exactly like swing sheets. */
+const IDLES = {
+  sword: swing(SWORDIDLE_TEXTURE_KEY, SWORDIDLE_FRAMES, SWORDIDLE_ANCHOR, SWORDIDLE_FRAME_SIZE, SWORDIDLE_BODY_RATIO, 9,
+    { lengthRatio: 0.9, offset: { x: 40, y: -96 } }),
+  bow: swing(BOWIDLE_TEXTURE_KEY, BOWIDLE_FRAMES, BOWIDLE_ANCHOR, BOWIDLE_FRAME_SIZE, BOWIDLE_BODY_RATIO, 9,
+    { lengthRatio: 1.05, offset: { x: 52, y: -92 } }),
+  fireStaff: swing(FIRESTAFFIDLE_TEXTURE_KEY, FIRESTAFFIDLE_FRAMES, FIRESTAFFIDLE_ANCHOR, FIRESTAFFIDLE_FRAME_SIZE, FIRESTAFFIDLE_BODY_RATIO, 10,
+    { lengthRatio: 1.15, offset: { x: 54, y: -88 } }),
+  iceStaff: swing(ICESTAFFIDLE_TEXTURE_KEY, ICESTAFFIDLE_FRAMES, ICESTAFFIDLE_ANCHOR, ICESTAFFIDLE_FRAME_SIZE, ICESTAFFIDLE_BODY_RATIO, 10,
+    { lengthRatio: 1.15, offset: { x: 54, y: -88 } }),
+} as const;
+
 export const WEAPONS: Record<WeaponId, WeaponDef> = {
   sword: {
     id: 'sword',
@@ -91,6 +113,8 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
       swing(SWORDC_TEXTURE_KEY, SWORDC_FRAMES, SWORDC_ANCHOR, SWORDC_FRAME_SIZE, SWORDC_BODY_RATIO, 19,
         { lengthRatio: 1.2 }),
     ],
+    idle: IDLES.sword,
+    abilities: [],
     lengthRatio: 0.95,
     offset: { x: 38, y: -84 },
   },
@@ -99,6 +123,8 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
     name: 'Bow',
     blurb: 'Bashes up close. Ranged shot comes later.',
     swings: [swing(BOW_TEXTURE_KEY, BOW_FRAMES, BOW_ANCHOR, BOW_FRAME_SIZE, BOW_BODY_RATIO, 20)],
+    idle: IDLES.bow,
+    abilities: ['arrow'],
     lengthRatio: 1.15,
     offset: { x: 58, y: -90 },
   },
@@ -111,6 +137,8 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
       // on it at impact -- both poses are vertical about the same grip, so
       // one height satisfies each.
       { lengthRatio: 1.25, offset: { x: 60, y: -88 } })],
+    idle: IDLES.fireStaff,
+    abilities: ['fireBall', 'firePillar', 'fireWave'],
     lengthRatio: 1.0,
     offset: { x: 36, y: -86 },
   },
@@ -122,6 +150,8 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
       // Its sweep is horizontal, so it is carried low enough to pass along the
       // floor -- that is what makes it read as striking the ground.
       { mirror: true, lengthRatio: 1.2, offset: { x: 58, y: -70 } })],
+    idle: IDLES.iceStaff,
+    abilities: ['iceNova', 'iceShards', 'iceBeam'],
     lengthRatio: 0.95,
     offset: { x: 38, y: -84 },
   },
@@ -133,6 +163,8 @@ export const WEAPON_ORDER: readonly WeaponId[] = ['sword', 'bow', 'fireStaff', '
 export const WEAPON_TEXTURES: readonly string[] = [
   SWORDA_TEXTURE_KEY, SWORDB_TEXTURE_KEY, SWORDC_TEXTURE_KEY,
   BOW_TEXTURE_KEY, FIRESTAFF_TEXTURE_KEY, ICESTAFF_TEXTURE_KEY,
+  SWORDIDLE_TEXTURE_KEY, BOWIDLE_TEXTURE_KEY,
+  FIRESTAFFIDLE_TEXTURE_KEY, ICESTAFFIDLE_TEXTURE_KEY,
 ];
 
 export function swingKey(texture: string): string {
@@ -141,6 +173,9 @@ export function swingKey(texture: string): string {
 
 export function registerWeaponAnimations(anims: Phaser.Animations.AnimationManager): void {
   for (const weapon of Object.values(WEAPONS)) {
+    registerClips(anims, weapon.idle.texture, {
+      swing: { frames: weapon.idle.frames, frameRate: weapon.idle.frameRate, repeat: -1 },
+    });
     for (const def of weapon.swings) {
       const clip: ClipDef = { frames: def.frames, frameRate: def.frameRate, repeat: 0 };
       registerClips(anims, def.texture, { swing: clip });

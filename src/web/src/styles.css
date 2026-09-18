@@ -334,6 +334,43 @@ kbd {
 
 .chain i[data-on='true'] { background: var(--pink); }
 
+.slots { display: grid; gap: 6px; margin-top: 12px; }
+
+.slots__title {
+  margin: 2px 0 2px;
+  color: var(--ink-faint);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.slot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #1b1624;
+  color: var(--ink-dim);
+  font: 500 13px/1 var(--sans);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.14s, color 0.14s, background 0.14s;
+}
+
+.slot:hover { border-color: #5a4866; color: var(--ink); }
+.slot:focus-visible { outline: 2px solid var(--pink); outline-offset: 2px; }
+
+.slot[data-flash='true'] {
+  border-color: var(--magenta);
+  color: var(--pink);
+  background: #2c1725;
+}
+
+.slot__name { flex: 1; }
+
 /* ---------- buttons ---------- */
 
 .btn {

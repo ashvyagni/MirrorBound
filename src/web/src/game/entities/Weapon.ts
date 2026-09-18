@@ -50,7 +50,23 @@ export class Weapon extends Phaser.GameObjects.Sprite {
     this.#swingIndex = 0;
     this.#chainWindow = 0;
     this.#swinging = false;
-    this.setVisible(false).setActive(false);
+
+    if (!this.#weapon) {
+      this.setVisible(false).setActive(false);
+      return;
+    }
+    this.#rest();
+  }
+
+  /** Settle onto the held pose. The weapon stays on screen between swings --
+   *  it is being carried, not conjured for each hit. */
+  #rest(): void {
+    const weapon = this.#weapon;
+    if (!weapon) return;
+    this.#swinging = false;
+    this.#dress(weapon.idle);
+    this.setVisible(true).setActive(true);
+    this.play(swingKey(weapon.idle.texture), true);
   }
 
   /**
@@ -101,8 +117,8 @@ export class Weapon extends Phaser.GameObjects.Sprite {
   }
 
   #onSwingEnd(): void {
-    this.#swinging = false;
-    this.setVisible(false).setActive(false);
+    if (!this.#swinging) return;
+    this.#rest();
   }
 
   /** Follow the goat. Called every frame, whether or not a swing is playing. */
@@ -110,7 +126,7 @@ export class Weapon extends Phaser.GameObjects.Sprite {
     if (this.#chainWindow > 0) this.#chainWindow -= deltaSeconds;
     if (!this.#weapon) return;
 
-    const def = this.#activeSwing();
+    const def = this.#swinging ? this.#activeSwing() : this.#weapon.idle;
     const { x, y } = def?.offset ?? this.#weapon.offset;
     this.setPosition(host.x + x * host.facing, host.y + y);
 

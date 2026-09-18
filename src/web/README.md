@@ -22,6 +22,7 @@ npm run lint
 | `Space` / `W` | Jump (hold for height) |
 | `J` | Attack — swings the equipped weapon |
 | `K` | Companion attack |
+| `1` `2` `3` | The equipped weapon's abilities |
 
 ## Layout
 
@@ -54,9 +55,16 @@ goat's swirl. That keeps one weapon usable by anything, and avoids asking an
 image generator to redraw a character consistently across six sheets -- which is
 exactly where the companion sheet fell down.
 
-`assets/prompts/` used to hold the generation prompts; they have served their
-purpose and the rules they encoded now live in `scripts/sheets.py`, where they
-are enforced rather than described.
+Source art is grouped by what it is:
+
+```
+assets/characters/   goat, companion, practice dummy
+assets/weapons/      a swing sheet and an idle sheet per weapon
+assets/spells/       the cast effects and the arrow
+```
+
+Generation prompts are deliberately not kept here. The rules they encoded now
+live in `scripts/sheets.py`, where they are enforced rather than described.
 
 ## Three decisions worth knowing
 

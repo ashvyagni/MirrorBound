@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "cast-00": {
+   "frame": {
+    "x": 765,
+    "y": 2,
+    "w": 113,
+    "h": 130
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 28,
+    "y": 2,
+    "w": 113,
+    "h": 130
+   },
+   "sourceSize": {
+    "w": 400,
+    "h": 139
+   }
+  },
+  "cast-01": {
+   "frame": {
+    "x": 364,
+    "y": 143,
+    "w": 261,
+    "h": 125
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 27,
+    "y": 5,
+    "w": 261,
+    "h": 125
+   },
+   "sourceSize": {
+    "w": 400,
+    "h": 139
+   }
+  },
+  "cast-02": {
+   "frame": {
+    "x": 627,
+    "y": 143,
+    "w": 312,
+    "h": 125
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 17,
+    "y": 5,
+    "w": 312,
+    "h": 125
+   },
+   "sourceSize": {
+    "w": 400,
+    "h": 139
+   }
+  },
+  "cast-03": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 383,
+    "h": 139
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 383,
+    "h": 139
+   },
+   "sourceSize": {
+    "w": 400,
+    "h": 139
+   }
+  },
+  "cast-04": {
+   "frame": {
+    "x": 387,
+    "y": 2,
+    "w": 376,
+    "h": 137
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 24,
+    "y": 1,
+    "w": 376,
+    "h": 137
+   },
+   "sourceSize": {
+    "w": 400,
+    "h": 139
+   }
+  },
+  "cast-05": {
+   "frame": {
+    "x": 2,
+    "y": 143,
+    "w": 360,
+    "h": 126
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 27,
+    "y": 6,
+    "w": 360,
+    "h": 126
+   },
+   "sourceSize": {
+    "w": 400,
+    "h": 139
+   }
+  },
+  "cast-06": {
+   "frame": {
+    "x": 2,
+    "y": 271,
+    "w": 352,
+    "h": 123
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 18,
+    "y": 7,
+    "w": 352,
+    "h": 123
+   },
+   "sourceSize": {
+    "w": 400,
+    "h": 139
+   }
+  },
+  "cast-07": {
+   "frame": {
+    "x": 356,
+    "y": 271,
+    "w": 291,
+    "h": 87
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 36,
+    "y": 24,
+    "w": 291,
+    "h": 87
+   },
+   "sourceSize": {
+    "w": 400,
+    "h": 139
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "iceBeam.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 1024,
+   "h": 396
+  },
+  "scale": "1"
+ }
+}

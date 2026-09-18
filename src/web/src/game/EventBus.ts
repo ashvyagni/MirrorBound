@@ -1,5 +1,6 @@
 import type { BroClipName } from './animation/broClips';
 import type { ClipName } from './animation/goatClips';
+import type { AbilityId } from './animation/abilityClips';
 import type { WeaponId } from './animation/weaponClips';
 import type { PlayerSnapshot, PlayerState } from './types';
 
@@ -38,6 +39,10 @@ export interface GameEventMap {
   'game:toggle-fullscreen': Record<string, never>;
   /** Reports whether the game is currently fullscreen. */
   'game:fullscreen': { active: boolean };
+  /** Cast the ability in the given slot of the equipped weapon. */
+  'weapon:cast': { slot: number };
+  /** Reports what was cast, for the UI to flash. */
+  'weapon:cast-done': { id: AbilityId };
   /** Toggle physics body overlays. */
   'debug:toggle-bodies': { enabled: boolean };
 }

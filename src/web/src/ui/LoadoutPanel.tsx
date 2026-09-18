@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 
+import { ABILITIES, type AbilityId } from '@/game/animation/abilityClips';
 import { WEAPONS, WEAPON_ORDER, type WeaponId } from '@/game/animation/weaponClips';
 import { eventBus } from '@/game/EventBus';
 
@@ -13,11 +14,22 @@ import { eventBus } from '@/game/EventBus';
 export function LoadoutPanel() {
   const [equipped, setEquipped] = useState<WeaponId | null>(null);
   const [combo, setCombo] = useState({ step: 0, length: 0 });
+  const [flash, setFlash] = useState<AbilityId | null>(null);
 
   useEffect(
     () => eventBus.on('weapon:changed', ({ id, step, length }) => {
       setEquipped(id);
       setCombo({ step, length });
+    }),
+    [],
+  );
+
+  // Flash the slot that just fired, so a key press has visible feedback even
+  // when the effect leaves the screen quickly.
+  useEffect(
+    () => eventBus.on('weapon:cast-done', ({ id }) => {
+      setFlash(id as AbilityId);
+      window.setTimeout(() => setFlash((cur) => (cur === id ? null : cur)), 240);
     }),
     [],
   );
@@ -59,6 +71,24 @@ export function LoadoutPanel() {
           );
         })}
       </div>
+
+      {equipped && WEAPONS[equipped].abilities.length > 0 && (
+        <div className="slots">
+          <h3 className="slots__title">Abilities</h3>
+          {WEAPONS[equipped].abilities.map((id, i) => (
+            <button
+              key={id}
+              type="button"
+              className="slot"
+              data-flash={flash === id}
+              onClick={() => eventBus.emit('weapon:cast', { slot: i })}
+            >
+              <kbd>{i + 1}</kbd>
+              <span className="slot__name">{ABILITIES[id].name}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       <button
         type="button"

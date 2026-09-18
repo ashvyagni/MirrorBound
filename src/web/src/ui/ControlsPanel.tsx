@@ -4,6 +4,7 @@ const KEYS: Array<[string, string]> = [
   ['Space', 'Jump — hold for height'],
   ['J', 'Attack'],
   ['K', 'Companion'],
+  ['1 2 3', 'Weapon abilities'],
 ];
 
 export function ControlsPanel() {

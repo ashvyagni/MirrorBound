@@ -121,6 +121,12 @@ export const COMPANION = {
 export const COMPANION_DISPLAY_HEIGHT =
   (GOAT_DISPLAY_HEIGHT * GOAT_BODY_RATIO * COMPANION.sizeRatio) / BRO_BODY_RATIO;
 
+/** Drawn height of the practice dummy, in world units. */
+export const DUMMY_HEIGHT = 168;
+
+/** How close a swing or a shot has to be to register on the dummy. */
+export const HIT_RANGE = 96;
+
 /** Sampled from the palette swatches on the source character sheet. */
 export const PALETTE = {
   cream: 0xf2e8df,

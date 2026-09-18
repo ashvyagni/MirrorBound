@@ -1,8 +1,12 @@
 import Phaser from 'phaser';
 
 import type { ClipName } from '../animation/goatClips';
-import { COMPANION, GROUND_Y, PALETTE, RENDER_SCALE, VIEW } from '../constants';
+import { COMPANION, GROUND_Y, HIT_RANGE, PALETTE, RENDER_SCALE, VIEW } from '../constants';
+import type { AbilityId } from '../animation/abilityClips';
+import { WEAPONS } from '../animation/weaponClips';
 import { Bro } from '../entities/Bro';
+import { Dummy } from '../entities/Dummy';
+import { Projectile } from '../entities/Projectile';
 import { Weapon } from '../entities/Weapon';
 import { Goat } from '../entities/Goat';
 import { eventBus } from '../EventBus';
@@ -21,6 +25,8 @@ export class PlayScene extends Phaser.Scene {
   #goat!: Goat;
   #bro!: Bro;
   #weapon!: Weapon;
+  #dummies: Dummy[] = [];
+  #shots: Projectile[] = [];
   #source!: IntentSource;
   #ground!: Phaser.GameObjects.Rectangle;
   #groundFill!: Phaser.GameObjects.Rectangle;
@@ -49,6 +55,12 @@ export class PlayScene extends Phaser.Scene {
     // In front of the goat: the swing should read as passing over it.
     this.#weapon = new Weapon(this);
     this.children.moveAbove(this.#weapon, this.#goat);
+
+    // A few targets to test against, spaced out along the endless floor.
+    for (const x of [SPAWN.x + 420, SPAWN.x + 900, SPAWN.x - 460]) {
+      this.#dummies.push(new Dummy(this, x, GROUND_Y));
+    }
+    this.#shots = Array.from({ length: 12 }, () => new Projectile(this));
 
     this.#source = new KeyboardIntentSource(this.input.keyboard!);
 
@@ -85,6 +97,14 @@ export class PlayScene extends Phaser.Scene {
     if (intent.attack && this.#weapon.equipped) {
       this.#weapon.strike();
       this.#emitWeapon();
+      this.#strikeNearby(this.#goat.x + 70 * this.#goat.facing);
+    }
+
+    if (intent.ability !== null) this.#cast(intent.ability);
+
+    for (const shot of this.#shots) {
+      if (!shot.busy) continue;
+      if (shot.step(dt)) this.#strikeNearby(shot.reach);
     }
 
     if (this.#bro.clip !== this.#lastBroClip) {
@@ -98,6 +118,27 @@ export class PlayScene extends Phaser.Scene {
       this.#lastSnapshot = snapshot;
       this.#reactTo(snapshot.state);
       eventBus.emit('player:changed', snapshot);
+    }
+  }
+
+  /** Fire the ability in a slot, if the equipped weapon has one there. */
+  #cast(slot: number): void {
+    const id = this.#weapon.equipped;
+    if (!id) return;
+    const ability = WEAPONS[id].abilities[slot] as AbilityId | undefined;
+    if (!ability) return;
+
+    const shot = this.#shots.find((s) => !s.busy);
+    if (!shot) return;   // all twelve in flight; dropping one beats stuttering
+
+    shot.launch(ability, this.#goat.x, this.#goat.y, this.#goat.facing);
+    eventBus.emit('weapon:cast-done', { id: ability });
+  }
+
+  /** Anything within reach of `x` reacts. */
+  #strikeNearby(x: number): void {
+    for (const dummy of this.#dummies) {
+      if (!dummy.reacting && Math.abs(dummy.x - x) < HIT_RANGE) dummy.hit();
     }
   }
 
@@ -164,6 +205,8 @@ export class PlayScene extends Phaser.Scene {
         if (this.scale.isFullscreen) this.scale.stopFullscreen();
         else this.scale.startFullscreen();
       }),
+
+      eventBus.on('weapon:cast', ({ slot }) => this.#cast(slot)),
 
       eventBus.on('weapon:equip', ({ id }) => {
         this.#weapon.equip(id);

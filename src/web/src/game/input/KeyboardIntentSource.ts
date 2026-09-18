@@ -10,7 +10,7 @@ import type { Intent, IntentSource } from '../types';
  * site, because everything downstream only consumes `Intent`.
  */
 export class KeyboardIntentSource implements IntentSource {
-  readonly #keys: Record<'left' | 'right' | 'altLeft' | 'altRight' | 'jump' | 'altJump' | 'run' | 'attack' | 'companionAttack', Phaser.Input.Keyboard.Key>;
+  readonly #keys: Record<'left' | 'right' | 'altLeft' | 'altRight' | 'jump' | 'altJump' | 'run' | 'attack' | 'slot1' | 'slot2' | 'slot3' | 'companionAttack', Phaser.Input.Keyboard.Key>;
 
   constructor(keyboard: Phaser.Input.Keyboard.KeyboardPlugin) {
     const { KeyCodes } = Phaser.Input.Keyboard;
@@ -23,6 +23,10 @@ export class KeyboardIntentSource implements IntentSource {
       altJump: keyboard.addKey(KeyCodes.W),
       run: keyboard.addKey(KeyCodes.SHIFT),
       attack: keyboard.addKey(KeyCodes.J),
+      // Abilities sit on the number row, one per slot the weapon offers.
+      slot1: keyboard.addKey(KeyCodes.ONE),
+      slot2: keyboard.addKey(KeyCodes.TWO),
+      slot3: keyboard.addKey(KeyCodes.THREE),
       companionAttack: keyboard.addKey(KeyCodes.K),
     };
 
@@ -43,6 +47,10 @@ export class KeyboardIntentSource implements IntentSource {
       jump: Phaser.Input.Keyboard.JustDown(k.jump) || Phaser.Input.Keyboard.JustDown(k.altJump),
       jumpHeld: k.jump.isDown || k.altJump.isDown,
       attack: Phaser.Input.Keyboard.JustDown(k.attack),
+      ability: Phaser.Input.Keyboard.JustDown(k.slot1) ? 0
+        : Phaser.Input.Keyboard.JustDown(k.slot2) ? 1
+        : Phaser.Input.Keyboard.JustDown(k.slot3) ? 2
+        : null,
       run: k.run.isDown,
       companionAttack: Phaser.Input.Keyboard.JustDown(k.companionAttack),
     };

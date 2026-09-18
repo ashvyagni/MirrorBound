@@ -47,7 +47,7 @@ def _goat_fx(rgb: np.ndarray, _alpha: np.ndarray) -> np.ndarray:
 
 GOAT = SheetSpec(
     name="goat",
-    source=ASSETS / "goatsprite.jpg",
+    source=ASSETS / "characters" / "goat.jpg",
     body=_goat_body,
     fx=_goat_fx,
     fx_isolate=_goat_swirl,
@@ -88,7 +88,7 @@ def _bro_body(rgb: np.ndarray, _alpha: np.ndarray) -> np.ndarray:
 #: the chrome never reaches the mask.
 BRO = SheetSpec(
     name="bro",
-    source=ASSETS / "brosprite.jpg",
+    source=ASSETS / "characters" / "bro.jpg",
     body=_bro_body,
     fx=None,           # the aura is diffuse and symmetric; nearest-body wins
     anchor="center",   # it floats: there is no ground contact to pin
@@ -161,13 +161,83 @@ def _weapon(name: str, source: str, key: str) -> SheetSpec:
     )
 
 
-SWORD_A = _weapon("swordA", "swordspritea.png", "green")
-SWORD_B = _weapon("swordB", "swordspriteb.png", "green")
-SWORD_C = _weapon("swordC", "swordspritec.png", "green")
-BOW = _weapon("bow", "bowsprite.png", "green")
-FIRE_STAFF = _weapon("fireStaff", "firewandsprite.png", "green")
-ICE_STAFF = _weapon("iceStaff", "icewandsprite.png", "alpha")
+SWORD_A = _weapon("swordA", "weapons/sword-a.png", "green")
+SWORD_B = _weapon("swordB", "weapons/sword-b.png", "green")
+SWORD_C = _weapon("swordC", "weapons/sword-c.png", "green")
+BOW = _weapon("bow", "weapons/bow.png", "green")
+FIRE_STAFF = _weapon("fireStaff", "weapons/fire-staff.png", "green")
+ICE_STAFF = _weapon("iceStaff", "weapons/ice-staff.png", "alpha")
 
-WEAPONS = (SWORD_A, SWORD_B, SWORD_C, BOW, FIRE_STAFF, ICE_STAFF)
+#: Idle loops. Same shape as a swing, so the same builder covers them.
+SWORD_IDLE = _weapon("swordIdle", "weapons/sword-idle.png", "green")
+BOW_IDLE = _weapon("bowIdle", "weapons/bow-idle.png", "green")
+FIRE_STAFF_IDLE = _weapon("fireStaffIdle", "weapons/fire-staff-idle.png", "alpha")
+ICE_STAFF_IDLE = _weapon("iceStaffIdle", "weapons/ice-staff-idle.png", "green")
 
-SHEETS = (GOAT, BRO, *WEAPONS)
+
+# --- spells and projectiles -------------------------------------------------
+
+def _effect_body(rgb: np.ndarray, alpha: np.ndarray) -> np.ndarray:
+    """The bright part of an effect, used only to find where each frame is."""
+    return (alpha > 0.5) & (rgb.max(axis=2) > 90)
+
+
+def _spell(name: str, source: str, key: str) -> SheetSpec:
+    """A cast effect or a projectile.
+
+    No `pivot`: unlike a weapon there is no handle to hold it by, so frames
+    anchor on their cell. That is also what preserves a travelling or expanding
+    effect -- pinning it to its own centre would hold it still.
+    """
+    return SheetSpec(
+        name=name,
+        source=ASSETS / source,
+        body=_effect_body,
+        anchor="center",
+        key=key,
+        body_min_area=120,
+        bands=(
+            Band("cast", 0, 512, 0, 1536, 4, grid_cols=4,
+                 names=tuple(f"cast-{i:02d}" for i in range(4))),
+            Band("cast_b", 512, 1024, 0, 1536, 4, grid_cols=4,
+                 names=tuple(f"cast-{i:02d}" for i in range(4, 8))),
+        ),
+    )
+
+
+ARROW = _spell("arrow", "spells/arrow.png", "alpha")
+ICE_NOVA = _spell("iceNova", "spells/ice-nova.png", "green")
+ICE_SHARDS = _spell("iceShards", "spells/ice-shards.png", "green")
+ICE_BEAM = _spell("iceBeam", "spells/ice-beam.png", "green")
+FIRE_BALL = _spell("fireBall", "spells/fire-ball.png", "green")
+FIRE_PILLAR = _spell("firePillar", "spells/fire-pillar.png", "green")
+FIRE_WAVE = _spell("fireWave", "spells/fire-wave.png", "green")
+
+SPELLS = (ARROW, ICE_NOVA, ICE_SHARDS, ICE_BEAM, FIRE_BALL, FIRE_PILLAR, FIRE_WAVE)
+
+
+# --- the practice dummy -----------------------------------------------------
+
+def _dummy_body(rgb: np.ndarray, alpha: np.ndarray) -> np.ndarray:
+    return (alpha > 0.5) & (rgb.max(axis=2) > 80)
+
+
+DUMMY = SheetSpec(
+    name="dummy",
+    source=ASSETS / "characters" / "dummy.png",
+    body=_dummy_body,
+    anchor="feet",     # it is planted in the ground, so it pins to its base
+    key="green",
+    body_min_area=200,
+    bands=(
+        Band("hit", 0, 512, 0, 1536, 4, grid_cols=4,
+             names=tuple(f"hit-{i:02d}" for i in range(4))),
+        Band("hit_b", 512, 1024, 0, 1536, 4, grid_cols=4,
+             names=tuple(f"hit-{i:02d}" for i in range(4, 8))),
+    ),
+)
+
+WEAPONS = (SWORD_A, SWORD_B, SWORD_C, BOW, FIRE_STAFF, ICE_STAFF,
+           SWORD_IDLE, BOW_IDLE, FIRE_STAFF_IDLE, ICE_STAFF_IDLE)
+
+SHEETS = (GOAT, BRO, DUMMY, *WEAPONS, *SPELLS)

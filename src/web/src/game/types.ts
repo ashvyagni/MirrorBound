@@ -33,6 +33,8 @@ export interface Intent {
   attack: boolean;
   /** Hold to run instead of walk. */
   run: boolean;
+  /** Ability slot requested this frame: 0, 1 or 2. Null for none. */
+  ability: number | null;
   /** True only on the frame the companion was told to attack. */
   companionAttack: boolean;
 }
@@ -44,6 +46,7 @@ export const NEUTRAL_INTENT: Readonly<Intent> = Object.freeze({
   attack: false,
   run: false,
   companionAttack: false,
+  ability: null,
 });
 
 /** Anything that can drive the character. */
