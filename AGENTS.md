@@ -79,8 +79,12 @@ Use plain dataclasses for entities (Player, Twin, Enemy, ...), not a full ECS.
   in isolation isn't enough on its own.
 - Before changing shared primitives (`game/core/*`), run the full suite:
   ```bash
-  cd apps/server && uv run pytest -q
+  cd apps/server && .venv/Scripts/python -m pytest -q     # or: uv run pytest -q
   ```
+- Whole-simulation determinism is proven by `tests/integration/test_session.py`; if you change
+  anything in `game/` or `agent/`, that test must still pass, and a recorded run under
+  `apps/server/runs/` replayed with `tools/replay/replay.py` will tell you exactly where you
+  diverged.
 
 ## Git / branch safety
 
@@ -94,13 +98,16 @@ Use plain dataclasses for entities (Player, Twin, Enemy, ...), not a full ECS.
 
 ## Team ownership boundaries (see project doc for the full rationale)
 
-- Frontend/game design: `apps/client/` (Phaser/React).
+- Frontend/game design: `src/web/` (Phaser/React). The world is drawn from snapshots only.
 - Deterministic simulation + probabilistic modeling: `apps/server/mirrorbound/game/`
   (core/entities/movement/combat/dungeon/progression) and the modeling half of
   `apps/server/mirrorbound/agent/` (telemetry, features, player_model, prediction,
   patterns, spatial).
 - AI agent decision-making: the decision half of `apps/server/mirrorbound/agent/`
-  (twin policy, utility AI, boss counter-policy).
+  (`agent/twin/` twin policy + style, `game/enemy_ai/mirror.py` boss counter-policy). The
+  reference implementation is `TwinV0Controller`; replace it behind the `TwinController` protocol.
+- Wire contracts: `apps/server/mirrorbound/contracts/` and `src/web/src/game/contracts.ts` change
+  together, with `docs/contracts/*.md`.
 
 Crossing one of these boundaries in a PR is fine when the change genuinely needs it,
 but call it out explicitly rather than quietly expanding scope.

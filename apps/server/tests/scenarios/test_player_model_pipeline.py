@@ -10,7 +10,8 @@ from mirrorbound.game.core.events import Event
 
 
 def dash_event(tick: int) -> Event:
-    return Event(tick=tick, type="PLAYER_DASHED", data={"tags": ["MOBILITY"], "distance": 5.0})
+    # 190 world units is Shadow Dash's real distance (see game/combat/abilities.py).
+    return Event(tick=tick, type="PLAYER_DASHED", data={"tags": ["MOBILITY"], "distance": 190.0})
 
 
 def fire_event(tick: int) -> Event:
@@ -100,7 +101,7 @@ def test_repeated_pattern_learning():
     assert top.order == 2
 
     # Traits picked up the combo's combat content too, not just the sequence.
-    assert snapshot.traits["mobility"]["value"] > 0.9  # from the repeated 5.0-unit DASH
+    assert snapshot.traits["mobility"]["value"] > 0.9  # from the repeated full-length DASH
     # The combo alternates a RANGED FIRE with a MELEE AERIAL_ATTACK every cycle, so
     # melee/ranged dependency should land roughly balanced, not near either extreme.
     assert 0.35 < snapshot.traits["melee_dependency"]["value"] < 0.65

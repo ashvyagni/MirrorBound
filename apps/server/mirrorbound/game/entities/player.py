@@ -337,9 +337,10 @@ class Player(Entity):
             })
         return out
 
-    def to_dict(self) -> dict:
-        from mirrorbound.game.progression.skills import tree_to_dict
-
+    def to_dict(self, detail: bool = True) -> dict:
+        """`detail=False` omits the inventory/skill tree/stat blocks that only
+        change on discrete actions; the session sends those on detail snapshots
+        and the client caches them."""
         base = super().to_dict()
         base.update({
             "type": "player",
@@ -350,26 +351,31 @@ class Player(Entity):
             "xpToNext": xp_to_next(self.level),
             "level": self.level,
             "skillPoints": self.skill_points,
-            "unlockedSkills": sorted(self.unlocked_skills),
-            "skillTree": tree_to_dict(self.unlocked_skills, self.skill_points),
             "currentWeapon": self.current_weapon,
-            "weapon": self.weapon.to_dict(),
             "attackCooldown": round(max(0.0, self.attack_cooldown), 2),
             "comboStep": self.combo_step,
             "comboLength": len(self.weapon.combo_chain),
             "abilities": self.abilities_to_dict(),
-            "inventory": self.inventory.to_dict(),
             "kills": self.kills,
             "deaths": self.deaths,
             "targetId": self.target_id,
             "respawnIn": round(max(0.0, self.respawn_timer), 1) if self.state == "dead" else 0,
-            "stats": {
-                "speed": round(self.speed),
-                "weaponDamageMult": round(self.weapon_damage_multiplier(), 2),
-                "spellDamageMult": round(self.spell_damage_multiplier(), 2),
-                "critChance": round(self.weapon.crit_chance + self.crit_chance_bonus(), 2),
-                "damageTakenMult": round(self.mods.damage_taken_mult, 2),
-                "manaRegen": round(self.mana_regen, 1),
-            },
         })
+        if detail:
+            from mirrorbound.game.progression.skills import tree_to_dict
+
+            base.update({
+                "unlockedSkills": sorted(self.unlocked_skills),
+                "skillTree": tree_to_dict(self.unlocked_skills, self.skill_points),
+                "weapon": self.weapon.to_dict(),
+                "inventory": self.inventory.to_dict(),
+                "stats": {
+                    "speed": round(self.speed),
+                    "weaponDamageMult": round(self.weapon_damage_multiplier(), 2),
+                    "spellDamageMult": round(self.spell_damage_multiplier(), 2),
+                    "critChance": round(self.weapon.crit_chance + self.crit_chance_bonus(), 2),
+                    "damageTakenMult": round(self.mods.damage_taken_mult, 2),
+                    "manaRegen": round(self.mana_regen, 1),
+                },
+            })
         return base

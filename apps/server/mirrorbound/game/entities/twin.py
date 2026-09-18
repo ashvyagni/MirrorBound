@@ -156,21 +156,22 @@ class Twin(Entity):
         self.revives += 1
         self.set_state("idle")
 
-    def to_dict(self) -> dict:
+    def to_dict(self, detail: bool = True) -> dict:
         base = super().to_dict()
         base.update({
             "type": "twin",
             "state": self.state,
             "mana": round(self.mana, 1),
             "maxMana": round(self.max_mana, 1),
-            "weapon": self.weapon.to_dict(),
             "currentWeapon": self.weapon.id,
             "intent": self.intent.to_dict(),
-            "inventory": self.inventory.to_dict(),
             "kills": self.kills,
             "damageDealt": round(self.damage_dealt),
             "damageTaken": round(self.damage_taken),
             "downedFor": round(max(0.0, self.downed_timer), 1) if self.downed else 0,
             "attackCooldown": round(max(0.0, self.attack_cooldown), 2),
         })
+        if detail:
+            base["weapon"] = self.weapon.to_dict()
+            base["inventory"] = self.inventory.to_dict()
         return base

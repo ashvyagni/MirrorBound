@@ -108,8 +108,16 @@ class GameSession:
         self.state.bus.subscribe("PLAYER_ABILITY_CAST", lambda e: self.mirror_controller.note_player_attack(e.tick))
         self._last_player_action: str | None = None
         self.state.bus.subscribe_all(self._track_player_action)
+        # Inventory / skill / weapon blocks are only re-sent after something changed them.
+        self.detail_dirty = True
+        for kind in ("ITEM_PICKUP", "WEAPON_CHANGED", "SKILL_UNLOCKED", "LEVEL_UP", "ITEM_USED",
+                     "ABILITY_SLOT_CHANGED", "PLAYER_RESPAWNED", "ROOM_ENTER"):
+            self.state.bus.subscribe(kind, self._mark_detail_dirty)
 
         self._enter_room(self.dungeon.rooms[0], from_side=None)
+
+    def _mark_detail_dirty(self, _event: Event) -> None:
+        self.detail_dirty = True
 
     def _track_player_action(self, event: Event) -> None:
         if event.type == "PLAYER_ATTACKED":
@@ -398,9 +406,12 @@ class GameSession:
         events = state.drain_events()
         self.recorder.record_events(events)
         full_room = self.room_dirty or self.snapshots_sent % (SNAPSHOT_HZ * 3) == 0
-        snap = state.to_dict(include_room=full_room)
+        detail = full_room or self.detail_dirty or self.snapshots_sent % SNAPSHOT_HZ == 0
+        snap = state.to_dict(include_room=full_room, detail=detail)
         snap["type"] = "SNAPSHOT"
         snap["roomFull"] = full_room
+        snap["detail"] = detail
+        self.detail_dirty = False
         snap["events"] = [e.to_json_dict() for e in events if e.type in CLIENT_EVENT_TYPES][-60:]
         snap["playerModel"] = self._player_model_dict()
         snap["playerModel"]["cellSize"] = SPATIAL_CELL

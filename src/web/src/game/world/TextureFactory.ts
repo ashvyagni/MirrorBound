@@ -7,7 +7,7 @@
  * these for a drawn asset is a one-line texture-key change in the renderer.
  */
 
-import Phaser from 'phaser';
+import type Phaser from 'phaser';
 
 import { BIOMES, RENDER_SCALE, TILE, VIEW, type BiomeName } from '../constants';
 import { blob, glow, paint, poly, rgba, shade, speckle, type Ctx } from './paint';

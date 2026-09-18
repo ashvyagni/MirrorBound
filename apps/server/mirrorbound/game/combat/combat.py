@@ -25,6 +25,11 @@ from mirrorbound.game.loot import LootSystem
 from mirrorbound.game.state import GameState
 
 
+# The companion fights with the same weapons but hits softer: the player must
+# stay the one who wins fights, or the twin's help turns into watching.
+TWIN_DAMAGE_MULT = 0.6
+
+
 class CombatSystem:
     """Handles all combat operations."""
 
@@ -222,10 +227,10 @@ class CombatSystem:
             twin.mana -= weapon.resource_cost
         hits: list[str] = []
         if weapon.is_melee:
-            hits = [e.id for e in self._melee_sweep(state, twin, weapon, direction, 1.0, attacker_id=twin.id)]
+            hits = [e.id for e in self._melee_sweep(state, twin, weapon, direction, TWIN_DAMAGE_MULT, attacker_id=twin.id)]
         else:
-            self._fire_projectiles(state, twin, weapon.projectile, direction, weapon.damage, weapon.knockback,
-                                   weapon.tags, source=weapon.id)
+            self._fire_projectiles(state, twin, weapon.projectile, direction, weapon.damage * TWIN_DAMAGE_MULT,
+                                   weapon.knockback, weapon.tags, source=weapon.id)
         state.emit("TWIN_ATTACKED", target=target.id, weapon=weapon.id, tags=weapon.get_tags(),
                    position=twin.position.to_dict(), hitCount=len(hits),
                    distance=(target.position - twin.position).length())

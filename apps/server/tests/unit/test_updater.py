@@ -15,7 +15,7 @@ def test_melee_attack_pulls_aggression_and_melee_dependency_up():
 
 def test_dash_with_distance_only_updates_mobility():
     traits = PlayerTraitModel()
-    event = Event(tick=1, type="PLAYER_DASHED", data={"distance": 5.0})
+    event = Event(tick=1, type="PLAYER_DASHED", data={"distance": 190.0})  # a full Shadow Dash
     apply_event(traits, event)
 
     assert traits.get("mobility").value > 0.5

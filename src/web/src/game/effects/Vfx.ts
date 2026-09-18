@@ -185,10 +185,23 @@ export class Vfx {
     });
   }
 
-  roomTransition(out: boolean): void {
+  /**
+   * Room change: the exit event and the new room arrive in the same snapshot,
+   * so this is one gesture -- a quick dip to black, then a fade back in over
+   * whatever has already been built.
+   */
+  roomTransition(): void {
     const cam = this.scene.cameras.main;
-    if (out) cam.fadeOut(220, 10, 6, 16);
-    else cam.fadeIn(420, 10, 6, 16);
+    cam.resetFX();
+    cam.fadeOut(140, 10, 6, 16, (_cam: Phaser.Cameras.Scene2D.Camera, progress: number) => {
+      if (progress >= 1) cam.fadeIn(520, 10, 6, 16);
+    });
+  }
+
+  fadeIn(duration = 500): void {
+    const cam = this.scene.cameras.main;
+    cam.resetFX();
+    cam.fadeIn(duration, 10, 6, 16);
   }
 
   shake(intensity: number, duration: number = CAMERA.shake.duration): void {

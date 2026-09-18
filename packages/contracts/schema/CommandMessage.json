@@ -1,0 +1,118 @@
+{
+  "description": "Discrete, menu-driven actions.",
+  "properties": {
+    "type": {
+      "const": "COMMAND",
+      "default": "COMMAND",
+      "title": "Type",
+      "type": "string"
+    },
+    "action": {
+      "enum": [
+        "EQUIP_WEAPON",
+        "TWIN_EQUIP",
+        "UNLOCK_SKILL",
+        "USE_ITEM",
+        "SET_ABILITY_SLOT",
+        "PAUSE",
+        "RESUME",
+        "RESTART",
+        "REQUEST_ROOM",
+        "SET_TWIN_STANCE"
+      ],
+      "title": "Action",
+      "type": "string"
+    },
+    "weaponId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Weaponid"
+    },
+    "skillId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Skillid"
+    },
+    "itemId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Itemid"
+    },
+    "abilityId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Abilityid"
+    },
+    "slot": {
+      "anyOf": [
+        {
+          "maximum": 4,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Slot"
+    },
+    "stance": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Stance"
+    },
+    "seed": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Seed"
+    }
+  },
+  "required": [
+    "action"
+  ],
+  "title": "CommandMessage",
+  "type": "object"
+}

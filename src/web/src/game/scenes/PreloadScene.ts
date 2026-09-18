@@ -43,6 +43,7 @@ export class PreloadScene extends Phaser.Scene {
   }
 
   create(): void {
+    const t0 = performance.now();
     registerGoatAnimations(this.anims);
     registerBroAnimations(this.anims);
     registerWeaponAnimations(this.anims);
@@ -51,6 +52,7 @@ export class PreloadScene extends Phaser.Scene {
     const factory = new TextureFactory(this);
     factory.ensureCommon();
     factory.ensureBiome('grove');
+    console.info(`[mirrorbound] atlases loaded at ${Math.round(t0)}ms; textures painted in ${Math.round(performance.now() - t0)}ms`);
     eventBus.emit('game:loading', { progress: 1 });
     this.scene.start('play');
   }

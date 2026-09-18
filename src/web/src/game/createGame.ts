@@ -28,6 +28,10 @@ export function createGame(parent: HTMLElement, fullscreenTarget?: HTMLElement):
     },
     // No client-side physics: the server owns movement and collisions.
     scene: [PreloadScene, PlayScene],
+    // In development the loop runs on timers instead of requestAnimationFrame so
+    // the game keeps stepping while the window is occluded (automated QA drives
+    // it from a hidden browser pane). Production keeps vsync-locked RAF.
+    fps: { target: 60, forceSetTimeOut: import.meta.env.DEV },
   });
 
   if (import.meta.env.DEV) {

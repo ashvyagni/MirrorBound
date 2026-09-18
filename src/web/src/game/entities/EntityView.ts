@@ -5,7 +5,7 @@
  * eases toward each new authoritative position so motion stays smooth at 60.
  */
 
-import Phaser from 'phaser';
+import type Phaser from 'phaser';
 
 import { DEPTH, NET } from '../constants';
 import type { Vec2 } from '../contracts';

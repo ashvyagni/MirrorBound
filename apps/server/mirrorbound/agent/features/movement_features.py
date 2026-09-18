@@ -10,10 +10,11 @@ from __future__ import annotations
 
 from mirrorbound.game.core.events import Event
 
-# A rough "one full dash" reference distance in world units. Tune once real
-# movement numbers exist; this is a placeholder normalization constant, not a
-# measured game balance value.
-MOBILITY_DISTANCE_NORM = 5.0
+# Reference distance in world units that reads as "fully mobile" for one
+# observation. Calibrated against the real game: PLAYER_MOVED is sampled every
+# 20 ticks (a third of a second), so a sprint covers ~96 units and a walk ~58;
+# Shadow Dash moves 190. Walking therefore reads ~0.6, sprinting/dashing 1.0.
+MOBILITY_DISTANCE_NORM = 95.0
 
 
 def mobility_signal(event: Event) -> float | None:

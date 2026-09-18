@@ -174,3 +174,8 @@ eventBus.on('game:connection', ({ status, attempt }) => set({ connection: status
 eventBus.on('game:ready', () => set({ ready: true }));
 eventBus.on('game:loading', ({ progress }) => set({ loading: progress }));
 eventBus.on('game:fullscreen', ({ active }) => set({ fullscreen: active }));
+
+// Dev-only handle for QA scripts and the console: `__mirrorbound.getUiState().snapshot`.
+if (import.meta.env.DEV) {
+  (window as unknown as { __mirrorbound?: unknown }).__mirrorbound = { getUiState, eventBus, openScreen, pushToast };
+}

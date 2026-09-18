@@ -63,6 +63,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   create(): void {
+    console.info(`[mirrorbound] play scene created at ${Math.round(performance.now())}ms`);
     this.#textures = new TextureFactory(this);
     this.#textures.ensureCommon();
     this.#world = new WorldRenderer(this, this.#textures, this.#settings.quality);
@@ -199,7 +200,7 @@ export class PlayScene extends Phaser.Scene {
     this.#player?.setRoom(room);
     const cam = this.cameras.main;
     cam.setBounds(0, 0, room.width, room.height);
-    this.#vfx.roomTransition(false);
+    if (!this.#cameraBound) this.#vfx.fadeIn(700);
   }
 
   #bindCamera(): void {
@@ -310,10 +311,11 @@ export class PlayScene extends Phaser.Scene {
         const source = String(e.data.source ?? '');
         const colour = source.includes('ember') || source.includes('flame') ? PALETTE.ember
           : source.includes('frost') ? PALETTE.ice : source.includes('arcane') || source.includes('nova') ? PALETTE.arcane : 0xffffff;
-        this.#vfx.hitSparks({ x: pos.x, y: pos.y }, colour, Boolean(e.data.crit) ? 14 : 7);
-        this.#vfx.damageNumber(pos, Number(e.data.damage), Boolean(e.data.crit),
+        const crit = Boolean(e.data.crit);
+        this.#vfx.hitSparks({ x: pos.x, y: pos.y }, colour, crit ? 14 : 7);
+        this.#vfx.damageNumber(pos, Number(e.data.damage), crit,
           String(e.data.attacker).startsWith('twin') ? '#bfe6ff' : '#fff1c9');
-        audio.play('hit', { volume: 0.6, pitch: Boolean(e.data.crit) ? 0.8 : 1 });
+        audio.play('hit', { volume: 0.6, pitch: crit ? 0.8 : 1 });
         break;
       }
       case 'DAMAGE_TAKEN':
@@ -357,7 +359,7 @@ export class PlayScene extends Phaser.Scene {
         audio.play('potion');
         break;
       case 'ROOM_EXIT':
-        this.#vfx.roomTransition(true);
+        this.#vfx.roomTransition();
         audio.play('door');
         break;
       case 'ROOM_CLEARED':
@@ -389,7 +391,7 @@ export class PlayScene extends Phaser.Scene {
         this.#vfx.shake(CAMERA.shake.heavy, 400);
         break;
       case 'PLAYER_RESPAWNED':
-        this.#vfx.roomTransition(false);
+        this.#vfx.fadeIn(600);
         break;
       case 'BOSS_COUNTER': {
         const label = {
@@ -409,7 +411,7 @@ export class PlayScene extends Phaser.Scene {
         audio.play('nova');
         break;
       case 'ENEMY_ATTACKED':
-        if (Boolean(e.data.ranged)) audio.play('arrow', { volume: 0.5, pitch: 0.8 });
+        if (e.data.ranged) audio.play('arrow', { volume: 0.5, pitch: 0.8 });
         break;
       case 'SKILL_UNLOCKED':
         audio.play('levelup', { volume: 0.5 });
@@ -422,8 +424,7 @@ export class PlayScene extends Phaser.Scene {
   // --- commands & settings ---------------------------------------------------------------
 
   #onCommand(cmd: CommandMessage): void {
-    const { type: _type, ...rest } = cmd;
-    this.#ws.sendCommand(rest);
+    this.#ws.sendCommand(cmd);
     audio.play('ui_click', { volume: 0.5 });
   }
 

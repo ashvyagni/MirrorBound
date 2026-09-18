@@ -80,14 +80,14 @@ class EnemyDef:
 
 
 SKELETON = EnemyDef(
-    id="skeleton", name="Bone Knight", health=48, damage=11, speed=92,
+    id="skeleton", name="Bone Knight", health=62, damage=11, speed=92,
     attack_range=44, aggro_range=260, attack_cooldown=1.3, attack_windup=0.42,
     behavior=EnemyBehavior.CHARGE, size=14, xp_reward=24, sprite="skeleton",
     tags=("MELEE",), knockback=140, loot=LootTable(1, 3, 0.05, 0.10, 0.06), role="melee",
 )
 
 ARCHER = EnemyDef(
-    id="archer", name="Hollow Archer", health=34, damage=13, speed=78,
+    id="archer", name="Hollow Archer", health=42, damage=13, speed=78,
     attack_range=300, aggro_range=380, attack_cooldown=1.9, attack_windup=0.55,
     behavior=EnemyBehavior.KEEP_DISTANCE, size=12, xp_reward=28, sprite="archer",
     tags=("RANGED",), knockback=60,
@@ -96,14 +96,14 @@ ARCHER = EnemyDef(
 )
 
 HOUND = EnemyDef(
-    id="hound", name="Gloom Hound", health=30, damage=9, speed=210,
+    id="hound", name="Gloom Hound", health=38, damage=9, speed=210,
     attack_range=36, aggro_range=340, attack_cooldown=0.9, attack_windup=0.22,
     behavior=EnemyBehavior.DART, size=12, xp_reward=22, sprite="hound",
     tags=("MELEE", "FAST"), knockback=90, loot=LootTable(1, 2, 0.04, 0.06, 0.04), role="fast",
 )
 
 SLIME = EnemyDef(
-    id="slime", name="Mire Slime", health=95, damage=15, speed=48,
+    id="slime", name="Mire Slime", health=115, damage=15, speed=48,
     attack_range=40, aggro_range=220, attack_cooldown=1.8, attack_windup=0.6,
     behavior=EnemyBehavior.TANK, size=18, xp_reward=34, sprite="slime",
     tags=("MELEE", "HEAVY"), knockback=200, knockback_resist=0.7,

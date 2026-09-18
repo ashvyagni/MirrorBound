@@ -168,15 +168,15 @@ class GameState:
 
     # --- serialisation ------------------------------------------------------------------
 
-    def to_dict(self, include_room: bool = True) -> dict:
+    def to_dict(self, include_room: bool = True, detail: bool = True) -> dict:
         d = {
             "tick": self.tick,
             "seed": self.seed,
             "phase": self.phase,
             "paused": self.paused,
             "transition": round(self.transition_timer, 2),
-            "player": self.player.to_dict(),
-            "twin": self.twin.to_dict(),
+            "player": self.player.to_dict(detail=detail),
+            "twin": self.twin.to_dict(detail=detail),
             "enemies": [e.to_dict() for e in self.get_active_enemies()],
             "projectiles": [p.to_dict() for p in self.projectiles if p.active],
             "pickups": [p.to_dict() for p in self.pickups if p.active],
