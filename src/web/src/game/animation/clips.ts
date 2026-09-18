@@ -18,15 +18,12 @@ export interface ClipDef {
   hold?: boolean;
 }
 
-const { idle, walk, run, jump, attack, hurt, die } = GOAT_FRAMES;
+const { idle, walk, run, attack, hurt, die } = GOAT_FRAMES;
 
 export const CLIPS = {
   idle: { frames: idle, frameRate: 7, repeat: -1 },
   walk: { frames: walk, frameRate: 11, repeat: -1 },
   run: { frames: run, frameRate: 15, repeat: -1 },
-  rise: { frames: jump.slice(0, 3), frameRate: 14, repeat: 0, hold: true },
-  fall: { frames: jump.slice(3, 5), frameRate: 9, repeat: 0, hold: true },
-  land: { frames: jump.slice(5), frameRate: 12, repeat: 0, hold: true },
   attack: { frames: attack, frameRate: 16, repeat: 0, hold: true },
   hurt: { frames: hurt, frameRate: 1, repeat: 0, hold: true },
   die: { frames: die, frameRate: 1, repeat: 0, hold: true },
@@ -36,7 +33,7 @@ export type ClipName = keyof typeof CLIPS;
 
 /** Clips the debug dock offers, in the order they appear on the sheet. */
 export const CLIP_ORDER: readonly ClipName[] = [
-  'idle', 'walk', 'run', 'rise', 'fall', 'land', 'attack', 'hurt', 'die',
+  'idle', 'walk', 'run', 'attack', 'hurt', 'die',
 ];
 
 /** Expression portraits. Not animations -- single frames shown in the UI. */

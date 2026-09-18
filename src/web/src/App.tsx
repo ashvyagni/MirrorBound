@@ -11,7 +11,7 @@ export default function App() {
       <header className="masthead">
         <div>
           <h1 className="masthead__title">Mirrorbound</h1>
-          <p className="masthead__sub">Character sandbox · goat</p>
+          <p className="masthead__sub">Dark Fantasy Dungeon</p>
         </div>
         <span className="masthead__badge">
           {snapshot ? snapshot.state : 'booting'}

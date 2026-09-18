@@ -4,10 +4,11 @@ import { eventBus } from '@/game/EventBus';
 import type { PlayerSnapshot } from '@/game/types';
 
 const KEYS: Array<[string, string]> = [
-  ['← →  /  A D', 'Move'],
+  ['W A S D', 'Move'],
   ['Shift', 'Run'],
-  ['Space  /  W', 'Jump · hold for height'],
   ['J', 'Attack'],
+  ['1-4', 'Abilities'],
+  ['Mouse', 'Aim'],
 ];
 
 export function StatusPanel({ snapshot }: { snapshot: PlayerSnapshot | null }) {
@@ -34,7 +35,7 @@ export function StatusPanel({ snapshot }: { snapshot: PlayerSnapshot | null }) {
         <Stat label="State" value={snapshot?.state ?? '—'} wide />
         <Stat label="Clip" value={snapshot?.clip ?? '—'} wide />
         <Stat label="Facing" value={snapshot ? (snapshot.facing === 1 ? 'right' : 'left') : '—'} />
-        <Stat label="Grounded" value={snapshot ? (snapshot.grounded ? 'yes' : 'airborne') : '—'} />
+        <Stat label="Position" value={snapshot ? `${Math.round(snapshot.positionX)}, ${Math.round(snapshot.positionY)}` : '—'} wide />
       </div>
 
       <label className="toggle">

@@ -1,5 +1,5 @@
 import type { ClipName } from './animation/clips';
-import type { PlayerSnapshot, PlayerState } from './types';
+import type { PlayerSnapshot, PlayerState, GameSnapshot, EnemySnapshot, TwinSnapshot } from './types';
 
 /**
  * The only channel between React and Phaser.
@@ -24,6 +24,12 @@ export interface GameEventMap {
   'debug:force-state': { state: Extract<PlayerState, 'hurt' | 'die'> | 'reset' };
   /** Toggle physics body overlays. */
   'debug:toggle-bodies': { enabled: boolean };
+  /** Full game snapshot from server. */
+  'game:snapshot': GameSnapshot;
+  /** Enemy update from server. */
+  'enemy:update': EnemySnapshot[];
+  /** Twin update from server. */
+  'twin:update': TwinSnapshot;
 }
 
 type Handler<K extends keyof GameEventMap> = (payload: GameEventMap[K]) => void;
@@ -48,7 +54,6 @@ class TypedEventBus {
   emit<K extends keyof GameEventMap>(event: K, payload: GameEventMap[K]): void {
     const set = this.#handlers.get(event);
     if (!set) return;
-    // Copy first: a handler may unsubscribe itself while we iterate.
     for (const handler of [...set]) (handler as Handler<K>)(payload);
   }
 

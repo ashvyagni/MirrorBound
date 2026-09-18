@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-import { PALETTE, PHYSICS, VIEW } from './constants';
+import { PALETTE, VIEW } from './constants';
 import { PlayScene } from './scenes/PlayScene';
 import { PreloadScene } from './scenes/PreloadScene';
 
@@ -28,7 +28,7 @@ export function createGame(parent: HTMLElement): Phaser.Game {
     physics: {
       default: 'arcade',
       arcade: {
-        gravity: { x: 0, y: PHYSICS.gravity },
+        gravity: { x: 0, y: 0 },
         debug: false,
       },
     },

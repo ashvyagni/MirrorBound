@@ -1,13 +1,10 @@
 import type { ClipName } from './animation/clips';
 
-/** What the goat is doing. One of these is always true, and only one. */
+/** What the character is doing. One of these is always true, and only one. */
 export type PlayerState =
   | 'idle'
   | 'walk'
   | 'run'
-  | 'rise'
-  | 'fall'
-  | 'land'
   | 'attack'
   | 'hurt'
   | 'die';
@@ -25,22 +22,25 @@ export type Facing = 1 | -1;
 export interface Intent {
   /** -1 full left, 0 neutral, 1 full right. */
   moveX: number;
-  /** True only on the frame the jump was requested. */
-  jump: boolean;
-  /** True for as long as jump is held; enables variable jump height. */
-  jumpHeld: boolean;
+  /** -1 full up, 0 neutral, 1 full down. */
+  moveY: number;
   /** True only on the frame the attack was requested. */
   attack: boolean;
   /** Hold to run instead of walk. */
   run: boolean;
+  /** Mouse aim angle in radians (0 = right, PI/2 = down). */
+  aimAngle: number;
+  /** Ability key pressed (1-4). */
+  ability: number | null;
 }
 
 export const NEUTRAL_INTENT: Readonly<Intent> = Object.freeze({
   moveX: 0,
-  jump: false,
-  jumpHeld: false,
+  moveY: 0,
   attack: false,
   run: false,
+  aimAngle: 0,
+  ability: null,
 });
 
 /** Anything that can drive the character. */
@@ -55,7 +55,45 @@ export interface PlayerSnapshot {
   state: PlayerState;
   clip: ClipName;
   facing: Facing;
-  grounded: boolean;
+  positionX: number;
+  positionY: number;
   velocityX: number;
   velocityY: number;
+}
+
+/** Snapshot of an enemy for rendering. */
+export interface EnemySnapshot {
+  id: string;
+  type: string;
+  positionX: number;
+  positionY: number;
+  health: number;
+  maxHealth: number;
+  state: string;
+}
+
+/** Snapshot of the twin for rendering. */
+export interface TwinSnapshot {
+  positionX: number;
+  positionY: number;
+  health: number;
+  maxHealth: number;
+  state: string;
+}
+
+/** Full game snapshot from server. */
+export interface GameSnapshot {
+  tick: number;
+  player: PlayerSnapshot;
+  twin: TwinSnapshot;
+  enemies: EnemySnapshot[];
+  room: RoomSnapshot;
+}
+
+/** Room snapshot for rendering. */
+export interface RoomSnapshot {
+  width: number;
+  height: number;
+  tiles: number[][];
+  roomType: string;
 }
