@@ -1,0 +1,302 @@
+/* Palette sampled from the swatches on the source character sheet, so the
+   interface and the artwork are literally the same colours. */
+:root {
+  --cream: #f2e8df;
+  --taupe: #bdafa6;
+  --magenta: #d62e6c;
+  --pink: #f5a4c0;
+
+  --night: #14111a;
+  --dusk: #201a2a;
+  --raise: #2a2335;
+  --line: #3a3145;
+
+  --text: var(--cream);
+  --muted: #9b8fa6;
+
+  --radius: 10px;
+  --gap: 16px;
+  --font: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: radial-gradient(120% 90% at 50% 0%, var(--dusk), var(--night) 70%);
+  color: var(--text);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+.shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  padding: clamp(12px, 2.2vw, 28px);
+}
+
+/* --- masthead ------------------------------------------------------------ */
+
+.masthead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap);
+}
+
+.masthead__title {
+  margin: 0;
+  font-size: clamp(18px, 2.4vw, 26px);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.masthead__sub {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.masthead__badge {
+  padding: 6px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--raise);
+  color: var(--pink);
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* --- layout -------------------------------------------------------------- */
+
+.layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: var(--gap);
+  align-items: start;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* --- stage --------------------------------------------------------------- */
+
+.stage {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--night);
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+}
+
+.stage__canvas { position: absolute; inset: 0; }
+.stage__canvas canvas { display: block; }
+
+.stage__loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  gap: 12px;
+  justify-items: center;
+  background: var(--night);
+  color: var(--muted);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+
+.stage__bar {
+  width: 190px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.stage__bar i {
+  display: block;
+  height: 100%;
+  background: var(--magenta);
+  transform-origin: left;
+  transition: transform 120ms linear;
+}
+
+/* --- panels -------------------------------------------------------------- */
+
+.panel {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: linear-gradient(var(--raise), var(--dusk));
+}
+
+.panel__title {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--taupe);
+}
+
+.panel__title--spaced { margin-top: 20px; }
+
+.panel__hint {
+  margin: -4px 0 12px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* --- controls ------------------------------------------------------------ */
+
+.keys { margin: 0; display: grid; gap: 7px; }
+
+.keys__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.keys dd { margin: 0; color: var(--muted); font-size: 12px; text-align: right; }
+
+kbd {
+  display: inline-block;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  background: var(--night);
+  color: var(--cream);
+  font-family: var(--mono);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* --- readout ------------------------------------------------------------- */
+
+.readout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.readout__cell {
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--night);
+  display: grid;
+  gap: 3px;
+}
+
+.readout__cell[data-wide='true'] { grid-column: span 2; }
+
+.readout__label {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.readout__value {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--pink);
+}
+
+.toggle {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.toggle input { accent-color: var(--magenta); cursor: pointer; }
+
+/* --- clips --------------------------------------------------------------- */
+
+.clips {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+.clip {
+  display: grid;
+  gap: 2px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--night);
+  color: var(--cream);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 120ms, background 120ms, transform 80ms;
+}
+
+.clip:hover { border-color: var(--taupe); }
+.clip:active { transform: translateY(1px); }
+
+.clip[data-active='true'] {
+  border-color: var(--magenta);
+  background: color-mix(in srgb, var(--magenta) 18%, var(--night));
+}
+
+.clip__name { font-size: 12.5px; font-weight: 550; }
+.clip__meta { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+
+/* --- actions ------------------------------------------------------------- */
+
+.actions {
+  margin-top: 14px;
+  display: flex;
+  gap: 7px;
+}
+
+.actions button {
+  flex: 1;
+  padding: 9px 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--night);
+  color: var(--taupe);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 120ms, color 120ms;
+}
+
+.actions button:hover { border-color: var(--taupe); color: var(--cream); }
+
+.actions__primary {
+  border-color: color-mix(in srgb, var(--magenta) 55%, var(--line)) !important;
+  color: var(--pink) !important;
+}
+
+:focus-visible {
+  outline: 2px solid var(--pink);
+  outline-offset: 2px;
+}
