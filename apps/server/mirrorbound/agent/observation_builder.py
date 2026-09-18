@@ -1,73 +1,111 @@
-"""Observation builder for AI integration."""
+"""Builds an `AgentObservation` from the authoritative `GameState`."""
 
 from __future__ import annotations
 
 from mirrorbound.agent.observation import (
     AgentObservation,
     EntitySnapshot,
+    PickupSnapshot,
     RoomSnapshot,
 )
-from mirrorbound.game.state import GameState, Room
-from mirrorbound.game.entities.entity import Entity, Vec2
 from mirrorbound.game.core.events import Event
+from mirrorbound.game.entities.entity import Vec2
+from mirrorbound.game.state import GameState
 
 
 def build_observation(
     state: GameState,
     recent_events: list[Event],
+    player_model: dict | None = None,
+    twin_style: dict | None = None,
+    player_last_action: str | None = None,
+    seconds_since_decision: float = 0.1,
 ) -> AgentObservation:
     """Build an observation from the current game state."""
-    # Build player snapshot
+    player = state.player
+    twin = state.twin
+
     player_snapshot = EntitySnapshot(
-        id=state.player.id,
-        position=Vec2(state.player.position.x, state.player.position.y),
-        health=state.player.health,
-        max_health=state.player.max_health,
-        velocity=Vec2(state.player.velocity.x, state.player.velocity.y),
-        status_effects=state.player.status_effects.copy(),
+        id=player.id,
+        position=player.position.copy(),
+        health=player.health,
+        max_health=player.max_health,
+        velocity=player.velocity.copy(),
+        facing=player.facing.copy(),
+        radius=player.radius,
+        state=player.state,
+        role="player",
+        target_id=player.target_id,
+        attack_range=player.weapon.range,
+        weapon_is_melee=player.weapon.is_melee,
+        status_effects=sorted(player.status_effects),
     )
 
-    # Build twin snapshot
     twin_snapshot = EntitySnapshot(
-        id=state.twin.id,
-        position=Vec2(state.twin.position.x, state.twin.position.y),
-        health=state.twin.health,
-        max_health=state.twin.max_health,
-        velocity=Vec2(state.twin.velocity.x, state.twin.velocity.y),
-        status_effects=state.twin.status_effects.copy(),
+        id=twin.id,
+        position=twin.position.copy(),
+        health=twin.health,
+        max_health=twin.max_health,
+        velocity=twin.velocity.copy(),
+        facing=twin.facing.copy(),
+        radius=twin.radius,
+        state=twin.state,
+        role="twin",
+        target_id=twin.intent.target_id,
+        attack_range=twin.weapon.range,
+        weapon_is_melee=twin.weapon.is_melee,
+        status_effects=sorted(twin.status_effects),
     )
 
-    # Build enemy snapshots
-    enemy_snapshots = []
-    for enemy in state.get_active_enemies():
-        snapshot = EntitySnapshot(
+    enemy_snapshots = [
+        EntitySnapshot(
             id=enemy.id,
-            position=Vec2(enemy.position.x, enemy.position.y),
+            position=enemy.position.copy(),
             health=enemy.health,
             max_health=enemy.max_health,
-            velocity=Vec2(enemy.velocity.x, enemy.velocity.y),
-            status_effects=enemy.status_effects.copy(),
+            velocity=enemy.velocity.copy(),
+            facing=enemy.facing.copy(),
+            radius=enemy.radius,
+            state=enemy.state.value,
+            role=enemy.enemy_def.role,
+            target_id=enemy.target_id,
+            winding_up=enemy.is_winding_up,
+            windup=enemy.windup_timer,
+            attack_range=enemy.enemy_def.attack_range,
+            weapon_is_melee=enemy.enemy_def.projectile is None,
+            elite=enemy.enemy_def.elite,
+            boss=enemy.enemy_def.boss,
+            status_effects=sorted(enemy.status_effects),
         )
-        enemy_snapshots.append(snapshot)
+        for enemy in state.get_active_enemies()
+    ]
 
-    # Build room snapshot
     room_snapshot = RoomSnapshot(
         room_type=state.room.room_type,
         width=state.room.width,
         height=state.room.height,
-        doors=state.room.door_positions.copy(),
+        doors=[Vec2(d.x, d.y) for d in state.room.doors],
+        index=state.room.index,
+        cleared=state.room.cleared,
     )
 
-    # Convert recent events to dicts
-    event_dicts = []
-    for event in recent_events[-20:]:  # Last 20 events
-        event_dicts.append(event.to_json_dict())
+    pickups = [PickupSnapshot(p.id, p.kind, p.position.copy()) for p in state.pickups if p.active]
 
     return AgentObservation(
         tick=state.tick,
         player_state=player_snapshot,
         twin_state=twin_snapshot,
         enemies=enemy_snapshots,
-        recent_events=event_dicts,
+        recent_events=[e.to_json_dict() for e in recent_events[-20:]],
         room_context=room_snapshot,
+        pickups=pickups,
+        player_model=player_model or {},
+        twin_style=twin_style or {},
+        player_target_id=player.target_id,
+        player_last_action=player_last_action,
+        player_mana_fraction=player.mana / player.max_mana if player.max_mana > 0 else 1.0,
+        twin_can_attack=twin.can_attack(),
+        twin_weapon_range=twin.weapon.range,
+        twin_weapon_is_melee=twin.weapon.is_melee,
+        seconds_since_decision=seconds_since_decision,
     )

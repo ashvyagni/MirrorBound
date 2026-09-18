@@ -1,4 +1,6 @@
-"""Basic follow controller for the twin."""
+"""The original follow-and-poke controller, kept as the simplest possible
+`TwinController` for tests and as a fallback. Twin v0 lives in agent/twin/.
+"""
 
 from __future__ import annotations
 
@@ -8,58 +10,24 @@ from mirrorbound.game.entities.twin import TwinIntent
 
 
 class BasicFollowController:
-    """Simple follow-player controller. Ojas replaces this with real AI."""
+    """Follow the player; attack the nearest enemy if one is close."""
 
-    def __init__(self, follow_distance: float = 60.0, attack_range: float = 100.0):
+    def __init__(self, follow_distance: float = 60.0, attack_range: float = 160.0):
         self.follow_distance = follow_distance
         self.attack_range = attack_range
 
     def decide(self, observation: AgentObservation) -> TwinIntent:
-        """Make a decision based on the current observation."""
-        player_pos = Vec2(
-            observation.player_state.position.x,
-            observation.player_state.position.y,
-        )
-        twin_pos = Vec2(
-            observation.twin_state.position.x,
-            observation.twin_state.position.y,
-        )
+        player_pos = observation.player_state.position
+        twin_pos = observation.twin_state.position
 
-        # Find nearest enemy
-        nearest_enemy = None
-        nearest_dist = float('inf')
+        nearest, nearest_dist = None, float("inf")
         for enemy in observation.enemies:
-            enemy_pos = Vec2(enemy.position.x, enemy.position.y)
-            dist = twin_pos.distance_to(enemy_pos)
+            dist = twin_pos.distance_to(enemy.position)
             if dist < nearest_dist:
-                nearest_dist = dist
-                nearest_enemy = enemy
+                nearest, nearest_dist = enemy, dist
 
-        # Decision logic
-        if nearest_enemy and nearest_dist < self.attack_range:
-            # Enemy in range, attack it
-            return TwinIntent(
-                intent_type="ATTACK",
-                target_id=nearest_enemy.id,
-                position=Vec2(nearest_enemy.position.x, nearest_enemy.position.y),
-                confidence=0.7,
-            )
-        elif nearest_enemy and nearest_dist < self.attack_range * 2:
-            # Enemy nearby, move toward to attack
-            return TwinIntent(
-                intent_type="ATTACK",
-                target_id=nearest_enemy.id,
-                position=Vec2(nearest_enemy.position.x, nearest_enemy.position.y),
-                confidence=0.5,
-            )
-        else:
-            # No immediate threat, follow player
-            # Calculate offset position behind player
-            offset = Vec2(-self.follow_distance * 0.5, self.follow_distance * 0.3)
-            target = player_pos + offset
-
-            return TwinIntent(
-                intent_type="FOLLOW",
-                position=target,
-                confidence=0.6,
-            )
+        if nearest is not None and nearest_dist < self.attack_range * 2:
+            return TwinIntent(intent_type="ATTACK", target_id=nearest.id, position=nearest.position.copy(),
+                              confidence=0.7 if nearest_dist < self.attack_range else 0.5, reason="nearest enemy")
+        offset = Vec2(-self.follow_distance * 0.5, self.follow_distance * 0.3)
+        return TwinIntent(intent_type="FOLLOW", position=player_pos + offset, confidence=0.6, reason="following")
