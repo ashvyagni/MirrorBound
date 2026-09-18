@@ -586,3 +586,114 @@ kbd {
 @media (prefers-reduced-motion: reduce) {
   * { transition-duration: 0.01ms !important; }
 }
+
+/* --- loadout: two hands, and what goes in them --------------------------- */
+
+/* The two carried weapons, bound to Q and E in the game. Laid out as a pair
+   rather than a list: there are exactly two and there always will be, so the
+   grid says so. */
+.hands {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.hand {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #1b1624;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.14s, background 0.14s;
+}
+
+.hand:hover { border-color: #55445f; }
+.hand:focus-visible { outline: 2px solid var(--pink); outline-offset: 2px; }
+
+/* The hand actually in use. The same magenta the plate lights its recess
+   with, so the panel and the game agree without either knowing the other. */
+.hand[data-active='true'] {
+  border-color: var(--magenta);
+  background: #241a2b;
+}
+
+.hand__key { font-size: 11px; }
+.hand__name { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hand[data-active='true'] .hand__name { color: var(--pink); }
+
+/* An empty hand still occupies an icon's worth of space, so the two hands do
+   not change width as weapons come and go. */
+.hand__empty {
+  width: 30px;
+  height: 30px;
+  border: 1px dashed var(--line);
+  border-radius: 4px;
+}
+
+/* Which hand a weapon goes in. Two buttons per weapon rather than one
+   "equip": the slot is the decision being made, since the keys are bound to
+   slots and not to weapons. */
+.weapon__slots { display: flex; gap: 4px; margin-left: auto; }
+
+.weapon__slot {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #221b2c;
+  color: var(--ink-faint);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  transition: border-color 0.14s, background 0.14s, color 0.14s;
+}
+
+.weapon__slot:hover { border-color: #55445f; color: var(--ink); }
+.weapon__slot:focus-visible { outline: 2px solid var(--pink); outline-offset: 2px; }
+
+.weapon__slot[data-on='true'] {
+  border-color: var(--magenta);
+  background: var(--magenta);
+  color: #14111a;
+}
+
+/* The weapon row is no longer a button -- its two slot buttons are -- so the
+   hover affordance moves to the row itself. */
+.weapon:has(.weapon__slots) { cursor: default; }
+.weapon:has(.weapon__slots):hover { transform: none; }
+
+.potions { display: grid; gap: 6px; margin-bottom: 12px; }
+
+.potion {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #1b1624;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.14s, opacity 0.14s;
+}
+
+.potion:hover { border-color: #55445f; }
+.potion:focus-visible { outline: 2px solid var(--pink); outline-offset: 2px; }
+.potion[data-active='true'] { border-color: var(--pink); }
+.potion[data-empty='true'] { opacity: 0.45; }
+.potion__name { font-size: 13px; }
+
+.slot__cost { color: var(--ink-faint); font-size: 11px; margin-left: auto; padding-right: 8px; }
+
+.hint { color: var(--ink-faint); font-size: 12px; line-height: 1.5; margin: 0 0 12px; }

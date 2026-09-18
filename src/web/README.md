@@ -22,7 +22,13 @@ npm run lint
 | `J` or left click | Attack — swings the equipped weapon |
 | `K` | Companion attack |
 | `1` `2` `3` | The equipped weapon's abilities. The sword's is Guard -- press again quickly to parry |
-| `Q` `E` | Previous / next weapon |
+| `Q` `E` | Draw from the first or second hand |
+| `R` | Turn the potion dial |
+| `F` | Drink the selected potion |
+
+`Q` and `E` are bound to *hands*, not to a carousel: two weapons are carried at
+a time, so each key always reaches the same weapon. Which two is decided in the
+Loadout panel, which is the whole of the inventory.
 
 Abilities and weapons are labelled with icons from `assets/ui/icons.png` -- one
 per spell, plus a sword standing in for plain melee. They go through the same
@@ -41,9 +47,17 @@ src/game/                  everything Phaser. Never imported by React directly.
   entities/Weapon.ts       the equipped weapon: idle, combo, cast motions
   entities/Shield.ts       the sword's guard and parry
   input/                   keyboard and mouse -> Intent
-  scenes/HudScene.ts       the in-game bar: weapons, abilities, cooldowns
-  scenes/                  preload, play
+  hud/                     the in-game interface, one file per piece
+    Portrait.ts            the goat's face in its ring, health and mana
+    Hotbar.ts              two hands and the potion dial
+    CooldownRail.ts        what is recharging, stacked up the right
+    Minimap.ts             the room and what is in it
+    SettingsButton.ts      the gear and its two switches
+    fit.ts                 size a piece from the frame actually on screen
+  scenes/                  preload, play, and HudScene which composes the above
   state/StateMachine.ts    generic, explicit state machine
+  state/Vitals.ts          health and mana
+  state/Loadout.ts         two weapon slots and the potion carousel
   EventBus.ts              the only React <-> Phaser channel
 src/ui/                    React. Talks to the game only through EventBus.
   atlas.ts                 reads a generated atlas for the DOM to draw from
@@ -71,7 +85,7 @@ assets/characters/   goat, companion, practice dummy
 assets/weapons/      an idle and a swing sheet per weapon, plus the shield
 assets/casts/        the weapon's own motion while an ability fires
 assets/spells/       the effects those abilities throw
-assets/ui/           the ability icon set
+assets/ui/           the ability icon set, and the seven HUD pieces
 ```
 
 A cast is two sheets, not one: `casts/fire-ball.png` is the staff swinging and
@@ -100,6 +114,39 @@ rather than producing a broken animation. The other half is not enforceable and
 is the reason the file exists: the per-frame timing, and keeping every effect in
 a flat side-on view. The game moves on one axis, and an effect drawn as though
 seen from above reads as belonging to a different game entirely.
+
+## The interface
+
+Seven pieces of chrome in `assets/ui/`, drawn to the brief in
+`docs/art-prompts.md` Part 8 and keyed the same way the weapons are. Three
+things about it are worth knowing.
+
+**Nothing in it holds state.** Health arrives as `vitals:changed`, the loadout
+as `loadout:changed`, recharge times as `weapon:cooldowns` — all pushed by the
+scene that owns them. No view can disagree with the game about what is in hand
+or what is ready, because no view is keeping its own copy to disagree with.
+
+**The portrait's face was already drawn.** `GOAT_FRAMES.face` is ten
+expressions on the character sheet, already cycling in the wordmark. The ring
+was drawn open across the top so the head can break it, and the head is drawn
+*over* the ring rather than inside it — behind it, the portrait reads as a face
+at the bottom of a hole. It answers what just happened: surprised when hit, sad
+at death, happy on a potion.
+
+**Sizes are measured off the art, not chosen.** `HUD_ART` carries the rail's
+inner channel and the hotbar's three slot centres as fractions taken from the
+PNGs, and `hud/fit.ts` sizes every piece from the frame on screen rather than
+from the sheet's shared box. Both exist because the alternative was tried: a
+socket sized independently of its channel grew straight through the rail's
+walls, and an item centred where a slot *ought* to be sat visibly off the
+hand-drawn slot that was actually there.
+
+Health, mana and the potions are local to this branch and named to match the
+server's snapshot on `main` — `health`, `maxHealth`, `mana`, `maxMana`, and
+consumable ids from its `CONSUMABLES` — so adopting the real ones is deleting
+`state/Vitals.ts` and pointing the HUD at the snapshot. The two-weapon rule is
+the exception: `main`'s `Inventory` has a weapons list and a single
+`equipped_weapon`, so carrying two is a server change rather than a rename.
 
 ## The camera
 

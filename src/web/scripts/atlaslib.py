@@ -663,8 +663,13 @@ def pack(frames: list[Frame], padding: int = PADDING) -> tuple[int, int]:
     """Shelf packer: tallest first, into rows of a fixed width."""
     ordered = sorted(frames, key=lambda f: -f.h)
     area = sum((f.w + padding) * (f.h + padding) for f in frames)
+    # Wide enough for the total area *and* for the widest single frame. Area
+    # alone is not enough: a sheet holding one wide frame has a small area and
+    # picks a narrow atlas, and the frame is then written past its right edge
+    # and cropped away. The HUD's hotbar plate is 736px of a 512px canvas.
+    widest = max(f.w for f in frames) + padding * 2
     width = 512
-    while width * width < area * 1.3:
+    while width < widest or width * width < area * 1.3:
         width *= 2
 
     x = y = shelf = 0

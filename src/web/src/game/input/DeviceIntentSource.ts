@@ -12,7 +12,7 @@ import type { Intent, IntentSource } from '../types';
  * `Intent`.
  */
 export class DeviceIntentSource implements IntentSource {
-  readonly #keys: Record<'left' | 'right' | 'up' | 'down' | 'altLeft' | 'altRight' | 'altUp' | 'altDown' | 'run' | 'attack' | 'slot1' | 'slot2' | 'slot3' | 'companionAttack' | 'prevWeapon' | 'nextWeapon', Phaser.Input.Keyboard.Key>;
+  readonly #keys: Record<'left' | 'right' | 'up' | 'down' | 'altLeft' | 'altRight' | 'altUp' | 'altDown' | 'run' | 'attack' | 'slot1' | 'slot2' | 'slot3' | 'companionAttack' | 'hand1' | 'hand2' | 'potionCycle' | 'potionUse', Phaser.Input.Keyboard.Key>;
 
   /** Left mouse button, latched until the next sample so a click between
    *  frames is never dropped. */
@@ -46,8 +46,15 @@ export class DeviceIntentSource implements IntentSource {
       // Weapons cycle rather than sitting on their own number keys: the number
       // row is already the ability bar, and a carousel needs no more keys as
       // weapons are added.
-      prevWeapon: keyboard.addKey(KeyCodes.Q),
-      nextWeapon: keyboard.addKey(KeyCodes.E),
+      // One key per hand, not a cycle: Q is always the left slot and E is
+      // always the right one, so the weapon a key reaches never depends on
+      // what is already in hand.
+      hand1: keyboard.addKey(KeyCodes.Q),
+      hand2: keyboard.addKey(KeyCodes.E),
+      // The dial and the drink get their own keys, because rotating what you
+      // are about to drink and drinking it are different mistakes to make.
+      potionCycle: keyboard.addKey(KeyCodes.R),
+      potionUse: keyboard.addKey(KeyCodes.F),
     };
 
     // Stop the browser scrolling the page when the player walks.
@@ -92,9 +99,11 @@ export class DeviceIntentSource implements IntentSource {
         : null,
       run: k.run.isDown,
       companionAttack: Phaser.Input.Keyboard.JustDown(k.companionAttack),
-      weaponCycle: Phaser.Input.Keyboard.JustDown(k.nextWeapon) ? 1
-        : Phaser.Input.Keyboard.JustDown(k.prevWeapon) ? -1
-        : 0,
+      weaponSlot: Phaser.Input.Keyboard.JustDown(k.hand1) ? 0
+        : Phaser.Input.Keyboard.JustDown(k.hand2) ? 1
+        : null,
+      potionCycle: Phaser.Input.Keyboard.JustDown(k.potionCycle) ? 1 : 0,
+      potionUse: Phaser.Input.Keyboard.JustDown(k.potionUse),
     };
   }
 

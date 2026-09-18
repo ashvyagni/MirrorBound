@@ -42,13 +42,27 @@ export interface Intent {
   /** True only on the frame the companion was told to attack. */
   companionAttack: boolean;
   /**
-   * Step through the weapon carousel: -1 back, 1 forward, 0 stay.
+   * Which hand to draw from: 0, 1, or null to leave it alone.
+   *
+   * A choice rather than a step. Two weapons are carried, so "next" and
+   * "previous" describe the same move and neither says which hand you actually
+   * wanted -- whereas a key per hand always lands on the same weapon, which is
+   * the thing that has to be true under pressure.
    *
    * Switching is an intent like any other, so the same feed that walks and
-   * swings can also change what is in hand -- rather than weapons being a
-   * thing only a mouse on a React panel can reach.
+   * swings can also change what is in hand.
    */
-  weaponCycle: -1 | 0 | 1;
+  weaponSlot: 0 | 1 | null;
+  /**
+   * Step the potion dial: -1 back, 1 forward, 0 stay.
+   *
+   * An intent rather than a key the HUD reads directly, for the same reason
+   * `weaponCycle` is one -- the dial is a thing the character does, so a replay
+   * and an agent can turn it too.
+   */
+  potionCycle: -1 | 0 | 1;
+  /** True only on the frame the selected potion was drunk. */
+  potionUse: boolean;
 }
 
 export const NEUTRAL_INTENT: Readonly<Intent> = Object.freeze({
@@ -58,7 +72,9 @@ export const NEUTRAL_INTENT: Readonly<Intent> = Object.freeze({
   run: false,
   companionAttack: false,
   ability: null,
-  weaponCycle: 0,
+  weaponSlot: null,
+  potionCycle: 0,
+  potionUse: false,
 });
 
 /** Anything that can drive the character. */

@@ -11,6 +11,7 @@ import { DUMMY_TEXTURE_KEY } from '../animation/dummyAtlas.generated';
 import { ICONS_TEXTURE_KEY } from '../animation/iconsAtlas.generated';
 import { SHIELDBLOCK_TEXTURE_KEY } from '../animation/shieldBlockAtlas.generated';
 import { SHIELDPARRY_TEXTURE_KEY } from '../animation/shieldParryAtlas.generated';
+import { HUD_TEXTURES } from '../hud/textures';
 import { Dummy } from '../entities/Dummy';
 import { Shield } from '../entities/Shield';
 import { PALETTE } from '../constants';
@@ -54,6 +55,7 @@ export class PreloadScene extends Phaser.Scene {
       ...GOAT_TEXTURES, BRO_TEXTURE, ...WEAPON_TEXTURES, ...ABILITY_TEXTURES,
       DUMMY_TEXTURE_KEY, ICONS_TEXTURE_KEY,
       SHIELDBLOCK_TEXTURE_KEY, SHIELDPARRY_TEXTURE_KEY,
+      ...HUD_TEXTURES,
     ]) {
       this.load.setPath(`game/${texture}`);
       this.load.atlas(texture, `${texture}.png`, `${texture}.json`);

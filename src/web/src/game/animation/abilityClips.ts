@@ -85,6 +85,16 @@ export interface AbilityDef {
    * choosing to spend one matters.
    */
   cooldown: number;
+  /**
+   * Mana spent per cast.
+   *
+   * Priced off the cooldown rather than invented per spell: the two are
+   * answering the same question -- how often this should be reachable -- and
+   * letting them disagree gives you an ability that is cheap and rare, or
+   * expensive and constant, neither of which anyone asked for. Roughly five
+   * mana per second of cooldown, floored so nothing is free.
+   */
+  cost: number;
 }
 
 type Src = {
@@ -100,7 +110,7 @@ type Src = {
 /** Join a sheet's bands, in order, into one clip. */
 function ability(
   id: string, name: string, kind: AbilityKind, src: Src,
-  opts: Pick<AbilityDef, 'frameRate' | 'sizeRatio' | 'offset' | 'speed' | 'life' | 'cooldown'>
+  opts: Pick<AbilityDef, 'frameRate' | 'sizeRatio' | 'offset' | 'speed' | 'life' | 'cooldown' | 'cost'>
       & Partial<Pick<AbilityDef, 'stretchX' | 'anchorX' | 'ground'>>,
 ): AbilityDef {
   return {
@@ -123,33 +133,33 @@ export const ABILITIES = {
   // half the goat's height, which is what an arrow should look like.
   arrow: ability('arrow', 'Arrow', 'projectile',
     s(ARROW_TEXTURE_KEY, ARROW_FRAMES, ARROW_ANCHOR, ARROW_FRAME_SIZE, ARROW_BODY_RATIO),
-    { frameRate: 18, sizeRatio: 0.16, offset: { x: 54, y: -88 }, speed: 760, life: 1.6, cooldown: 0.4 }),
+    { frameRate: 18, sizeRatio: 0.16, offset: { x: 54, y: -88 }, speed: 760, life: 1.6, cooldown: 0.4, cost: 4 }),
 
   fireBall: ability('fireBall', 'Fireball', 'projectile',
     s(FIREBALL_TEXTURE_KEY, FIREBALL_FRAMES, FIREBALL_ANCHOR, FIREBALL_FRAME_SIZE, FIREBALL_BODY_RATIO),
-    { frameRate: 16, sizeRatio: 0.52, offset: { x: 134, y: -101 }, speed: 470, life: 1.9, cooldown: 0.9 }),
+    { frameRate: 16, sizeRatio: 0.52, offset: { x: 134, y: -101 }, speed: 470, life: 1.9, cooldown: 0.9, cost: 8 }),
   // Stands on the floor. `y: 0` is the goat's own footing, and `anchorY: 1`
   // puts the fire's base there instead of its middle -- which is what was
   // burying 118 units of it, a third of the pillar, under the ground.
   firePillar: ability('firePillar', 'Flame pillar', 'burst',
     s(FIREPILLAR_TEXTURE_KEY, FIREPILLAR_FRAMES, FIREPILLAR_ANCHOR, FIREPILLAR_FRAME_SIZE, FIREPILLAR_BODY_RATIO),
     { frameRate: 15, sizeRatio: 1.5, ground: true,
-      offset: { x: 138, y: 0 }, speed: 0, life: 1.2, cooldown: 3.4 }),
+      offset: { x: 138, y: 0 }, speed: 0, life: 1.2, cooldown: 3.4, cost: 18 }),
   // Rolls along the floor, so it is pinned to it the same way.
   fireWave: ability('fireWave', 'Flame wave', 'projectile',
     s(FIREWAVE_TEXTURE_KEY, FIREWAVE_FRAMES, FIREWAVE_ANCHOR, FIREWAVE_FRAME_SIZE, FIREWAVE_BODY_RATIO),
     { frameRate: 14, sizeRatio: 0.78, ground: true,
-      offset: { x: 74, y: 0 }, speed: 300, life: 1.5, cooldown: 2.1 }),
+      offset: { x: 74, y: 0 }, speed: 300, life: 1.5, cooldown: 2.1, cost: 14 }),
 
   // Erupts from the ground at the goat's own feet, so its base belongs on the
   // floor line rather than a third of it below.
   iceNova: ability('iceNova', 'Frost nova', 'burst',
     s(ICENOVA_TEXTURE_KEY, ICENOVA_FRAMES, ICENOVA_ANCHOR, ICENOVA_FRAME_SIZE, ICENOVA_BODY_RATIO),
     { frameRate: 15, sizeRatio: 1.05, ground: true,
-      offset: { x: 18, y: 0 }, speed: 0, life: 1.1, cooldown: 4.0 }),
+      offset: { x: 18, y: 0 }, speed: 0, life: 1.1, cooldown: 4.0, cost: 20 }),
   iceShards: ability('iceShards', 'Shard volley', 'projectile',
     s(ICESHARDS_TEXTURE_KEY, ICESHARDS_FRAMES, ICESHARDS_ANCHOR, ICESHARDS_FRAME_SIZE, ICESHARDS_BODY_RATIO),
-    { frameRate: 17, sizeRatio: 0.55, offset: { x: 135, y: -141 }, speed: 620, life: 1.7, cooldown: 0.75 }),
+    { frameRate: 17, sizeRatio: 0.55, offset: { x: 135, y: -141 }, speed: 620, life: 1.7, cooldown: 0.75, cost: 6 }),
   // Still anchored at its bright source rather than its middle, so it grows
   // forwards out of the staff instead of backwards over the goat's head.
   //
@@ -160,7 +170,7 @@ export const ABILITIES = {
   iceBeam: ability('iceBeam', 'Freezing beam', 'burst',
     s(ICEBEAM_TEXTURE_KEY, ICEBEAM_FRAMES, ICEBEAM_ANCHOR, ICEBEAM_FRAME_SIZE, ICEBEAM_BODY_RATIO),
     { frameRate: 16, sizeRatio: 0.5, anchorX: 0.03,
-      offset: { x: 128, y: -94 }, speed: 0, life: 1.1, cooldown: 2.8 }),
+      offset: { x: 128, y: -94 }, speed: 0, life: 1.1, cooldown: 2.8, cost: 15 }),
 } as const satisfies Record<string, AbilityDef>;
 
 export type AbilityId = keyof typeof ABILITIES;

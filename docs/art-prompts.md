@@ -1397,3 +1397,409 @@ an unknown keying mode.
 It cannot see: a weapon drawn at the wrong scale, a hidden grip, an effect drawn
 in perspective, a ground effect with empty space under it, or a loop whose last
 frame does not meet its first. Those are what the prompts above are for.
+
+---
+
+## Part 8 — The HUD
+
+Six pieces of on-screen chrome: the portrait and its two bars, the minimap
+frame, the settings button, the hotbar, and the cooldown rail.
+
+Three decisions before any of them, because each one removes work.
+
+**The face already exists.** The goat sheet's `face` band is ten expressions —
+`face-normal` through `face-blush` — already packed into the shipped atlas and
+already cycling in `AnimatedMark.tsx`. Sheet 30 is therefore the *ring alone*,
+drawn with a deliberate gap at the top for the existing face frames to sit
+behind and poke over. Generating a second goat head would give you two goats
+that drift apart the first time either sheet is redrawn.
+
+**Chrome only. Every frame you draw is empty.** No text, no numbers, no bar
+fills, no icons sitting in slots. `HudScene` draws labels as Silkscreen text and
+fills as rectangles, and it has to: a bar that animates cannot be baked into a
+PNG, and a countdown that is baked is a countdown that is wrong. The prompts
+below all say this, and it is the instruction an image model is most likely to
+ignore — check every result for a helpfully added number.
+
+**Aspect ratio is the only dimension that matters.** The atlas trims each frame
+to its own content, so green space around a piece costs nothing and the canvas
+size is free. What cannot be fixed afterwards is a plate drawn square that
+needed to be three times as wide. Each prompt states its ratio for that reason.
+
+### Order
+
+| # | piece | asset | canvas | frames |
+| --- | --- | --- | --- | --- |
+| 30 | portrait ring | `assets/ui/portrait-ring.png` | 1024 x 1024 | 1 |
+| 31 | status bars | `assets/ui/status-bars.png` | 1536 x 1024 | 2 |
+| 32 | minimap ring | `assets/ui/minimap-ring.png` | 1024 x 1024 | 1 |
+| 33 | settings button | `assets/ui/settings-button.png` | 1536 x 1024 | 2 |
+| 34 | hotbar | `assets/ui/hotbar.png` | 1536 x 1024 | 1 |
+| 35 | potion dial | `assets/ui/potion-dial.png` | 1024 x 1024 | 1 |
+| 36 | cooldown rail | `assets/ui/cooldown-rail.png` | 1024 x 1536 | 2 |
+
+Nothing here needs another sheet attached. These pieces have to agree with each
+other, which Block 0-UI handles, rather than with any one weapon.
+
+---
+
+## Block 0-UI — the interface style
+
+Paste this **instead of** Block 0, on its own, once per chat. It is a full
+replacement rather than an override: the world art is side-on elevation and this
+is flat-on to the screen, so mixing the two briefs in one conversation is how
+you get a health bar drawn lying on the floor.
+
+```
+STYLE BRIEF. Read this once and apply it to every piece I ask for in this chat.
+I will describe each piece separately. All the rules below hold for every one of
+them unless I explicitly override one.
+
+I am making the on-screen interface for a 2D game. These are frames, plates,
+rings and buttons -- the chrome that the game draws its own numbers and bars
+inside. They are not objects in the world.
+
+THE LOOK
+Flat, bold, storybook game art snapped to a pixel grid. A clean children's-book
+illustration turned into a game sprite. NOT a painted fantasy render, and NOT a
+glossy modern app interface.
+
+- A thick, dark outline around every piece and every major internal shape. One
+  consistent line weight throughout, around 12 pixels at this resolution.
+- Two or three flat tones per material: a base colour, one shadow, one
+  highlight. No gradients, no glow, no bevel, no drop shadow, no glassy
+  reflection, no ambient occlusion, no transparency effects.
+- Bold, simple silhouettes. Ornament reduced to two or three clear shapes. No
+  filigree, no scrollwork, no runes, no rivets, no hammered metal texture, no
+  micro-detail of any kind.
+- Confident linework with a slightly loose, hand-drawn quality. Appealing and
+  well made, but relaxed rather than mechanically precise. A little wobble in a
+  long straight edge is welcome.
+
+THE PIXEL GRID -- this is the part that matters most and the part usually got
+wrong.
+Every edge in the image lands on a 16-pixel grid. Corners are cut as square
+steps, never rounded. Diagonals are drawn as clean stair-steps of equal run.
+Curves are stepped pixel curves, not smooth vector arcs -- a circle is a
+pixel-art circle with visible steps around its edge.
+Every edge is HARD and ALIASED: a pixel is either the fill colour or the outline
+colour, never a blend of the two. No anti-aliasing, no feathering, no soft edges
+anywhere in the image. If you zoom into any edge and find a row of in-between
+colours, it is wrong.
+
+THE PALETTE -- use these exact colours and no others.
+  Outline, darkest      #14111a
+  Panel fill            #191322
+  Panel raised face     #241d2e
+  Frame line and rim    #53456a
+  Light trim            #cfc3d4
+  Dim trim              #7d7188
+  Bone white            #f2e8df
+  Warm accent           #d62e6c
+  Soft pink accent      #f5a4c0
+  Cool accent           #6fd8e8
+The chrome is dark violet metal with a lighter violet rim. Accents are used
+sparingly -- one small emblem, or one short line of trim. Never a whole face of
+accent colour.
+
+THE CAMERA
+Flat-on, straight at the screen. Orthographic. No perspective, no vanishing
+point, no foreshortening, no three-quarter view, no tilt, no thickness receding
+into the distance. A circle is a circle and a rectangle is a rectangle.
+
+BACKGROUND
+Flat pure bright green (#00FF00), edge to edge, perfectly uniform. Any hole in
+the middle of a piece -- the inside of a ring, the inside of an empty slot -- is
+that same pure green, because it is keyed out to transparent and the game draws
+its own content through it. Nothing else on the background at all: no grid
+lines, no cell borders, no labels, no captions, no watermark, no shadow cast
+onto it.
+
+NEVER INCLUDE
+No text, no numbers, no letters, no keybind labels. No icons inside slots, no
+bar fills, no liquid, no percentages, no progress of any kind. No character, no
+creature, no hand, no ground, no background scenery. The game draws every one of
+those itself. Every frame, slot and socket you draw is EMPTY.
+
+Reply "ready" and wait for my first piece.
+```
+
+---
+
+### 30. Portrait ring — `assets/ui/portrait-ring.png`
+
+The gap at the top is the whole point of this piece: the goat's existing face
+frames are drawn behind the ring and overlap its upper edge, so the ring must
+not close over where a head goes.
+
+```
+Piece 30: A CIRCULAR PORTRAIT FRAME.
+
+A single ring, centred on a 1024 x 1024 canvas, about 820 pixels across. Square
+aspect.
+
+THE SHAPE: a chunky circular frame of dark violet metal, roughly 70 pixels
+thick, with a lighter violet rim line running around both its inner and outer
+edge. Stepped pixel-art curve, not a smooth arc.
+
+THE GAP: the ring is NOT closed. Its top quarter -- roughly the arc from ten
+o'clock to two o'clock -- is drawn THINNER and set slightly lower than the rest,
+so that a character's head placed behind the ring would rise clear of it. The
+ring still reads as a continuous circle; it is just lower and slimmer across the
+top. Do not break it into two separate pieces and do not leave an open gap in
+the line.
+
+THE INSIDE: pure green, empty, all the way to the inner edge of the ring. A
+portrait is drawn through it by the game.
+
+THE TRIM: one small emblem centred on the BOTTOM of the ring, sitting on the
+outer edge -- a simple bone-white diamond about 60 pixels across with a dark
+outline. That is the only ornament. Nothing at the top, nothing at the sides.
+```
+
+### 31. Status bars — `assets/ui/status-bars.png`
+
+Two frames, one canvas. Empty troughs only — the game draws the fills, because a
+fill has to animate and a baked one cannot.
+
+```
+Piece 31: TWO EMPTY STATUS BAR FRAMES, stacked one above the other on a
+1536 x 1024 canvas.
+
+Each bar is a long horizontal trough about 1400 pixels wide and 170 pixels tall
+-- roughly eight times wider than it is tall. Draw one in the upper half of the
+canvas and one in the lower half, with clear green between and around them. They
+must be EXACTLY the same size and shape as each other.
+
+THE SHAPE: a long shallow trough. Dark violet metal frame about 24 pixels thick
+with a lighter violet rim line, and a hollow interior. The right-hand end is cut
+at a slight diagonal so the bar tapers to a blunt point rather than ending
+square. The left-hand end is square.
+
+THE INSIDE: pure green, empty, edge to edge within the frame. The game fills it.
+Draw NO fill, NO liquid, NO segments, NO tick marks, NO notches inside the
+trough. It is an empty container.
+
+THE DIFFERENCE BETWEEN THEM: each carries one small emblem on its square left
+end, outside the trough, about 90 pixels across with a dark outline.
+- The UPPER bar's emblem is a simple rounded droplet in the warm accent #d62e6c.
+- The LOWER bar's emblem is a simple four-sided diamond in the cool accent
+  #6fd8e8.
+Everything else about the two bars is identical.
+```
+
+### 32. Minimap ring — `assets/ui/minimap-ring.png`
+
+```
+Piece 32: A LARGE CIRCULAR MAP FRAME.
+
+A single ring, centred on a 1024 x 1024 canvas, about 900 pixels across. Square
+aspect. Thin for its size -- this frames a map and must not eat into it.
+
+THE SHAPE: a circular frame of dark violet metal about 50 pixels thick, with a
+lighter violet rim line on its outer edge only. Stepped pixel-art curve, not a
+smooth arc. Closed all the way round.
+
+THE TRIM: four small square studs in dim violet #7d7188, one at each of the top,
+bottom, left and right of the ring, sitting on the outer edge, about 50 pixels
+each. That is the only ornament -- no compass points, no cardinal letters, no
+tick marks around the edge.
+
+THE INSIDE: pure green, empty, all the way to the inner edge of the ring. The
+game draws the map through it. Nothing inside the ring at all -- no terrain, no
+dots, no grid, no crosshair.
+```
+
+### 33. Settings button — `assets/ui/settings-button.png`
+
+Two frames: resting and pressed. The pressed frame is what makes a button feel
+like a button, and it costs one extra cell.
+
+```
+Piece 33: A SMALL OCTAGONAL BUTTON, drawn TWICE side by side on a 1536 x 1024
+canvas -- resting on the left, pressed on the right. Each octagon is about 600
+pixels across. Both are EXACTLY the same size.
+
+THE SHAPE: a regular eight-sided octagon. A dark violet metal body with a
+lighter violet rim line just inside its outline, and a slightly lighter violet
+raised face in the centre.
+
+THE MARK: a simple gear sitting on the raised face, in light trim #cfc3d4, about
+320 pixels across. Six chunky square teeth and a plain round hole in the middle.
+Flat, no shading. Keep it simple enough to read at a fraction of this size --
+not a mechanical drawing.
+
+THE LEFT FRAME (resting): the raised face is the lighter violet #241d2e and sits
+proud, with the rim line bright all the way round.
+
+THE RIGHT FRAME (pressed): the same octagon with the face pushed IN -- the face
+is the darker #191322, the rim line is dimmer, and the gear sits about 16 pixels
+lower. Same outline, same size, same position on the canvas as the left one.
+Only the interior changes.
+
+Clear green between and around the two octagons.
+```
+
+### 34. Hotbar — `assets/ui/hotbar.png`
+
+The plate from the sketch: a weapon slot on each side and the potion dial in the
+middle. The slots are cut into the plate rather than sitting on it, so the game
+can draw an item down into each one.
+
+```
+Piece 34: A WIDE HORIZONTAL HOTBAR PLATE with three empty slots.
+
+Drawn across the middle of a 1536 x 1024 canvas, about 1500 pixels wide and 470
+pixels tall -- roughly three times wider than it is tall. Clear green above and
+below.
+
+THE PLATE: a long, low slab of dark violet metal with a lighter violet rim line
+around it. The bottom corners are cut off at 45 degrees as clean stair-steps, so
+the plate is slightly narrower along its base than along its top. Along the very
+top edge runs a raised lip in the lighter violet #241d2e, about 40 pixels tall,
+that overhangs the plate by a little at each end.
+
+THE SLOTS: three square recesses cut into the plate, evenly spaced across it,
+each about 330 x 330 pixels, with a clear gap of plate between them and a margin
+of plate all the way round the outside. Each slot is a square hole with a dark
+inner edge and a thin lighter violet rim, reading as pressed INTO the plate
+rather than sitting on it.
+
+THE MIDDLE SLOT is the odd one: its rim is drawn in the soft pink accent #f5a4c0
+instead of violet, and its corners are cut as small 45-degree steps so it reads
+as slightly octagonal against the two square ones. Same size as the others.
+
+THE INSIDE OF EVERY SLOT: pure green, empty. The game draws items through them.
+No weapons, no bottles, no icons, no numbers, no keybind letters anywhere on
+this piece.
+```
+
+### 35. Potion dial — `assets/ui/potion-dial.png`
+
+The ring that spins in the middle slot when the keybind steps the carousel. One
+frame, not eight: the game rotates the texture, which is smooth at any step
+count and cannot go out of sync with the number of potions actually carried.
+
+```
+Piece 35: A SMALL ROTATING SELECTOR RING.
+
+A single ring, centred on a 1024 x 1024 canvas, about 780 pixels across. Square
+aspect. It sits around a square item slot, so it must be a ring and not a disc.
+
+THE SHAPE: a thin ring of dark violet metal about 40 pixels thick with a soft
+pink #f5a4c0 rim line on its outer edge. Stepped pixel-art curve.
+
+THE MARKER: one clear pointer on the ring at the TWELVE O'CLOCK position -- a
+simple solid triangle in soft pink #f5a4c0, about 110 pixels wide, pointing
+inward toward the centre of the ring, sitting on the ring's inner edge. This is
+the only asymmetric feature and it must be unmistakable, because the game spins
+this ring and the pointer is what says which way it has turned.
+
+THE NOTCHES: four small square notches in dim violet #7d7188 spaced evenly
+around the ring at three, six and nine o'clock and one more halfway between the
+marker and three o'clock -- small, flat, purely decorative.
+
+THE INSIDE: pure green, empty, all the way to the inner edge of the ring.
+Nothing inside it -- no bottle, no liquid, no icon.
+```
+
+### 36. Cooldown rail — `assets/ui/cooldown-rail.png`
+
+Two frames: the rail, and one socket the game stacks into it. Stacking rather
+than drawing a fixed column of sockets, because the number of skills recharging
+changes from moment to moment and a baked column would be wrong most of the
+time.
+
+```
+Piece 36: A TALL VERTICAL RAIL and ONE SQUARE SOCKET, on a 1024 x 1536 canvas.
+
+Draw the rail down the LEFT side of the canvas and the single socket to the
+RIGHT of it, with clear green between and around them.
+
+THE RAIL: a narrow upright frame about 300 pixels wide and 1400 pixels tall --
+roughly four and a half times taller than it is wide. Dark violet metal about 30
+pixels thick with a lighter violet rim line, hollow down the middle. The top and
+bottom ends are capped with a short horizontal bar in the lighter violet
+#241d2e, so it reads as a rail with two ends rather than a tube cut off by the
+canvas. Its hollow interior is pure green.
+
+THE SOCKET: one square about 260 x 260 pixels. A dark violet frame about 24
+pixels thick with a lighter violet rim line and its corners cut as small
+45-degree steps. Its interior is pure green and completely empty -- the game
+draws a skill icon and a countdown through it.
+
+Both pieces use the same line weight and the same metal, because the sockets sit
+inside the rail in the finished interface and any difference between them will
+show. Nothing else on the canvas.
+```
+
+### Wiring these in — what actually happened
+
+All seven went through unchanged. `scripts/sheets.py` gained a `_ui()` helper
+and a `UI` tuple; nothing else about the pipeline moved. Two things the build
+taught us are worth keeping:
+
+**The packer had a latent bug, and this is the sheet that found it.**
+`pack()` chose its atlas width from the total *area* of the frames, which is
+right until a sheet holds one frame wider than the width that picks. The
+hotbar plate is 736 px on an atlas that sized itself 512, and the right third
+of it -- one whole weapon slot -- was written past the edge and dropped. Fixed
+by taking the widest frame into account as well. No existing sheet had ever hit
+it, because every other sheet holds eight frames that share a cell.
+
+**`*_FRAME_SIZE` is the sheet's shared box, not a frame's own.** It is the union
+of every frame, which is the right thing to anchor against and the wrong thing
+to take an aspect ratio from. The cooldown sheet holds a tall rail and a square
+socket, so its shared box is 172x737, and sizing the rail by that ratio drew a
+132-wide rail 98 wide -- pulling its walls in over the channel the sockets sit
+in. `src/game/hud/fit.ts` reads the frame back from the texture instead, and
+every piece of chrome is sized through it.
+
+The same lesson twice over, in fact: three numbers in `HUD_ART` are *measured
+off the art* rather than chosen -- the rail's channel (0.542 of its width), and
+the hotbar's three slot centres, which are not symmetric (-0.2948, -0.0027,
++0.2908) because they were drawn by hand. An item centred where a slot ought to
+be is visibly off the slot that is actually there.
+
+The specs, for reference. Add to `scripts/sheets.py` and to the `SHEETS` tuple
+at the bottom:
+
+```python
+def _ui(name: str, file: str, frames: int, *, cols: int = 1, rows: int = 1,
+        names: tuple[str, ...] | None = None, downscale: float = 0.25) -> SheetSpec:
+    """UI chrome: one flat piece per cell, chroma-keyed, pinned on its middle."""
+    return SheetSpec(
+        name=name,
+        source=ASSETS / "ui" / file,
+        body=lambda rgb, _a: rgb.max(axis=2) > 40,   # anything not keyed out
+        anchor="center",
+        key="green",
+        downscale=downscale,
+        bands=(Band("ui", 0, rows_px, 0, cols_px, frames, grid_cols=cols,
+                    names=names),),
+    )
+```
+
+Three things about that are worth saying out loud rather than discovering:
+
+**Keep `downscale` at a half or a quarter.** The prompts buy hard aliased edges
+and a good resampling kernel spends them again — resampled by 0.25 a stepped
+edge stays a stepped edge, resampled by 0.31 it comes back with a row of
+in-between pixels and the pixel look is gone. This is the one number here that
+is not free to pick by eye.
+
+**These want `grid_cols`, like the icons sheet.** The goat and the weapons are
+found by hunting for a body; UI chrome is laid out by hand on a known grid, and
+saying so is both cheaper and exact. `ICONS` already does it this way.
+
+**The bars are frames, not fills.** `HudScene` gets a trough and draws a
+rectangle inside it, the same way it already draws its recharge sweeps — which
+is also what keeps the game the only clock, as the note on `weapon:cooldowns`
+explains. Sizing the fill from the trough's own trimmed frame box keeps the two
+in register with no second number to retune.
+
+The portrait needs nothing new drawn for the face. `GOAT_FRAMES.face` is already
+in the shipped atlas and `AnimatedMark.tsx` already cycles it inside a shared
+box computed from the union of all ten expressions — which is what stops the
+head jumping when the expression changes. Draw the face first, the ring over it,
+and let the head overlap the thinner top arc.

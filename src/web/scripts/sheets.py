@@ -397,4 +397,82 @@ ICONS = SheetSpec(
     ),
 )
 
-SHEETS = (GOAT, BRO, DUMMY, *FACINGS, *WEAPONS, *CASTS, *SHIELDS, *SPELLS, ICONS)
+
+# --- HUD chrome -------------------------------------------------------------
+
+def _ui_body(rgb: np.ndarray, alpha: np.ndarray) -> np.ndarray:
+    """The piece itself. Chroma-keyed, so the alpha is the whole test."""
+    return alpha > 0.5
+
+
+def _ui(name: str, file: str, bands: tuple[Band, ...], downscale: float) -> SheetSpec:
+    """One piece of interface chrome per frame.
+
+    `anchor="center"` rather than "feet": none of these stand on anything, and
+    the game positions each one by its own middle.
+
+    `downscale` is always a half or a quarter. The art is drawn with hard
+    aliased edges on a pixel grid, and a good resampling kernel spends exactly
+    that -- resampled by 0.25 a stepped edge stays stepped, resampled by 0.31 it
+    comes back with a row of in-between pixels and the pixel look is gone. It is
+    the one number on this page that cannot be picked by eye.
+    """
+    return SheetSpec(
+        name=name,
+        source=ASSETS / "ui" / file,
+        body=_ui_body,
+        anchor="center",
+        key="green",
+        downscale=downscale,
+        bands=bands,
+    )
+
+
+#: The ring the goat's portrait sits inside. Deliberately open across the top --
+#: the face frames already on the goat sheet are drawn behind it and rise clear
+#: of the thinner arc, which is why no face is generated for the HUD.
+PORTRAIT_RING = _ui("portraitRing", "portrait-ring.png", (
+    Band("ring", 0, 1254, 0, 1254, 1, names=("ring",)),
+), 0.25)
+
+#: Two empty troughs, health above mana. One band each rather than one band of
+#: two, because bands cluster horizontally and these are stacked -- a single
+#: band would find one frame where there are two.
+STATUS_BARS = _ui("statusBars", "status-bars.png", (
+    Band("hp", 0, 512, 0, 1536, 1, names=("hp",)),
+    Band("mp", 512, 1024, 0, 1536, 1, names=("mp",)),
+), 0.25)
+
+MINIMAP_RING = _ui("minimapRing", "minimap-ring.png", (
+    Band("ring", 0, 1254, 0, 1254, 1, names=("ring",)),
+), 0.25)
+
+#: Rest and pressed. `grid_cols` because the two must register exactly: the
+#: press is a 16px shift of the interior, and anchoring each on its own content
+#: would cancel that shift out and leave a button that does nothing when clicked.
+SETTINGS_BUTTON = _ui("settingsButton", "settings-button.png", (
+    Band("button", 0, 1024, 0, 1536, 2, grid_cols=2, names=("rest", "press")),
+), 0.25)
+
+HOTBAR = _ui("hotbar", "hotbar.png", (
+    Band("plate", 0, 1024, 0, 1536, 1, names=("plate",)),
+), 0.5)
+
+#: One frame, not eight. The game rotates the texture, which is smooth at any
+#: step count and cannot go out of sync with how many potions are carried.
+POTION_DIAL = _ui("potionDial", "potion-dial.png", (
+    Band("dial", 0, 1254, 0, 1254, 1, names=("dial",)),
+), 0.25)
+
+#: The rail and one socket. Sockets are stacked into the rail at runtime rather
+#: than drawn as a fixed column, because the number of skills recharging changes
+#: from moment to moment and a baked column would be wrong most of the time.
+COOLDOWN_RAIL = _ui("cooldownRail", "cooldown-rail.png", (
+    Band("rail", 0, 1536, 0, 1024, 2, names=("rail", "socket")),
+), 0.5)
+
+UI = (PORTRAIT_RING, STATUS_BARS, MINIMAP_RING, SETTINGS_BUTTON,
+      HOTBAR, POTION_DIAL, COOLDOWN_RAIL)
+
+SHEETS = (GOAT, BRO, DUMMY, *FACINGS, *WEAPONS, *CASTS, *SHIELDS, *SPELLS,
+          ICONS, *UI)

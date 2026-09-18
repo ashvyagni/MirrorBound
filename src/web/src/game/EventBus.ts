@@ -1,4 +1,7 @@
 import type { BroClipName } from './animation/broClips';
+import type { MapView } from './hud/Minimap';
+import type { LoadoutSnapshot } from './state/Loadout';
+import type { VitalsSnapshot } from './state/Vitals';
 import type { ClipName } from './animation/goatClips';
 import type { SlotId, WeaponId } from './animation/weaponClips';
 import type { PlayerSnapshot, PlayerState } from './types';
@@ -14,6 +17,16 @@ import type { PlayerSnapshot, PlayerState } from './types';
 export interface GameEventMap {
   /** The play scene finished booting and is accepting commands. */
   'game:ready': { scene: string };
+  /**
+   * The HUD scene has built and subscribed.
+   *
+   * `scene.launch` defers the new scene's `create` to the next step, so
+   * anything the play scene pushes during its own `create` is emitted into an
+   * empty room -- which left the plate showing the placeholder icons it was
+   * constructed with, at their natural size. The HUD says when it is listening
+   * and the state is pushed then.
+   */
+  'hud:ready': Record<string, never>;
   /** Asset loading progress, 0..1. */
   'game:loading': { progress: number };
   /** Emitted whenever the player's state or facing changes. */
@@ -60,6 +73,33 @@ export interface GameEventMap {
   /** The in-game bar handled this frame's click, so nothing else should also
    *  act on it -- clicking a weapon slot must not swing the weapon too. */
   'hud:pointer-used': Record<string, never>;
+  /**
+   * Health and mana, pushed whenever either changes.
+   *
+   * Shaped like the server's player snapshot on `main`, so the day this branch
+   * starts reading one the emit site moves and no view changes.
+   */
+  'vitals:changed': VitalsSnapshot;
+  /** The two carried weapons, which hand is in use, and the selected potion. */
+  'loadout:changed': LoadoutSnapshot;
+  /** Put a weapon into one of the two hands. Null empties it. */
+  'loadout:set-slot': { slot: 0 | 1; id: WeaponId | null };
+  /** Swap which hand is in use. */
+  'loadout:swap': Record<string, never>;
+  /** Draw from a named hand. */
+  'loadout:select': { slot: 0 | 1 };
+  /** Turn the potion dial. */
+  'loadout:cycle-potion': { step: -1 | 1 };
+  /** Drink the selected potion. */
+  'loadout:use-potion': Record<string, never>;
+  /** A potion was drunk, and what it did. Drives the flash on the dial. */
+  'loadout:potion-used': { id: string; heal: number; mana: number };
+  /** A potion was refused: the dial is pointing at an empty stack. */
+  'loadout:potion-empty': { id: string };
+  /** Where everything is, for the minimap. Pushed a few times a second: the
+   *  map is 260 pixels across, and nothing on it moves a whole pixel in a
+   *  frame. */
+  'map:changed': MapView;
   /** Toggle physics body overlays. */
   'debug:toggle-bodies': { enabled: boolean };
 }

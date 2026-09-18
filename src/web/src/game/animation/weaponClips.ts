@@ -276,6 +276,8 @@ export interface SlotInfo {
   icon: IconName;
   /** Seconds before it can be used again. */
   cooldown: number;
+  /** Mana spent per use. Guard is free -- it throws nothing. */
+  cost: number;
 }
 
 /**
@@ -287,10 +289,13 @@ export interface SlotInfo {
  */
 export function slotInfo(slot: SlotId): SlotInfo {
   if (slot === GUARD) {
-    return { id: GUARD, name: 'Guard', icon: 'sword', cooldown: SHIELD.cooldown };
+    return { id: GUARD, name: 'Guard', icon: 'sword', cooldown: SHIELD.cooldown, cost: 0 };
   }
   const ability = ABILITIES[slot];
-  return { id: slot, name: ability.name, icon: slot, cooldown: ability.cooldown };
+  return {
+    id: slot, name: ability.name, icon: slot,
+    cooldown: ability.cooldown, cost: ability.cost,
+  };
 }
 
 /** Every texture that must be loaded for weapons to work. */

@@ -240,4 +240,143 @@ export const PALETTE = {
   pink: 0xf5a4c0,
   night: 0x14111a,
   dusk: 0x241d2e,
+  /**
+   * Mana.
+   *
+   * The only colour here that is not on the character sheet. Nothing sampled
+   * from the goat is cool, and a mana bar sharing the health bar's magenta is
+   * a mana bar nobody can read at a glance. It matches the diamond drawn on
+   * the mana trough in `assets/ui/status-bars.png`, so the bar and its own
+   * emblem agree.
+   */
+  frost: 0x6fd8e8,
+} as const;
+
+/**
+ * Health and mana.
+ *
+ * Field names match the wire contract on `main` -- `health`, `maxHealth`,
+ * `mana`, `maxMana` -- so when this branch starts taking snapshots from the
+ * server the local model is deleted rather than translated. Nothing here is
+ * balance; it exists so the bars have something true to draw.
+ */
+export const VITALS = {
+  maxHealth: 100,
+  maxMana: 60,
+  /** Mana per second, once the delay below has passed. */
+  manaRegen: 4.5,
+  /** Quiet seconds after a cast before mana starts coming back. */
+  manaRegenDelay: 1.2,
+  /** What a hit costs, until there is real incoming damage to price. */
+  hitDamage: 12,
+  /** Seconds the bar keeps showing where it was before a change, as a pale
+   *  trailing edge. This is the whole reason a hit reads as a hit. */
+  chaseTime: 0.45,
+} as const;
+
+/**
+ * Where the art-drawn HUD sits, in canvas pixels.
+ *
+ * Canvas pixels for the same reason the bar above uses them: the HUD scene
+ * runs on an unzoomed camera over a canvas of `VIEW * RENDER_SCALE`. Sizes are
+ * given as the drawn size of each piece rather than as a scale factor, because
+ * the pieces come off the atlas at whatever size their source art trimmed to
+ * and a factor would silently change meaning the next time the art is redrawn.
+ */
+export const HUD_ART = {
+  portrait: {
+    x: 128, y: 120, size: 188,
+    /** How much of the ring's opening the face fills. */
+    faceScale: 0.72,
+    /**
+     * How far the head is raised out of the ring, as a fraction of its size.
+     *
+     * The head is drawn *over* the ring rather than inside it, so this is what
+     * decides how much of the crown and horns clears the top edge. Too little
+     * and the ring reads as a closed hole with a face at the bottom of it; too
+     * much and the chin lifts off the lower arc and the head floats.
+     */
+    faceLift: 0.36,
+    /** Nudged right, so it is the horn that breaks the rim rather than the
+     *  middle of the skull -- the horn is the readable silhouette. */
+    faceShiftX: 0.05,
+    /** Seconds each expression holds before the next. */
+    faceHold: 2.4,
+  },
+  bars: {
+    /** Left edge, measured from the portrait ring's centre. */
+    x: 214, y: 92,
+    width: 268,
+    /** Centre-to-centre of the health and mana troughs. */
+    gap: 46,
+    /** The trough's inner opening, as a fraction of the drawn piece. The fill
+     *  is a rectangle inside the art, so it has to know where the art's own
+     *  walls are. */
+    inset: { left: 0.108, right: 0.028, top: 0.3, bottom: 0.3 },
+  },
+  minimap: { x: 1920 - 150, y: 150, size: 228 },
+  settings: { x: 78, y: 1080 - 78, size: 80 },
+  hotbar: {
+    /**
+     * Small on purpose.
+     *
+     * Three slots is all this holds, and a plate sized to look substantial ate
+     * a sixth of the screen -- in a game where the thing you need to see is
+     * directly above it. Everything else here is a fraction of `width`, so
+     * this is the only number to change if it wants resizing again.
+     */
+    x: 960, y: 1080 - 86, width: 380,
+    /**
+     * Where the three recesses actually are, measured off
+     * `assets/ui/hotbar.png` as fractions of the plate's own box.
+     *
+     * Per slot rather than a symmetric spacing, because they are not
+     * symmetric: the art has them at -0.2948, -0.0027 and +0.2908, and sitting
+     * a pixel low. That is hand-drawn art doing what hand-drawn art does, and
+     * the fix is to read it rather than to assume it -- an item centred on
+     * where a slot *ought* to be is visibly off the one that is there.
+     */
+    slots: [
+      { x: -0.2948, y: 0.0041, w: 0.1698 },
+      { x: -0.0027, y: 0.0061, w: 0.1807 },
+      { x: +0.2908, y: 0.0041, w: 0.1698 },
+    ],
+    /** How much of a slot's opening the item fills. */
+    itemFill: 0.78,
+    /** The dial rings the middle slot, so it is sized to the plate's height
+     *  rather than to the opening -- it sits *around* the recess, not in it. */
+    dialRatio: 0.225,
+    /** Degrees the dial turns per potion in the carousel. */
+    dialStep: 60,
+  },
+  rail: {
+    x: 1920 - 96,
+    /** Gap between the bottom of the rail and the bottom of the canvas. */
+    bottom: 34,
+    /**
+     * Drawn size of one socket. Every other dimension of the rail is solved
+     * from it.
+     *
+     * This way round because the rail exists to hold these: sized the other
+     * way -- a height picked by eye, the socket taken from whatever channel
+     * that left -- a 360-tall rail came out 64 wide and its sockets 32, which
+     * is smaller than the countdown that has to fit inside one.
+     */
+    socket: 48,
+    /**
+     * The gap between the rail's two walls, as a fraction of its drawn width.
+     *
+     * Measured off `assets/ui/cooldown-rail.png` -- 64px of channel in 118px of
+     * rail. A socket is sized from this rather than given its own number,
+     * because the two describe the same opening and a socket that does not know
+     * how wide the channel is grows straight through the walls.
+     */
+    channelRatio: 0.542,
+    /** How much of the channel a socket fills. */
+    socketFill: 0.92,
+    /** Centre-to-centre of stacked sockets, as a multiple of socket size. */
+    pitchRatio: 1.16,
+    /** Most sockets the rail shows at once. */
+    capacity: 4,
+  },
 } as const;

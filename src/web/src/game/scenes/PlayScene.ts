@@ -3,9 +3,9 @@ import Phaser from 'phaser';
 import type { ClipName } from '../animation/goatClips';
 import type { AbilityId } from '../animation/abilityClips';
 import {
-  GUARD, isSpell, slotInfo, WEAPONS, WEAPON_ORDER, type SlotId, type WeaponId,
+  GUARD, isSpell, slotInfo, WEAPONS, type SlotId, type WeaponId,
 } from '../animation/weaponClips';
-import { CAMERA, HIT_RANGE, PALETTE, RENDER_SCALE } from '../constants';
+import { CAMERA, HIT_RANGE, PALETTE, RENDER_SCALE, VITALS } from '../constants';
 import { Bro } from '../entities/Bro';
 import { Dummy } from '../entities/Dummy';
 import { Projectile } from '../entities/Projectile';
@@ -15,17 +15,18 @@ import { Goat } from '../entities/Goat';
 import { eventBus } from '../EventBus';
 import { DeviceIntentSource } from '../input/DeviceIntentSource';
 import { Cooldowns } from '../state/Cooldowns';
+import { Loadout, type WeaponSlot } from '../state/Loadout';
+import { Vitals } from '../state/Vitals';
 import { HudScene } from './HudScene';
 import type { IntentSource, PlayerSnapshot, Vec2 } from '../types';
 import { Room } from '../world/Room';
 import { buildWorldTextures } from '../world/textures';
 
-/** What Q and E step through. Bare hands are a position on the wheel rather
- *  than a separate un-equip key, so one pair of keys covers everything. */
-const CAROUSEL: readonly (WeaponId | null)[] = [null, ...WEAPON_ORDER];
-
 /** How often recharge state is pushed to the views, in seconds. */
 const COOLDOWN_PUSH = 0.1;
+
+/** How often the minimap is told where everything is, in seconds. */
+const MAP_PUSH = 0.12;
 
 export class PlayScene extends Phaser.Scene {
   static readonly KEY = 'play';
@@ -39,7 +40,10 @@ export class PlayScene extends Phaser.Scene {
   #shots: Projectile[] = [];
   #source!: IntentSource;
   readonly #cooldowns = new Cooldowns<SlotId>();
+  readonly #vitals = new Vitals();
+  readonly #loadout = new Loadout();
   #cooldownPush = 0;
+  #mapPush = 0;
   #wasRecharging = false;
   #lastSnapshot: PlayerSnapshot | null = null;
   #lastBroClip: string | null = null;
@@ -83,7 +87,10 @@ export class PlayScene extends Phaser.Scene {
     }
 
     this.scene.launch(HudScene.KEY);
-    this.#emitWeapon();
+    // The hands start full, so the weapon has to be handed to the entities
+    // that draw it. The *views* are told once the HUD says it is listening --
+    // see `hud:ready`.
+    this.#equip(this.#loadout.equipped);
     eventBus.emit('game:ready', { scene: PlayScene.KEY });
   }
 
@@ -108,7 +115,9 @@ export class PlayScene extends Phaser.Scene {
 
     const intent = this.#source.sample(dt);
     this.#cooldowns.step(dt);
+    this.#vitals.step(dt);
     this.#pushCooldowns(dt);
+    this.#pushMap(dt);
     this.#goat.step(dt, intent);
     this.#clampToRoom();
     this.#bro.step(dt, this.#followTarget());
@@ -128,7 +137,9 @@ export class PlayScene extends Phaser.Scene {
     }
 
     if (intent.ability !== null) this.#cast(intent.ability);
-    if (intent.weaponCycle !== 0) this.#cycleWeapon(intent.weaponCycle);
+    if (intent.weaponSlot !== null) this.#selectHand(intent.weaponSlot);
+    if (intent.potionCycle !== 0) this.#cyclePotion(intent.potionCycle);
+    if (intent.potionUse) this.#usePotion();
 
     for (const shot of this.#shots) {
       if (!shot.busy) continue;
@@ -197,6 +208,13 @@ export class PlayScene extends Phaser.Scene {
 
     if (!this.#shots.some((s) => !s.busy)) return;   // all twelve in flight
 
+    // Mana is charged before the cooldown starts, so a refused cast leaves
+    // both untouched -- the alternative spends the wait without the spell.
+    if (!this.#vitals.spend(slotInfo(entry).cost)) {
+      eventBus.emit('weapon:cast-blocked', { id: entry, remaining: 0 });
+      return;
+    }
+    this.#emitVitals();
     this.#startCooldown(entry);
     // The weapon's own motion, if it has one for this spell, with the spell
     // held back until the frame that actually throws it.
@@ -236,12 +254,82 @@ export class PlayScene extends Phaser.Scene {
     eventBus.emit('weapon:cooldowns', { active: this.#cooldowns.snapshot() });
   }
 
-  /** Step the carousel. Equipping goes through the same path a click does, so
-   *  there is one place that decides what being armed means. */
-  #cycleWeapon(step: number): void {
-    const here = CAROUSEL.indexOf(this.#weapon.equipped);
-    const next = CAROUSEL[(here + step + CAROUSEL.length) % CAROUSEL.length]!;
-    eventBus.emit('weapon:equip', { id: next });
+  /**
+   * Swap which hand is in use.
+   *
+   * Goes out on the bus and comes back rather than reaching into the weapon
+   * directly, so the key, the plate and the React panel all arrive at the same
+   * code -- there is one place that decides what being armed means.
+   */
+  #swapWeapon(): void {
+    this.#loadout.swap();
+    eventBus.emit('weapon:equip', { id: this.#loadout.equipped });
+  }
+
+  /** Draw from a named hand. Re-pressing the hand already in use does nothing
+   *  rather than putting the weapon away, which would make the key a toggle
+   *  and lose the one property worth having: Q is always the first weapon. */
+  #selectHand(slot: WeaponSlot): void {
+    if (this.#loadout.active === slot) return;
+    this.#loadout.select(slot);
+    eventBus.emit('weapon:equip', { id: this.#loadout.equipped });
+  }
+
+  #cyclePotion(step: number): void {
+    this.#loadout.cyclePotion(step);
+    this.#emitLoadout();
+  }
+
+  /** Drink what the dial is pointing at, if there is any of it left. */
+  #usePotion(): void {
+    const potion = this.#loadout.usePotion();
+    if (!potion) {
+      eventBus.emit('loadout:potion-empty', { id: this.#loadout.potion.id });
+      return;
+    }
+    if (potion.heal) this.#vitals.heal(potion.heal);
+    if (potion.mana) this.#vitals.restoreMana(potion.mana);
+
+    eventBus.emit('loadout:potion-used', {
+      id: potion.id, heal: potion.heal ?? 0, mana: potion.mana ?? 0,
+    });
+    this.#emitVitals();
+    this.#emitLoadout();
+  }
+
+  /** Everything a freshly built view needs to draw itself correctly. */
+  #pushAll(): void {
+    this.#emitVitals();
+    this.#emitLoadout();
+    this.#emitWeapon();
+    eventBus.emit('weapon:cooldowns', { active: this.#cooldowns.snapshot() });
+  }
+
+  #emitVitals(): void {
+    eventBus.emit('vitals:changed', this.#vitals.snapshot());
+  }
+
+  #emitLoadout(): void {
+    eventBus.emit('loadout:changed', this.#loadout.snapshot());
+  }
+
+  /**
+   * Tell the minimap where everything is.
+   *
+   * On a timer rather than every frame: the map is 260 pixels across and a
+   * goat crossing the whole room moves about eighty of them, so nothing on it
+   * travels a pixel between pushes.
+   */
+  #pushMap(deltaSeconds: number): void {
+    this.#mapPush -= deltaSeconds;
+    if (this.#mapPush > 0) return;
+    this.#mapPush = MAP_PUSH;
+
+    eventBus.emit('map:changed', {
+      room: { width: this.#room.width, height: this.#room.height },
+      player: { x: this.#goat.x, y: this.#goat.y },
+      marks: this.#dummies.map((d) => ({ x: d.x, y: d.y })),
+    });
   }
 
   /**
@@ -258,6 +346,24 @@ export class PlayScene extends Phaser.Scene {
         dummy.hit();
       }
     }
+  }
+
+  /** Hand a weapon to the entities that draw it, and tell the views. */
+  #equip(id: WeaponId | null): void {
+    this.#weapon.equip(id);
+    this.#shield.lower();
+    this.#goat.setArmed(id !== null);
+    this.#emitWeapon();
+    this.#emitLoadout();
+  }
+
+  /** Take a hit: health first, then the stagger, and death if it ran out. */
+  #hurt(): void {
+    const aim = this.#goat.aim;
+    const killed = this.#vitals.damage(VITALS.hitDamage);
+    this.#emitVitals();
+    if (killed) this.#goat.kill();
+    else this.#goat.hit({ x: -aim.x, y: -aim.y });
   }
 
   #emitWeapon(): void {
@@ -311,12 +417,26 @@ export class PlayScene extends Phaser.Scene {
         if (state === 'reset') {
           this.#goat.revive(this.#room.width / 2, this.#room.height / 2);
           this.#bro.snapTo(this.#followTarget());
+          this.#vitals.reset();
+          this.#emitVitals();
         }
-        else if (state === 'hurt') {
-          const aim = this.#goat.aim;
-          this.#goat.hit({ x: -aim.x, y: -aim.y });
+        else if (state === 'hurt') this.#hurt();
+        else {
+          this.#vitals.damage(this.#vitals.health);
+          this.#emitVitals();
+          this.#goat.kill();
         }
-        else this.#goat.kill();
+      }),
+
+      eventBus.on('hud:ready', () => this.#pushAll()),
+      eventBus.on('loadout:swap', () => this.#swapWeapon()),
+      eventBus.on('loadout:select', ({ slot }) => this.#selectHand(slot as WeaponSlot)),
+      eventBus.on('loadout:cycle-potion', ({ step }) => this.#cyclePotion(step)),
+      eventBus.on('loadout:use-potion', () => this.#usePotion()),
+
+      eventBus.on('loadout:set-slot', ({ slot, id }) => {
+        this.#loadout.setSlot(slot as WeaponSlot, id);
+        eventBus.emit('weapon:equip', { id: this.#loadout.equipped });
       }),
 
       eventBus.on('bro:perform', ({ clip }) => this.#bro.perform(clip)),
@@ -328,11 +448,12 @@ export class PlayScene extends Phaser.Scene {
 
       eventBus.on('weapon:cast', ({ slot }) => this.#cast(slot)),
 
+      // Equipping a weapon puts it in the hand currently in use, then hands it
+      // to the entities that draw it. One path, whether the request came from
+      // a key, the plate or the React panel.
       eventBus.on('weapon:equip', ({ id }) => {
-        this.#weapon.equip(id);
-        this.#shield.lower();
-        this.#goat.setArmed(id !== null);
-        this.#emitWeapon();
+        if (id !== this.#loadout.equipped) this.#loadout.equip(id);
+        this.#equip(id);
       }),
 
       eventBus.on('debug:toggle-bodies', ({ enabled }) => {
