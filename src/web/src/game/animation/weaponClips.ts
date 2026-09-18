@@ -51,7 +51,13 @@ export interface WeaponDef {
    *  by trails and each sheet is padded differently -- matching frame heights
    *  would draw a 0.56-ratio sword at two thirds the size of a 0.84 one. */
   lengthRatio: number;
-  /** Where the weapon sits relative to the goat's origin (its feet). */
+  /**
+   * Where the grip sits relative to the goat's origin (its feet).
+   *
+   * Staffs and bows are held at their middle rather than at one end like a
+   * sword, so they are carried further forward: anchored at the goat's centre,
+   * half the weapon ends up drawn inside its body.
+   */
   offset: { x: number; y: number };
 }
 
@@ -93,15 +99,18 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
     name: 'Bow',
     blurb: 'Bashes up close. Ranged shot comes later.',
     swings: [swing(BOW_TEXTURE_KEY, BOW_FRAMES, BOW_ANCHOR, BOW_FRAME_SIZE, BOW_BODY_RATIO, 20)],
-    lengthRatio: 0.86,
-    offset: { x: 34, y: -84 },
+    lengthRatio: 1.15,
+    offset: { x: 58, y: -90 },
   },
   fireStaff: {
     id: 'fireStaff',
     name: 'Fire staff',
     blurb: 'Overhead smash, embers on impact.',
     swings: [swing(FIRESTAFF_TEXTURE_KEY, FIRESTAFF_FRAMES, FIRESTAFF_ANCHOR, FIRESTAFF_FRAME_SIZE, FIRESTAFF_BODY_RATIO, 19,
-      { lengthRatio: 1.35, offset: { x: 34, y: -60 } })],
+      // Held so the staff's butt meets the floor at rest and its burst lands
+      // on it at impact -- both poses are vertical about the same grip, so
+      // one height satisfies each.
+      { lengthRatio: 1.25, offset: { x: 60, y: -88 } })],
     lengthRatio: 1.0,
     offset: { x: 36, y: -86 },
   },
@@ -110,7 +119,9 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
     name: 'Ice staff',
     blurb: 'Wide frost sweep, shards along the arc.',
     swings: [swing(ICESTAFF_TEXTURE_KEY, ICESTAFF_FRAMES, ICESTAFF_ANCHOR, ICESTAFF_FRAME_SIZE, ICESTAFF_BODY_RATIO, 19,
-      { mirror: true, lengthRatio: 1.15 })],
+      // Its sweep is horizontal, so it is carried low enough to pass along the
+      // floor -- that is what makes it read as striking the ground.
+      { mirror: true, lengthRatio: 1.2, offset: { x: 58, y: -70 } })],
     lengthRatio: 0.95,
     offset: { x: 38, y: -84 },
   },
