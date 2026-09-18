@@ -139,5 +139,8 @@ callout and a toast) so the player sees "you taught it that".
   on the floor.
 - `apps/server/runs/*.jsonl`: every session's tick-stamped inputs and events.
   `python tools/replay/replay.py <file>` re-simulates and reports the first divergence.
-- Tests: `tests/unit/test_twin_*.py`, `test_mirror_boss.py`, `tests/scenarios/test_telemetry_flow.py`,
-  `tests/integration/test_session.py::test_full_simulation_is_deterministic`.
+- Tests: `tests/unit/test_twin_*.py`, `test_mirror_boss.py`, `test_loot.py`,
+  `tests/scenarios/test_telemetry_flow.py`, `test_weapon_autonomy.py`,
+  `test_twin_adaptation_scenarios.py` (the master directive's own section-31 review scenarios,
+  run end to end against real telemetry -- honest about the one scenario, combo-heavy, that
+  doesn't have a distinct behavioral hook yet), `tests/integration/test_session.py::test_full_simulation_is_deterministic`.
