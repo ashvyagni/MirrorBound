@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "swing-00": {
+   "frame": {
+    "x": 392,
+    "y": 386,
+    "w": 232,
+    "h": 262
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 89,
+    "y": 86,
+    "w": 232,
+    "h": 262
+   },
+   "sourceSize": {
+    "w": 388,
+    "h": 450
+   }
+  },
+  "swing-01": {
+   "frame": {
+    "x": 626,
+    "y": 386,
+    "w": 244,
+    "h": 246
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 4,
+    "y": 118,
+    "w": 244,
+    "h": 246
+   },
+   "sourceSize": {
+    "w": 388,
+    "h": 450
+   }
+  },
+  "swing-02": {
+   "frame": {
+    "x": 2,
+    "y": 660,
+    "w": 365,
+    "h": 172
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 19,
+    "y": 153,
+    "w": 365,
+    "h": 172
+   },
+   "sourceSize": {
+    "w": 388,
+    "h": 450
+   }
+  },
+  "swing-03": {
+   "frame": {
+    "x": 2,
+    "y": 386,
+    "w": 388,
+    "h": 272
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 140,
+    "w": 388,
+    "h": 272
+   },
+   "sourceSize": {
+    "w": 388,
+    "h": 450
+   }
+  },
+  "swing-04": {
+   "frame": {
+    "x": 662,
+    "y": 2,
+    "w": 342,
+    "h": 318
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 10,
+    "y": 132,
+    "w": 342,
+    "h": 318
+   },
+   "sourceSize": {
+    "w": 388,
+    "h": 450
+   }
+  },
+  "swing-05": {
+   "frame": {
+    "x": 94,
+    "y": 2,
+    "w": 320,
+    "h": 322
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 43,
+    "y": 122,
+    "w": 320,
+    "h": 322
+   },
+   "sourceSize": {
+    "w": 388,
+    "h": 450
+   }
+  },
+  "swing-06": {
+   "frame": {
+    "x": 416,
+    "y": 2,
+    "w": 244,
+    "h": 322
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 47,
+    "y": 68,
+    "w": 244,
+    "h": 322
+   },
+   "sourceSize": {
+    "w": 388,
+    "h": 450
+   }
+  },
+  "swing-07": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 90,
+    "h": 382
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 114,
+    "y": 0,
+    "w": 90,
+    "h": 382
+   },
+   "sourceSize": {
+    "w": 388,
+    "h": 450
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "swordA.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 1024,
+   "h": 834
+  },
+  "scale": "1"
+ }
+}
