@@ -4,24 +4,26 @@ player archetypes -- the master directive's own AI-review scenarios
 dodge-heavy player, combo-heavy player, and a player who switches strategy
 mid-run.
 
-Real telemetry events feed a real TwinStyleModel (the imitation channel),
-proving the full player-behavior -> learned style -> decide() chain end to
-end, not hand-set style values (see test_twin_controller.py's unit tests for
-those, isolating individual formula terms).
+Five of the six scenarios feed real telemetry events into a real
+TwinStyleModel (the imitation channel), proving the full
+player-behavior -> learned style -> decide() chain end to end, not hand-set
+style values (see test_twin_controller.py's unit tests for those, isolating
+individual formula terms).
 
-Combo-heavy is intentionally NOT included here. Nothing in TwinV0Controller
-currently reacts to combo-chaining as a distinct concept -- only two narrow
-prediction checks exist (aoe_incoming, dash_incoming), both already covered
-by the ranged/strategy-switch scenarios below. A test claiming to prove
-"combo-heavy player produces distinct twin behavior" would just re-exercise
-the aggression path under a different name. Documented honestly rather than
-faked; extending the controller with real combo-awareness first was
-considered and deferred as out of scope for a proof-only phase.
+Combo-heavy is different: TwinV0Controller reads combo_dependency from the
+*player's own* modeled traits (obs.player_model, fed by PlayerTraitModel via
+PlayerModelPipeline), not from TwinStyleModel -- a separate channel from the
+other five scenarios here, so it's driven through the real pipeline rather
+than TwinStyleModel's imitation. (Previously this scenario had no real hook
+to prove at all -- TwinV0Controller only had two narrow prediction checks;
+combo_dependency and the INTERCEPT/FLANK bias were added specifically to
+close that gap.)
 """
 
 from __future__ import annotations
 
 from mirrorbound.agent.observation import AgentObservation, EntitySnapshot
+from mirrorbound.agent.pipeline import PlayerModelPipeline
 from mirrorbound.agent.twin.controller import TwinV0Controller
 from mirrorbound.agent.twin.style import TwinStyleModel
 from mirrorbound.game.core.events import Event
@@ -39,6 +41,7 @@ def _observation(
     weapon_id: str = "frost_staff",
     enemies: list[EntitySnapshot] | None = None,
     player_target_id: str | None = "__default__",
+    player_model: dict | None = None,
 ) -> AgentObservation:
     enemies = enemies if enemies is not None else [_entity("enemy_1", 500, 400)]
     if player_target_id == "__default__":
@@ -51,6 +54,7 @@ def _observation(
         player_target_id=player_target_id,
         twin_weapon_id=weapon_id,
         twin_owned_weapons=list(owned_weapons),
+        player_model=player_model or {},
     )
 
 
@@ -68,6 +72,10 @@ def _spell_cast(tick: int) -> Event:
 
 def _dodge(tick: int) -> Event:
     return Event(tick=tick, type="PLAYER_DODGED", data={})
+
+
+def _chained_attack(tick: int, combo_step: int) -> Event:
+    return Event(tick=tick, type="PLAYER_ATTACKED", data={"tags": ["MELEE"], "comboStep": combo_step})
 
 
 def _feed(style: TwinStyleModel, events: list[Event]) -> None:
@@ -136,3 +144,23 @@ def test_twin_disposition_swings_when_player_strategy_changes_midrun():
     late_intent = controller.decide(obs)
     assert late_intent.desired_weapon == "frost_staff"  # now prefers ranged
     assert late_intent.utilities["FLANK"] > early_intent.utilities["FLANK"]
+
+
+def test_combo_heavy_player_pushes_the_twin_toward_breaking_the_chain():
+    pipeline = PlayerModelPipeline()
+    for i in range(30):
+        base = i * 3
+        pipeline.ingest(_chained_attack(base, 1))       # opening hit
+        pipeline.ingest(_chained_attack(base + 1, 2))    # chained
+        pipeline.ingest(_chained_attack(base + 2, 3))    # chained
+    combo_model = pipeline.snapshot().to_json_dict()
+
+    threat = _entity("enemy_1", 440, 400, target_id="player_1", winding_up=True, windup=0.3)
+    combo_obs = _observation(enemies=[threat], player_target_id="enemy_1", player_model=combo_model)
+    neutral_obs = _observation(enemies=[threat], player_target_id="enemy_1")
+
+    combo_intent = TwinV0Controller().decide(combo_obs)
+    neutral_intent = TwinV0Controller().decide(neutral_obs)
+
+    assert combo_intent.utilities["INTERCEPT"] > neutral_intent.utilities["INTERCEPT"]
+    assert combo_intent.utilities["FLANK"] > neutral_intent.utilities["FLANK"]

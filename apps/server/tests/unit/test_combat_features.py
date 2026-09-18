@@ -1,4 +1,4 @@
-from mirrorbound.agent.features.combat_features import aggression_signal, dependency_signals
+from mirrorbound.agent.features.combat_features import aggression_signal, combo_signal, dependency_signals
 from mirrorbound.game.core.events import Event
 
 
@@ -64,3 +64,27 @@ def test_ambiguous_actions_yield_no_aggression_observation():
     assert aggression_signal(dash) is None
     assert aggression_signal(ability_without_tags) is None
     assert aggression_signal(unrecognized) is None
+
+
+def test_combo_signal_reads_the_games_own_combo_step_directly():
+    # comboStep=1 is the opening hit of a (possible) chain -- not itself
+    # evidence of chaining behavior.
+    opener = Event(tick=1, type="PLAYER_ATTACKED", data={"comboStep": 1})
+    assert combo_signal(opener) == 0.0
+
+
+def test_combo_signal_is_positive_for_a_chained_hit():
+    chained = Event(tick=1, type="PLAYER_ATTACKED", data={"comboStep": 2})
+    finisher = Event(tick=1, type="PLAYER_ATTACKED", data={"comboStep": 3})
+    assert combo_signal(chained) == 1.0
+    assert combo_signal(finisher) == 1.0
+
+
+def test_combo_signal_is_none_when_comboStep_is_absent():
+    # Real PLAYER_ATTACKED events from combat.py always include comboStep
+    # (every weapon has a combo_chain, defaulting to a single-element one
+    # that can never exceed step 1) -- but this function must not assume
+    # that shape holds for every possible caller. Missing data means no
+    # observation, not a guessed 0.0.
+    event = Event(tick=1, type="PLAYER_ATTACKED", data={"tags": ["RANGED"]})
+    assert combo_signal(event) is None

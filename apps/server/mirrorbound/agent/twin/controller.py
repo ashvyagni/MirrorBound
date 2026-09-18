@@ -45,6 +45,29 @@ SPELL_PREFERENCE_FLANK_WEIGHT = 0.12  # a spell-leaning twin values repositionin
 # a barely-confident lean would make it flip weapons on every decision tick.
 WEAPON_SWITCH_MARGIN = 0.15
 
+# Decision momentum, driven by seconds_since_decision (previously computed on
+# every observation and never read by anything -- see AI_ARCHITECTURE.md).
+# A candidate whose posture opposes the currently-held intent's is penalized,
+# scaled by how recently the last decision was made: at the real ~0.1s
+# decision cadence this is a meaningful, real penalty; after a long gap
+# (a delayed tick, or a slower cadence) it decays to nothing, since there's
+# no "recent commitment" left to protect. The penalty is deliberately kept
+# well below what a genuine emergency scores -- RETREAT at critical twin
+# health easily clears 0.5+, far above MOMENTUM_SWITCH_PENALTY's ceiling --
+# so a real threat spike still wins outright; this dampens close, marginal
+# flips (flickering), not survival decisions.
+MOMENTUM_WINDOW_SECONDS = 0.5
+MOMENTUM_SWITCH_PENALTY = 0.18
+ENGAGED_POSTURE = {"ATTACK", "ASSIST", "FLANK", "DISTRACT", "INTERCEPT", "PROTECT"}
+DISENGAGED_POSTURE = {"RETREAT", "REPOSITION", "FOLLOW", "EXPLORE"}
+
+# How strongly a confidently combo-heavy player pushes the twin toward
+# disrupting the exchange (INTERCEPT: literally step into an incoming
+# attack; FLANK: hit the player's target from another angle, breaking the
+# 1v1 rhythm) rather than just reading as generically more aggressive.
+COMBO_INTERCEPT_WEIGHT = 0.25
+COMBO_FLANK_WEIGHT = 0.18
+
 
 def clamp01(x: float) -> float:
     return 0.0 if x < 0 else 1.0 if x > 1 else x
@@ -128,6 +151,10 @@ class TwinV0Controller:
             return None
         return best
 
+    @staticmethod
+    def _posture(intent_type: str) -> str:
+        return "engaged" if intent_type in ENGAGED_POSTURE else "disengaged"
+
     def _engage_position(self, obs: AgentObservation, target: EntitySnapshot, from_pos: Vec2) -> Vec2:
         """Where to stand to fight `target` with the current weapon."""
         to_target = target.position - from_pos
@@ -162,6 +189,8 @@ class TwinV0Controller:
         spell_lean = style.confident_value("spell_preference")
         # The player model informs *how* the twin supports, not what it copies.
         player_aggr, player_aggr_conf = self._trait(model, "aggression")
+        combo_dep, combo_conf = self._trait(model, "combo_dependency")
+        combo_pressure = combo_dep * combo_conf
         predicted, pred_conf = self._top_prediction(model)
         aoe_incoming = predicted in AOE_TOKENS and pred_conf > 0.45
         dash_incoming = predicted in DASH_TOKENS and pred_conf > 0.45
@@ -205,6 +234,7 @@ class TwinV0Controller:
             u = 0.55 + 0.3 * defensive + clamp01(0.6 - player_hp) * 0.45
             if winding_at_player:
                 u += 0.1
+            u += COMBO_INTERCEPT_WEIGHT * combo_pressure
             mid = player.position + (threat.position - player.position) * 0.6
             candidates.append(Candidate("INTERCEPT", u, threat, mid, f"{threat.role} threatening player (hp {player_hp:.0%})"))
         else:
@@ -265,6 +295,7 @@ class TwinV0Controller:
             u = 0.3 + 0.3 * mobility + (0.28 if aoe_incoming else 0.0) + 0.1 * aggression
             u += RANGE_LEAN_FLANK_WEIGHT * (range_lean - 0.5)
             u += SPELL_PREFERENCE_FLANK_WEIGHT * (spell_lean - 0.5)
+            u += COMBO_FLANK_WEIGHT * combo_pressure
             candidates.append(Candidate("FLANK", u, player_target, pos,
                                         "flanking player's target" + (" to stay out of the burst" if aoe_incoming else "")))
         else:
@@ -296,9 +327,13 @@ class TwinV0Controller:
         candidates.append(Candidate("FOLLOW", u, None, follow_pos, "staying with the player"))
 
         # --- pick --------------------------------------------------------------------------------
+        momentum = clamp01(1.0 - obs.seconds_since_decision / MOMENTUM_WINDOW_SECONDS)
+        current_posture = self._posture(self.current_intent)
         for c in candidates:
             if c.intent == self.current_intent:
                 c.utility += HYSTERESIS
+            elif self._posture(c.intent) != current_posture:
+                c.utility -= MOMENTUM_SWITCH_PENALTY * momentum
         candidates.sort(key=lambda c: c.utility, reverse=True)
         best, second = candidates[0], candidates[1]
         total = best.utility + second.utility

@@ -29,6 +29,7 @@ rather than guessing.**
 | `data["position"]` | `{"x","y"}` or `[x, y]` | spatial heatmaps | The *actor's* position for player actions; the target's for damage events. |
 | `data["healthFraction"]` | `float` | twin risk_tolerance | On `PLAYER_ATTACKED`. |
 | `data["target_type"]` | `str` | twin target_preference | On `TARGET_CHANGE`. |
+| `data["comboStep"]` | `int` | `combo_dependency` | On `PLAYER_ATTACKED`, 1-indexed (`Player.start_attack`/`weapon.combo_window`). `>= 2` means this hit chained off the previous one within the weapon's own combo window; `1` is an opening hit. Read directly rather than re-derived from tick deltas — the game already computes it per weapon. |
 
 ## Player action events (feed the player model)
 
@@ -75,6 +76,10 @@ rather than guessing.**
   `PLAYER_BLOCKED`/`PLAYER_RETREATED` or a `DEFENSIVE` cast; no observation otherwise.
 - **mobility** — `min(1, distance / 95)` when `distance` is present.
 - **melee/ranged/spell_dependency** — from `tags` when at least one combat category is present.
+- **combo_dependency** — `1.0` when `comboStep >= 2` (this hit chained), `0.0` when `comboStep == 1`
+  (an opening hit), no observation when `comboStep` is absent. Deliberately separate from
+  `aggression`: a player who attacks constantly but never chains reads as aggressive without reading
+  as combo-heavy, and vice versa.
 
 ## Zone layers (spatial)
 

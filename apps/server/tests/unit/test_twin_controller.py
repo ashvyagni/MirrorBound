@@ -209,6 +209,67 @@ def test_marginal_preference_does_not_trigger_a_weapon_switch():
     assert intent.desired_weapon is None
 
 
+# --- decision momentum (seconds_since_decision) ---------------------------
+
+
+def test_momentum_penalizes_switching_to_an_opposite_posture_intent():
+    o = obs(ent("player_1", 400, 400, "player", 100, 100), ent("twin_1", 380, 420, "twin", 90, 90),
+            [ent("enemy_7", 500, 400)], player_target_id="enemy_7", seconds_since_decision=0.1)
+
+    from_follow = TwinV0Controller()
+    from_follow.current_intent = "FOLLOW"  # disengaged; FLANK is engaged -> cross-posture penalty
+    follow_flank = from_follow.decide(o).utilities["FLANK"]
+
+    from_attack = TwinV0Controller()
+    from_attack.current_intent = "ATTACK"  # engaged, same posture as FLANK -> no penalty
+    attack_flank = from_attack.decide(o).utilities["FLANK"]
+
+    assert attack_flank > follow_flank
+
+
+def test_momentum_fades_to_nothing_after_a_long_gap_since_the_last_decision():
+    def flank_utility(seconds_since_decision: float) -> float:
+        o = obs(ent("player_1", 400, 400, "player", 100, 100), ent("twin_1", 380, 420, "twin", 90, 90),
+                [ent("enemy_7", 500, 400)], player_target_id="enemy_7",
+                seconds_since_decision=seconds_since_decision)
+        c = TwinV0Controller()
+        c.current_intent = "FOLLOW"
+        return c.decide(o).utilities["FLANK"]
+
+    recent = flank_utility(0.05)   # just decided -> near-full momentum penalty on FLANK
+    stale = flank_utility(2.0)     # well past MOMENTUM_WINDOW_SECONDS -> penalty fully decayed
+    assert stale > recent
+
+
+def test_a_genuine_emergency_still_overrides_maximum_momentum():
+    o = obs(ent("player_1", 400, 400, "player", 100, 100), ent("twin_1", 380, 420, "twin", 5, 90),
+            [ent("enemy_1", 420, 470)], seconds_since_decision=0.01)  # near-zero -> max momentum
+    c = TwinV0Controller()
+    c.current_intent = "ATTACK"  # engaged; RETREAT is disengaged -> maximum penalty applies to it
+    intent = c.decide(o)
+    assert intent.intent_type == "RETREAT"
+
+
+# --- combo_dependency ------------------------------------------------------
+
+
+def test_combo_heavy_player_raises_intercept_and_flank_utility():
+    threat = ent("enemy_1", 440, 400, "melee", target_id="player_1", winding_up=True, windup=0.3)
+    base_kwargs = dict(
+        player=ent("player_1", 400, 400, "player", 100, 100),
+        twin=ent("twin_1", 300, 500, "twin", 90, 90),
+        enemies=[threat],
+        player_target_id="enemy_1",
+    )
+    combo_model = {"traits": {"combo_dependency": {"value": 0.9, "confidence": 0.9}}}
+
+    combo_intent = TwinV0Controller().decide(obs(**base_kwargs, player_model=combo_model))
+    neutral_intent = TwinV0Controller().decide(obs(**base_kwargs))
+
+    assert combo_intent.utilities["INTERCEPT"] > neutral_intent.utilities["INTERCEPT"]
+    assert combo_intent.utilities["FLANK"] > neutral_intent.utilities["FLANK"]
+
+
 def test_predicted_aoe_pushes_the_twin_to_flank_instead_of_standing_in_it():
     model = {"predictions": [{"token": "FLAME_BURST", "confidence": 0.8}]}
     target = ent("enemy_7", 520, 400)
