@@ -28,8 +28,9 @@ export default function App() {
         <div className="stage-col">
           <GameMount />
           <p className="stage-caption">
-            Move with the arrow keys. Arm the goat from the loadout and press
-            <kbd>J</kbd> — the sword chains through three swings if you keep going.
+            Move with the arrow keys in any direction. Arm the goat from the
+            loadout and press <kbd>J</kbd> — the sword chains through three
+            swings if you keep going.
           </p>
         </div>
 

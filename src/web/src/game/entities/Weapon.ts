@@ -5,9 +5,9 @@ import {
 } from '../animation/weaponClips';
 import type { AbilityId } from '../animation/abilityClips';
 import { GOAT_BODY_RATIO } from '../animation/goatAtlas.generated';
-import { COMBAT, GOAT_DISPLAY_HEIGHT } from '../constants';
+import { ART_RATIO, COMBAT, depthAt, GOAT_DISPLAY_HEIGHT } from '../constants';
 import { flippedFor, mirroredOriginX } from '../facing';
-import type { Facing } from '../types';
+import type { Facing, Vec2 } from '../types';
 
 /**
  * The equipped weapon, drawn over the goat.
@@ -170,14 +170,31 @@ export class Weapon extends Phaser.GameObjects.Sprite {
     this.#rest();
   }
 
-  /** Follow the goat. Called every frame, whether or not a swing is playing. */
-  step(deltaSeconds: number, host: { x: number; y: number; facing: Facing }): void {
+  /**
+   * Follow the goat. Called every frame, whether or not a swing is playing.
+   *
+   * The sheets are side views, and the world is not: the offsets were measured
+   * against a goat seen from the side, so `x` becomes distance along the way
+   * the goat is aiming and `y` stays a height up the sprite. Aiming mostly up
+   * or down tilts the whole weapon and pulls it in close, because a side-on
+   * swing drawn flat would read as swinging across the screen no matter which
+   * way the goat was pointing.
+   */
+  step(deltaSeconds: number, host: { x: number; y: number; aim: Vec2; facing: Facing }): void {
     if (this.#chainWindow > 0) this.#chainWindow -= deltaSeconds;
     if (!this.#weapon) return;
 
     const def = this.#active ?? this.#weapon.idle;
-    const { x, y } = def?.offset ?? this.#weapon.offset;
-    this.setPosition(host.x + x * host.facing, host.y + y);
+    const offset = def?.offset ?? this.#weapon.offset;
+    const aim = host.aim;
+    const vertical = Math.abs(aim.y) > Math.abs(aim.x) + 0.2;
+
+    const reach = offset.x * ART_RATIO * (vertical ? 0.45 : 1);
+    this.setPosition(
+      host.x + aim.x * reach,
+      host.y + aim.y * reach + offset.y * ART_RATIO,
+    );
+    this.setDepth(depthAt(this.y) + (aim.y < 0 ? -1 : 1));
 
     // Mirror with the goat so a swing always reads as coming from its front.
     // `mirror` inverts that for a sheet the generator drew facing the other
@@ -190,6 +207,7 @@ export class Weapon extends Phaser.GameObjects.Sprite {
     const anchor = def?.anchor ?? this.#weapon.idle.anchor;
     this.setFlipX(flipped);
     this.setOrigin(mirroredOriginX(anchor.x, flipped), anchor.y);
+    this.setAngle(vertical ? (aim.y < 0 ? -70 : 70) * (flipped ? -1 : 1) : 0);
   }
 
   override destroy(fromScene?: boolean): void {

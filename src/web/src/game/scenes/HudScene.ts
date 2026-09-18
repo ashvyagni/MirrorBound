@@ -3,7 +3,8 @@ import Phaser from 'phaser';
 import { goatAnimationKey, GOAT_TEXTURE } from '../animation/goatClips';
 import { ICONS_TEXTURE_KEY } from '../animation/iconsAtlas.generated';
 import { slotInfo, WEAPONS, WEAPON_ORDER, type SlotId, type WeaponId } from '../animation/weaponClips';
-import { HUD, PALETTE, PIXEL_FONT, RENDER_SCALE, VIEW } from '../constants';
+import { DEPTH, HUD, PALETTE, PIXEL_FONT, RENDER_SCALE, VIEW } from '../constants';
+import { FX } from '../world/textures';
 import { eventBus } from '../EventBus';
 
 /** A slot on either bar: a frame, an icon, a label, and a recharge sweep. */
@@ -53,6 +54,13 @@ export class HudScene extends Phaser.Scene {
     const width = VIEW.width * RENDER_SCALE;
     const height = VIEW.height * RENDER_SCALE;
     const row = height - HUD.margin - HUD.slot - HUD.labelGap;
+
+    // Behind the bar but over the world. Its own camera has no zoom, so it can
+    // simply be stretched across the canvas.
+    this.add
+      .image(width / 2, height / 2, FX.vignette)
+      .setDisplaySize(width, height)
+      .setDepth(DEPTH.vignette);
 
     this.#buildWeaponBar(row);
     this.#buildAbilityBar(width, row);

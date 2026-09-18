@@ -5,14 +5,19 @@ export type PlayerState =
   | 'idle'
   | 'walk'
   | 'run'
-  | 'rise'
-  | 'fall'
-  | 'land'
   | 'attack'
   | 'hurt'
   | 'die';
 
+/** Which way the sprite is flipped. The art is drawn side-on even though the
+ *  world is seen from above, so left and right is all a sheet can express. */
 export type Facing = 1 | -1;
+
+/** Where the character is actually pointing, which the sheet cannot show. */
+export interface Vec2 {
+  x: number;
+  y: number;
+}
 
 /**
  * One frame of "what should the character try to do".
@@ -25,10 +30,9 @@ export type Facing = 1 | -1;
 export interface Intent {
   /** -1 full left, 0 neutral, 1 full right. */
   moveX: number;
-  /** True only on the frame the jump was requested. */
-  jump: boolean;
-  /** True for as long as jump is held; enables variable jump height. */
-  jumpHeld: boolean;
+  /** -1 full up the screen, 0 neutral, 1 full down. Up the screen is further
+   *  away: this is depth into the scene, not height above a floor. */
+  moveY: number;
   /** True only on the frame the attack was requested. */
   attack: boolean;
   /** Hold to run instead of walk. */
@@ -49,8 +53,7 @@ export interface Intent {
 
 export const NEUTRAL_INTENT: Readonly<Intent> = Object.freeze({
   moveX: 0,
-  jump: false,
-  jumpHeld: false,
+  moveY: 0,
   attack: false,
   run: false,
   companionAttack: false,
@@ -70,7 +73,8 @@ export interface PlayerSnapshot {
   state: PlayerState;
   clip: ClipName;
   facing: Facing;
-  grounded: boolean;
+  /** Where the character is aiming, normalised. */
+  aim: Vec2;
   velocityX: number;
   velocityY: number;
 }

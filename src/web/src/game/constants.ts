@@ -18,43 +18,65 @@ export const VIEW = { width: 960, height: 540 } as const;
  */
 export const RENDER_SCALE = 2;
 
-/** Distance from the top of the view down to the ground line, in world units. */
-export const GROUND_Y = 452;
+/** World-unit size of one floor tile. */
+export const TILE = 32;
 
-/** How tall the goat is drawn on screen, in world units. Everything about the
- *  character scales from this, so the art can change resolution without
- *  touching the physics. */
-export const GOAT_DISPLAY_HEIGHT = 190;
+/** The arena, in tiles. Walls occupy the outermost ring. */
+export const ROOM = { cols: 40, rows: 26 } as const;
+
+/**
+ * Depth layers.
+ *
+ * Entities sit in a band and add their own `y` to it, so whatever is further
+ * down the screen draws in front. That painter's ordering is the whole of the
+ * 2.5D look: there is no projection anywhere, only sorting.
+ */
+export const DEPTH = {
+  floor: 0,
+  floorDecal: 5,
+  shadow: 10,
+  entityBase: 100,
+  entityTop: 2000,
+  fx: 2100,
+  vignette: 3000,
+} as const;
+
+/** Depth for something standing at `y` on the floor. */
+export function depthAt(y: number): number {
+  return DEPTH.entityBase + y * 0.01;
+}
+
+/**
+ * How tall the goat is drawn on screen, in world units.
+ *
+ * Much smaller than a side-scroller wants. The visible goat is
+ * `GOAT_BODY_RATIO` of this, a little under two tiles, so it reads as a
+ * character standing in a world rather than a sprite covering it.
+ */
+export const GOAT_DISPLAY_HEIGHT = 76;
+
+/** Offsets on the weapon sheets were tuned against a 190-unit goat. */
+export const ART_RATIO = GOAT_DISPLAY_HEIGHT / 190;
 
 export const PHYSICS = {
-  gravity: 2100,
   /** Body box, as a fraction of the drawn sprite. The art has a wide fur skirt
    *  and tall horns that should not collide with anything. */
   bodyWidthRatio: 0.34,
-  bodyHeightRatio: 0.72,
+  /** Shallow, because only the goat's footing occupies the floor -- its head
+   *  hangs over whatever is behind it rather than colliding with it. */
+  bodyHeightRatio: 0.3,
 } as const;
 
 export const MOVEMENT = {
-  walkSpeed: 150,
-  runSpeed: 320,
+  walkSpeed: 105,
+  runSpeed: 190,
   /** Time to reach full speed from a standstill, in seconds. */
-  groundAccelTime: 0.09,
-  groundStopTime: 0.07,
-  airAccelTime: 0.22,
-  jumpVelocity: -760,
-  /** Releasing jump early cuts the remaining rise by this much. */
-  jumpCutMultiplier: 0.45,
-  maxFallSpeed: 1250,
-  /** Jump still registers this long after walking off a ledge. */
-  coyoteTime: 0.1,
-  /** Jump pressed this long before landing still fires on touchdown. */
-  jumpBufferTime: 0.12,
+  accelTime: 0.08,
+  stopTime: 0.06,
   /** Below this speed the goat is treated as standing still. */
-  idleThreshold: 12,
+  idleThreshold: 10,
   /** Above this fraction of run speed, the run cycle replaces the walk cycle. */
   runBlendThreshold: 0.62,
-  /** How long the landing pose holds before control resumes, in seconds. */
-  landRecovery: 0.11,
 } as const;
 
 export const COMBAT = {
@@ -62,10 +84,17 @@ export const COMBAT = {
   /** Fraction of normal control retained while swinging. */
   attackMoveScale: 0.25,
   hurtDuration: 0.36,
-  hurtKnockback: 240,
+  hurtKnockback: 150,
   respawnDelay: 1.1,
   /** Time after a swing in which the next hit continues the combo. */
   comboWindow: 0.62,
+} as const;
+
+export const CAMERA = {
+  /** Smoothing toward the goat, per axis. */
+  lerp: 0.1,
+  /** How far it may drift from centre before the camera moves. */
+  deadzone: { width: 120, height: 90 },
 } as const;
 
 /**
@@ -84,28 +113,29 @@ export const COMPANION = {
    * than intended.
    */
   sizeRatio: 1 / 3,
-  /** Height above the goat's feet to hover at -- level with its neck. */
-  neckOffsetY: -122,
+  /** How far up the screen it hovers from the goat's footing. Small: in a
+   *  top-down view this is a position on the floor, not a height. */
+  neckOffsetY: -18,
   /** How far behind the goat the companion aims to sit. */
-  trailDistance: 58,
+  trailDistance: 26,
   /** Seconds to close most of the gap to its target. Higher drifts further. */
   responseTime: 0.22,
   /** Extra trailing proportional to the goat's speed, so a sprint stretches it. */
-  trailPerSpeed: 0.075,
+  trailPerSpeed: 0.06,
   /** Idle bob, layered on top of following so it never looks frozen. */
   bobSpeed: 2.3,
-  bobAmplitude: 5,
+  bobAmplitude: 2.5,
   /** Follow speed above which the travel clips replace the resting ones. */
-  moveThreshold: 42,
-  climbThreshold: 62,
+  moveThreshold: 26,
+  climbThreshold: 34,
   /** Below this it is considered still enough to start an emote. */
-  restThreshold: 14,
+  restThreshold: 9,
   /** How long everything must stay calm before emotes may begin, in seconds. */
   settleTime: 0.6,
   /** Swirl size, as a multiple of the companion's own frame height. */
   attackFxScale: 1.3,
   /** Nudge so the swirl wraps the body rather than sitting under it. */
-  attackFxOffsetY: -6,
+  attackFxOffsetY: -3,
   /** Random wait between idle emotes, in seconds. */
   emoteDelayMin: 3.5,
   emoteDelayMax: 9,
@@ -122,10 +152,10 @@ export const COMPANION_DISPLAY_HEIGHT =
   (GOAT_DISPLAY_HEIGHT * GOAT_BODY_RATIO * COMPANION.sizeRatio) / BRO_BODY_RATIO;
 
 /** Drawn height of the practice dummy, in world units. */
-export const DUMMY_HEIGHT = 168;
+export const DUMMY_HEIGHT = 68;
 
 /** How close a swing or a shot has to be to register on the dummy. */
-export const HIT_RANGE = 96;
+export const HIT_RANGE = 34;
 
 /**
  * The sword's shield.
@@ -144,8 +174,8 @@ export const SHIELD = {
   cooldown: 1.2,
   /** Drawn size as a fraction of the goat's body height. */
   sizeRatio: 0.66,
-  /** Where it sits relative to the goat's origin, its feet. */
-  offset: { x: 46, y: -96 },
+  /** Where it sits relative to the goat's origin, its footing. */
+  offset: { x: 20, y: -22 },
 } as const;
 
 /**

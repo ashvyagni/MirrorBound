@@ -10,9 +10,9 @@ import {
 } from '../animation/shieldParryAtlas.generated';
 import { GOAT_BODY_RATIO } from '../animation/goatAtlas.generated';
 import { animationKey, registerClips } from '../animation/clips';
-import { GOAT_DISPLAY_HEIGHT, SHIELD } from '../constants';
+import { depthAt, GOAT_DISPLAY_HEIGHT, SHIELD } from '../constants';
 import { flippedFor, mirroredOriginX } from '../facing';
-import type { Facing } from '../types';
+import type { Facing, Vec2 } from '../types';
 
 const BLOCK = animationKey(SHIELDBLOCK_TEXTURE_KEY, 'block');
 const PARRY = animationKey(SHIELDPARRY_TEXTURE_KEY, 'parry');
@@ -111,7 +111,7 @@ export class Shield extends Phaser.GameObjects.Sprite {
 
   /** Follow the goat. Returns true on the frame the guard drops by itself, so
    *  the scene can start its cooldown from when it actually ended. */
-  step(deltaSeconds: number, host: { x: number; y: number; facing: Facing }): boolean {
+  step(deltaSeconds: number, host: { x: number; y: number; aim: Vec2; facing: Facing }): boolean {
     if (this.#state === 'away') return false;
 
     if (this.#state === 'guarding') {
@@ -126,10 +126,15 @@ export class Shield extends Phaser.GameObjects.Sprite {
     const anchor = this.#state === 'parrying' ? SHIELDPARRY_ANCHOR : SHIELDBLOCK_ANCHOR;
     this.setFlipX(flipped);
     this.setOrigin(mirroredOriginX(anchor.x, flipped), anchor.y);
+
+    // Held between the goat and whatever it is facing, so it belongs on the
+    // aim rather than on a fixed side.
+    const aim = host.aim;
     this.setPosition(
-      host.x + SHIELD.offset.x * host.facing,
-      host.y + SHIELD.offset.y,
+      host.x + aim.x * SHIELD.offset.x,
+      host.y + aim.y * SHIELD.offset.x + SHIELD.offset.y,
     );
+    this.setDepth(depthAt(this.y) + (aim.y < 0 ? -1 : 1));
     return false;
   }
 

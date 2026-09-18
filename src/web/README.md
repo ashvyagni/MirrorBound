@@ -17,9 +17,8 @@ npm run lint
 
 | Key | Action |
 | --- | --- |
-| `←` `→` / `A` `D` | Move |
+| Arrow keys / `WASD` | Move, in any of eight directions |
 | `Shift` | Run |
-| `Space` / `W` | Jump (hold for height) |
 | `J` or left click | Attack — swings the equipped weapon |
 | `K` | Companion attack |
 | `1` `2` `3` | The equipped weapon's abilities. The sword's is Guard -- press again quickly to parry |
@@ -101,6 +100,27 @@ rather than producing a broken animation. The other half is not enforceable and
 is the reason the file exists: the per-frame timing, and keeping every effect in
 a flat side-on view. The game moves on one axis, and an effect drawn as though
 seen from above reads as belonging to a different game entirely.
+
+## The camera
+
+The world is seen from above and drawn with painter's ordering: every entity
+sets its depth from its own `y` each frame, so whatever is further down the
+screen draws in front. That sorting *is* the 2.5D look -- there is no
+projection anywhere, no isometric transform, nothing skewed. A shadow ellipse
+under each entity and a vignette over the whole screen do the rest.
+
+It follows that `y` means depth into the scene, not height above a floor.
+Nothing falls, there is no gravity and no jump; the goat's body box is a
+shallow rectangle around its footing, so its head overlaps whatever is behind
+it rather than colliding with it.
+
+The character art is still drawn side-on, which is a deliberate mismatch and a
+common one -- the sprite can only face left or right, so `facing` flips it
+while a separate `aim` vector carries the real direction. Everything thrown
+travels along `aim`. Weapons are placed along it too, and a mostly-vertical aim
+tilts the whole weapon and pulls it in close, because a side-on swing drawn
+flat would read as swinging across the screen no matter where the goat was
+pointing.
 
 ## Three decisions worth knowing
 

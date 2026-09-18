@@ -37,7 +37,7 @@ export function DevTools({ snapshot }: { snapshot: PlayerSnapshot | null }) {
           <Stat label="State" value={snapshot?.state ?? '—'} />
           <Stat label="Clip" value={snapshot?.clip ?? '—'} />
           <Stat label="Facing" value={snapshot ? (snapshot.facing === 1 ? 'right' : 'left') : '—'} />
-          <Stat label="Grounded" value={snapshot ? (snapshot.grounded ? 'yes' : 'airborne') : '—'} />
+          <Stat label="Aim" value={snapshot ? aimLabel(snapshot.aim) : '—'} />
         </div>
 
         <h3 className="dev__heading">Play a clip</h3>
@@ -70,6 +70,13 @@ export function DevTools({ snapshot }: { snapshot: PlayerSnapshot | null }) {
       </div>
     </details>
   );
+}
+
+/** Eight-way compass, which reads better than two decimals of a unit vector. */
+function aimLabel({ x, y }: { x: number; y: number }): string {
+  const vertical = y < -0.4 ? 'up' : y > 0.4 ? 'down' : '';
+  const horizontal = x < -0.4 ? 'left' : x > 0.4 ? 'right' : '';
+  return [vertical, horizontal].filter(Boolean).join('-') || 'right';
 }
 
 function Stat({ label, value }: { label: string; value: string }) {

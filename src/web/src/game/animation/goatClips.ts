@@ -33,7 +33,10 @@ export const CLIPS = {
 
 export type ClipName = keyof typeof CLIPS;
 
-/** Clips the debug dock offers, in the order they appear on the sheet. */
+/** Clips the debug dock offers, in the order they appear on the sheet.
+ *  `rise`, `fall` and `land` are the jump row: nothing plays them now that the
+ *  world is seen from above, but they are still on the sheet and still worth
+ *  being able to look at. */
 export const CLIP_ORDER: readonly ClipName[] = [
   'idle', 'walk', 'run', 'rise', 'fall', 'land', 'attack', 'strike', 'hurt', 'die',
 ];

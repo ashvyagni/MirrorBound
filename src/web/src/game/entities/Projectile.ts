@@ -2,9 +2,9 @@ import Phaser from 'phaser';
 
 import { abilityKey, ABILITIES, type AbilityDef, type AbilityId } from '../animation/abilityClips';
 import { GOAT_BODY_RATIO } from '../animation/goatAtlas.generated';
-import { GOAT_DISPLAY_HEIGHT } from '../constants';
+import { ART_RATIO, depthAt, GOAT_DISPLAY_HEIGHT } from '../constants';
 import { flippedFor, mirroredOriginX } from '../facing';
-import type { Facing } from '../types';
+import type { Facing, Vec2 } from '../types';
 
 /**
  * One cast effect in flight, or one burst on the ground.
@@ -15,7 +15,7 @@ import type { Facing } from '../types';
  */
 export class Projectile extends Phaser.GameObjects.Sprite {
   #def: AbilityDef | null = null;
-  #facing: Facing = 1;
+  #aim: Vec2 = { x: 1, y: 0 };
   #age = 0;
 
   constructor(scene: Phaser.Scene) {
@@ -28,28 +28,14 @@ export class Projectile extends Phaser.GameObjects.Sprite {
     return this.active;
   }
 
-  /**
-   * The stretch of ground this effect currently covers, in world x.
-   *
-   * A point would do for a fireball, but not for a beam: it is anchored at the
-   * staff and reaches several hundred units out, so testing its origin alone
-   * would leave it passing straight through everything it visibly hits.
-   */
-  get span(): { from: number; to: number } {
-    // The origin is already mirrored to match the facing, so the box always
-    // hangs off it the way it is drawn -- no need to reason about direction.
-    const from = this.x - this.originX * this.displayWidth;
-    return { from, to: from + this.displayWidth };
-  }
-
   get kind(): AbilityId | null {
     return (this.#def?.id as AbilityId) ?? null;
   }
 
-  launch(id: AbilityId, hostX: number, hostY: number, facing: Facing): void {
+  launch(id: AbilityId, hostX: number, hostY: number, aim: Vec2, facing: Facing): void {
     const def = ABILITIES[id];
     this.#def = def;
-    this.#facing = facing;
+    this.#aim = aim;
     this.#age = 0;
 
     this.setTexture(def.texture, def.frames[0]);
@@ -65,28 +51,18 @@ export class Projectile extends Phaser.GameObjects.Sprite {
     const scale = (goatBody * def.sizeRatio) / (def.frameSize.height * def.bodyRatio);
     this.setScale(scale * (def.stretchX ?? 1), scale);
 
-    this.setPosition(hostX + def.offset.x * facing, hostY + def.offset.y);
+    // Spawned along the aim rather than at a fixed side-on offset: the weapon
+    // offsets were measured on a side view, so their `x` is distance along the
+    // way the goat points and their `y` is how far up the sprite it sits.
+    const reach = def.offset.x * ART_RATIO;
+    this.setPosition(
+      hostX + aim.x * reach,
+      hostY + aim.y * reach + def.offset.y * ART_RATIO,
+    );
     this.setFlipX(flipped);
     this.setVisible(true).setActive(true);
     this.play(abilityKey(id), true);
-    // After `play`, so the first frame is the one being stood up.
-    if (def.ground) this.#standOnFloor();
-  }
-
-  /**
-   * Put the current frame's own base on this sprite's y.
-   *
-   * Frames are trimmed against one source box shared by the whole sheet, and
-   * almost none of them reach its bottom edge -- the flames shrink, the embers
-   * lift, the burst opens from a point. `frame.y + frame.height` is where this
-   * particular frame's artwork actually ends, so dividing by the box height
-   * gives the origin that welds it to the floor. Recomputed every frame, since
-   * it changes with every frame.
-   */
-  #standOnFloor(): void {
-    const { y, height, realHeight } = this.frame;
-    if (!realHeight) return;
-    this.setOrigin(this.originX, (y + height) / realHeight);
+    this.setDepth(depthAt(this.y));
   }
 
   /** Advance; returns false once it is spent and can be reused. */
@@ -95,8 +71,11 @@ export class Projectile extends Phaser.GameObjects.Sprite {
     if (!def || !this.active) return false;
 
     this.#age += deltaSeconds;
-    if (def.speed) this.x += def.speed * this.#facing * deltaSeconds;
-    if (def.ground) this.#standOnFloor();
+    if (def.speed) {
+      this.x += def.speed * this.#aim.x * deltaSeconds;
+      this.y += def.speed * this.#aim.y * deltaSeconds;
+      this.setDepth(depthAt(this.y));
+    }
 
     // A burst ends with its clip; a projectile outlives its looping clip and
     // is cut off by its own lifetime instead.

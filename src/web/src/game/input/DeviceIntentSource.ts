@@ -12,7 +12,7 @@ import type { Intent, IntentSource } from '../types';
  * `Intent`.
  */
 export class DeviceIntentSource implements IntentSource {
-  readonly #keys: Record<'left' | 'right' | 'altLeft' | 'altRight' | 'jump' | 'altJump' | 'run' | 'attack' | 'slot1' | 'slot2' | 'slot3' | 'companionAttack' | 'prevWeapon' | 'nextWeapon', Phaser.Input.Keyboard.Key>;
+  readonly #keys: Record<'left' | 'right' | 'up' | 'down' | 'altLeft' | 'altRight' | 'altUp' | 'altDown' | 'run' | 'attack' | 'slot1' | 'slot2' | 'slot3' | 'companionAttack' | 'prevWeapon' | 'nextWeapon', Phaser.Input.Keyboard.Key>;
 
   /** Left mouse button, latched until the next sample so a click between
    *  frames is never dropped. */
@@ -30,10 +30,12 @@ export class DeviceIntentSource implements IntentSource {
     this.#keys = {
       left: keyboard.addKey(KeyCodes.LEFT),
       right: keyboard.addKey(KeyCodes.RIGHT),
+      up: keyboard.addKey(KeyCodes.UP),
+      down: keyboard.addKey(KeyCodes.DOWN),
       altLeft: keyboard.addKey(KeyCodes.A),
       altRight: keyboard.addKey(KeyCodes.D),
-      jump: keyboard.addKey(KeyCodes.SPACE),
-      altJump: keyboard.addKey(KeyCodes.W),
+      altUp: keyboard.addKey(KeyCodes.W),
+      altDown: keyboard.addKey(KeyCodes.S),
       run: keyboard.addKey(KeyCodes.SHIFT),
       attack: keyboard.addKey(KeyCodes.J),
       // Abilities sit on the number row, one per slot the weapon offers.
@@ -48,7 +50,7 @@ export class DeviceIntentSource implements IntentSource {
       nextWeapon: keyboard.addKey(KeyCodes.E),
     };
 
-    // Stop the browser scrolling the page when the player jumps or walks.
+    // Stop the browser scrolling the page when the player walks.
     keyboard.addCapture([
       KeyCodes.LEFT, KeyCodes.RIGHT, KeyCodes.UP, KeyCodes.DOWN, KeyCodes.SPACE,
     ]);
@@ -72,6 +74,8 @@ export class DeviceIntentSource implements IntentSource {
     const k = this.#keys;
     const left = k.left.isDown || k.altLeft.isDown;
     const right = k.right.isDown || k.altRight.isDown;
+    const up = k.up.isDown || k.altUp.isDown;
+    const down = k.down.isDown || k.altDown.isDown;
     // Taken before the `||` below could short-circuit past it: a click that
     // lands on the same frame as a key press still has to be consumed, or it
     // sits latched and fires a phantom swing on some later frame.
@@ -79,9 +83,8 @@ export class DeviceIntentSource implements IntentSource {
 
     return {
       moveX: (right ? 1 : 0) - (left ? 1 : 0),
+      moveY: (down ? 1 : 0) - (up ? 1 : 0),
       // JustDown consumes the press, so an edge is reported exactly once.
-      jump: Phaser.Input.Keyboard.JustDown(k.jump) || Phaser.Input.Keyboard.JustDown(k.altJump),
-      jumpHeld: k.jump.isDown || k.altJump.isDown,
       attack: Phaser.Input.Keyboard.JustDown(k.attack) || clicked,
       ability: Phaser.Input.Keyboard.JustDown(k.slot1) ? 0
         : Phaser.Input.Keyboard.JustDown(k.slot2) ? 1

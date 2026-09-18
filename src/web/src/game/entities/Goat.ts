@@ -4,14 +4,16 @@ import { CLIPS, goatAnimationKey, type ClipName } from '../animation/goatClips';
 import {
   GOAT_ANCHOR, GOAT_FRAME_SIZE, GOAT_TEXTURE_KEY,
 } from '../animation/goatAtlas.generated';
-import { COMBAT, GOAT_DISPLAY_HEIGHT, MOVEMENT, PHYSICS } from '../constants';
+import { COMBAT, depthAt, DEPTH, GOAT_DISPLAY_HEIGHT, MOVEMENT, PHYSICS } from '../constants';
 import { StateMachine, type StateDef } from '../state/StateMachine';
+import { FX } from '../world/textures';
 import {
   NEUTRAL_INTENT,
   type Facing,
   type Intent,
   type PlayerSnapshot,
   type PlayerState,
+  type Vec2,
 } from '../types';
 
 /** States whose name is also the name of the clip they play. */
@@ -19,9 +21,6 @@ const CLIP_FOR_STATE: Record<PlayerState, ClipName> = {
   idle: 'idle',
   walk: 'walk',
   run: 'run',
-  rise: 'rise',
-  fall: 'fall',
-  land: 'land',
   attack: 'attack',
   hurt: 'hurt',
   die: 'die',
@@ -33,15 +32,21 @@ export class Goat extends Phaser.Physics.Arcade.Sprite {
   readonly #machine: StateMachine<PlayerState, Goat>;
   #intent: Intent = { ...NEUTRAL_INTENT };
   #facing: Facing = 1;
-  #coyote = 0;
-  #jumpBuffer = 0;
-  #jumpCutArmed = false;
-  #wasGrounded = true;
-  #pendingKnockback: Facing = 1;
+  /**
+   * Where the goat is pointing, which is not what the sheet can show.
+   *
+   * The art is drawn side-on, so the sprite only ever faces left or right --
+   * but a top-down character aims in eight, and everything it throws needs the
+   * real direction. Kept as the last non-zero input rather than the velocity,
+   * so letting go of the keys does not swing the aim as the goat slides.
+   */
+  #aim: Vec2 = { x: 1, y: 0 };
+  #pendingKnockback: Vec2 = { x: 1, y: 0 };
   /** Set while the debug dock is previewing a clip, which suspends the machine. */
   #previewing: ClipName | null = null;
   /** Holding a weapon, so its attack must not throw its own effect. */
   #armed = false;
+  readonly #shadow: Phaser.GameObjects.Image;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, GOAT_TEXTURE_KEY, CLIPS.idle.frames[0]);
@@ -53,8 +58,11 @@ export class Goat extends Phaser.Physics.Arcade.Sprite {
     this.setScale(GOAT_DISPLAY_HEIGHT / GOAT_FRAME_SIZE.height);
     this.#fitBody();
 
-    this.body.setCollideWorldBounds(true);
-    this.body.setMaxVelocityY(MOVEMENT.maxFallSpeed);
+    this.#shadow = scene.add
+      .image(x, y, FX.shadow)
+      .setDepth(DEPTH.shadow)
+      .setScale((GOAT_DISPLAY_HEIGHT * 0.5) / 64)
+      .setAlpha(0.7);
 
     this.#machine = new StateMachine<PlayerState, Goat>(this.#states(), this, 'idle');
   }
@@ -63,9 +71,9 @@ export class Goat extends Phaser.Physics.Arcade.Sprite {
    * Size the collision box against the *source* frame.
    *
    * Arcade takes size and offset in unscaled frame pixels and multiplies by the
-   * sprite's scale, so deriving both from the generated anchor keeps the box
-   * centred on the goat's body and its floor exactly on the sprite's feet --
-   * even if the art is re-exported at another resolution.
+   * sprite's scale, so deriving both from the generated anchor keeps the box on
+   * the goat's footing -- which in a top-down view is the only part of it that
+   * occupies the floor. Its head simply overlaps whatever is behind.
    */
   #fitBody(): void {
     const width = GOAT_FRAME_SIZE.width * PHYSICS.bodyWidthRatio;
@@ -74,7 +82,7 @@ export class Goat extends Phaser.Physics.Arcade.Sprite {
     const originY = GOAT_ANCHOR.y * GOAT_FRAME_SIZE.height;
 
     this.body.setSize(width, height, false);
-    this.body.setOffset(originX - width / 2, originY - height);
+    this.body.setOffset(originX - width / 2, originY - height / 2);
   }
 
   /** Told by the scene when a weapon is equipped or put away. */
@@ -86,8 +94,9 @@ export class Goat extends Phaser.Physics.Arcade.Sprite {
     return this.#facing;
   }
 
-  get grounded(): boolean {
-    return this.body.blocked.down || this.body.touching.down;
+  /** Where the goat is pointing. Normalised. */
+  get aim(): Vec2 {
+    return this.#aim;
   }
 
   /** Named `motion`, not `state`: Phaser's GameObject already owns `state`. */
@@ -100,7 +109,7 @@ export class Goat extends Phaser.Physics.Arcade.Sprite {
       state: this.#machine.current,
       clip: this.#previewing ?? CLIP_FOR_STATE[this.#machine.current],
       facing: this.#facing,
-      grounded: this.grounded,
+      aim: { ...this.#aim },
       velocityX: Math.round(this.body.velocity.x),
       velocityY: Math.round(this.body.velocity.y),
     };
@@ -111,60 +120,30 @@ export class Goat extends Phaser.Physics.Arcade.Sprite {
   /**
    * Advance one frame.
    *
-   * Order matters: timers first so coyote and buffer windows are fresh, then
-   * discrete requests (attack, jump), then continuous motion, and only then the
-   * state machine -- which reads the velocities the rest of this produced.
+   * Order matters: discrete requests first, then continuous motion, and only
+   * then the state machine -- which reads the velocities the rest produced.
    */
   step(deltaSeconds: number, intent: Intent): void {
     this.#intent = intent;
 
-    if (this.#previewing && (intent.moveX !== 0 || intent.jump || intent.attack)) {
+    if (this.#previewing && (intent.moveX !== 0 || intent.moveY !== 0 || intent.attack)) {
       this.#clearPreview();
-    }
-
-    const grounded = this.grounded;
-    this.#coyote = grounded ? MOVEMENT.coyoteTime : this.#coyote - deltaSeconds;
-    this.#jumpBuffer = intent.jump ? MOVEMENT.jumpBufferTime : this.#jumpBuffer - deltaSeconds;
-
-    if (grounded && !this.#wasGrounded) {
-      this.#jumpCutArmed = false;
-      this.#machine.set('land');
     }
 
     if (intent.attack) this.#machine.set('attack');
 
-    if (this.#jumpBuffer > 0 && this.#coyote > 0 && this.#canAct()) {
-      this.#jump();
-    }
-
-    // Variable jump height: releasing early clips the rest of the rise.
-    if (this.#jumpCutArmed && !intent.jumpHeld && this.body.velocity.y < 0) {
-      this.body.setVelocityY(this.body.velocity.y * MOVEMENT.jumpCutMultiplier);
-      this.#jumpCutArmed = false;
-    }
-
-    this.#applyHorizontal(deltaSeconds, grounded);
+    this.#applyMovement(deltaSeconds);
     this.#machine.update(deltaSeconds);
-    this.#wasGrounded = grounded;
+
+    // Painter's order: whatever is further down the screen draws in front.
+    this.setDepth(depthAt(this.y));
+    this.#shadow.setPosition(this.x, this.y);
   }
 
-  #canAct(): boolean {
-    const state = this.#machine.current;
-    return state !== 'hurt' && state !== 'die';
-  }
-
-  #jump(): void {
-    this.body.setVelocityY(MOVEMENT.jumpVelocity);
-    this.#jumpBuffer = 0;
-    this.#coyote = 0;
-    this.#jumpCutArmed = true;
-    this.#machine.set('rise');
-  }
-
-  #applyHorizontal(deltaSeconds: number, grounded: boolean): void {
+  #applyMovement(deltaSeconds: number): void {
     const state = this.#machine.current;
     if (state === 'die') {
-      this.body.setVelocityX(0);
+      this.body.setVelocity(0, 0);
       return;
     }
     // A hit takes control away; the knockback is allowed to play out.
@@ -172,18 +151,30 @@ export class Goat extends Phaser.Physics.Arcade.Sprite {
 
     const scale = state === 'attack' ? COMBAT.attackMoveScale : 1;
     const top = this.#intent.run ? MOVEMENT.runSpeed : MOVEMENT.walkSpeed;
-    const target = this.#intent.moveX * top * scale;
 
-    const time = grounded
-      ? (target === 0 ? MOVEMENT.groundStopTime : MOVEMENT.groundAccelTime)
-      : MOVEMENT.airAccelTime;
+    // Normalised, so a diagonal is not faster than a straight line.
+    let dx = this.#intent.moveX;
+    let dy = this.#intent.moveY;
+    const length = Math.hypot(dx, dy);
+    if (length > 1) {
+      dx /= length;
+      dy /= length;
+    }
+
+    const targetX = dx * top * scale;
+    const targetY = dy * top * scale;
+    const time = length === 0 ? MOVEMENT.stopTime : MOVEMENT.accelTime;
 
     // Exponential approach, so acceleration is identical at any frame rate.
     const blend = 1 - Math.exp(-deltaSeconds / time);
-    this.body.setVelocityX(this.body.velocity.x + (target - this.body.velocity.x) * blend);
+    this.body.setVelocity(
+      this.body.velocity.x + (targetX - this.body.velocity.x) * blend,
+      this.body.velocity.y + (targetY - this.body.velocity.y) * blend,
+    );
 
-    if (this.#intent.moveX !== 0 && state !== 'attack') {
-      this.#face(this.#intent.moveX > 0 ? 1 : -1);
+    if (length > 0 && state !== 'attack') {
+      this.#aim = { x: dx / (length || 1), y: dy / (length || 1) };
+      if (dx !== 0) this.#face(dx > 0 ? 1 : -1);
     }
   }
 
@@ -195,8 +186,8 @@ export class Goat extends Phaser.Physics.Arcade.Sprite {
 
   // --- commands --------------------------------------------------------------
 
-  /** Take a hit from the given direction (-1 knocks left, 1 knocks right). */
-  hit(from: Facing = 1): void {
+  /** Take a hit from the given direction, which is where it knocks the goat. */
+  hit(from: Vec2 = { x: -1, y: 0 }): void {
     if (this.#machine.current === 'die') return;
     this.#pendingKnockback = from;
     this.#machine.set('hurt');
@@ -237,13 +228,16 @@ export class Goat extends Phaser.Physics.Arcade.Sprite {
     return clip === 'attack' && this.#armed ? 'strike' : clip;
   }
 
+  override destroy(fromScene?: boolean): void {
+    this.#shadow.destroy();
+    super.destroy(fromScene);
+  }
 
   // --- states ----------------------------------------------------------------
 
-  /** Where the goat belongs right now, judged purely from physics. */
+  /** Where the goat belongs right now, judged purely from how fast it is going. */
   #locomotion(): PlayerState {
-    if (!this.grounded) return this.body.velocity.y < 0 ? 'rise' : 'fall';
-    const speed = Math.abs(this.body.velocity.x);
+    const speed = Math.hypot(this.body.velocity.x, this.body.velocity.y);
     if (speed < MOVEMENT.idleThreshold) return 'idle';
     return speed > MOVEMENT.runSpeed * MOVEMENT.runBlendThreshold ? 'run' : 'walk';
   }
@@ -265,14 +259,6 @@ export class Goat extends Phaser.Physics.Arcade.Sprite {
       idle: free('idle'),
       walk: free('walk'),
       run: free('run'),
-      rise: free('rise'),
-      fall: free('fall'),
-
-      land: {
-        enter: (goat) => goat.#playClip('land'),
-        update: (goat) =>
-          goat.#machine.elapsed >= MOVEMENT.landRecovery ? goat.#locomotion() : undefined,
-      },
 
       attack: {
         enter: (goat) => goat.#playClip('attack'),
@@ -284,7 +270,11 @@ export class Goat extends Phaser.Physics.Arcade.Sprite {
       hurt: {
         enter: (goat) => {
           goat.#playClip('hurt');
-          goat.body.setVelocity(COMBAT.hurtKnockback * goat.#pendingKnockback, -180);
+          const knock = goat.#pendingKnockback;
+          goat.body.setVelocity(
+            COMBAT.hurtKnockback * knock.x,
+            COMBAT.hurtKnockback * knock.y,
+          );
         },
         update: (goat) =>
           goat.#machine.elapsed >= COMBAT.hurtDuration ? goat.#locomotion() : undefined,

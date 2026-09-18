@@ -6,13 +6,16 @@ import {
   BRO_ATTACK_CLIP, BRO_CLIPS, BRO_TEXTURE, broAnimationKey, pickEmote, type BroClipName,
 } from '../animation/broClips';
 import { FX_TEXTURE, fxAnimationKey } from '../animation/fx';
-import { COMPANION, COMPANION_DISPLAY_HEIGHT } from '../constants';
-import type { Facing } from '../types';
+import { COMPANION, COMPANION_DISPLAY_HEIGHT, depthAt, DEPTH } from '../constants';
+import { FX } from '../world/textures';
+import type { Facing, Vec2 } from '../types';
 
 /** What the companion needs to know about whoever it is following. */
 export interface FollowTarget {
   x: number;
   y: number;
+  /** Which way the host points, so the companion knows where *behind* is. */
+  aim: Vec2;
   facing: Facing;
   /** True while the host is doing nothing worth reacting to. */
   resting: boolean;
@@ -41,6 +44,7 @@ export class Bro extends Phaser.GameObjects.Sprite {
   #facing: Facing = 1;
   /** Swirl drawn over the companion while it attacks. */
   readonly #swirl: Phaser.GameObjects.Sprite;
+  readonly #shadow: Phaser.GameObjects.Image;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, BRO_TEXTURE, BRO_CLIPS.idle.frames[0]);
@@ -60,6 +64,12 @@ export class Bro extends Phaser.GameObjects.Sprite {
       .setScale((COMPANION_DISPLAY_HEIGHT * COMPANION.attackFxScale) / GOAT_FRAME_SIZE.height)
       .setVisible(false)
       .setDepth(this.depth + 1);
+
+    this.#shadow = scene.add
+      .image(x, y, FX.shadow)
+      .setDepth(DEPTH.shadow)
+      .setScale((COMPANION_DISPLAY_HEIGHT * 0.45) / 64)
+      .setAlpha(0.5);
 
     this.play(broAnimationKey('idle'));
     // A one-shot emote hands control back the moment it finishes.
@@ -96,9 +106,11 @@ export class Bro extends Phaser.GameObjects.Sprite {
    * on direction changes and stretch further behind at speed.
    */
   step(deltaSeconds: number, target: FollowTarget): void {
+    // Behind the host along the way it is pointing, which with two axes means
+    // the companion swings around it as it turns rather than only left/right.
     const trail = COMPANION.trailDistance + target.speed * COMPANION.trailPerSpeed;
-    const wantX = target.x - target.facing * trail;
-    const wantY = target.y + COMPANION.neckOffsetY;
+    const wantX = target.x - target.aim.x * trail;
+    const wantY = target.y - target.aim.y * trail + COMPANION.neckOffsetY;
 
     // Exponential approach, so the lag is identical at any frame rate.
     const blend = 1 - Math.exp(-deltaSeconds / COMPANION.responseTime);
@@ -118,7 +130,10 @@ export class Bro extends Phaser.GameObjects.Sprite {
     );
 
     this.#facing = target.facing;
+    this.#shadow.setPosition(this.#anchor.x, this.#anchor.y - COMPANION.neckOffsetY);
+    this.setDepth(depthAt(this.#anchor.y));
     this.#swirl.setPosition(this.x, this.y + COMPANION.attackFxOffsetY);
+    this.#swirl.setDepth(this.depth + 1);
     this.#updateMood(deltaSeconds, target);
   }
 
@@ -201,8 +216,8 @@ export class Bro extends Phaser.GameObjects.Sprite {
   /** Drop it back beside the host without an easing swoop across the level. */
   snapTo(target: FollowTarget): void {
     this.#anchor.set(
-      target.x - target.facing * COMPANION.trailDistance,
-      target.y + COMPANION.neckOffsetY,
+      target.x - target.aim.x * COMPANION.trailDistance,
+      target.y - target.aim.y * COMPANION.trailDistance + COMPANION.neckOffsetY,
     );
     this.#velocity.reset();
     this.setPosition(this.#anchor.x, this.#anchor.y);
@@ -212,6 +227,7 @@ export class Bro extends Phaser.GameObjects.Sprite {
 
   override destroy(fromScene?: boolean): void {
     this.off(Phaser.Animations.Events.ANIMATION_COMPLETE, this.#onClipComplete, this);
+    this.#shadow.destroy();
     this.#swirl.destroy();
     super.destroy(fromScene);
   }

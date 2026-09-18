@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-import { PALETTE, PHYSICS, RENDER_SCALE, VIEW } from './constants';
+import { PALETTE, RENDER_SCALE, VIEW } from './constants';
 import { HudScene } from './scenes/HudScene';
 import { PlayScene } from './scenes/PlayScene';
 import { PreloadScene } from './scenes/PreloadScene';
@@ -32,7 +32,9 @@ export function createGame(parent: HTMLElement, fullscreenTarget?: HTMLElement):
     physics: {
       default: 'arcade',
       arcade: {
-        gravity: { x: 0, y: PHYSICS.gravity },
+        // Nothing falls: the world is seen from above, so `y` is depth into
+        // the scene rather than height above a floor.
+        gravity: { x: 0, y: 0 },
         debug: false,
       },
     },

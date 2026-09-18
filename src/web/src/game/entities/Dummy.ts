@@ -2,7 +2,8 @@ import Phaser from 'phaser';
 
 import { DUMMY_ANCHOR, DUMMY_FRAMES, DUMMY_FRAME_SIZE, DUMMY_TEXTURE_KEY } from '../animation/dummyAtlas.generated';
 import { animationKey, registerClips } from '../animation/clips';
-import { DUMMY_HEIGHT } from '../constants';
+import { depthAt, DEPTH, DUMMY_HEIGHT } from '../constants';
+import { FX } from '../world/textures';
 
 const CLIP = animationKey(DUMMY_TEXTURE_KEY, 'hit');
 
@@ -27,6 +28,13 @@ export class Dummy extends Phaser.GameObjects.Sprite {
     scene.add.existing(this);
     this.setOrigin(DUMMY_ANCHOR.x, DUMMY_ANCHOR.y);
     this.setScale(DUMMY_HEIGHT / DUMMY_FRAME_SIZE.height);
+    this.setDepth(depthAt(y));
+    // Set once: a dummy is planted, so nothing about it ever moves.
+    scene.add
+      .image(x, y, FX.shadow)
+      .setDepth(DEPTH.shadow)
+      .setScale((DUMMY_HEIGHT * 0.5) / 64)
+      .setAlpha(0.6);
     this.on(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
       this.#reacting = false;
       this.setFrame(DUMMY_FRAMES.hit[0]);
