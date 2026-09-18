@@ -114,9 +114,25 @@ Nothing falls, there is no gravity and no jump; the goat's body box is a
 shallow rectangle around its footing, so its head overlaps whatever is behind
 it rather than colliding with it.
 
-The character art is still drawn side-on, which is a deliberate mismatch and a
-common one -- the sprite can only face left or right, so `facing` flips it
-while a separate `aim` vector carries the real direction. Everything thrown
+The goat has three drawings of itself: the original side-on sheet, and two more
+for walking away from the camera and toward it. `rowFor(aim)` picks between
+them, with a bias that keeps a mostly-sideways diagonal on the side sheet --
+that is the only one with a profile and a direction in it, and without the bias
+a gentle diagonal turns the goat's face away for no reason. Only the side sheet
+is ever mirrored: the other two are symmetrical, so flipping one would just
+swap which way the horns spiral.
+
+They are sized by body ratio rather than frame height. The three sheets are
+cropped differently -- the new ones are tight, the original has padding for its
+jump and attack rows -- so matching their boxes would draw the same creature at
+three different sizes.
+
+Attacks, staggers and deaths always play from the side sheet, which is the only
+one that has them. The goat turns side-on for the moment it swings, which is
+both what the art can do and what reads most clearly anyway.
+
+`facing` still flips the side sprite while a separate `aim` vector carries the
+real direction. Everything thrown
 travels along `aim`. Weapons are placed along it too, and a mostly-vertical aim
 tilts the whole weapon and pulls it in close, because a side-on swing drawn
 flat would read as swinging across the screen no matter where the goat was

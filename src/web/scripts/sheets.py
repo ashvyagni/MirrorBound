@@ -202,6 +202,51 @@ CASTS = (ARROW_CAST, FIRE_BALL_CAST, FIRE_PILLAR_CAST, FIRE_WAVE_CAST,
          ICE_SHARDS_CAST, ICE_NOVA_CAST, ICE_BEAM_CAST)
 
 
+# --- the goat's other two facings -------------------------------------------
+
+def _goat_facing_body(rgb: np.ndarray, alpha: np.ndarray) -> np.ndarray:
+    """The goat's cream body on a chroma-keyed sheet.
+
+    Simpler than the original sheet's test, which had to separate warm cream
+    from a pink effect baked into the same image. These carry no effects, so
+    "opaque and bright" is the whole of it.
+    """
+    return (alpha > 0.5) & (rgb.max(axis=2) > 80)
+
+
+def _facing(name: str, source: str) -> SheetSpec:
+    """A locomotion sheet for one facing: 8 frames, 4 across and 2 down.
+
+    `anchor="feet"` because the goat stands on the floor and the game plants it
+    by its footing -- the same reason the original sheet uses it. Anchoring on
+    the cell instead would let the creature bob through the ground as the fur
+    hem changes shape across the cycle.
+    """
+    return SheetSpec(
+        name=name,
+        source=ASSETS / source,
+        body=_goat_facing_body,
+        anchor="feet",
+        key="green",
+        body_min_area=400,
+        bands=(
+            Band("walk", 0, 512, 0, 1536, 4, grid_cols=4,
+                 names=tuple(f"walk-{i:02d}" for i in range(4))),
+            Band("walk_b", 512, 1024, 0, 1536, 4, grid_cols=4,
+                 names=tuple(f"walk-{i:02d}" for i in range(4, 8))),
+        ),
+    )
+
+
+#: Walking away from the camera and toward it. The original sheet is drawn
+#: side-on, which cannot show either, and its idle row is already front-facing
+#: -- so these fill the two facings two-axis movement asks for.
+GOAT_BACK = _facing("goatBack", "characters/goat-back.png")
+GOAT_FRONT = _facing("goatFront", "characters/goat-front.png")
+
+FACINGS = (GOAT_BACK, GOAT_FRONT)
+
+
 # --- shields ----------------------------------------------------------------
 
 def _shield(name: str, source: str, anim: str) -> SheetSpec:
@@ -352,4 +397,4 @@ ICONS = SheetSpec(
     ),
 )
 
-SHEETS = (GOAT, BRO, DUMMY, *WEAPONS, *CASTS, *SHIELDS, *SPELLS, ICONS)
+SHEETS = (GOAT, BRO, DUMMY, *FACINGS, *WEAPONS, *CASTS, *SHIELDS, *SPELLS, ICONS)

@@ -1,8 +1,11 @@
 import Phaser from 'phaser';
 
-import { CLIPS, goatAnimationKey, type ClipName } from '../animation/goatClips';
 import {
-  GOAT_ANCHOR, GOAT_FRAME_SIZE, GOAT_TEXTURE_KEY,
+  CLIPS, FACINGS, goatAnimationKey, rowFor,
+  type ClipName, type FacingRow, type FacingSheet,
+} from '../animation/goatClips';
+import {
+  GOAT_BODY_RATIO, GOAT_TEXTURE_KEY,
 } from '../animation/goatAtlas.generated';
 import { COMBAT, depthAt, DEPTH, GOAT_DISPLAY_HEIGHT, MOVEMENT, PHYSICS } from '../constants';
 import { StateMachine, type StateDef } from '../state/StateMachine';
@@ -46,6 +49,8 @@ export class Goat extends Phaser.Physics.Arcade.Sprite {
   #previewing: ClipName | null = null;
   /** Holding a weapon, so its attack must not throw its own effect. */
   #armed = false;
+  /** Which of the three drawings of the goat is on screen. */
+  #row: FacingRow = 'down';
   readonly #shadow: Phaser.GameObjects.Image;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
@@ -54,9 +59,7 @@ export class Goat extends Phaser.Physics.Arcade.Sprite {
     scene.add.existing(this);
     scene.physics.add.existing(this);
 
-    this.setOrigin(GOAT_ANCHOR.x, GOAT_ANCHOR.y);
-    this.setScale(GOAT_DISPLAY_HEIGHT / GOAT_FRAME_SIZE.height);
-    this.#fitBody();
+    this.#wear(FACINGS.down);
 
     this.#shadow = scene.add
       .image(x, y, FX.shadow)
@@ -75,14 +78,29 @@ export class Goat extends Phaser.Physics.Arcade.Sprite {
    * the goat's footing -- which in a top-down view is the only part of it that
    * occupies the floor. Its head simply overlaps whatever is behind.
    */
-  #fitBody(): void {
-    const width = GOAT_FRAME_SIZE.width * PHYSICS.bodyWidthRatio;
-    const height = GOAT_FRAME_SIZE.height * PHYSICS.bodyHeightRatio;
-    const originX = GOAT_ANCHOR.x * GOAT_FRAME_SIZE.width;
-    const originY = GOAT_ANCHOR.y * GOAT_FRAME_SIZE.height;
+  #fitBody(sheet: FacingSheet): void {
+    const width = sheet.frameSize.width * PHYSICS.bodyWidthRatio;
+    const height = sheet.frameSize.height * PHYSICS.bodyHeightRatio;
+    const originX = sheet.anchor.x * sheet.frameSize.width;
+    const originY = sheet.anchor.y * sheet.frameSize.height;
 
     this.body.setSize(width, height, false);
     this.body.setOffset(originX - width / 2, originY - height / 2);
+  }
+
+  /**
+   * Put on one of the three sheets.
+   *
+   * Sized by body ratio rather than frame height: the three sheets are cropped
+   * differently, so matching their boxes would draw the same creature at three
+   * different sizes. Sizing the creature itself keeps it constant as it turns.
+   */
+  #wear(sheet: FacingSheet): void {
+    const body = GOAT_DISPLAY_HEIGHT * GOAT_BODY_RATIO;
+    this.setOrigin(sheet.anchor.x, sheet.anchor.y);
+    this.setScale(body / (sheet.frameSize.height * sheet.bodyRatio));
+    this.setFlipX(sheet.flippable && this.#facing === -1);
+    this.#fitBody(sheet);
   }
 
   /** Told by the scene when a weapon is equipped or put away. */
@@ -133,6 +151,15 @@ export class Goat extends Phaser.Physics.Arcade.Sprite {
     if (intent.attack) this.#machine.set('attack');
 
     this.#applyMovement(deltaSeconds);
+
+    // Before the machine runs, so a state entered this frame already knows
+    // which way the goat turned.
+    const row = rowFor(this.#aim);
+    if (row !== this.#row) {
+      this.#row = row;
+      this.#restate();
+    }
+
     this.#machine.update(deltaSeconds);
 
     // Painter's order: whatever is further down the screen draws in front.
@@ -181,7 +208,8 @@ export class Goat extends Phaser.Physics.Arcade.Sprite {
   #face(facing: Facing): void {
     if (this.#facing === facing) return;
     this.#facing = facing;
-    this.setFlipX(facing === -1);
+    // Only the side view is mirrored; the other two are symmetrical.
+    if (FACINGS[this.#row].flippable) this.setFlipX(facing === -1);
   }
 
   // --- commands --------------------------------------------------------------
@@ -209,6 +237,7 @@ export class Goat extends Phaser.Physics.Arcade.Sprite {
   /** Play a clip directly, bypassing the state machine, until input resumes. */
   previewClip(clip: ClipName): void {
     this.#previewing = clip;
+    this.#wear(FACINGS.side);
     this.anims.play(goatAnimationKey(clip), true);
   }
 
@@ -218,9 +247,36 @@ export class Goat extends Phaser.Physics.Arcade.Sprite {
     this.anims.play(goatAnimationKey(this.#resolve(CLIP_FOR_STATE[this.#machine.current])), true);
   }
 
+  /**
+   * Play the clip for a state, from whichever sheet the goat is facing on.
+   *
+   * Only walking, running and standing have all three facings. An attack, a
+   * stagger and a death always play from the side sheet, which is the only one
+   * that has them -- the goat turns side-on for the moment it swings, which is
+   * both what the art can do and what reads most clearly anyway.
+   */
   #playClip(clip: ClipName): void {
     if (this.#previewing) return;
-    this.anims.play(goatAnimationKey(this.#resolve(clip)), true);
+    const sheet = FACINGS[this.#row];
+    const locomotion = clip === 'idle' || clip === 'walk' || clip === 'run';
+
+    if (!locomotion) {
+      this.#wear(FACINGS.side);
+      this.anims.play(goatAnimationKey(this.#resolve(clip)), true);
+      return;
+    }
+
+    this.#wear(sheet);
+    this.anims.play(sheet[clip], true);
+  }
+
+  /** Replay the current state after turning, so the new sheet takes over
+   *  mid-stride rather than waiting for the next state change. */
+  #restate(): void {
+    const state = this.#machine.current;
+    if (state === 'idle' || state === 'walk' || state === 'run') {
+      this.#playClip(CLIP_FOR_STATE[state]);
+    }
   }
 
   /** Swap in the swirl-free attack while armed. */

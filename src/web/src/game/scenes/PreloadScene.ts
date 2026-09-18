@@ -2,7 +2,9 @@ import Phaser from 'phaser';
 
 import { BRO_TEXTURE, registerBroAnimations } from '../animation/broClips';
 import { registerFxAnimations } from '../animation/fx';
-import { GOAT_TEXTURE, registerGoatAnimations } from '../animation/goatClips';
+import {
+  GOAT_TEXTURES, registerFacingAnimations, registerGoatAnimations,
+} from '../animation/goatClips';
 import { ABILITY_TEXTURES, registerAbilityAnimations } from '../animation/abilityClips';
 import { registerWeaponAnimations, WEAPON_TEXTURES } from '../animation/weaponClips';
 import { DUMMY_TEXTURE_KEY } from '../animation/dummyAtlas.generated';
@@ -49,7 +51,7 @@ export class PreloadScene extends Phaser.Scene {
     // The icon sheet is loaded here too: the in-game bar draws from it, so it
     // has to be a Phaser texture and not only a CSS background.
     for (const texture of [
-      GOAT_TEXTURE, BRO_TEXTURE, ...WEAPON_TEXTURES, ...ABILITY_TEXTURES,
+      ...GOAT_TEXTURES, BRO_TEXTURE, ...WEAPON_TEXTURES, ...ABILITY_TEXTURES,
       DUMMY_TEXTURE_KEY, ICONS_TEXTURE_KEY,
       SHIELDBLOCK_TEXTURE_KEY, SHIELDPARRY_TEXTURE_KEY,
     ]) {
@@ -60,6 +62,7 @@ export class PreloadScene extends Phaser.Scene {
 
   create(): void {
     registerGoatAnimations(this.anims);
+    registerFacingAnimations(this.anims);
     registerBroAnimations(this.anims);
     registerWeaponAnimations(this.anims);
     registerAbilityAnimations(this.anims);

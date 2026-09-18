@@ -63,6 +63,8 @@ to agree with each other more than the sword has to agree with the bow.
 | 25 | frost nova effect | sheet 19 |
 | 26 | freezing beam effect | sheet 19 |
 | 27 | straw dummy | — |
+| 28 | goat walking away (`goat-back`) | `assets/characters/goat.jpg` |
+| 29 | goat walking toward you (`goat-front`) | `assets/characters/goat.jpg` |
 
 Effect sheets take the idle attached too, so the magic picks up the staff
 crystal's colours rather than inventing its own.
@@ -1028,6 +1030,168 @@ FRAMES:
 The bright star stays pinned at the same point near the left edge in every cell.
 The beam grows out of it to the right and dies back into it.
 ```
+
+## Part 4b — The goat's other two facings
+
+The world is seen from above and the goat moves on two axes, so it has to be
+able to walk **away** from the camera and **toward** it. Its sheet cannot do
+that today: the idle row is front-on, which is the "toward" pose already, but
+walk and run are side profiles and there is no back view anywhere.
+
+The companion got away without this -- its move-up and move-down rows are still
+front-on, because it is a floating ghost that tilts rather than turns. A goat
+with two large horns and a face on the front cannot cheat the same way.
+
+Two sheets fill the gap. Each is a **single 8-frame walk cycle**; run reuses the
+same cycle at a higher frame rate, which is a standard shortcut and saves two
+more sheets for a pose nobody looks at closely while sprinting.
+
+**Attach `assets/characters/goat.jpg`** to both, so the horns, ears, eyes and
+proportions come back the same. It is the sheet everything else is matched to,
+so it is the one reference that matters.
+
+### 28. Goat walking away — `assets/characters/goat-back.png` ✅ done
+
+```
+Using the goat in the attached reference sheet -- the same creature, the same
+design, the same colours, the same proportions -- draw a NEW 8-frame walk cycle
+of that goat seen from BEHIND, walking directly away from the viewer.
+
+Output a single 1536 x 1024 pixel sheet in a strict 4 x 2 grid: 4 columns, 2
+rows, each cell exactly 384 x 512 pixels. The animation reads left to right
+across the top row, then left to right across the bottom row.
+
+BACKGROUND: flat pure bright green (#00FF00), edge to edge, perfectly uniform.
+Nothing else on it: no grid lines, no cell borders, no frame numbers, no labels,
+no captions, no watermark, no shadows cast onto the background.
+
+SUBJECT: the goat alone. No ground, no floor, no terrain, no horizon, no
+background scenery, no weapon, no companion.
+
+THE VIEW: seen from directly behind, at the same height the reference sheet is
+drawn at -- level with the creature, not looking down on it. This is the pose
+for walking up the screen, away from the camera.
+
+What that means concretely:
+- NO face. No eyes, no nose, no mouth. The back of the head only.
+- Both spiral horns are visible, curling outward from behind the skull, and
+  they are the main thing that identifies the goat from this angle -- keep them
+  big and clearly spiralled.
+- Both ears are seen from the back: cream outer surface, the pink inner lining
+  hidden or barely catching at the edges.
+- The body is the same tall tapering cream shape with a ragged fur hem, seen
+  from behind and therefore symmetrical about its centre line.
+
+STYLE: match the reference exactly. Thick dark outline, flat cream and bone
+whites, two or three tones, no gradients, no added detail the front view does
+not have.
+
+FRAMING: the goat is centred in its cell and drawn at the same size in all
+eight frames. Its footing -- the bottom of the fur hem -- sits on the same line
+in every cell, because that line is what the game plants on the floor.
+
+ANIMATION, eight frames of one seamless walk cycle:
+1. Contact: the hem settles, the body upright.
+2. The body lifts and leans a little to the left, hem swinging right.
+3. Passing: highest point of the step, hem gathered.
+4. The body drops, hem flaring left.
+5. Contact on the other side, mirroring frame 1.
+6. Lift and lean to the right, hem swinging left.
+7. Passing, highest point again.
+8. Drop, hem flaring right, leading cleanly back into frame 1.
+
+The cycle loops forever, so frame 8 must flow into frame 1 with no jump. The
+horns sway gently with the body rather than staying rigid.
+```
+
+### 29. Goat walking toward you — `assets/characters/goat-front.png` ✅ done
+
+```
+Using the goat in the attached reference sheet -- the same creature, the same
+design, the same colours, the same proportions -- draw a NEW 8-frame walk cycle
+of that goat seen from the FRONT, walking directly toward the viewer.
+
+Output a single 1536 x 1024 pixel sheet in a strict 4 x 2 grid: 4 columns, 2
+rows, each cell exactly 384 x 512 pixels. The animation reads left to right
+across the top row, then left to right across the bottom row.
+
+BACKGROUND: flat pure bright green (#00FF00), edge to edge, perfectly uniform.
+Nothing else on it: no grid lines, no cell borders, no frame numbers, no labels,
+no captions, no watermark, no shadows cast onto the background.
+
+SUBJECT: the goat alone. No ground, no floor, no terrain, no horizon, no
+background scenery, no weapon, no companion.
+
+THE VIEW: seen from directly in front, at the same height the reference sheet is
+drawn at -- level with the creature, not looking down on it. This is the same
+angle as the IDLE row of the attached sheet, which is already front-on: match
+that row's face, horns and proportions exactly, and put it in motion.
+
+- Both large magenta eyes visible and facing the viewer, same shape and same
+  fierce set as the reference.
+- Both spiral horns curling outward, both ears with their pink inner lining.
+- The body the same tall tapering cream shape with a ragged fur hem,
+  symmetrical about its centre line.
+
+STYLE: match the reference exactly. Thick dark outline, flat cream and bone
+whites, two or three tones, no gradients, no added detail the idle row does not
+have.
+
+FRAMING: the goat is centred in its cell and drawn at the same size in all
+eight frames. Its footing -- the bottom of the fur hem -- sits on the same line
+in every cell, because that line is what the game plants on the floor.
+
+ANIMATION, eight frames of one seamless walk cycle, mirroring the rhythm of the
+away-facing sheet so the two read as the same gait:
+1. Contact: the hem settles, the body upright.
+2. The body lifts and leans a little to the right, hem swinging left.
+3. Passing: highest point of the step, hem gathered.
+4. The body drops, hem flaring right.
+5. Contact on the other side, mirroring frame 1.
+6. Lift and lean to the left, hem swinging right.
+7. Passing, highest point again.
+8. Drop, hem flaring left, leading cleanly back into frame 1.
+
+The cycle loops forever, so frame 8 must flow into frame 1 with no jump. The
+horns sway gently with the body rather than staying rigid. The head may bob but
+must keep facing the viewer -- it never turns to the side.
+```
+
+### How they landed
+
+Both came back clean and are wired in. `scripts/sheets.py` has a `_facing`
+builder -- the grid shape every other sheet uses, but `anchor="feet"`, because
+the goat stands on the floor and the game plants it by its footing:
+
+```python
+GOAT_BACK = _facing("goatBack", "characters/goat-back.png")
+GOAT_FRONT = _facing("goatFront", "characters/goat-front.png")
+```
+
+The footing held to within 1-2px across all eight frames *including the band
+boundary*, which is the thing worth checking on a sheet like this: the two rows
+get their own anchor line, so a hem that sits lower in the second row would make
+the goat step down through the floor halfway through its stride.
+
+Then `goatClips.ts` gains a small table, and `Goat` picks its locomotion clip
+from the aim rather than straight from the state:
+
+```ts
+/** Which locomotion row to play, by the way the goat is pointing. */
+function rowFor(aim: Vec2): 'side' | 'up' | 'down' {
+  return Math.abs(aim.y) > Math.abs(aim.x) + 0.2
+    ? (aim.y < 0 ? 'up' : 'down')
+    : 'side';
+}
+```
+
+with one rule worth stating: **the sprite is only flipped on the side row.** Up
+and down are symmetrical, so flipping them does nothing visible except make the
+horns swap sides mid-stride.
+
+The existing front-on `idle` row already serves as the standing pose for `down`.
+Standing while facing away needs frame 0 of the up sheet, which is why that
+sheet's first frame is a settled contact pose rather than mid-stride.
 
 ## Part 5 — Props
 
