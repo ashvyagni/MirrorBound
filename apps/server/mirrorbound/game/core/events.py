@@ -5,12 +5,36 @@ the agent — it just emits an AbilityCastEvent and lets listeners react.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any
 
 EventListener = Callable[["Event"], None]
+
+_JsonPrimitive = str | int | float | bool | None
+
+
+def _freeze(value: Any) -> Any:
+    """Recursively convert dicts/lists into read-only equivalents (MappingProxyType
+    / tuple), so a subscriber can't mutate nested structures either — only the top
+    level was covered before, which left e.g. `data["tags"].append(...)` free to
+    silently corrupt what later subscribers, telemetry, and replay see.
+    """
+    if isinstance(value, Mapping):
+        return MappingProxyType({k: _freeze(v) for k, v in value.items()})
+    if isinstance(value, (list, tuple)):
+        return tuple(_freeze(v) for v in value)
+    return value
+
+
+def _thaw(value: Any) -> Any:
+    """Inverse of _freeze: back to plain dict/list for JSON export."""
+    if isinstance(value, Mapping):
+        return {k: _thaw(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_thaw(v) for v in value]
+    return value
 
 
 @dataclass(frozen=True)
@@ -21,11 +45,19 @@ class Event:
 
     def __post_init__(self) -> None:
         # frozen=True only stops fields being reassigned; without this, one
-        # subscriber could still mutate `data` in place before later subscribers,
-        # telemetry, or the replay recorder see it — order-dependent behavior that
-        # would silently break determinism. Copy-and-freeze at construction time
-        # instead of trusting every future caller not to mutate the dict they pass in.
-        object.__setattr__(self, "data", MappingProxyType(dict(self.data)))
+        # subscriber could still mutate `data` (or a nested dict/list inside it) in
+        # place before later subscribers, telemetry, or the replay recorder see it —
+        # order-dependent behavior that would silently break determinism. Freeze
+        # recursively at construction time instead of trusting every future caller.
+        object.__setattr__(self, "data", _freeze(self.data))
+
+    def to_json_dict(self) -> dict[str, _JsonPrimitive | dict | list]:
+        """Plain, `json.dumps`-able view for the WebSocket snapshot, the JSONL
+        replay log, and any other network/file consumer — MappingProxyType and
+        tuple (what `data` is actually made of, post-freeze) aren't JSON-serializable
+        on their own.
+        """
+        return {"tick": self.tick, "type": self.type, "data": _thaw(self.data)}
 
 
 class EventBus:

@@ -99,3 +99,20 @@ def test_default_decay_calibration_survives_a_realistic_action_gap():
     assert predictions
     assert predictions[0].token == "FIRE"
     assert predictions[0].confidence > 0.5
+
+
+def test_predictor_automatically_prunes_stale_contexts_over_time():
+    predictor = SequencePredictor(
+        max_order=1, half_life_seconds=1.0, tick_hz=1.0, prune_interval_ticks=5.0
+    )
+    tick = feed(predictor, ["DASH", "FIRE"], 1)
+    assert predictor.context_count() > 0
+
+    # Keep observing an unrelated context far in the future so prune_interval_ticks
+    # keeps getting crossed; the old (DASH,) context should eventually be swept
+    # even though nothing ever observes into it again.
+    for t in range(tick, tick + 200, 10):
+        predictor.observe("IDLE", tick=t)
+
+    remaining = predictor._models[1]._table
+    assert ("DASH",) not in remaining

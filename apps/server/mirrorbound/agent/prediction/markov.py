@@ -48,16 +48,53 @@ class MarkovModel:
         entry = row.get(next_token)
         current_weight = self._decayed_weight(entry, tick) if entry else 0.0
         row[next_token] = _Entry(weight=current_weight + 1.0, last_tick=tick)
+        # Sweep the row we just touched: cheap opportunity to actually drop any
+        # sibling entries (other tokens that followed this same context) that have
+        # decayed away, rather than letting storage grow forever.
+        self._prune_row(row, tick)
 
     def _decayed_weight(self, entry: _Entry, tick: int) -> float:
         elapsed = max(0, tick - entry.last_tick)
         weight = entry.weight * (self.decay_per_tick**elapsed)
         return weight if weight >= MIN_WEIGHT else 0.0
 
+    def _prune_row(self, row: dict[str, _Entry], tick: int) -> None:
+        stale = [token for token, entry in row.items() if self._decayed_weight(entry, tick) <= 0.0]
+        for token in stale:
+            del row[token]
+
+    def prune(self, tick: int) -> int:
+        """Sweep every stored context, actually removing entries whose decayed
+        weight has fallen to zero and deleting any context whose row is now empty.
+
+        observe() only sweeps the one row it just touched, so a context that's
+        stopped being reinforced entirely (e.g. the player abandoned that whole
+        pattern) would otherwise sit in `_table` forever, just filtered out of
+        every read. Call this periodically — SequencePredictor does, every
+        PRUNE_INTERVAL_TICKS — so memory stays bounded by *active* contexts.
+        Returns the number of contexts removed, for tests/telemetry.
+        """
+        empty_contexts = []
+        for context, row in self._table.items():
+            self._prune_row(row, tick)
+            if not row:
+                empty_contexts.append(context)
+        for context in empty_contexts:
+            del self._table[context]
+        return len(empty_contexts)
+
+    def __len__(self) -> int:
+        """Number of distinct contexts currently stored — for bounded-memory checks
+        and the debug HUD, not used internally.
+        """
+        return len(self._table)
+
     def candidates(self, context: tuple[str, ...], tick: int) -> dict[str, float]:
-        """Decay-adjusted weight per next-token, as of `tick`. Read-only — does not
-        mutate stored state, so calling this repeatedly at increasing ticks with no
-        new observations shows confidence fading, exactly as the doc requires.
+        """Decay-adjusted weight per next-token, as of `tick`. Does not mutate
+        storage itself (pruning is observe()/prune()'s job) — calling this
+        repeatedly at increasing ticks with no new observations shows confidence
+        fading regardless of whether a prune() has run recently, since it always
+        filters out anything already decayed to zero.
         """
         row = self._table.get(context)
         if not row:

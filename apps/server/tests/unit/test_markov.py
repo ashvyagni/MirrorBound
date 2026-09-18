@@ -49,16 +49,58 @@ def test_temporal_decay_fades_confidence_without_new_observations():
     assert confidence_later < confidence_now
 
 
-def test_temporal_decay_eventually_prunes_a_stale_transition():
-    # After a long enough silence, decayed-to-nothing evidence is dropped
-    # entirely rather than lingering forever at a low weight (keeps the
-    # transition table bounded and matches "old behaviour gradually stops
-    # mattering", not just "matters slightly less forever").
+def test_temporal_decay_eventually_makes_a_stale_transition_unpredictable():
+    # A read-time property only: candidates()/predict() always filter out anything
+    # decayed to zero, regardless of whether storage has actually been cleaned up
+    # yet (that's a separate guarantee — see the two tests below).
     model = MarkovModel(order=1, min_samples=5.0, half_life_ticks=10.0)
     for tick in range(1, 11):
         model.observe(("DASH",), "FIRE", tick=tick)
 
     assert model.predict(("DASH",), tick=1000) == []
+
+
+def test_observe_prunes_stale_sibling_entries_from_the_touched_row():
+    # observe() sweeps the row it just wrote to, so a sibling entry (a different
+    # next-token for the same context) that has decayed away is actually removed
+    # from storage, not just skipped at read time.
+    model = MarkovModel(order=1, min_samples=5.0, half_life_ticks=10.0)
+    model.observe(("DASH",), "FIRE", tick=1)
+    model.observe(("DASH",), "DODGE", tick=1000)  # FIRE's entry has long since decayed away
+
+    row = model._table[("DASH",)]
+    assert "FIRE" not in row
+    assert "DODGE" in row
+
+
+def test_prune_removes_a_fully_stale_context_from_storage_entirely():
+    # A context that stops being reinforced altogether isn't touched by any future
+    # observe() (there's nothing left to observe into it), so it would otherwise sit
+    # in storage forever, just filtered out of every read. prune() sweeps the whole
+    # table and actually deletes it — this is the real "not just filtered, removed"
+    # fix; test_temporal_decay_eventually_makes_a_stale_transition_unpredictable above
+    # only proves the read-time symptom, not that storage shrinks.
+    model = MarkovModel(order=1, min_samples=5.0, half_life_ticks=10.0)
+    model.observe(("DASH",), "FIRE", tick=1)
+    assert len(model) == 1
+
+    removed = model.prune(tick=1000)
+
+    assert removed == 1
+    assert len(model) == 0
+    assert ("DASH",) not in model._table
+
+
+def test_prune_keeps_contexts_that_are_still_active():
+    model = MarkovModel(order=1, min_samples=5.0, half_life_ticks=10.0)
+    model.observe(("DASH",), "FIRE", tick=1)
+    model.observe(("FIRE",), "DODGE", tick=1000)  # still fresh — no decay yet
+
+    removed = model.prune(tick=1000)
+
+    assert removed == 1  # only the DASH->FIRE context, which is long stale
+    assert len(model) == 1
+    assert ("FIRE",) in model._table
 
 
 def test_unseen_context_returns_no_candidates():
