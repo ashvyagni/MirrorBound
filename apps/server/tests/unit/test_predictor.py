@@ -18,7 +18,7 @@ def test_no_prediction_before_any_history():
 
 
 def test_backs_off_to_low_order_when_higher_orders_have_no_evidence():
-    predictor = SequencePredictor(max_order=3, decay=1.0)
+    predictor = SequencePredictor(max_order=3, half_life_seconds=float("inf"))
     tick = 1
     # Unique filler before each DASH so the 2- and 3-token contexts are always
     # novel, but the order-1 transition DASH -> FIRE repeats every cycle.
@@ -36,7 +36,7 @@ def test_backs_off_to_low_order_when_higher_orders_have_no_evidence():
 
 
 def test_learns_a_repeated_combo_and_predicts_the_finisher():
-    predictor = SequencePredictor(max_order=2, decay=1.0, min_samples=5.0)
+    predictor = SequencePredictor(max_order=2, half_life_seconds=float("inf"), min_samples=5.0)
     combo = ["DASH", "FIRE", "AERIAL_ATTACK"]
     tick = 1
     for _ in range(15):
@@ -52,7 +52,11 @@ def test_learns_a_repeated_combo_and_predicts_the_finisher():
 
 
 def test_predictor_adapts_when_player_changes_strategy():
-    predictor = SequencePredictor(max_order=1, decay=0.9, min_context_weight=0.5)
+    # tick_hz=1.0 so each `feed()` step is one half-life unit of "time" here,
+    # rather than one real 60Hz simulation tick.
+    predictor = SequencePredictor(
+        max_order=1, half_life_seconds=15.0, tick_hz=1.0, min_context_weight=0.5
+    )
 
     tick = feed(predictor, ["DASH", "FIRE"] * 15, 1)
     tick = feed(predictor, ["DASH"], tick)
@@ -67,3 +71,31 @@ def test_predictor_adapts_when_player_changes_strategy():
 
     assert late_predictions[0].token == "RETREAT"
     assert late_predictions[0].confidence > early_confidence * 0.5
+
+
+def test_default_decay_calibration_survives_a_realistic_action_gap():
+    # Regression guard: the previous default (a raw per-tick decay fraction) had
+    # a ~34-tick (~0.57s at 60Hz) half-life, so evidence queried even a couple of
+    # seconds later — a completely ordinary gap between player actions — had
+    # already collapsed. With the real defaults (30s half-life @ 60Hz), a
+    # repeated pattern should barely be dented by a 3-second gap.
+    # max_order=1 to isolate decay calibration from order backoff (a periodic
+    # DASH,FIRE,DASH,FIRE... sequence also gives the higher-order models their
+    # own consistent — but different — predictions, which isn't what this test
+    # is checking).
+    predictor = SequencePredictor(max_order=1)  # defaults: half_life_seconds=30, tick_hz=60
+    tick = 0
+    for _ in range(5):
+        predictor.observe("DASH", tick=tick)
+        tick += 1
+        predictor.observe("FIRE", tick=tick)
+        tick += 1
+    predictor.observe("DASH", tick=tick)  # prime context so we're asking "what follows DASH?"
+    tick += 1
+
+    three_seconds_later = tick + 3 * 60
+    predictions = predictor.predict(tick=three_seconds_later)
+
+    assert predictions
+    assert predictions[0].token == "FIRE"
+    assert predictions[0].confidence > 0.5

@@ -20,10 +20,25 @@ class _Entry:
 
 
 class MarkovModel:
-    def __init__(self, order: int, decay: float = 0.98, min_samples: float = 5.0) -> None:
+    def __init__(
+        self,
+        order: int,
+        half_life_ticks: float = 1800.0,
+        min_samples: float = 5.0,
+    ) -> None:
+        """`tick` in observe()/predict() is whatever tick counter the caller feeds
+        in — in real usage that's the 60Hz sim clock's tick. half_life_ticks is a
+        deliberately chosen real-time half-life expressed in that same unit: default
+        1800 ticks = 30s at 60Hz, not "34 ticks" from an arbitrary per-tick fraction.
+        Pass float('inf') for no decay.
+        """
         assert order >= 1
+        assert half_life_ticks > 0
         self.order = order
-        self.decay = decay
+        self.half_life_ticks = half_life_ticks
+        self.decay_per_tick = (
+            1.0 if half_life_ticks == float("inf") else 0.5 ** (1.0 / half_life_ticks)
+        )
         self.min_samples = min_samples
         self._table: dict[tuple[str, ...], dict[str, _Entry]] = {}
 
@@ -36,7 +51,7 @@ class MarkovModel:
 
     def _decayed_weight(self, entry: _Entry, tick: int) -> float:
         elapsed = max(0, tick - entry.last_tick)
-        weight = entry.weight * (self.decay**elapsed)
+        weight = entry.weight * (self.decay_per_tick**elapsed)
         return weight if weight >= MIN_WEIGHT else 0.0
 
     def candidates(self, context: tuple[str, ...], tick: int) -> dict[str, float]:

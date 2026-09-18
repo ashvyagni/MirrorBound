@@ -25,14 +25,22 @@ class SequencePredictor:
     def __init__(
         self,
         max_order: int = 3,
-        decay: float = 0.98,
+        half_life_seconds: float = 30.0,
+        tick_hz: float = 60.0,
         min_samples: float = 5.0,
-        min_context_weight: float = 1.0,
+        min_context_weight: float = 3.0,
     ) -> None:
+        """half_life_seconds/tick_hz pick the decay rate in real time rather than as
+        a raw per-tick fraction — see MarkovModel for why that distinction matters.
+        min_context_weight: a context needs at least this much (decay-adjusted)
+        evidence before its prediction is trusted over backing off to a shorter
+        context — a single observation must not be enough to win outright.
+        """
         self.max_order = max_order
         self.min_context_weight = min_context_weight
+        half_life_ticks = float("inf") if half_life_seconds == float("inf") else half_life_seconds * tick_hz
         self._models: dict[int, MarkovModel] = {
-            order: MarkovModel(order=order, decay=decay, min_samples=min_samples)
+            order: MarkovModel(order=order, half_life_ticks=half_life_ticks, min_samples=min_samples)
             for order in range(1, max_order + 1)
         }
         self.history: list[str] = []
