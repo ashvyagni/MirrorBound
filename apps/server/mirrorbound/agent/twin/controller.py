@@ -27,6 +27,18 @@ FOLLOW_OFFSET = 62.0
 AOE_TOKENS = ("FLAME_BURST", "BINDING_NOVA", "FIRE_BURST")
 DASH_TOKENS = ("DASH", "SHADOW_DASH")
 
+# How strongly the twin's own learned preferred_range/spell_preference bias
+# ATTACK (close, self-chosen fight) vs FLANK/ASSIST (repositioned/supportive
+# engagement), given engagement distance itself is still weapon-driven, not
+# style-driven, until the twin can change its own equipment. Centered at zero
+# for a neutral/unconfident style (confident_value() already blends toward
+# 0.5 at low confidence, so subtracting 0.5 here means "no opinion yet"
+# contributes exactly nothing, rather than silently nudging every decision).
+RANGE_LEAN_ATTACK_WEIGHT = 0.30    # melee-leaning (< 0.5) favors ATTACK; ranged-leaning suppresses it
+RANGE_LEAN_FLANK_WEIGHT = 0.24     # ranged-leaning favors FLANK
+RANGE_LEAN_ASSIST_WEIGHT = 0.16    # ranged-leaning mildly favors ASSIST (support from range) over closing in
+SPELL_PREFERENCE_FLANK_WEIGHT = 0.12  # a spell-leaning twin values repositioning generally, not just AoE-dodging
+
 
 def clamp01(x: float) -> float:
     return 0.0 if x < 0 else 1.0 if x > 1 else x
@@ -102,6 +114,13 @@ class TwinV0Controller:
         risk = style.confident_value("risk_tolerance")
         mobility = style.confident_value("mobility")
         target_pref = style.confident_value("target_preference")
+        # melee_dependency/ranged_dependency are updated in lockstep with
+        # preferred_range in style.py (every melee/ranged attack nudges all
+        # three together, always by the same amount) -- they're the same
+        # evidence expressed three ways, so using preferred_range alone here
+        # avoids triple-counting a single signal.
+        range_lean = style.confident_value("preferred_range")   # 0 = melee-leaning, 1 = ranged-leaning
+        spell_lean = style.confident_value("spell_preference")
         # The player model informs *how* the twin supports, not what it copies.
         player_aggr, player_aggr_conf = self._trait(model, "aggression")
         predicted, pred_conf = self._top_prediction(model)
@@ -173,6 +192,7 @@ class TwinV0Controller:
         # --- ASSIST: fight the player's target -------------------------------------
         if player_target is not None:
             u = 0.42 + 0.35 * aggression + 0.15 * player_aggr * player_aggr_conf
+            u += RANGE_LEAN_ASSIST_WEIGHT * (range_lean - 0.5)
             if aoe_incoming:
                 u -= 0.2   # the player is about to blanket that spot; don't stand in it
             candidates.append(Candidate("ASSIST", u, player_target, None,
@@ -191,6 +211,7 @@ class TwinV0Controller:
             best = max(enemies, key=score)
             crowd = sum(1 for o in enemies if (o.position - best.position).length() < ISOLATION_RADIUS) - 1
             u = 0.33 + 0.35 * aggression + (0.22 if isolated(best) else 0.0) - 0.12 * crowd * (1 - risk)
+            u -= RANGE_LEAN_ATTACK_WEIGHT * (range_lean - 0.5)
             u *= clamp01(0.35 + twin_hp)
             candidates.append(Candidate("ATTACK", u, best, None,
                                         ("isolated " if isolated(best) else "") + f"{best.role}, aggression {aggression:.2f}"))
@@ -203,6 +224,8 @@ class TwinV0Controller:
             hold = obs.twin_weapon_range * (0.7 if obs.twin_weapon_is_melee else 0.55)
             pos = player_target.position + away_from_player * max(40.0, hold)
             u = 0.3 + 0.3 * mobility + (0.28 if aoe_incoming else 0.0) + 0.1 * aggression
+            u += RANGE_LEAN_FLANK_WEIGHT * (range_lean - 0.5)
+            u += SPELL_PREFERENCE_FLANK_WEIGHT * (spell_lean - 0.5)
             candidates.append(Candidate("FLANK", u, player_target, pos,
                                         "flanking player's target" + (" to stay out of the burst" if aoe_incoming else "")))
         else:

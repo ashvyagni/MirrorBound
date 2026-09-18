@@ -76,9 +76,9 @@ Every decision scores all candidates from the observation, the player model and 
 | INTERCEPT | an enemy is winding up on the player, or threats near a hurt player | defensive_tendency, player health deficit |
 | PROTECT | two or more enemies pressing the player | defensive_tendency, threat count |
 | DISTRACT | player under 40% health, twin healthy | defensive_tendency, risk |
-| ASSIST | the player has a target | twin aggression, player aggression × its confidence; penalised if an AoE is predicted at that target |
-| ATTACK | any enemy, preferring isolated ones and (by `target_preference`) dangerous vs weak ones | aggression, risk vs crowd |
-| FLANK | player's target within reach | mobility; bonus when an AoE is predicted (stay out of the cone) |
+| ASSIST | the player has a target | twin aggression, player aggression × its confidence, own `preferred_range` (ranged-leaning mildly favors supporting over closing in); penalised if an AoE is predicted at that target |
+| ATTACK | any enemy, preferring isolated ones and (by `target_preference`) dangerous vs weak ones | aggression, risk vs crowd, own `preferred_range` (melee-leaning favors it, ranged-leaning suppresses it) |
+| FLANK | player's target within reach | mobility, own `preferred_range` (ranged-leaning favors it) and `spell_preference`; bonus when an AoE is predicted (stay out of the cone) |
 | REPOSITION | far from the player | mobility, distance |
 | EXPLORE | room clear, pickups present | mobility |
 | FOLLOW | default | — |

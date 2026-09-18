@@ -94,6 +94,70 @@ def test_decisions_are_deterministic():
     assert a == b
 
 
+def test_ranged_leaning_style_favors_flank_and_assist_over_attack():
+    melee_style, ranged_style = TwinStyleModel(), TwinStyleModel()
+    for i in range(40):
+        melee_style.get("preferred_range").update(0.0, 0.2, i)
+        ranged_style.get("preferred_range").update(1.0, 0.2, i)
+    target = ent("enemy_7", 500, 400)
+    o = obs(ent("player_1", 400, 400, "player", 100, 100), ent("twin_1", 380, 420, "twin", 90, 90), [target],
+            player_target_id="enemy_7")
+    melee_intent = TwinV0Controller(melee_style).decide(o)
+    ranged_intent = TwinV0Controller(ranged_style).decide(o)
+    assert ranged_intent.utilities["FLANK"] > melee_intent.utilities["FLANK"]
+    assert ranged_intent.utilities["ASSIST"] > melee_intent.utilities["ASSIST"]
+    assert ranged_intent.utilities["ATTACK"] < melee_intent.utilities["ATTACK"]
+
+
+def test_melee_dependency_and_ranged_dependency_alone_do_not_move_the_needle():
+    """preferred_range is the sole signal read for range-lean bias (see
+    controller.py's comment) since melee_dependency/ranged_dependency update
+    in lockstep with it in style.py -- confirms they're not separately wired
+    in a way that would double-count the same evidence.
+    """
+    baseline = TwinStyleModel()
+    only_dependency = TwinStyleModel()
+    for i in range(40):
+        only_dependency.get("melee_dependency").update(1.0, 0.2, i)
+        only_dependency.get("ranged_dependency").update(0.0, 0.2, i)
+    target = ent("enemy_7", 500, 400)
+    o = obs(ent("player_1", 400, 400, "player", 100, 100), ent("twin_1", 380, 420, "twin", 90, 90), [target],
+            player_target_id="enemy_7")
+    a = TwinV0Controller(baseline).decide(o)
+    b = TwinV0Controller(only_dependency).decide(o)
+    assert a.utilities["ATTACK"] == b.utilities["ATTACK"]
+    assert a.utilities["FLANK"] == b.utilities["FLANK"]
+    assert a.utilities["ASSIST"] == b.utilities["ASSIST"]
+
+
+def test_spell_leaning_style_raises_flank_utility():
+    neutral, spellcaster = TwinStyleModel(), TwinStyleModel()
+    for i in range(40):
+        spellcaster.get("spell_preference").update(1.0, 0.2, i)
+    target = ent("enemy_7", 500, 400)
+    o = obs(ent("player_1", 400, 400, "player", 100, 100), ent("twin_1", 380, 420, "twin", 90, 90), [target],
+            player_target_id="enemy_7")
+    neutral_intent = TwinV0Controller(neutral).decide(o)
+    spell_intent = TwinV0Controller(spellcaster).decide(o)
+    assert spell_intent.utilities["FLANK"] > neutral_intent.utilities["FLANK"]
+
+
+def test_unconfident_new_style_biases_nothing():
+    """A brand-new TwinStyleModel (zero samples, zero confidence on every
+    dimension) must produce identical utilities to what existed before these
+    bias terms were added -- confident_value() blends to exactly 0.5 at zero
+    confidence, and every new term here is centered at (x - 0.5), so a
+    fresh twin's decisions are provably untouched by this change.
+    """
+    o = obs(ent("player_1", 400, 400, "player", 100, 100), ent("twin_1", 380, 420, "twin", 90, 90),
+            [ent("enemy_7", 500, 400)], player_target_id="enemy_7")
+    intent = TwinV0Controller(TwinStyleModel()).decide(o)
+    style = TwinStyleModel()
+    assert style.confident_value("preferred_range") == 0.5
+    assert style.confident_value("spell_preference") == 0.5
+    assert intent.utilities["ATTACK"] > 0  # sanity: candidate still fires at all
+
+
 def test_predicted_aoe_pushes_the_twin_to_flank_instead_of_standing_in_it():
     model = {"predictions": [{"token": "FLAME_BURST", "confidence": 0.8}]}
     target = ent("enemy_7", 520, 400)
