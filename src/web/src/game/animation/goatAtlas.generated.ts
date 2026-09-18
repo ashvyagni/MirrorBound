@@ -20,6 +20,7 @@ export const GOAT_FRAMES = {
   walk: ["walk-00", "walk-01", "walk-02", "walk-03", "walk-04", "walk-05"],
   run: ["run-00", "run-01", "run-02", "run-03", "run-04"],
   jump: ["jump-00", "jump-01", "jump-02", "jump-03", "jump-04", "jump-05"],
+  strike: ["strike-00", "strike-01", "strike-02", "strike-03", "strike-04", "strike-05"],
   attack: ["attack-00", "attack-01", "attack-02", "attack-03", "attack-04", "attack-05"],
   swirl: ["swirl-02", "swirl-03", "swirl-04", "swirl-05"],
   hurt: ["hurt-00"],

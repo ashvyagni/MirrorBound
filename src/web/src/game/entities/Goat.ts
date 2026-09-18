@@ -40,6 +40,8 @@ export class Goat extends Phaser.Physics.Arcade.Sprite {
   #pendingKnockback: Facing = 1;
   /** Set while the debug dock is previewing a clip, which suspends the machine. */
   #previewing: ClipName | null = null;
+  /** Holding a weapon, so its attack must not throw its own effect. */
+  #armed = false;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, GOAT_TEXTURE_KEY, CLIPS.idle.frames[0]);
@@ -73,6 +75,11 @@ export class Goat extends Phaser.Physics.Arcade.Sprite {
 
     this.body.setSize(width, height, false);
     this.body.setOffset(originX - width / 2, originY - height);
+  }
+
+  /** Told by the scene when a weapon is equipped or put away. */
+  setArmed(armed: boolean): void {
+    this.#armed = armed;
   }
 
   get facing(): Facing {
@@ -217,12 +224,17 @@ export class Goat extends Phaser.Physics.Arcade.Sprite {
   #clearPreview(): void {
     if (!this.#previewing) return;
     this.#previewing = null;
-    this.anims.play(goatAnimationKey(CLIP_FOR_STATE[this.#machine.current]), true);
+    this.anims.play(goatAnimationKey(this.#resolve(CLIP_FOR_STATE[this.#machine.current])), true);
   }
 
   #playClip(clip: ClipName): void {
     if (this.#previewing) return;
-    this.anims.play(goatAnimationKey(clip), true);
+    this.anims.play(goatAnimationKey(this.#resolve(clip)), true);
+  }
+
+  /** Swap in the swirl-free attack while armed. */
+  #resolve(clip: ClipName): ClipName {
+    return clip === 'attack' && this.#armed ? 'strike' : clip;
   }
 
 

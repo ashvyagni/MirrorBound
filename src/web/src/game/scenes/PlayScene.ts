@@ -167,6 +167,7 @@ export class PlayScene extends Phaser.Scene {
 
       eventBus.on('weapon:equip', ({ id }) => {
         this.#weapon.equip(id);
+        this.#goat.setArmed(id !== null);
         this.#emitWeapon();
       }),
 

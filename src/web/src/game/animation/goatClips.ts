@@ -13,7 +13,7 @@ export { GOAT_TEXTURE_KEY as GOAT_TEXTURE } from './goatAtlas.generated';
  * jump row is one drawn arc -- crouch, launch, apex, descend, descend, land --
  * so it is split into the three clips the state machine actually needs.
  */
-const { idle, walk, run, jump, attack, hurt, die } = GOAT_FRAMES;
+const { idle, walk, run, jump, attack, strike, hurt, die } = GOAT_FRAMES;
 
 export const CLIPS = {
   idle: { frames: idle, frameRate: 7, repeat: -1 },
@@ -23,6 +23,10 @@ export const CLIPS = {
   fall: { frames: jump.slice(3, 5), frameRate: 9, repeat: 0, hold: true },
   land: { frames: jump.slice(5), frameRate: 12, repeat: 0, hold: true },
   attack: { frames: attack, frameRate: 16, repeat: 0, hold: true },
+  // The same poses with the goat's own swirl removed, for when it is
+  // holding something. Otherwise it throws a bare-handed effect while
+  // swinging a sword, because the sheet bakes the effect into the pose.
+  strike: { frames: strike, frameRate: 16, repeat: 0, hold: true },
   hurt: { frames: hurt, frameRate: 1, repeat: 0, hold: true },
   die: { frames: die, frameRate: 1, repeat: 0, hold: true },
 } as const satisfies Record<string, ClipDef>;
@@ -31,7 +35,7 @@ export type ClipName = keyof typeof CLIPS;
 
 /** Clips the debug dock offers, in the order they appear on the sheet. */
 export const CLIP_ORDER: readonly ClipName[] = [
-  'idle', 'walk', 'run', 'rise', 'fall', 'land', 'attack', 'hurt', 'die',
+  'idle', 'walk', 'run', 'rise', 'fall', 'land', 'attack', 'strike', 'hurt', 'die',
 ];
 
 /** Expression portraits. Not animations -- single frames shown in the UI. */

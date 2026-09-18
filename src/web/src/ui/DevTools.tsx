@@ -7,7 +7,7 @@ import type { PlayerSnapshot } from '@/game/types';
 const LABELS: Record<ClipName, string> = {
   idle: 'Idle', walk: 'Walk', run: 'Run',
   rise: 'Rise', fall: 'Fall', land: 'Land',
-  attack: 'Attack', hurt: 'Hurt', die: 'Die',
+  attack: 'Attack', strike: 'Strike (armed)', hurt: 'Hurt', die: 'Die',
 };
 
 /**

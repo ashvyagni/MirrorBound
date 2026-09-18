@@ -57,7 +57,7 @@ GOAT = SheetSpec(
         Band("walk",    50,  325,  720, 1448,  6),
         Band("run",    350,  632,    0,  745,  5),
         Band("jump",   350,  632,  745, 1448,  6),
-        Band("attack", 660,  880,    0,  960,  6, fx_alias="swirl",
+        Band("attack", 660,  880,    0,  960,  6, fx_alias="swirl", clean_alias="strike",
      #: Pink -> violet, matching the companion's own palette; it is the
      #: companion that uses this effect, not the goat.
      fx_hue_shift=-55),

@@ -60,6 +60,11 @@ class Band:
     #: Lets one character's effect be drawn over another without dragging the
     #: original body along with it.
     fx_alias: str | None = None
+    #: Also emit this band a second time with its effects *removed*, under this
+    #: anim name -- the same split as `fx_alias`, taken from the other side. A
+    #: character holding a weapon should not also be throwing its own bare
+    #: handed effect, and these sheets bake the effect into the pose.
+    clean_alias: str | None = None
     #: Hue rotation applied to those isolated frames, in degrees. Recolouring
     #: here rather than tinting at runtime matters because Phaser's tint is a
     #: multiply: it can only ever darken a channel, so it cannot turn a pink
@@ -440,6 +445,9 @@ def band_scales(body: np.ndarray, spec: SheetSpec) -> dict[str, float]:
 #: How far an effect's glow reaches past its bright core, in px.
 FX_GLOW_REACH = 10
 
+#: Extra growth when subtracting an effect, to take its soft fringe with it.
+CLEAN_MARGIN = 5
+
 
 def rotate_hue(rgb: np.ndarray, degrees: float) -> np.ndarray:
     """Rotate hue, leaving saturation and value alone."""
@@ -590,17 +598,30 @@ def collect_frames(rgb: np.ndarray, alpha: np.ndarray, spec: SheetSpec) -> list[
                 anchor_x = (lo + hi) // 2
             name = band.names[i] if band.names else f"{band.key}-{i:02d}"
 
-            if band.fx_alias and isolate is not None:
+            if (band.fx_alias or band.clean_alias) and isolate is not None:
                 effect = self_effect(
                     owned, isolate[band.y0:band.y1, band.x0:band.x1],
                     spec.fx_isolate_min_area,
                 )
-                if effect.any():
+                if band.fx_alias and effect.any():
                     frames.append(_cut(
                         f"{band.fx_alias}-{i:02d}", band.fx_alias, i, effect,
                         rotate_hue(band_rgb, band.fx_hue_shift),
                         band_alpha, band, anchor_x, anchor_y, scale,
                     ))
+                if band.clean_alias:
+                    # Emitted for every frame, effect or not, so the clean clip
+                    # keeps the same length and timing as the original. The
+                    # effect is grown before subtracting: its soft edge falls
+                    # below the blob threshold that isolates it, and those
+                    # crumbs are plainly visible once the swirl around them is
+                    # gone.
+                    clean = owned & ~dilate(effect, CLEAN_MARGIN)
+                    if clean.any():
+                        frames.append(_cut(
+                            f"{band.clean_alias}-{i:02d}", band.clean_alias, i, clean,
+                            band_rgb, band_alpha, band, anchor_x, anchor_y, scale,
+                        ))
 
             frames.append(Frame(
                 name=name,
