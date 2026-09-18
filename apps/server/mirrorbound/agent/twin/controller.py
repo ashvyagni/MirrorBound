@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 
 from mirrorbound.agent.observation import AgentObservation, EntitySnapshot
 from mirrorbound.agent.twin.style import TwinStyleModel
+from mirrorbound.game.combat.weapons import get_weapon
 from mirrorbound.game.entities.entity import Vec2
 from mirrorbound.game.entities.twin import TwinIntent
 
@@ -38,6 +39,11 @@ RANGE_LEAN_ATTACK_WEIGHT = 0.30    # melee-leaning (< 0.5) favors ATTACK; ranged
 RANGE_LEAN_FLANK_WEIGHT = 0.24     # ranged-leaning favors FLANK
 RANGE_LEAN_ASSIST_WEIGHT = 0.16    # ranged-leaning mildly favors ASSIST (support from range) over closing in
 SPELL_PREFERENCE_FLANK_WEIGHT = 0.12  # a spell-leaning twin values repositioning generally, not just AoE-dodging
+
+# Minimum score advantage an owned-but-unequipped weapon needs over the
+# current one before the twin bothers requesting a switch -- without this,
+# a barely-confident lean would make it flip weapons on every decision tick.
+WEAPON_SWITCH_MARGIN = 0.15
 
 
 def clamp01(x: float) -> float:
@@ -88,6 +94,39 @@ class TwinV0Controller:
             if d < best_d:
                 best, best_d = e, d
         return best, best_d
+
+    @staticmethod
+    def _preferred_weapon(
+        owned: list[str], current_id: str, range_lean: float, spell_lean: float
+    ) -> str | None:
+        """Which owned weapon (if any) is a confidently better stylistic fit
+        than the one currently equipped -- or None to keep the current one.
+
+        Scoring is deliberately coarse: (range_lean - 0.5) rewards a ranged
+        weapon and penalizes a melee one; spell_lean does the same for the
+        SPELL tag. Honest limit: iron_sword (the only melee weapon) isn't in
+        loot.py's WEAPON_DROPS, so in practice the twin only ever owns
+        ranged/magic weapons unless a player manually equips it a sword via
+        the TWIN_EQUIP command -- the melee term still exists for that case,
+        it's just rarely reachable through play alone. It also can't
+        distinguish ember_staff from frost_staff (both SPELL-tagged): that
+        would need a style dimension this model doesn't track, so ties
+        resolve to owned-list order rather than inventing one.
+        """
+        if len(owned) <= 1:
+            return None
+
+        def score(weapon_id: str) -> float:
+            w = get_weapon(weapon_id)
+            s = (range_lean - 0.5) * (-1.0 if w.is_melee else 1.0)
+            if "SPELL" in w.tags:
+                s += spell_lean - 0.5
+            return s
+
+        best = max(owned, key=score)
+        if best == current_id or score(best) - score(current_id) < WEAPON_SWITCH_MARGIN:
+            return None
+        return best
 
     def _engage_position(self, obs: AgentObservation, target: EntitySnapshot, from_pos: Vec2) -> Vec2:
         """Where to stand to fight `target` with the current weapon."""
@@ -266,6 +305,10 @@ class TwinV0Controller:
         confidence = clamp01(best.utility / total) if total > 0 else 0.5
         self.current_intent = best.intent
 
+        desired_weapon = self._preferred_weapon(
+            obs.twin_owned_weapons, obs.twin_weapon_id, range_lean, spell_lean
+        )
+
         return TwinIntent(
             intent_type=best.intent,
             target_id=best.target.id if best.target else None,
@@ -273,4 +316,5 @@ class TwinV0Controller:
             confidence=confidence,
             utilities={c.intent: round(c.utility, 3) for c in candidates},
             reason=best.reason,
+            desired_weapon=desired_weapon,
         )

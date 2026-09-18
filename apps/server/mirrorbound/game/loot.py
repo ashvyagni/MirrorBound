@@ -60,7 +60,13 @@ class LootSystem:
                     break
 
     def _apply(self, state: GameState, pickup: Pickup, who: Entity) -> None:
-        inv = state.player.inventory
+        # Weapons go to whoever actually walked over them (the twin can build
+        # its own arsenal this way); essence/shards/consumables/relics stay on
+        # the player -- shared currency and relic effects are only ever read
+        # from state.player.inventory (see Player.weapon_damage_mult etc.), so
+        # routing those by `who` would silently strand them on a twin nothing
+        # reads from.
+        inv = who.inventory if pickup.kind == "weapon" else state.player.inventory
         detail: dict = {}
         if pickup.kind == "essence":
             inv.add_resource("essence", pickup.amount)
@@ -73,8 +79,9 @@ class LootSystem:
             added = inv.add_weapon(pickup.item_id)
             detail["new"] = added
             if not added:
-                # Duplicate weapon: refund as shards.
-                inv.add_resource("shards", 1)
+                # Duplicate weapon: refund as shards, always to the player's
+                # shared currency -- the twin has nothing to spend shards on.
+                state.player.inventory.add_resource("shards", 1)
         elif pickup.kind == "relic":
             if pickup.item_id not in inv.relics:
                 inv.add_relic(pickup.item_id)

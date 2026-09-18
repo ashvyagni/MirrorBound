@@ -108,4 +108,6 @@ def build_observation(
         twin_weapon_range=twin.weapon.range,
         twin_weapon_is_melee=twin.weapon.is_melee,
         seconds_since_decision=seconds_since_decision,
+        twin_weapon_id=twin.weapon.id,
+        twin_owned_weapons=list(twin.inventory.weapons),
     )

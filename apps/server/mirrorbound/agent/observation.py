@@ -103,6 +103,10 @@ class AgentObservation:
     twin_weapon_range: float = 60.0
     twin_weapon_is_melee: bool = False
     seconds_since_decision: float = 0.1
+    # For autonomous weapon selection: which weapon is currently equipped,
+    # and every weapon id the twin actually owns and could switch to.
+    twin_weapon_id: str = ""
+    twin_owned_weapons: list[str] = field(default_factory=list)
 
     def enemy(self, enemy_id: str | None) -> EntitySnapshot | None:
         for e in self.enemies:

@@ -39,6 +39,10 @@ class TwinIntent:
     # Utility score per candidate action, for the debug HUD ("why this?").
     utilities: dict[str, float] = field(default_factory=dict)
     reason: str = ""
+    # Orthogonal to intent_type: a weapon the controller would like equipped,
+    # from what it actually owns (see agent/twin/controller.py). The executor
+    # validates this before acting on it -- the controller only ever suggests.
+    desired_weapon: str | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -48,6 +52,7 @@ class TwinIntent:
             "confidence": round(self.confidence, 3),
             "utilities": {k: round(v, 3) for k, v in self.utilities.items()},
             "reason": self.reason,
+            "desiredWeapon": self.desired_weapon,
         }
 
 

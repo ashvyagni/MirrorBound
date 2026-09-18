@@ -90,7 +90,21 @@ snapshot and drawn in the F3 overlay.
 **Contract for the full agent (Ojas):** implement `decide(observation: AgentObservation) ->
 TwinIntent` and register it with `twin.set_controller(...)`. The observation already carries the
 player model snapshot, the twin style snapshot, entity states (including enemy wind-ups and
-targets), pickups and the player's last action token. Nothing else in the game needs to change.
+targets), pickups and the player's last action token.
+
+**Weapon autonomy (extends the above):** `TwinIntent.desired_weapon` lets `decide()` also suggest a
+weapon, independent of `intent_type` -- never applied directly (see the architecture rule at the top
+of this doc), only validated and equipped by `game/twin_executor.py` if the twin actually owns it
+(`observation.twin_owned_weapons`). `TwinV0Controller._preferred_weapon()` scores each owned weapon
+against `preferred_range`/`spell_preference` and only switches past `WEAPON_SWITCH_MARGIN` (0.15), so
+a marginal lean doesn't cause flip-flopping. For the twin to have more than its starting `frost_staff`
+to choose from, `game/loot.py` now routes a weapon pickup to whichever entity (player or twin)
+actually walked over it, instead of always the player -- every other pickup kind (essence, shards,
+consumables, relics) is unaffected and still always goes to the player, since relic effects and
+shared currency are only ever read from `state.player.inventory`. Honest limit: `iron_sword`, the
+only melee weapon, isn't in `loot.py`'s drop table, so autonomous switching only reaches the ranged/
+magic weapons in practice unless a player manually equips the twin a sword via the `TWIN_EQUIP`
+command.
 
 ## 5. Execution and outcomes (`game/twin_executor.py`)
 

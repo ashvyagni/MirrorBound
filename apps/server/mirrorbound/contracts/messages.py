@@ -48,6 +48,7 @@ class TwinIntentModel(BaseModel):
     confidence: float = Field(0.5, ge=0.0, le=1.0)
     utilities: dict[str, float] = Field(default_factory=dict)
     reason: str = ""
+    desiredWeapon: str | None = None
 
 
 def parse_client_message(raw: dict) -> ClientMessage | None:

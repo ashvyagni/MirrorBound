@@ -158,6 +158,57 @@ def test_unconfident_new_style_biases_nothing():
     assert intent.utilities["ATTACK"] > 0  # sanity: candidate still fires at all
 
 
+def test_no_weapon_switch_requested_with_only_one_owned_weapon():
+    o = obs(ent("player_1", 400, 400, "player", 100, 100), ent("twin_1", 380, 420, "twin", 90, 90),
+            [ent("enemy_7", 500, 400)], player_target_id="enemy_7",
+            twin_weapon_id="frost_staff", twin_owned_weapons=["frost_staff"])
+    intent = TwinV0Controller().decide(o)
+    assert intent.desired_weapon is None
+
+
+def test_ranged_leaning_twin_requests_switch_away_from_a_melee_weapon_it_owns():
+    style = TwinStyleModel()
+    for i in range(40):
+        style.get("preferred_range").update(1.0, 0.2, i)
+    o = obs(ent("player_1", 400, 400, "player", 100, 100), ent("twin_1", 380, 420, "twin", 90, 90),
+            [ent("enemy_7", 500, 400)], player_target_id="enemy_7",
+            twin_weapon_id="iron_sword", twin_owned_weapons=["iron_sword", "hunter_bow"])
+    intent = TwinV0Controller(style).decide(o)
+    assert intent.desired_weapon == "hunter_bow"
+
+
+def test_melee_leaning_twin_requests_switch_to_a_melee_weapon_it_owns():
+    style = TwinStyleModel()
+    for i in range(40):
+        style.get("preferred_range").update(0.0, 0.2, i)
+    o = obs(ent("player_1", 400, 400, "player", 100, 100), ent("twin_1", 380, 420, "twin", 90, 90),
+            [ent("enemy_7", 500, 400)], player_target_id="enemy_7",
+            twin_weapon_id="hunter_bow", twin_owned_weapons=["iron_sword", "hunter_bow"])
+    intent = TwinV0Controller(style).decide(o)
+    assert intent.desired_weapon == "iron_sword"
+
+
+def test_no_switch_requested_when_already_wielding_the_preferred_weapon():
+    style = TwinStyleModel()
+    for i in range(40):
+        style.get("preferred_range").update(1.0, 0.2, i)
+    o = obs(ent("player_1", 400, 400, "player", 100, 100), ent("twin_1", 380, 420, "twin", 90, 90),
+            [ent("enemy_7", 500, 400)], player_target_id="enemy_7",
+            twin_weapon_id="hunter_bow", twin_owned_weapons=["iron_sword", "hunter_bow"])
+    intent = TwinV0Controller(style).decide(o)
+    assert intent.desired_weapon is None
+
+
+def test_marginal_preference_does_not_trigger_a_weapon_switch():
+    # No confident lean at all -> score difference is exactly 0, well under
+    # WEAPON_SWITCH_MARGIN -- proves the margin actually gates something.
+    o = obs(ent("player_1", 400, 400, "player", 100, 100), ent("twin_1", 380, 420, "twin", 90, 90),
+            [ent("enemy_7", 500, 400)], player_target_id="enemy_7",
+            twin_weapon_id="iron_sword", twin_owned_weapons=["iron_sword", "hunter_bow"])
+    intent = TwinV0Controller(TwinStyleModel()).decide(o)
+    assert intent.desired_weapon is None
+
+
 def test_predicted_aoe_pushes_the_twin_to_flank_instead_of_standing_in_it():
     model = {"predictions": [{"token": "FLAME_BURST", "confidence": 0.8}]}
     target = ent("enemy_7", 520, 400)
