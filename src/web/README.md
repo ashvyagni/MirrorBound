@@ -94,9 +94,18 @@ are drawn separately and composited, so neither has to know about the other --
 and the charge at the tip is deliberately only a charge, since drawing the
 finished spell in both would give you two of it.
 
-Every generated sheet has a prompt in `docs/art-prompts.md`, in the order they
-should be made. Its Block 0 is the house style, pasted once per chat; each
-numbered prompt after it is short because it inherits from that.
+Every generated sheet was made from a prompt, and the prompts are the reason
+twenty-six sheets look like one game. `docs/art-prompts.md` now holds only what
+is still to draw; the prompts for everything already shipping -- Block 0, the
+house style itself, included -- were cut once they were made and live in the
+history:
+
+```bash
+git show da61c32:docs/art-prompts.md
+```
+
+Pull the original out of there before regenerating any shipped sheet. A fresh
+description of the same object is how a set quietly stops matching.
 
 The style is the point of the document. The characters are flat, boldly
 outlined and simple; the first round of weapons came back as ornate painted RPG
@@ -117,9 +126,9 @@ seen from above reads as belonging to a different game entirely.
 
 ## The interface
 
-Seven pieces of chrome in `assets/ui/`, drawn to the brief in
-`docs/art-prompts.md` Part 8 and keyed the same way the weapons are. Three
-things about it are worth knowing.
+Seven pieces of chrome in `assets/ui/`, drawn to the Block 0-UI brief in
+`docs/art-prompts.md` and keyed the same way the weapons are. Three things
+about it are worth knowing.
 
 **Nothing in it holds state.** Health arrives as `vitals:changed`, the loadout
 as `loadout:changed`, recharge times as `weapon:cooldowns` — all pushed by the

@@ -2255,7 +2255,7 @@ source sheets in `assets/`, so what you see there is what the game loads.
 Two bands. **SHIPPED** is thirty-nine plates with art on them, grouped the way
 `assets/` is: characters, weapons, casts, spells, UI. **PLANNED** is fifty-two
 dashed slots numbered to the sheets in this document and in
-`docs/art-prompts.md` Part 9 — sheet 1 first, then the grove, the ruins, the
+`docs/art-prompts.md` — sheet 1 first, then the grove, the ruins, the
 crypt, and the five interface pieces.
 
 Drop a generated sheet onto its numbered slot as you make it, and the board
