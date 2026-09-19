@@ -3,6 +3,8 @@ import Phaser from 'phaser';
 import { DEPTH, HUD, PIXEL_FONT, RENDER_SCALE, VIEW } from '../constants';
 import { eventBus } from '../EventBus';
 import { CooldownRail } from '../hud/CooldownRail';
+import { Flourish } from '../hud/Flourish';
+import { MapScreen } from '../hud/MapScreen';
 import { Hotbar } from '../hud/Hotbar';
 import { Minimap, type MapView } from '../hud/Minimap';
 import { Portrait } from '../hud/Portrait';
@@ -32,6 +34,8 @@ export class HudScene extends Phaser.Scene {
   readonly #hotbar = new Hotbar(this);
   readonly #rail = new CooldownRail(this);
   readonly #settings = new SettingsButton(this);
+  readonly #map = new MapScreen(this);
+  readonly #flourish = new Flourish(this);
   #teardown: Array<() => void> = [];
 
   constructor() {
@@ -54,6 +58,9 @@ export class HudScene extends Phaser.Scene {
     this.#hotbar.build();
     this.#rail.build();
     this.#settings.build();
+    // Last of the built pieces, so the map's scrim covers the whole interface
+    // when it opens rather than sliding under the hotbar.
+    this.#map.build();
 
     this.#loadFont();
     this.#listen();
@@ -78,7 +85,10 @@ export class HudScene extends Phaser.Scene {
       ),
     )
       .then(() => {
-        for (const text of [...this.#hotbar.texts, ...this.#rail.texts, ...this.#settings.texts]) {
+        for (const text of [
+          ...this.#hotbar.texts, ...this.#rail.texts,
+          ...this.#settings.texts, ...this.#map.texts,
+        ]) {
           text.updateText();
         }
       })
@@ -92,6 +102,10 @@ export class HudScene extends Phaser.Scene {
       eventBus.on('weapon:cooldowns', ({ active }) => this.#rail.set(active)),
       eventBus.on('map:changed', (view) => this.#minimap.set(view as MapView)),
       eventBus.on('game:fullscreen', ({ active }) => this.#settings.setFullscreen(active)),
+      eventBus.on('run:changed', (run) => this.#map.set(run)),
+      eventBus.on('map:toggle', () => this.#map.toggle()),
+      eventBus.on('flourish', ({ name }) => this.#flourish.show(name)),
+      eventBus.on('flourish:clear', () => this.#flourish.clear()),
 
       // The face answers what just happened. It is the cheapest feedback in
       // the whole interface -- the expressions were drawn long ago and cost
@@ -121,5 +135,7 @@ export class HudScene extends Phaser.Scene {
     this.#hotbar.destroy();
     this.#rail.destroy();
     this.#settings.destroy();
+    this.#map.destroy();
+    this.#flourish.destroy();
   }
 }

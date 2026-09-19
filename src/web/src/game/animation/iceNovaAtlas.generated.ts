@@ -10,10 +10,10 @@ export const ICENOVA_TEXTURE_KEY = "iceNova" as const;
 export const ICENOVA_BODY_RATIO = 0.58281 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const ICENOVA_FRAME_SIZE = { width: 433, height: 320 } as const;
+export const ICENOVA_FRAME_SIZE = { width: 386, height: 320 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const ICENOVA_ANCHOR = { x: 0.56351, y: 0.50000 } as const;
+export const ICENOVA_ANCHOR = { x: 0.50000, y: 0.50000 } as const;
 
 export const ICENOVA_FRAMES = {
   cast: ["cast-00", "cast-01", "cast-02", "cast-03"],

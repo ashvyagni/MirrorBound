@@ -1,5 +1,6 @@
 import type { BroClipName } from './animation/broClips';
 import type { MapView } from './hud/Minimap';
+import type { Run as RunSnapshot } from './world/Run';
 import type { LoadoutSnapshot } from './state/Loadout';
 import type { VitalsSnapshot } from './state/Vitals';
 import type { ClipName } from './animation/goatClips';
@@ -100,6 +101,14 @@ export interface GameEventMap {
    *  map is 260 pixels across, and nothing on it moves a whole pixel in a
    *  frame. */
   'map:changed': MapView;
+  /** Open or close the full map. */
+  'map:toggle': Record<string, never>;
+  /** Where the player is in the run, for the full map. */
+  'run:changed': RunSnapshot;
+  /** Mark a moment: death, a room cleared, a level gained. */
+  'flourish': { name: 'death' | 'victory' | 'levelUp' };
+  /** Take the held mark down. Only death holds, so only death needs this. */
+  'flourish:clear': Record<string, never>;
   /** Toggle physics body overlays. */
   'debug:toggle-bodies': { enabled: boolean };
 }

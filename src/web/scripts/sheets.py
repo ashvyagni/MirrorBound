@@ -474,5 +474,135 @@ COOLDOWN_RAIL = _ui("cooldownRail", "cooldown-rail.png", (
 UI = (PORTRAIT_RING, STATUS_BARS, MINIMAP_RING, SETTINGS_BUTTON,
       HOTBAR, POTION_DIAL, COOLDOWN_RAIL)
 
+
+# --- enemies ----------------------------------------------------------------
+
+def _mob_body(rgb: np.ndarray, alpha: np.ndarray) -> np.ndarray:
+    """The creature itself.
+
+    Looser than `_weapon_body`: a mob's darkest designs -- the Gloom Hound is
+    near-black by intent, the Ember Acolyte is charcoal cloth -- fail a
+    brightness test that a bone-white sword passes easily. Chroma keying has
+    already separated art from background, so the alpha is nearly the whole
+    answer and the brightness floor only rejects key spill along the edges.
+    """
+    return (alpha > 0.5) & (rgb.max(axis=2) > 24)
+
+
+def _mob(name: str, file: str) -> SheetSpec:
+    """One animation of one creature: 8 frames, 4 across and 2 down.
+
+    `anchor="feet"` pins the band's lowest body pixel, which is why every mob
+    prompt insists on a ground line the artwork's lowest pixel sits on -- that
+    line is what the game plants on the floor, and a sheet drawn with air under
+    its feet floats by exactly that much.
+
+    `grid_cols=4` anchors each frame on its cell rather than on its own bounds.
+    A walk cycle drawn in place needs it: anchoring on content would pull every
+    frame back to a common centre and cancel the step out of the walk.
+    """
+    return SheetSpec(
+        name=name,
+        source=ASSETS / "enemies" / file,
+        body=_mob_body,
+        anchor="feet",
+        key="green",
+        body_min_area=300,
+        bands=(
+            Band("a", 0, 512, 0, 1536, 4, grid_cols=4,
+                 names=tuple(f"f-{i:02d}" for i in range(4))),
+            Band("b", 512, 1024, 0, 1536, 4, grid_cols=4,
+                 names=tuple(f"f-{i:02d}" for i in range(4, 8))),
+        ),
+    )
+
+
+#: Every creature, in the order `docs/art-prompts-2.md` makes them. The key is
+#: the texture name the game imports; the value is the source file.
+MOB_IDS = (
+    "sprout", "brute", "spitter",                       # grove
+    "shardling", "warden", "acolyte", "scarab",         # ruins
+    "skeleton", "archer", "hound", "slime",             # crypt
+)
+MOB_CLIPS = ("idle", "alert", "walk", "attack")
+
+MOBS = tuple(
+    _mob(f"{mob}{clip.capitalize()}", f"{mob}-{clip}.png")
+    for mob in MOB_IDS
+    for clip in MOB_CLIPS
+)
+
+#: The mark that pops over whichever mob just noticed you. One sheet for all
+#: eleven, composited above them -- see the note in `art-prompts-2.md`.
+#: `anchor="center"`: it stands on nothing, and the game places it by its middle.
+#:
+#: Six frames, not the eight the sheet was asked for. The prompt ended with two
+#: fading frames and warned that a fade has to arrive as real alpha; it did not.
+#: Frame 7 came back with thirteen pixels above half opacity and frame 8 keyed
+#: out entirely -- a max alpha of 0.000, which is to say the generator drew flat
+#: background there. So the sheet supplies the pop and the hold, and the game
+#: fades the mark with an alpha tween: smoother than two frames could be, any
+#: duration you like, and impossible to desync from the mob that raised it.
+ALERT_MARK = SheetSpec(
+    name="alertMark",
+    source=ASSETS / "enemies" / "alert-mark.png",
+    body=_mob_body,
+    anchor="center",
+    key="green",
+    body_min_area=120,
+    bands=(
+        Band("mark", 0, 512, 0, 1536, 4, grid_cols=4,
+             names=tuple(f"mark-{i:02d}" for i in range(4))),
+        Band("mark_b", 512, 1024, 0, 768, 2, grid_cols=2,
+             names=("mark-04", "mark-05")),
+    ),
+)
+
+#: Enemy projectiles. Same shape as the player's spells, so the same builder.
+THORN = _spell("thorn", "spells/thorn.png", "green")
+COAL = _spell("coal", "spells/coal.png", "green")
+
+ENEMIES = (*MOBS, ALERT_MARK, THORN, COAL)
+
+
+# --- the rest of the interface ----------------------------------------------
+
+#: A 9-slice panel border: one frame, the whole canvas, no grid. The pipeline
+#: has no 9-slice mode, so it ships as a single image and the DOM slices it with
+#: `border-image` -- which is one CSS line and needs no pipeline work.
+SCREEN_FRAME = _ui("screenFrame", "screen-frame.png", (
+    Band("frame", 0, 1024, 0, 1024, 1, names=("frame",)),
+), 0.5)
+
+CONTROLS = _ui("controls", "controls.png", (
+    Band("a", 0, 512, 0, 1536, 4, grid_cols=4,
+         names=("button", "buttonPress", "toggleOff", "toggleOn")),
+    Band("b", 512, 1024, 0, 1536, 4, grid_cols=4,
+         names=("sliderTrack", "sliderKnob", "tab", "tabActive")),
+), 0.5)
+
+MAP_TOKENS = _ui("mapTokens", "map-tokens.png", (
+    Band("a", 0, 512, 0, 1536, 4, grid_cols=4,
+         names=("roomUnvisited", "roomVisited", "roomCleared", "roomCurrent")),
+    Band("b", 512, 1024, 0, 1536, 4, grid_cols=4,
+         names=("treasure", "elite", "boss", "corridor")),
+), 0.5)
+
+#: Stacked, so one band each -- bands cluster horizontally and two pieces one
+#: above the other would read as a single frame.
+BOSS_BAR = _ui("bossBar", "boss-bar.png", (
+    Band("bar", 0, 512, 0, 1536, 1, names=("bar",)),
+    Band("divider", 512, 1024, 0, 1536, 1, names=("divider",)),
+), 0.25)
+
+#: Three marks in the top row; the rest of the grid is deliberately empty, so
+#: the next flourish is a redraw of one cell rather than a new sheet.
+FLOURISHES = _ui("flourishes", "flourishes.png", (
+    Band("mark", 0, 512, 0, 1152, 3, grid_cols=3,
+         names=("death", "victory", "levelUp")),
+), 0.5)
+
+SCREENS = (SCREEN_FRAME, CONTROLS, MAP_TOKENS, BOSS_BAR, FLOURISHES)
+
 SHEETS = (GOAT, BRO, DUMMY, *FACINGS, *WEAPONS, *CASTS, *SHIELDS, *SPELLS,
-          ICONS, *UI)
+          ICONS, *UI, *SCREENS, *ENEMIES)

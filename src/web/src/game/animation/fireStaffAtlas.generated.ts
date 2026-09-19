@@ -10,10 +10,10 @@ export const FIRESTAFF_TEXTURE_KEY = "fireStaff" as const;
 export const FIRESTAFF_BODY_RATIO = 0.91242 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const FIRESTAFF_FRAME_SIZE = { width: 443, height: 451 } as const;
+export const FIRESTAFF_FRAME_SIZE = { width: 460, height: 451 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const FIRESTAFF_ANCHOR = { x: 0.39278, y: 0.45898 } as const;
+export const FIRESTAFF_ANCHOR = { x: 0.48478, y: 0.46120 } as const;
 
 export const FIRESTAFF_FRAMES = {
   swing: ["swing-00", "swing-01", "swing-02", "swing-03"],

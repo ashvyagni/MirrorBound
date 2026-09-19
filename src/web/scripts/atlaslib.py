@@ -289,16 +289,16 @@ def cluster_bodies(body: np.ndarray, band: Band, spec: SheetSpec) -> list[tuple[
     # frame whose artwork happens to break into two pieces a pixel apart, which
     # is exactly what a glowing trail detaching from a blade looks like.
     if band.grid_cols:
+        # The cells are the ground truth, so every cell is a frame -- not just
+        # the ones a blob's centre happened to land in. Bucketing blobs instead
+        # loses a frame whenever two of them touch across a cell boundary: the
+        # merged blob has one centre, one bucket gets it, and its neighbour
+        # comes back empty. Two slimes in `slime-alert` do exactly that.
         cell = (band.x1 - band.x0) / band.grid_cols
-        buckets: dict[int, list[int]] = {}
-        for lo, hi in spans:
-            index = int(((lo + hi) / 2 - band.x0) / cell)
-            index = max(0, min(band.grid_cols - 1, index))
-            if index in buckets:
-                buckets[index] = [min(buckets[index][0], lo), max(buckets[index][1], hi)]
-            else:
-                buckets[index] = [lo, hi]
-        return [(lo, hi) for _, (lo, hi) in sorted(buckets.items())]
+        return [
+            (int(band.x0 + i * cell), int(band.x0 + (i + 1) * cell) - 1)
+            for i in range(band.grid_cols)
+        ]
 
     merged: list[list[int]] = []
     for span in spans:
@@ -357,11 +357,27 @@ def segment(band: Band, spec: SheetSpec, alpha: np.ndarray, body: np.ndarray,
     if fx is not None:
         seeds.append((fx[ys, xs], spec.fx_min_area))
 
+    # On a grid sheet, which cell a pixel sits in decides who owns it. Assigning
+    # a whole blob to one frame is right when frames are found by blob, and
+    # wrong here: artwork that touches across a boundary is one blob, and giving
+    # all of it to a single cell empties its neighbour.
+    column_owner = None
+    if band.grid_cols:
+        cell = (band.x1 - band.x0) / band.grid_cols
+        column_owner = np.clip(
+            (np.arange(region.shape[1]) / cell).astype(np.int16),
+            0, band.grid_cols - 1,
+        )
+
     for source, min_area in seeds:
         for blob in components(source & region, min_area):
+            fresh = blob & (labels < 0)
+            if column_owner is not None:
+                labels[fresh] = np.broadcast_to(column_owner, region.shape)[fresh]
+                continue
             cols = np.nonzero(blob.any(axis=0))[0]
             owner = _owner(int(cols[0]) + band.x0, int(cols[-1]) + band.x0, clusters)
-            labels[blob & (labels < 0)] = owner
+            labels[fresh] = owner
 
     _grow(labels, region)
 

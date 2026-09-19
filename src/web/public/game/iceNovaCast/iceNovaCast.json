@@ -10,13 +10,13 @@
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 145,
+    "x": 173,
     "y": 0,
     "w": 105,
     "h": 398
    },
    "sourceSize": {
-    "w": 395,
+    "w": 411,
     "h": 505
    }
   },
@@ -30,13 +30,13 @@
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 143,
+    "x": 171,
     "y": 32,
     "w": 113,
     "h": 402
    },
    "sourceSize": {
-    "w": 395,
+    "w": 411,
     "h": 505
    }
   },
@@ -50,13 +50,13 @@
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 124,
+    "x": 152,
     "y": 16,
     "w": 143,
     "h": 435
    },
    "sourceSize": {
-    "w": 395,
+    "w": 411,
     "h": 505
    }
   },
@@ -70,13 +70,13 @@
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 143,
+    "x": 171,
     "y": 38,
     "w": 117,
     "h": 467
    },
    "sourceSize": {
-    "w": 395,
+    "w": 411,
     "h": 505
    }
   },
@@ -90,13 +90,13 @@
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 22,
+    "x": 50,
     "y": 29,
     "w": 353,
     "h": 378
    },
    "sourceSize": {
-    "w": 395,
+    "w": 411,
     "h": 505
    }
   },
@@ -104,19 +104,19 @@
    "frame": {
     "x": 357,
     "y": 471,
-    "w": 390,
+    "w": 378,
     "h": 377
    },
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 5,
+    "x": 33,
     "y": 24,
-    "w": 390,
+    "w": 378,
     "h": 377
    },
    "sourceSize": {
-    "w": 395,
+    "w": 411,
     "h": 505
    }
   },
@@ -124,19 +124,19 @@
    "frame": {
     "x": 2,
     "y": 851,
-    "w": 333,
+    "w": 376,
     "h": 374
    },
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 15,
+    "x": 0,
     "y": 47,
-    "w": 333,
+    "w": 376,
     "h": 374
    },
    "sourceSize": {
-    "w": 395,
+    "w": 411,
     "h": 505
    }
   },
@@ -150,13 +150,13 @@
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 0,
+    "x": 28,
     "y": 7,
     "w": 251,
     "h": 389
    },
    "sourceSize": {
-    "w": 395,
+    "w": 411,
     "h": 505
    }
   }

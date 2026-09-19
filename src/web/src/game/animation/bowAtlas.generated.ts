@@ -10,10 +10,10 @@ export const BOW_TEXTURE_KEY = "bow" as const;
 export const BOW_BODY_RATIO = 0.83632 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const BOW_FRAME_SIZE = { width: 410, height: 446 } as const;
+export const BOW_FRAME_SIZE = { width: 404, height: 446 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const BOW_ANCHOR = { x: 0.52439, y: 0.50448 } as const;
+export const BOW_ANCHOR = { x: 0.53218, y: 0.50448 } as const;
 
 export const BOW_FRAMES = {
   swing: ["swing-00", "swing-01", "swing-02", "swing-03"],

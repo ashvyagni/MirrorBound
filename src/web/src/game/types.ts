@@ -63,6 +63,8 @@ export interface Intent {
   potionCycle: -1 | 0 | 1;
   /** True only on the frame the selected potion was drunk. */
   potionUse: boolean;
+  /** True only on the frame the map was asked to open or close. */
+  mapToggle: boolean;
 }
 
 export const NEUTRAL_INTENT: Readonly<Intent> = Object.freeze({
@@ -75,6 +77,7 @@ export const NEUTRAL_INTENT: Readonly<Intent> = Object.freeze({
   weaponSlot: null,
   potionCycle: 0,
   potionUse: false,
+  mapToggle: false,
 });
 
 /** Anything that can drive the character. */

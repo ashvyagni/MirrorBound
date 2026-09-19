@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "f-00": {
+   "frame": {
+    "x": 373,
+    "y": 2,
+    "w": 302,
+    "h": 379
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 33,
+    "y": 0,
+    "w": 302,
+    "h": 379
+   },
+   "sourceSize": {
+    "w": 454,
+    "h": 385
+   }
+  },
+  "f-01": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 369,
+    "h": 382
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 1,
+    "w": 369,
+    "h": 382
+   },
+   "sourceSize": {
+    "w": 454,
+    "h": 385
+   }
+  },
+  "f-02": {
+   "frame": {
+    "x": 980,
+    "y": 2,
+    "w": 374,
+    "h": 360
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 34,
+    "y": 25,
+    "w": 374,
+    "h": 360
+   },
+   "sourceSize": {
+    "w": 454,
+    "h": 385
+   }
+  },
+  "f-03": {
+   "frame": {
+    "x": 2,
+    "y": 386,
+    "w": 375,
+    "h": 335
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 24,
+    "y": 47,
+    "w": 375,
+    "h": 335
+   },
+   "sourceSize": {
+    "w": 454,
+    "h": 385
+   }
+  },
+  "f-04": {
+   "frame": {
+    "x": 379,
+    "y": 386,
+    "w": 378,
+    "h": 302
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 30,
+    "y": 63,
+    "w": 378,
+    "h": 302
+   },
+   "sourceSize": {
+    "w": 454,
+    "h": 385
+   }
+  },
+  "f-05": {
+   "frame": {
+    "x": 759,
+    "y": 386,
+    "w": 368,
+    "h": 285
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 22,
+    "y": 79,
+    "w": 368,
+    "h": 285
+   },
+   "sourceSize": {
+    "w": 454,
+    "h": 385
+   }
+  },
+  "f-06": {
+   "frame": {
+    "x": 1356,
+    "y": 2,
+    "w": 450,
+    "h": 337
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 4,
+    "y": 43,
+    "w": 450,
+    "h": 337
+   },
+   "sourceSize": {
+    "w": 454,
+    "h": 385
+   }
+  },
+  "f-07": {
+   "frame": {
+    "x": 677,
+    "y": 2,
+    "w": 301,
+    "h": 379
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 95,
+    "y": 5,
+    "w": 301,
+    "h": 379
+   },
+   "sourceSize": {
+    "w": 454,
+    "h": 385
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "skeletonAttack.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 2048,
+   "h": 723
+  },
+  "scale": "1"
+ }
+}

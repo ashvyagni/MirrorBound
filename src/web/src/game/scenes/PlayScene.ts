@@ -5,7 +5,9 @@ import type { AbilityId } from '../animation/abilityClips';
 import {
   GUARD, isSpell, slotInfo, WEAPONS, type SlotId, type WeaponId,
 } from '../animation/weaponClips';
-import { CAMERA, HIT_RANGE, PALETTE, RENDER_SCALE, VITALS } from '../constants';
+import {
+  CAMERA, GOAT_DISPLAY_HEIGHT, HIT_RANGE, PALETTE, PHYSICS, RENDER_SCALE, TILE, VITALS,
+} from '../constants';
 import { Bro } from '../entities/Bro';
 import { Dummy } from '../entities/Dummy';
 import { Projectile } from '../entities/Projectile';
@@ -19,7 +21,12 @@ import { Loadout, type WeaponSlot } from '../state/Loadout';
 import { Vitals } from '../state/Vitals';
 import { HudScene } from './HudScene';
 import type { IntentSource, PlayerSnapshot, Vec2 } from '../types';
-import { Room } from '../world/Room';
+import { blockers, buildGrove, type GroveRoom } from '../world/Grove';
+import { buildRun } from '../world/Run';
+import { TextureFactory } from '../world/TextureFactory';
+import { WorldRenderer } from '../world/WorldRenderer';
+import { Ambient } from '../world/Ambient';
+import { DEFAULT_QUALITY } from '../../ui/settings';
 import { buildWorldTextures } from '../world/textures';
 
 /** How often recharge state is pushed to the views, in seconds. */
@@ -35,7 +42,11 @@ export class PlayScene extends Phaser.Scene {
   #bro!: Bro;
   #weapon!: Weapon;
   #shield!: Shield;
-  #room!: Room;
+  #grove!: GroveRoom;
+  #world!: WorldRenderer;
+  #ambient!: Ambient;
+  /** Blocking props the goat has to walk around. */
+  #blockers: Array<{ x: number; y: number; r: number }> = [];
   #dummies: Dummy[] = [];
   #shots: Projectile[] = [];
   #source!: IntentSource;
@@ -55,10 +66,20 @@ export class PlayScene extends Phaser.Scene {
 
   create(): void {
     buildWorldTextures(this);
-    this.#room = new Room(this);
-    this.#room.build();
 
-    const spawn = { x: this.#room.width / 2, y: this.#room.height / 2 };
+    // The room comes from `main`'s renderer now, fed a locally generated
+    // `RoomFull` -- see `world/Grove.ts`. The renderer does not know which side
+    // produced it, which is the point: when the socket lands, the generator is
+    // deleted and the snapshot goes straight in.
+    this.#grove = buildGrove();
+    const textures = new TextureFactory(this);
+    this.#world = new WorldRenderer(this, textures, DEFAULT_QUALITY);
+    this.#world.build(this.#grove.room);
+    this.#ambient = new Ambient(this, DEFAULT_QUALITY);
+    this.#ambient.build(this.#grove.room);
+    this.#blockers = blockers(this.#grove.room);
+
+    const spawn = this.#grove.playerSpawn;
     this.#goat = new Goat(this, spawn.x, spawn.y);
 
     // Nothing is layered by hand any more: every entity sets its own depth
@@ -69,10 +90,10 @@ export class PlayScene extends Phaser.Scene {
     this.#weapon = new Weapon(this);
     this.#shield = new Shield(this);
 
-    // Targets spread around the room rather than along a line, since there is
-    // a second axis to spread them on now.
-    for (const [x, y] of [[-200, -120], [220, -60], [-160, 170], [180, 160]] as const) {
-      this.#dummies.push(new Dummy(this, spawn.x + x, spawn.y + y));
+    // On the room's own spawn points now, which the generator already kept
+    // clear of the path, the pond and every tree it placed.
+    for (const at of this.#grove.enemySpawns) {
+      this.#dummies.push(new Dummy(this, at.x, at.y));
     }
     this.#shots = Array.from({ length: 12 }, () => new Projectile(this));
 
@@ -98,7 +119,7 @@ export class PlayScene extends Phaser.Scene {
     const camera = this.cameras.main;
     camera.setZoom(RENDER_SCALE);
     camera.setBackgroundColor(PALETTE.night);
-    camera.setBounds(0, 0, this.#room.width, this.#room.height);
+    camera.setBounds(0, 0, this.#grove.room.width, this.#grove.room.height);
     camera.startFollow(this.#goat, true, CAMERA.lerp, CAMERA.lerp);
     camera.setDeadzone(CAMERA.deadzone.width, CAMERA.deadzone.height);
 
@@ -140,6 +161,7 @@ export class PlayScene extends Phaser.Scene {
     if (intent.weaponSlot !== null) this.#selectHand(intent.weaponSlot);
     if (intent.potionCycle !== 0) this.#cyclePotion(intent.potionCycle);
     if (intent.potionUse) this.#usePotion();
+    if (intent.mapToggle) eventBus.emit('map:toggle', {});
 
     for (const shot of this.#shots) {
       if (!shot.busy) continue;
@@ -160,12 +182,34 @@ export class PlayScene extends Phaser.Scene {
     }
   }
 
-  /** Keep the goat off the walls. Cheaper than four static bodies, and there
-   *  is nothing else in the room to collide with yet. */
+  /**
+   * Keep the goat inside the walls and out of the trees.
+   *
+   * Still not physics bodies. A room holds about sixty props, most of which
+   * never move and most of which the goat is nowhere near; pushing out of the
+   * few circles it actually overlaps is cheaper than asking Arcade to maintain
+   * sixty static bodies, and it cannot get stuck between two of them the way
+   * overlapping bodies can.
+   */
   #clampToRoom(): void {
-    const bounds = this.#room.bounds;
-    const x = Phaser.Math.Clamp(this.#goat.x, bounds.left, bounds.right);
-    const y = Phaser.Math.Clamp(this.#goat.y, bounds.top, bounds.bottom);
+    const { room } = this.#grove;
+    const edge = TILE;
+    let x = Phaser.Math.Clamp(this.#goat.x, edge, room.width - edge);
+    let y = Phaser.Math.Clamp(this.#goat.y, edge, room.height - edge);
+
+    // The goat's footing is what occupies the floor, so it is what a trunk
+    // pushes against -- not its horns, which hang over whatever is behind it.
+    const foot = GOAT_DISPLAY_HEIGHT * PHYSICS.bodyWidthRatio * 0.5;
+    for (const b of this.#blockers) {
+      const dx = x - b.x;
+      const dy = y - b.y;
+      const reach = b.r + foot;
+      const distance = Math.hypot(dx, dy);
+      if (distance >= reach || distance === 0) continue;
+      x = b.x + (dx / distance) * reach;
+      y = b.y + (dy / distance) * reach;
+    }
+
     if (x !== this.#goat.x || y !== this.#goat.y) this.#goat.setPosition(x, y);
   }
 
@@ -299,6 +343,9 @@ export class PlayScene extends Phaser.Scene {
 
   /** Everything a freshly built view needs to draw itself correctly. */
   #pushAll(): void {
+    // The run is fixed for the session, so it is pushed once rather than
+    // watched -- the map reads it whenever it opens.
+    eventBus.emit('run:changed', buildRun(0));
     this.#emitVitals();
     this.#emitLoadout();
     this.#emitWeapon();
@@ -326,7 +373,7 @@ export class PlayScene extends Phaser.Scene {
     this.#mapPush = MAP_PUSH;
 
     eventBus.emit('map:changed', {
-      room: { width: this.#room.width, height: this.#room.height },
+      room: { width: this.#grove.room.width, height: this.#grove.room.height },
       player: { x: this.#goat.x, y: this.#goat.y },
       marks: this.#dummies.map((d) => ({ x: d.x, y: d.y })),
     });
@@ -362,8 +409,12 @@ export class PlayScene extends Phaser.Scene {
     const aim = this.#goat.aim;
     const killed = this.#vitals.damage(VITALS.hitDamage);
     this.#emitVitals();
-    if (killed) this.#goat.kill();
-    else this.#goat.hit({ x: -aim.x, y: -aim.y });
+    if (killed) {
+      this.#goat.kill();
+      eventBus.emit('flourish', { name: 'death' });
+    } else {
+      this.#goat.hit({ x: -aim.x, y: -aim.y });
+    }
   }
 
   #emitWeapon(): void {
@@ -415,10 +466,11 @@ export class PlayScene extends Phaser.Scene {
 
       eventBus.on('debug:force-state', ({ state }) => {
         if (state === 'reset') {
-          this.#goat.revive(this.#room.width / 2, this.#room.height / 2);
+          this.#goat.revive(this.#grove.playerSpawn.x, this.#grove.playerSpawn.y);
           this.#bro.snapTo(this.#followTarget());
           this.#vitals.reset();
           this.#emitVitals();
+          eventBus.emit('flourish:clear', {});
         }
         else if (state === 'hurt') this.#hurt();
         else {
@@ -473,7 +525,8 @@ export class PlayScene extends Phaser.Scene {
     this.#teardown = [];
     this.#source?.destroy?.();
     this.#cooldowns.clear();
-    this.#room.destroy();
+    this.#world.destroy();
+    this.#ambient.destroy();
     this.scene.stop(HudScene.KEY);
   }
 }

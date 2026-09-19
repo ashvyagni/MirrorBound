@@ -25,6 +25,7 @@ npm run lint
 | `Q` `E` | Draw from the first or second hand |
 | `R` | Turn the potion dial |
 | `F` | Drink the selected potion |
+| `M` | Open the full map |
 
 `Q` and `E` are bound to *hands*, not to a carousel: two weapons are carried at
 a time, so each key always reaches the same weapon. Which two is decided in the
@@ -156,6 +157,32 @@ consumable ids from its `CONSUMABLES` — so adopting the real ones is deleting
 `state/Vitals.ts` and pointing the HUD at the snapshot. The two-weapon rule is
 the exception: `main`'s `Inventory` has a weapons list and a single
 `equipped_weapon`, so carrying two is a server change rather than a rename.
+
+## The room
+
+The arena is gone. `world/Grove.ts` generates a `RoomFull` -- grass and dirt
+under an S-bend path, a pond, trees hugging the walls, and sixty-odd props --
+and hands it to `WorldRenderer`, which is `main`'s renderer pulled across
+unchanged along with `TextureFactory`, `PropPainter`, `paint` and `Ambient`.
+
+The renderer cannot tell which side produced the room, and that is the whole
+point of doing it this way: `RoomFull` is `main`'s wire contract, so when the
+socket lands the generator is deleted and the snapshot goes straight in. The
+generator is a port of `dungeon/generation.py`, kept faithful rather than tidied
+-- the blotch radii, the edge biases and the decor counts are numbers `main`
+tunes against, and a grove that looks different here than it does there is
+worse than no grove at all.
+
+Props are not physics bodies. A room holds about sixty of them, most of which
+never move and most of which the goat is nowhere near, so `#clampToRoom` pushes
+out of the few circles it actually overlaps. That is cheaper than sixty static
+bodies and it cannot wedge the goat between two of them the way overlapping
+bodies can.
+
+`world/Run.ts` carries the shape of a run -- `biome_for()` and the room
+sequence, both ported from `main` -- so the full map has something true to draw.
+Only the first room exists as geometry; the rest are known positions on a known
+path, drawn unvisited.
 
 ## The camera
 

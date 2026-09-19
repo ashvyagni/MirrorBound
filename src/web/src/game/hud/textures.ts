@@ -1,4 +1,9 @@
+import { BOSSBAR_TEXTURE_KEY } from '../animation/bossBarAtlas.generated';
+import { CONTROLS_TEXTURE_KEY } from '../animation/controlsAtlas.generated';
 import { COOLDOWNRAIL_TEXTURE_KEY } from '../animation/cooldownRailAtlas.generated';
+import { FLOURISHES_TEXTURE_KEY } from '../animation/flourishesAtlas.generated';
+import { MAPTOKENS_TEXTURE_KEY } from '../animation/mapTokensAtlas.generated';
+import { SCREENFRAME_TEXTURE_KEY } from '../animation/screenFrameAtlas.generated';
 import { HOTBAR_TEXTURE_KEY } from '../animation/hotbarAtlas.generated';
 import { MINIMAPRING_TEXTURE_KEY } from '../animation/minimapRingAtlas.generated';
 import { PORTRAITRING_TEXTURE_KEY } from '../animation/portraitRingAtlas.generated';
@@ -21,4 +26,11 @@ export const HUD_TEXTURES: readonly string[] = [
   HOTBAR_TEXTURE_KEY,
   POTIONDIAL_TEXTURE_KEY,
   COOLDOWNRAIL_TEXTURE_KEY,
+  // The screens: a frame to build them out of, the controls that go in it, the
+  // full map's tokens, the boss bar and the three flourishes.
+  SCREENFRAME_TEXTURE_KEY,
+  CONTROLS_TEXTURE_KEY,
+  MAPTOKENS_TEXTURE_KEY,
+  BOSSBAR_TEXTURE_KEY,
+  FLOURISHES_TEXTURE_KEY,
 ];

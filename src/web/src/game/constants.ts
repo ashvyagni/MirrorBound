@@ -34,11 +34,18 @@ export const ROOM = { cols: 40, rows: 26 } as const;
 export const DEPTH = {
   floor: 0,
   floorDecal: 5,
+  water: 8,
   shadow: 10,
   entityBase: 100,
   entityTop: 2000,
+  /** `fx` is kept as the name this branch already uses; `fxLow` is the same
+   *  layer under the name `main`'s world renderer asks for. */
   fx: 2100,
+  fxLow: 2100,
+  fxHigh: 2600,
+  weather: 2800,
   vignette: 3000,
+  debug: 3500,
 } as const;
 
 /** Depth for something standing at `y` on the floor. */
@@ -231,6 +238,61 @@ export const PIXEL_FONT = {
   family: 'Silkscreen',
   stack: '"Silkscreen", "Courier New", ui-monospace, monospace',
 } as const;
+
+export const BIOMES = {
+  grove: {
+    // Variants share one base; only the speckle pattern differs, so the floor
+    // reads as one meadow rather than a checkerboard.
+    grass: ['#4b7944', '#4c7a45', '#4a7843'],
+    grassDark: '#3a6337',
+    grassLight: '#6f9e5c',
+    dirt: '#5f6140',
+    dirtLight: '#7a7650',
+    path: '#7c6448',
+    stone: '#6f6d70',
+    stoneLight: '#8c898c',
+    wall: '#2a3a2a',
+    wallTop: '#4a6b46',
+    water: '#2a5f7a',
+    waterLight: '#5f9fbf',
+    ambient: 'fireflies',
+    fog: 0x1a2a1a,
+  },
+  ruins: {
+    grass: ['#5b6a49', '#5a6948', '#5c6b4a'],
+    grassDark: '#48553a',
+    grassLight: '#8a9866',
+    dirt: '#6d5b46',
+    dirtLight: '#877357',
+    path: '#8a7860',
+    stone: '#7a7370',
+    stoneLight: '#9a938f',
+    wall: '#3a332e',
+    wallTop: '#6b5f55',
+    water: '#3b5e6f',
+    waterLight: '#6d97ab',
+    ambient: 'dust',
+    fog: 0x24201c,
+  },
+  crypt: {
+    grass: ['#3b3b49', '#3c3c4a', '#3a3a48'],
+    grassDark: '#2c2c38',
+    grassLight: '#585870',
+    dirt: '#4a4250',
+    dirtLight: '#5d5364',
+    path: '#5f5670',
+    stone: '#4d4a5a',
+    stoneLight: '#6b6880',
+    wall: '#1c1a26',
+    wallTop: '#3e3a52',
+    water: '#2c2f52',
+    waterLight: '#5b5fa0',
+    ambient: 'embers',
+    fog: 0x120f1a,
+  },
+} as const;
+
+export type BiomeName = keyof typeof BIOMES;
 
 /** Sampled from the palette swatches on the source character sheet. */
 export const PALETTE = {

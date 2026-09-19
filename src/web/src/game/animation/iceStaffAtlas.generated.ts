@@ -10,10 +10,10 @@ export const ICESTAFF_TEXTURE_KEY = "iceStaff" as const;
 export const ICESTAFF_BODY_RATIO = 0.80147 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const ICESTAFF_FRAME_SIZE = { width: 522, height: 408 } as const;
+export const ICESTAFF_FRAME_SIZE = { width: 485, height: 408 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const ICESTAFF_ANCHOR = { x: 0.40038, y: 0.52696 } as const;
+export const ICESTAFF_ANCHOR = { x: 0.61031, y: 0.52696 } as const;
 
 export const ICESTAFF_FRAMES = {
   swing: ["swing-00", "swing-01", "swing-02", "swing-03"],

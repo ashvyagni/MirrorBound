@@ -12,7 +12,7 @@ import type { Intent, IntentSource } from '../types';
  * `Intent`.
  */
 export class DeviceIntentSource implements IntentSource {
-  readonly #keys: Record<'left' | 'right' | 'up' | 'down' | 'altLeft' | 'altRight' | 'altUp' | 'altDown' | 'run' | 'attack' | 'slot1' | 'slot2' | 'slot3' | 'companionAttack' | 'hand1' | 'hand2' | 'potionCycle' | 'potionUse', Phaser.Input.Keyboard.Key>;
+  readonly #keys: Record<'left' | 'right' | 'up' | 'down' | 'altLeft' | 'altRight' | 'altUp' | 'altDown' | 'run' | 'attack' | 'slot1' | 'slot2' | 'slot3' | 'companionAttack' | 'hand1' | 'hand2' | 'potionCycle' | 'potionUse' | 'map', Phaser.Input.Keyboard.Key>;
 
   /** Left mouse button, latched until the next sample so a click between
    *  frames is never dropped. */
@@ -55,6 +55,7 @@ export class DeviceIntentSource implements IntentSource {
       // are about to drink and drinking it are different mistakes to make.
       potionCycle: keyboard.addKey(KeyCodes.R),
       potionUse: keyboard.addKey(KeyCodes.F),
+      map: keyboard.addKey(KeyCodes.M),
     };
 
     // Stop the browser scrolling the page when the player walks.
@@ -104,6 +105,7 @@ export class DeviceIntentSource implements IntentSource {
         : null,
       potionCycle: Phaser.Input.Keyboard.JustDown(k.potionCycle) ? 1 : 0,
       potionUse: Phaser.Input.Keyboard.JustDown(k.potionUse),
+      mapToggle: Phaser.Input.Keyboard.JustDown(k.map),
     };
   }
 
