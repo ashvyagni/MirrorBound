@@ -15,7 +15,7 @@ from mirrorbound.game.dungeon.room import (
     Decor, Door, EnemySpawn, Room,
 )
 from mirrorbound.game.dungeon.templates import (
-    DEFAULT_SEQUENCE, RoomTemplate, RoomType, biome_for, get_random_template,
+    DEFAULT_SEQUENCE, RoomTemplate, RoomType, biome_for, get_random_template, resolve_spawn,
 )
 from mirrorbound.game.entities.entity import Vec2
 
@@ -181,7 +181,8 @@ class DungeonGenerator:
     def _place_spawns(self, room: Room, template: RoomTemplate) -> None:
         for spec in template.spawns:
             pos = Vec2(spec.fx * room.width, spec.fy * room.height)
-            room.enemy_spawns.append(EnemySpawn(spec.enemy_type, room.clamp(pos, 30)))
+            enemy_type = resolve_spawn(spec.enemy_type, room.biome)
+            room.enemy_spawns.append(EnemySpawn(enemy_type, room.clamp(pos, 30)))
 
     def _place_treasure(self, room: Room, template: RoomTemplate) -> None:
         for kind, fx, fy in template.treasure:

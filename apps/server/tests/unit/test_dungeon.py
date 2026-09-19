@@ -75,3 +75,49 @@ def test_arbitrary_room_counts_still_bookend_correctly():
     run = gen(3, count=4)
     assert run.rooms[0].room_type == "entrance" and run.rooms[-1].room_type == "boss"
     assert len(run.rooms) == 4
+
+
+def test_each_biome_fields_its_own_creatures():
+    """docs/art-prompts-2.md designs eleven mobs as a role-by-biome matrix; a
+    template names a role and generation resolves it against the room's biome,
+    so the same handcrafted layout fights different creatures at each depth.
+    """
+    from mirrorbound.game.core.rng import DeterministicRNG
+    from mirrorbound.game.dungeon.generation import DungeonGenerator
+
+    run = DungeonGenerator(DeterministicRNG(7)).generate(room_count=7)
+    by_biome: dict[str, set[str]] = {}
+    for room in run.rooms:
+        for spawn in room.enemy_spawns:
+            by_biome.setdefault(room.biome, set()).add(spawn.enemy_type.removeprefix("elite_"))
+
+    grove, ruins, crypt = by_biome["grove"], by_biome["ruins"], by_biome["crypt"]
+    assert grove <= {"sprout", "brute", "spitter"}, grove
+    assert ruins <= {"shardling", "warden", "acolyte", "scarab"}, ruins
+    assert crypt <= {"skeleton", "archer", "hound", "slime", "mirror"}, crypt
+    # The point of the matrix: no creature leaks across biomes.
+    assert not (grove & ruins) and not (ruins & crypt) and not (grove & crypt)
+
+
+def test_role_slots_resolve_and_literals_pass_through():
+    from mirrorbound.game.dungeon.templates import resolve_spawn
+
+    assert resolve_spawn("melee", "grove") == "sprout"
+    assert resolve_spawn("melee", "crypt") == "skeleton"
+    assert resolve_spawn("tank", "ruins") == "warden"
+    # elite survives the round trip
+    assert resolve_spawn("elite_melee", "ruins") == "elite_shardling"
+    # a literal archetype id is not a role and must not be rewritten
+    assert resolve_spawn("mirror", "grove") == "mirror"
+
+
+def test_every_archetype_the_generator_can_emit_actually_exists():
+    from mirrorbound.game.core.rng import DeterministicRNG
+    from mirrorbound.game.dungeon.generation import DungeonGenerator
+    from mirrorbound.game.entities.enemy import get_archetype
+
+    for seed in range(12):
+        run = DungeonGenerator(DeterministicRNG(seed)).generate(room_count=7)
+        for room in run.rooms:
+            for spawn in room.enemy_spawns:
+                get_archetype(spawn.enemy_type)   # raises on an unknown id

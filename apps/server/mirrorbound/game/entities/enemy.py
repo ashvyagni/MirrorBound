@@ -110,6 +110,76 @@ SLIME = EnemyDef(
     loot=LootTable(2, 4, 0.10, 0.14, 0.06), role="tank",
 )
 
+# --- the grove -----------------------------------------------------------------
+# Seven archetypes below are the creatures Logesh designed in docs/art-prompts-2.md,
+# which assigns each one a biome and a combat role. Stats are new -- the doc is an
+# art brief, not a balance sheet -- but every role, name and biome comes from it,
+# so the thing you fight matches the thing that was drawn.
+
+SPROUT = EnemyDef(
+    id="sprout", name="Bramble Sprout", health=26, damage=7, speed=104,
+    attack_range=38, aggro_range=240, attack_cooldown=1.1, attack_windup=0.34,
+    behavior=EnemyBehavior.CHARGE, size=11, xp_reward=14, sprite="sprout",
+    tags=("MELEE",), knockback=90, loot=LootTable(1, 2, 0.03, 0.06, 0.04), role="melee",
+)
+
+BRUTE = EnemyDef(
+    id="brute", name="Bark Brute", health=140, damage=19, speed=62,
+    attack_range=52, aggro_range=250, attack_cooldown=1.9, attack_windup=0.66,
+    behavior=EnemyBehavior.TANK, size=19, xp_reward=40, sprite="brute",
+    tags=("MELEE", "HEAVY"), knockback=230, knockback_resist=0.65,
+    loot=LootTable(2, 5, 0.12, 0.14, 0.08), role="tank",
+)
+
+SPITTER = EnemyDef(
+    id="spitter", name="Thorn Spitter", health=40, damage=11, speed=74,
+    attack_range=280, aggro_range=360, attack_cooldown=1.7, attack_windup=0.5,
+    behavior=EnemyBehavior.KEEP_DISTANCE, size=12, xp_reward=26, sprite="spitter",
+    tags=("RANGED",), knockback=50,
+    projectile=ProjectileSpec(kind="thorn", speed=300, radius=5, lifetime=1.6),
+    loot=LootTable(1, 3, 0.07, 0.08, 0.10), role="ranged",
+)
+
+# --- the ruins -----------------------------------------------------------------
+
+SHARDLING = EnemyDef(
+    id="shardling", name="Shardling", health=30, damage=8, speed=112,
+    attack_range=38, aggro_range=250, attack_cooldown=1.05, attack_windup=0.3,
+    behavior=EnemyBehavior.CHARGE, size=11, xp_reward=16, sprite="shardling",
+    tags=("MELEE",), knockback=95, loot=LootTable(1, 2, 0.04, 0.06, 0.05), role="melee",
+)
+
+WARDEN = EnemyDef(
+    # "It is the wall of the biome. It does not chase well; it blocks." -- hence
+    # TANK and a deliberately short aggro range: it holds ground rather than
+    # crossing the room at you.
+    id="warden", name="Pillar Warden", health=175, damage=21, speed=54,
+    attack_range=58, aggro_range=210, attack_cooldown=2.1, attack_windup=0.74,
+    behavior=EnemyBehavior.TANK, size=20, xp_reward=46, sprite="warden",
+    tags=("MELEE", "HEAVY"), knockback=250, knockback_resist=0.78,
+    loot=LootTable(3, 6, 0.14, 0.16, 0.08), role="tank",
+)
+
+ACOLYTE = EnemyDef(
+    id="acolyte", name="Ember Acolyte", health=46, damage=14, speed=80,
+    attack_range=310, aggro_range=390, attack_cooldown=2.0, attack_windup=0.6,
+    behavior=EnemyBehavior.KEEP_DISTANCE, size=12, xp_reward=32, sprite="acolyte",
+    tags=("RANGED", "SPELL"), knockback=70,
+    projectile=ProjectileSpec(kind="ember_bolt", speed=320, radius=7, lifetime=1.5),
+    loot=LootTable(2, 4, 0.10, 0.08, 0.12), role="ranged",
+)
+
+SCARAB = EnemyDef(
+    id="scarab", name="Scarab Sentinel", health=44, damage=10, speed=196,
+    attack_range=36, aggro_range=340, attack_cooldown=0.95, attack_windup=0.24,
+    behavior=EnemyBehavior.DART, size=12, xp_reward=28, sprite="scarab",
+    tags=("MELEE", "FAST"), knockback=100, knockback_resist=0.2,
+    loot=LootTable(1, 3, 0.06, 0.06, 0.05), role="fast",
+)
+
+
+# --- the crypt -----------------------------------------------------------------
+
 MIRROR = EnemyDef(
     id="mirror", name="The Mirror", health=520, damage=16, speed=190,
     attack_range=70, aggro_range=2000, attack_cooldown=1.0, attack_windup=0.3,
@@ -119,7 +189,15 @@ MIRROR = EnemyDef(
     loot=LootTable(12, 20, 1.0, 0.5, 0.5, relic_chance=1.0), boss=True, role="boss",
 )
 
-ARCHETYPES: dict[str, EnemyDef] = {e.id: e for e in (SKELETON, ARCHER, HOUND, SLIME, MIRROR)}
+ARCHETYPES: dict[str, EnemyDef] = {
+    e.id: e
+    for e in (
+        SKELETON, ARCHER, HOUND, SLIME,                      # crypt
+        SPROUT, BRUTE, SPITTER,                              # grove
+        SHARDLING, WARDEN, ACOLYTE, SCARAB,                  # ruins
+        MIRROR,
+    )
+}
 
 # Aliases used by earlier templates.
 ARCHETYPES["ranged_skeleton"] = ARCHER

@@ -25,6 +25,7 @@ class RoomType(Enum):
 
 @dataclass(frozen=True)
 class SpawnSpec:
+    # A role from ENEMY_ROLES (resolved per biome), or a literal archetype id.
     enemy_type: str
     # Fractions of room width/height, so a template works at any size.
     fx: float
@@ -50,6 +51,39 @@ class RoomTemplate:
     title_pool: tuple[str, ...] = ("Hall",)
 
 
+# --- who lives where ------------------------------------------------------------
+# docs/art-prompts-2.md designs eleven creatures as a role-by-biome matrix: each
+# biome fields its own small/broad/tall/flat silhouette so three mobs on one
+# screen are told apart by mass. Templates therefore name a *role*, not a
+# creature, and generation resolves it against the room's biome -- so the same
+# handcrafted layout fights sprouts in the grove and skeletons in the crypt.
+
+ENEMY_ROLES = ("melee", "tank", "ranged", "fast")
+
+BIOME_ROSTER: dict[str, dict[str, str]] = {
+    "grove": {"melee": "sprout", "tank": "brute", "ranged": "spitter",
+              # The grove has no fourth silhouette in the design ("—" in the
+              # table), so its quick slot falls back to the sprout.
+              "fast": "sprout"},
+    "ruins": {"melee": "shardling", "tank": "warden", "ranged": "acolyte", "fast": "scarab"},
+    "crypt": {"melee": "skeleton", "tank": "slime", "ranged": "archer", "fast": "hound"},
+}
+
+
+def resolve_spawn(enemy_type: str, biome: str) -> str:
+    """Turn a template's role slot into this biome's creature for that role.
+
+    A literal archetype id (``mirror``) passes straight through, so a template
+    can still pin one exact creature when that is the point. ``elite_`` survives
+    the round trip either way.
+    """
+    elite = enemy_type.startswith("elite_")
+    base = enemy_type[len("elite_"):] if elite else enemy_type
+    roster = BIOME_ROSTER.get(biome, BIOME_ROSTER["crypt"])
+    resolved = roster.get(base, base)
+    return f"elite_{resolved}" if elite else resolved
+
+
 ENTRANCE = RoomTemplate(
     name="entrance_clearing", room_type=RoomType.ENTRANCE, width=1280, height=960,
     tree_density=1.4, rock_density=0.6, flora_density=1.6, torches=2, has_water=True,
@@ -59,8 +93,8 @@ ENTRANCE = RoomTemplate(
 COMBAT_GLADE = RoomTemplate(
     name="combat_glade", room_type=RoomType.COMBAT, width=1280, height=960,
     spawns=(
-        SpawnSpec("skeleton", 0.25, 0.30), SpawnSpec("skeleton", 0.72, 0.30),
-        SpawnSpec("hound", 0.50, 0.22), SpawnSpec("archer", 0.50, 0.62),
+        SpawnSpec("melee", 0.25, 0.30), SpawnSpec("melee", 0.72, 0.30),
+        SpawnSpec("fast", 0.50, 0.22), SpawnSpec("ranged", 0.50, 0.62),
     ),
     tree_density=1.0, rock_density=0.8, flora_density=1.0, torches=4,
     title_pool=("Hollow Glade", "Briar Court", "The Thornfield"),
@@ -69,9 +103,9 @@ COMBAT_GLADE = RoomTemplate(
 COMBAT_RUIN = RoomTemplate(
     name="combat_ruin", room_type=RoomType.COMBAT, width=1600, height=1200,
     spawns=(
-        SpawnSpec("skeleton", 0.22, 0.32), SpawnSpec("skeleton", 0.78, 0.32),
-        SpawnSpec("archer", 0.50, 0.24), SpawnSpec("slime", 0.36, 0.66),
-        SpawnSpec("hound", 0.64, 0.66), SpawnSpec("hound", 0.50, 0.44),
+        SpawnSpec("melee", 0.22, 0.32), SpawnSpec("melee", 0.78, 0.32),
+        SpawnSpec("ranged", 0.50, 0.24), SpawnSpec("tank", 0.36, 0.66),
+        SpawnSpec("fast", 0.64, 0.66), SpawnSpec("fast", 0.50, 0.44),
     ),
     tree_density=0.4, rock_density=1.0, ruin_density=1.3, flora_density=0.5, torches=6,
     title_pool=("Sunken Colonnade", "Ruined Antechamber", "Hall of Fallen Kings"),
@@ -79,7 +113,7 @@ COMBAT_RUIN = RoomTemplate(
 
 EXPLORATION_GROVE = RoomTemplate(
     name="exploration_grove", room_type=RoomType.EXPLORATION, width=1600, height=1120,
-    spawns=(SpawnSpec("hound", 0.78, 0.26), SpawnSpec("skeleton", 0.30, 0.70)),
+    spawns=(SpawnSpec("fast", 0.78, 0.26), SpawnSpec("melee", 0.30, 0.70)),
     treasure=(("essence", 0.16, 0.24), ("essence", 0.84, 0.72), ("health_potion", 0.50, 0.14), ("shards", 0.14, 0.78)),
     tree_density=1.8, rock_density=0.9, flora_density=2.0, torches=3, has_water=True,
     title_pool=("Whisperfen", "The Drowned Orchard", "Lanternmoss Reach"),
@@ -87,7 +121,7 @@ EXPLORATION_GROVE = RoomTemplate(
 
 TREASURE_VAULT = RoomTemplate(
     name="treasure_vault", room_type=RoomType.TREASURE, width=960, height=768,
-    spawns=(SpawnSpec("skeleton", 0.50, 0.32),),
+    spawns=(SpawnSpec("melee", 0.50, 0.32),),
     treasure=(("chest", 0.50, 0.50), ("shards", 0.30, 0.55), ("shards", 0.70, 0.55), ("mana_potion", 0.50, 0.72)),
     tree_density=0.0, rock_density=0.5, ruin_density=1.6, flora_density=0.3, torches=6,
     title_pool=("The Reliquary", "Vault of Quiet Gold"),
@@ -96,8 +130,8 @@ TREASURE_VAULT = RoomTemplate(
 ELITE_ARENA = RoomTemplate(
     name="elite_arena", room_type=RoomType.ELITE, width=1280, height=960,
     spawns=(
-        SpawnSpec("elite_skeleton", 0.50, 0.32), SpawnSpec("archer", 0.24, 0.30),
-        SpawnSpec("archer", 0.76, 0.30), SpawnSpec("slime", 0.50, 0.64),
+        SpawnSpec("elite_melee", 0.50, 0.32), SpawnSpec("ranged", 0.24, 0.30),
+        SpawnSpec("ranged", 0.76, 0.30), SpawnSpec("tank", 0.50, 0.64),
     ),
     tree_density=0.2, rock_density=0.8, ruin_density=1.8, flora_density=0.3, torches=8,
     title_pool=("The Bone Court", "Champion's Ring"),
