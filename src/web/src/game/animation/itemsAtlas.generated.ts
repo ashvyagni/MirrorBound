@@ -7,13 +7,13 @@ export const ITEMS_TEXTURE_KEY = "items" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const ITEMS_BODY_RATIO = 0.86500 as const;
+export const ITEMS_BODY_RATIO = 0.85644 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const ITEMS_FRAME_SIZE = { width: 81, height: 100 } as const;
+export const ITEMS_FRAME_SIZE = { width: 80, height: 101 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const ITEMS_ANCHOR = { x: 0.50617, y: 0.50000 } as const;
+export const ITEMS_ANCHOR = { x: 0.51250, y: 0.49505 } as const;
 
 export const ITEMS_FRAMES = {
   item: ["health_potion", "mana_potion", "ember_heart", "wolf_fang"],

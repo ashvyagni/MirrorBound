@@ -25,7 +25,7 @@ import { KeyboardIntentSource } from '../input/KeyboardIntentSource';
 import { EnemyAtlasLoader } from './EnemyAtlasLoader';
 import { HudScene } from './HudScene';
 import { WebSocketClient } from '../network/WebSocketClient';
-import type { PlayerSnapshot } from '../types';
+import type { Intent, PlayerSnapshot } from '../types';
 import { Ambient } from '../world/Ambient';
 import { TextureFactory } from '../world/TextureFactory';
 import { WorldRenderer } from '../world/WorldRenderer';
@@ -137,6 +137,32 @@ export class PlayScene extends Phaser.Scene {
 
   // --- frame -----------------------------------------------------------------------
 
+  /**
+   * The intent, pointed at the cursor.
+   *
+   * The pointer is in screen pixels; the player is in world units under a
+   * camera that scrolls and is zoomed by `RENDER_SCALE`. `positionToCamera`
+   * undoes both, and the difference is which way the player is looking.
+   *
+   * Zero when the pointer has never moved over the canvas or is sitting on the
+   * player, and the server falls back to facing the way you are walking -- so
+   * a keyboard-only player is unaffected by any of this.
+   */
+  #aimed(intent: Intent): Intent {
+    const player = this.#player;
+    const pointer = this.input.activePointer;
+    if (!player) return intent;
+
+    const world = pointer.positionToCamera(this.cameras.main) as Phaser.Math.Vector2;
+    const dx = world.x - player.x;
+    const dy = world.y - player.y;
+    const length = Math.hypot(dx, dy);
+    // A few pixels of deadzone, so a cursor resting on the character does not
+    // spin the sprite as it drifts under it.
+    if (length < 8) return intent;
+    return { ...intent, aimX: dx / length, aimY: dy / length };
+  }
+
   override update(time: number, deltaMs: number): void {
     const dt = Math.min(deltaMs, 50) / 1000;
     const intent = this.#source.sample();
@@ -155,7 +181,11 @@ export class PlayScene extends Phaser.Scene {
         eventBus.emit('player:changed', ui);
       }
     }
-    this.#ws.sendInput(playing ? intent : { moveX: 0, moveY: 0, attack: false, run: false, ability: null }, time);
+    this.#ws.sendInput(
+      playing ? this.#aimed(intent)
+        : { moveX: 0, moveY: 0, attack: false, run: false, ability: null, aimX: 0, aimY: 0 },
+      time,
+    );
 
     this.#twin?.update(dt);
     for (const e of this.#enemies.values()) e.update(dt);

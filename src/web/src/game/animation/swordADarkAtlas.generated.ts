@@ -7,13 +7,13 @@ export const SWORDADARK_TEXTURE_KEY = "swordADark" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const SWORDADARK_BODY_RATIO = 0.84091 as const;
+export const SWORDADARK_BODY_RATIO = 0.84571 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const SWORDADARK_FRAME_SIZE = { width: 421, height: 352 } as const;
+export const SWORDADARK_FRAME_SIZE = { width: 411, height: 350 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const SWORDADARK_ANCHOR = { x: 0.54632, y: 0.62784 } as const;
+export const SWORDADARK_ANCHOR = { x: 0.54988, y: 0.60857 } as const;
 
 export const SWORDADARK_FRAMES = {
   swing: ["swing-00", "swing-01", "swing-02", "swing-03"],

@@ -7,13 +7,13 @@ export const HOUNDALERT_TEXTURE_KEY = "houndAlert" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const HOUNDALERT_BODY_RATIO = 0.75176 as const;
+export const HOUNDALERT_BODY_RATIO = 0.76224 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const HOUNDALERT_FRAME_SIZE = { width: 388, height: 284 } as const;
+export const HOUNDALERT_FRAME_SIZE = { width: 390, height: 286 } as const;
 
 /** Origin on the body centre and its feet. */
-export const HOUNDALERT_ANCHOR = { x: 0.50258, y: 0.98944 } as const;
+export const HOUNDALERT_ANCHOR = { x: 0.50256, y: 0.99301 } as const;
 
 export const HOUNDALERT_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

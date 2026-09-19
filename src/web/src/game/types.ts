@@ -25,6 +25,16 @@ export interface Intent {
   run: boolean;
   /** Ability slot pressed this frame (1-4). */
   ability: number | null;
+  /**
+   * Unit vector from the player toward the cursor, or zero when there is none.
+   *
+   * Filled by the play scene rather than the input source: it is the one part
+   * of an intent that needs to know where the player is standing and how the
+   * camera is placed, and an input source that knew either of those would stop
+   * being a description of what the player asked for.
+   */
+  aimX: number;
+  aimY: number;
 }
 
 export const NEUTRAL_INTENT: Readonly<Intent> = Object.freeze({
@@ -33,6 +43,8 @@ export const NEUTRAL_INTENT: Readonly<Intent> = Object.freeze({
   attack: false,
   run: false,
   ability: null,
+  aimX: 0,
+  aimY: 0,
 });
 
 /** Anything that can drive the character. */

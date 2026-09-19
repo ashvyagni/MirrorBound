@@ -7,7 +7,7 @@ export const SCREENFRAME_TEXTURE_KEY = "screenFrame" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const SCREENFRAME_BODY_RATIO = 1.00000 as const;
+export const SCREENFRAME_BODY_RATIO = 1.00099 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
 export const SCREENFRAME_FRAME_SIZE = { width: 506, height: 506 } as const;

@@ -7,13 +7,13 @@ export const WARDENWALK_TEXTURE_KEY = "wardenWalk" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const WARDENWALK_BODY_RATIO = 0.97948 as const;
+export const WARDENWALK_BODY_RATIO = 0.97737 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const WARDENWALK_FRAME_SIZE = { width: 350, height: 463 } as const;
+export const WARDENWALK_FRAME_SIZE = { width: 351, height: 464 } as const;
 
 /** Origin on the body centre and its feet. */
-export const WARDENWALK_ANCHOR = { x: 0.45714, y: 0.99136 } as const;
+export const WARDENWALK_ANCHOR = { x: 0.45584, y: 0.98922 } as const;
 
 export const WARDENWALK_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

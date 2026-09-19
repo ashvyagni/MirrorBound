@@ -7,13 +7,13 @@ export const MIRRORSTRIKE_TEXTURE_KEY = "mirrorStrike" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const MIRRORSTRIKE_BODY_RATIO = 0.95842 as const;
+export const MIRRORSTRIKE_BODY_RATIO = 0.95648 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const MIRRORSTRIKE_FRAME_SIZE = { width: 377, height: 493 } as const;
+export const MIRRORSTRIKE_FRAME_SIZE = { width: 377, height: 494 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const MIRRORSTRIKE_ANCHOR = { x: 0.49867, y: 0.49493 } as const;
+export const MIRRORSTRIKE_ANCHOR = { x: 0.49867, y: 0.49393 } as const;
 
 export const MIRRORSTRIKE_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

@@ -7,13 +7,13 @@ export const ACOLYTEWALK_TEXTURE_KEY = "acolyteWalk" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const ACOLYTEWALK_BODY_RATIO = 0.98227 as const;
+export const ACOLYTEWALK_BODY_RATIO = 0.97765 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const ACOLYTEWALK_FRAME_SIZE = { width: 346, height: 423 } as const;
+export const ACOLYTEWALK_FRAME_SIZE = { width: 347, height: 425 } as const;
 
 /** Origin on the body centre and its feet. */
-export const ACOLYTEWALK_ANCHOR = { x: 0.51734, y: 0.99291 } as const;
+export const ACOLYTEWALK_ANCHOR = { x: 0.51873, y: 0.99059 } as const;
 
 export const ACOLYTEWALK_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

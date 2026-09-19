@@ -10,10 +10,10 @@ export const BOWDARK_TEXTURE_KEY = "bowDark" as const;
 export const BOWDARK_BODY_RATIO = 0.83632 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const BOWDARK_FRAME_SIZE = { width: 410, height: 446 } as const;
+export const BOWDARK_FRAME_SIZE = { width: 405, height: 446 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const BOWDARK_ANCHOR = { x: 0.52439, y: 0.50448 } as const;
+export const BOWDARK_ANCHOR = { x: 0.52346, y: 0.50448 } as const;
 
 export const BOWDARK_FRAMES = {
   swing: ["swing-00", "swing-01", "swing-02", "swing-03"],

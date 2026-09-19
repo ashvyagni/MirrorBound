@@ -7,13 +7,13 @@ export const FLORA_TEXTURE_KEY = "flora" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const FLORA_BODY_RATIO = 0.74175 as const;
+export const FLORA_BODY_RATIO = 0.73944 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const FLORA_FRAME_SIZE = { width: 196, height: 212 } as const;
+export const FLORA_FRAME_SIZE = { width: 195, height: 213 } as const;
 
 /** Origin on the body centre and its feet. */
-export const FLORA_ANCHOR = { x: 0.49490, y: 1.00000 } as const;
+export const FLORA_ANCHOR = { x: 0.49744, y: 1.00000 } as const;
 
 export const FLORA_FRAMES = {
   a: ["tree0", "tree1", "tree2", "treeBig0"],

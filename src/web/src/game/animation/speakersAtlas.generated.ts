@@ -7,13 +7,13 @@ export const SPEAKERS_TEXTURE_KEY = "speakers" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const SPEAKERS_BODY_RATIO = 0.93386 as const;
+export const SPEAKERS_BODY_RATIO = 0.93610 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const SPEAKERS_FRAME_SIZE = { width: 182, height: 223 } as const;
+export const SPEAKERS_FRAME_SIZE = { width: 184, height: 223 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const SPEAKERS_ANCHOR = { x: 0.49451, y: 0.49776 } as const;
+export const SPEAKERS_ANCHOR = { x: 0.49457, y: 0.50224 } as const;
 
 export const SPEAKERS_FRAMES = {
   a: ["elder_mara", "smith_oren", "apothecary_siv", "hearth"],

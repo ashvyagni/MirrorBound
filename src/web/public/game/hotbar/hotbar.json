@@ -4,20 +4,20 @@
    "frame": {
     "x": 2,
     "y": 2,
-    "w": 736,
-    "h": 246
+    "w": 738,
+    "h": 248
    },
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
     "x": 0,
     "y": 0,
-    "w": 736,
-    "h": 246
+    "w": 738,
+    "h": 248
    },
    "sourceSize": {
-    "w": 736,
-    "h": 246
+    "w": 739,
+    "h": 249
    }
   }
  },
@@ -27,7 +27,7 @@
   "format": "RGBA8888",
   "size": {
    "w": 1024,
-   "h": 250
+   "h": 252
   },
   "scale": "1"
  }

@@ -7,13 +7,13 @@ export const GOATFRONT_TEXTURE_KEY = "goatFront" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const GOATFRONT_BODY_RATIO = 0.95722 as const;
+export const GOATFRONT_BODY_RATIO = 0.95467 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const GOATFRONT_FRAME_SIZE = { width: 259, height: 374 } as const;
+export const GOATFRONT_FRAME_SIZE = { width: 261, height: 375 } as const;
 
 /** Origin on the body centre and its feet. */
-export const GOATFRONT_ANCHOR = { x: 0.51737, y: 0.98663 } as const;
+export const GOATFRONT_ANCHOR = { x: 0.51724, y: 0.98400 } as const;
 
 export const GOATFRONT_FRAMES = {
   walk: ["walk-00", "walk-01", "walk-02", "walk-03"],

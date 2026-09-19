@@ -7,13 +7,13 @@ export const SLIMEWALK_TEXTURE_KEY = "slimeWalk" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const SLIMEWALK_BODY_RATIO = 0.86364 as const;
+export const SLIMEWALK_BODY_RATIO = 0.88636 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const SLIMEWALK_FRAME_SIZE = { width: 412, height: 198 } as const;
+export const SLIMEWALK_FRAME_SIZE = { width: 411, height: 198 } as const;
 
 /** Origin on the body centre and its feet. */
-export const SLIMEWALK_ANCHOR = { x: 0.53398, y: 0.98485 } as const;
+export const SLIMEWALK_ANCHOR = { x: 0.53041, y: 0.99495 } as const;
 
 export const SLIMEWALK_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

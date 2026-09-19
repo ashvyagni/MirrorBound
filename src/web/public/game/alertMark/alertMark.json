@@ -2,18 +2,18 @@
  "frames": {
   "mark-00": {
    "frame": {
-    "x": 628,
+    "x": 634,
     "y": 2,
-    "w": 20,
-    "h": 45
+    "w": 21,
+    "h": 46
    },
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 62,
-    "y": 200,
-    "w": 20,
-    "h": 45
+    "x": 61,
+    "y": 199,
+    "w": 21,
+    "h": 46
    },
    "sourceSize": {
     "w": 156,
@@ -24,15 +24,15 @@
    "frame": {
     "x": 2,
     "y": 2,
-    "w": 58,
+    "w": 60,
     "h": 433
    },
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 43,
+    "x": 42,
     "y": 0,
-    "w": 58,
+    "w": 60,
     "h": 433
    },
    "sourceSize": {
@@ -42,18 +42,18 @@
   },
   "mark-02": {
    "frame": {
-    "x": 483,
+    "x": 488,
     "y": 2,
-    "w": 143,
-    "h": 302
+    "w": 144,
+    "h": 303
    },
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
     "x": 0,
-    "y": 70,
-    "w": 143,
-    "h": 302
+    "y": 69,
+    "w": 144,
+    "h": 303
    },
    "sourceSize": {
     "w": 156,
@@ -62,18 +62,18 @@
   },
   "mark-03": {
    "frame": {
-    "x": 347,
+    "x": 214,
     "y": 2,
     "w": 134,
-    "h": 342
+    "h": 343
    },
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
     "x": 1,
-    "y": 54,
+    "y": 53,
     "w": 134,
-    "h": 342
+    "h": 343
    },
    "sourceSize": {
     "w": 156,
@@ -82,17 +82,17 @@
   },
   "mark-04": {
    "frame": {
-    "x": 62,
+    "x": 64,
     "y": 2,
-    "w": 147,
+    "w": 148,
     "h": 344
    },
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 9,
+    "x": 8,
     "y": 43,
-    "w": 147,
+    "w": 148,
     "h": 344
    },
    "sourceSize": {
@@ -102,17 +102,17 @@
   },
   "mark-05": {
    "frame": {
-    "x": 211,
+    "x": 350,
     "y": 2,
-    "w": 134,
+    "w": 136,
     "h": 343
    },
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 2,
+    "x": 1,
     "y": 44,
-    "w": 134,
+    "w": 136,
     "h": 343
    },
    "sourceSize": {

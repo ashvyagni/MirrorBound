@@ -7,13 +7,13 @@ export const SKELETONWALK_TEXTURE_KEY = "skeletonWalk" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const SKELETONWALK_BODY_RATIO = 0.98829 as const;
+export const SKELETONWALK_BODY_RATIO = 0.97806 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const SKELETONWALK_FRAME_SIZE = { width: 435, height: 427 } as const;
+export const SKELETONWALK_FRAME_SIZE = { width: 436, height: 433 } as const;
 
 /** Origin on the body centre and its feet. */
-export const SKELETONWALK_ANCHOR = { x: 0.49425, y: 0.99297 } as const;
+export const SKELETONWALK_ANCHOR = { x: 0.49541, y: 0.99307 } as const;
 
 export const SKELETONWALK_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

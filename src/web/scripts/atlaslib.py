@@ -283,17 +283,55 @@ def mask_to_bands(rgb: np.ndarray, spec: SheetSpec) -> np.ndarray:
     return rgb * band_mask(spec, rgb.shape[:2])[:, :, None]
 
 
-def chroma_alpha(rgb: np.ndarray) -> np.ndarray:
-    """Key a pure-green background, with a soft edge and green spill removed.
+def backdrop_greenness(greenness: np.ndarray) -> float:
+    """How green this sheet's backdrop actually is, read off its border.
 
-    Unlike the black sheets this needs no morphology at all: the key colour is
-    absent from the artwork, so a dark outline is simply not green and survives
-    on its own. The ramp exists only to keep edges from going stair-stepped.
+    Not every sheet came back on the same green. The interface sheets are on
+    pure #00FF00, which scores about 227; the glyph sheet came back on a muted
+    (52,164,70) and scores 94. One fixed threshold cannot serve both, and the
+    fixed one that was here served neither once the artwork was green too.
+
+    Sampled from a one-pixel ring at the edge, where the brief guarantees clear
+    background on every sheet, and taken as a median so a stray mark in a
+    corner cannot move it.
+    """
+    edge = np.concatenate([
+        greenness[0, :], greenness[-1, :], greenness[:, 0], greenness[:, -1],
+    ])
+    return float(np.median(edge))
+
+
+def chroma_alpha(rgb: np.ndarray) -> np.ndarray:
+    """Key a green background, with a soft edge and green spill removed.
+
+    Unlike the black sheets this needs no morphology: a dark outline is simply
+    not green and survives on its own. The ramp exists to keep edges from going
+    stair-stepped.
+
+    The thresholds are a fraction of the backdrop's own greenness rather than
+    fixed numbers, and that is the whole of this function's difficulty. A fixed
+    cut at 60 was right for every sheet drawn before the world was: a sword and
+    a skeleton contain no green, so anything green was background. A tree does.
+    Its canopy is #4f8a44, which scores 67 -- so the old cut keyed the leaves
+    out and left the trunk, and every tree in the game came back bare.
+
+    Measured against the backdrop instead, the same tree is unambiguous: the
+    background scores 227 and the foliage 67, which is 30% of it. Nothing drawn
+    is anywhere near its own backdrop, because a sheet where the art matched
+    the key colour would be unusable however it was keyed.
     """
     red, green, blue = rgb[..., 0], rgb[..., 1], rgb[..., 2]
     greenness = green - np.maximum(red, blue)
-    # Fully transparent past 60, fully opaque below 20, ramped between.
-    return np.clip((60.0 - greenness) / 40.0, 0.0, 1.0)
+    key = backdrop_greenness(greenness)
+    # A backdrop that is barely green at all is not a chroma sheet; fall back
+    # to the old absolute cut rather than dividing by something near zero.
+    if key < 40.0:
+        return np.clip((60.0 - greenness) / 40.0, 0.0, 1.0)
+    # Fully transparent at three quarters of the backdrop, fully opaque at
+    # two fifths, ramped between -- wide enough that an antialiased edge
+    # resolves smoothly, tight enough that nothing drawn falls inside it.
+    high, low = key * 0.75, key * 0.40
+    return np.clip((high - greenness) / (high - low), 0.0, 1.0)
 
 
 def despill(rgb: np.ndarray) -> np.ndarray:

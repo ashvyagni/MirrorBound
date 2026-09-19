@@ -7,13 +7,13 @@ export const GROUNDCOVER_TEXTURE_KEY = "groundcover" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const GROUNDCOVER_BODY_RATIO = 0.89613 as const;
+export const GROUNDCOVER_BODY_RATIO = 0.89789 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const GROUNDCOVER_FRAME_SIZE = { width: 83, height: 71 } as const;
+export const GROUNDCOVER_FRAME_SIZE = { width: 82, height: 71 } as const;
 
 /** Origin on the body centre and its feet. */
-export const GROUNDCOVER_ANCHOR = { x: 0.50602, y: 0.98592 } as const;
+export const GROUNDCOVER_ANCHOR = { x: 0.51220, y: 0.98592 } as const;
 
 export const GROUNDCOVER_FRAMES = {
   a: ["flowers0", "flowers1", "flowers2", "flowers3"],

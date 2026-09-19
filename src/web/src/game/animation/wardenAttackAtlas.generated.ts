@@ -10,10 +10,10 @@ export const WARDENATTACK_TEXTURE_KEY = "wardenAttack" as const;
 export const WARDENATTACK_BODY_RATIO = 0.98035 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const WARDENATTACK_FRAME_SIZE = { width: 360, height: 458 } as const;
+export const WARDENATTACK_FRAME_SIZE = { width: 361, height: 458 } as const;
 
 /** Origin on the body centre and its feet. */
-export const WARDENATTACK_ANCHOR = { x: 0.45556, y: 0.98908 } as const;
+export const WARDENATTACK_ANCHOR = { x: 0.45706, y: 0.98908 } as const;
 
 export const WARDENATTACK_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

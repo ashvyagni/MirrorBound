@@ -7,13 +7,13 @@ export const ICESHARDSDARK_TEXTURE_KEY = "iceShardsDark" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const ICESHARDSDARK_BODY_RATIO = 0.75869 as const;
+export const ICESHARDSDARK_BODY_RATIO = 0.75670 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const ICESHARDSDARK_FRAME_SIZE = { width: 323, height: 259 } as const;
+export const ICESHARDSDARK_FRAME_SIZE = { width: 337, height: 261 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const ICESHARDSDARK_ANCHOR = { x: 0.52012, y: 0.49807 } as const;
+export const ICESHARDSDARK_ANCHOR = { x: 0.53709, y: 0.49808 } as const;
 
 export const ICESHARDSDARK_FRAMES = {
   cast: ["cast-00", "cast-01", "cast-02", "cast-03"],

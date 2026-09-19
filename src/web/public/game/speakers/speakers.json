@@ -5,38 +5,38 @@
     "x": 2,
     "y": 2,
     "w": 166,
-    "h": 216
+    "h": 217
    },
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 8,
+    "x": 9,
     "y": 0,
     "w": 166,
-    "h": 216
+    "h": 217
    },
    "sourceSize": {
-    "w": 182,
+    "w": 184,
     "h": 223
    }
   },
   "smith_oren": {
    "frame": {
     "x": 186,
-    "y": 220,
-    "w": 181,
-    "h": 203
+    "y": 221,
+    "w": 182,
+    "h": 204
    },
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 1,
+    "x": 2,
     "y": 10,
-    "w": 181,
-    "h": 203
+    "w": 182,
+    "h": 204
    },
    "sourceSize": {
-    "w": 182,
+    "w": 184,
     "h": 223
    }
   },
@@ -56,54 +56,54 @@
     "h": 214
    },
    "sourceSize": {
-    "w": 182,
+    "w": 184,
     "h": 223
    }
   },
   "hearth": {
    "frame": {
     "x": 2,
-    "y": 434,
+    "y": 435,
     "w": 172,
-    "h": 117
+    "h": 118
    },
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 0,
+    "x": 1,
     "y": 97,
     "w": 172,
-    "h": 117
+    "h": 118
    },
    "sourceSize": {
-    "w": 182,
+    "w": 184,
     "h": 223
    }
   },
   "twin": {
    "frame": {
-    "x": 369,
-    "y": 220,
+    "x": 370,
+    "y": 221,
     "w": 140,
-    "h": 183
+    "h": 184
    },
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 22,
+    "x": 23,
     "y": 32,
     "w": 140,
-    "h": 183
+    "h": 184
    },
    "sourceSize": {
-    "w": 182,
+    "w": 184,
     "h": 223
    }
   },
   "villager": {
    "frame": {
     "x": 2,
-    "y": 220,
+    "y": 221,
     "w": 182,
     "h": 212
    },
@@ -116,7 +116,7 @@
     "h": 212
    },
    "sourceSize": {
-    "w": 182,
+    "w": 184,
     "h": 223
    }
   }
@@ -127,7 +127,7 @@
   "format": "RGBA8888",
   "size": {
    "w": 512,
-   "h": 553
+   "h": 555
   },
   "scale": "1"
  }

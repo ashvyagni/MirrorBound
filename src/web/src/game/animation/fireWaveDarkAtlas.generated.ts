@@ -7,13 +7,13 @@ export const FIREWAVEDARK_TEXTURE_KEY = "fireWaveDark" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const FIREWAVEDARK_BODY_RATIO = 0.77155 as const;
+export const FIREWAVEDARK_BODY_RATIO = 0.76824 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const FIREWAVEDARK_FRAME_SIZE = { width: 379, height: 232 } as const;
+export const FIREWAVEDARK_FRAME_SIZE = { width: 381, height: 233 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const FIREWAVEDARK_ANCHOR = { x: 0.52770, y: 0.50000 } as const;
+export const FIREWAVEDARK_ANCHOR = { x: 0.52756, y: 0.49785 } as const;
 
 export const FIREWAVEDARK_FRAMES = {
   cast: ["cast-00", "cast-01", "cast-02", "cast-03"],

@@ -3,7 +3,7 @@ import type { IconName } from '../animation/icons';
 import type { WeaponId } from '../animation/weaponClips';
 import { BIOMES, type BiomeName } from '../constants';
 import type {
-  AreaSnap, CommandMessage, GameSnapshot, PlayerSnap, RoomFull, SkillNode, Vec2,
+  AreaSnap, CommandMessage, GameSnapshot, Inventory, PlayerSnap, RoomFull, SkillNode, Vec2,
 } from '../contracts';
 import { isRoomFull } from '../contracts';
 import { eventBus } from '../EventBus';
@@ -68,6 +68,8 @@ export class Bridge {
   #skillKey = '';
   #areas: readonly AreaSnap[] = [];
   #campaignKey = '';
+  #inventory: Inventory | null = null;
+  #inventoryKey = '';
 
   start(): void {
     this.#teardown.push(
@@ -110,6 +112,7 @@ export class Bridge {
     this.#emitPhase(snap);
     this.#emitSkills(snap);
     this.#emitCampaign(snap);
+    this.#emitInventory(snap);
   }
 
   /** Remember which sheet each weapon id draws with, as detail snapshots pass. */
@@ -315,6 +318,24 @@ export class Bridge {
     if (key === this.#campaignKey) return;
     this.#campaignKey = key;
     eventBus.emit('campaign:changed', { areas: this.#areas, canTravel });
+  }
+
+  /**
+   * Everything carried.
+   *
+   * Cached for the same reason as the tree and the campaign: `inventory` rides
+   * detail snapshots only. The ability slots come from the frequent ones, so
+   * they are read fresh -- a cooldown that lagged a detail frame would make
+   * the inventory disagree with the rail beside it.
+   */
+  #emitInventory(snap: GameSnapshot): void {
+    if (snap.player.inventory) this.#inventory = snap.player.inventory;
+    if (!this.#inventory) return;
+    const inventory = this.#inventory;
+    const key = JSON.stringify(inventory) + snap.player.abilities.map((a) => a.id).join();
+    if (key === this.#inventoryKey) return;
+    this.#inventoryKey = key;
+    eventBus.emit('inventory:changed', { inventory, abilities: snap.player.abilities });
   }
 
   #emitPhase(snap: GameSnapshot): void {

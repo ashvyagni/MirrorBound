@@ -386,13 +386,23 @@ def test_asking_the_twin_for_a_weapon_moves_it_rather_than_copying_it():
 
 
 def test_the_second_carried_weapon_swaps_in_and_out():
+    """And swapping swaps the ability bar with it.
+
+    That is the point of two hands: the pair you carry is the moveset you have,
+    so trading which is in front trades which two abilities are on keys one and
+    two.
+    """
     s = combat_session("swap")
     inv = s.state.player.inventory
+    inv.add_weapon("iron_sword")
     inv.add_weapon("hunter_bow")
     assert inv.equipped_weapon == "iron_sword" and inv.offhand_weapon == "hunter_bow"
+    assert inv.ability_slots[:2] == ["aegis", "shadow_dash"]
+
     s.handle_input({"type": "COMMAND", "action": "SWAP_WEAPON"})
     s.step(DT)
     assert inv.equipped_weapon == "hunter_bow" and inv.offhand_weapon == "iron_sword"
+    assert inv.ability_slots[:2] == ["arrow_volley", "mending_light"]
 
 
 def test_campaign_state_round_trips_through_its_save_form():
@@ -404,3 +414,46 @@ def test_campaign_state_round_trips_through_its_save_form():
     assert restored.completed_areas == state.completed_areas
     assert restored.twin_rescued and restored.twin_name == "Ash"
     assert "emberfall" in restored.discovered_areas, "completing an area reveals what it unlocks"
+
+
+# --- the console -------------------------------------------------------------
+
+def test_spawning_from_the_console_puts_a_real_hostile_enemy_in_the_room():
+    """`spawn mirror` is the Mirror, not a prop.
+
+    It goes in through the ordinary spawn path, so it arrives with its real
+    definition and its real controller and starts hunting -- which is the whole
+    reason the console asks the server instead of drawing something itself.
+    """
+    s = combat_session("console-spawn")
+    before = len(s.state.enemies)
+    s.handle_input({"type": "COMMAND", "action": "SPAWN", "enemyType": "mirror"})
+    for _ in range(40):
+        s.step(DT)
+
+    spawned = [e for e in s.state.enemies if e.enemy_def.id == "mirror"]
+    assert len(s.state.enemies) == before + 1
+    assert spawned and spawned[0].health == 520
+    assert spawned[0].enemy_def.boss
+    # It has noticed the player. A spawn that stood still would be a prop.
+    assert spawned[0].state.value in {"chase", "attack", "reposition"}
+
+
+def test_spawning_is_refused_in_a_village_and_does_not_stop_the_tick():
+    """A safe room stays safe, and saying no must not kill the simulation.
+
+    This guarded on a field the Room model does not have, which raised inside
+    the tick -- so snapshots stopped and every client froze in place. The
+    assertion that matters is the second one: the world still moves.
+    """
+    s = fresh_village("console-village")
+    s.handle_input({"type": "COMMAND", "action": "SPAWN", "enemyType": "mirror"})
+    for _ in range(10):
+        s.step(DT)
+
+    assert not s.state.enemies
+    assert any(e.data.get("reason") == "not in a village"
+               for e in s.state.pending_events if e.type == "ACTION_REJECTED")
+    tick = s.state.tick
+    s.step(DT)
+    assert s.state.tick > tick, "the tick must survive a refused command"

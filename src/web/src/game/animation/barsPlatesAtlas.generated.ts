@@ -7,7 +7,7 @@ export const BARSPLATES_TEXTURE_KEY = "barsPlates" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const BARSPLATES_BODY_RATIO = 0.44571 as const;
+export const BARSPLATES_BODY_RATIO = 0.44949 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
 export const BARSPLATES_FRAME_SIZE = { width: 177, height: 198 } as const;

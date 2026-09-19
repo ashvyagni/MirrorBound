@@ -7,13 +7,13 @@ export const ACOLYTEALERT_TEXTURE_KEY = "acolyteAlert" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const ACOLYTEALERT_BODY_RATIO = 0.97697 as const;
+export const ACOLYTEALERT_BODY_RATIO = 0.97484 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const ACOLYTEALERT_FRAME_SIZE = { width: 397, height: 456 } as const;
+export const ACOLYTEALERT_FRAME_SIZE = { width: 397, height: 457 } as const;
 
 /** Origin on the body centre and its feet. */
-export const ACOLYTEALERT_ANCHOR = { x: 0.47355, y: 0.99123 } as const;
+export const ACOLYTEALERT_ANCHOR = { x: 0.47355, y: 0.99125 } as const;
 
 export const ACOLYTEALERT_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

@@ -7,13 +7,13 @@ export const BOWIDLE_TEXTURE_KEY = "bowIdle" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const BOWIDLE_BODY_RATIO = 0.90041 as const;
+export const BOWIDLE_BODY_RATIO = 0.83462 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const BOWIDLE_FRAME_SIZE = { width: 125, height: 482 } as const;
+export const BOWIDLE_FRAME_SIZE = { width: 129, height: 520 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const BOWIDLE_ANCHOR = { x: 0.61600, y: 0.51867 } as const;
+export const BOWIDLE_ANCHOR = { x: 0.60465, y: 0.47885 } as const;
 
 export const BOWIDLE_FRAMES = {
   swing: ["swing-00", "swing-01", "swing-02", "swing-03"],

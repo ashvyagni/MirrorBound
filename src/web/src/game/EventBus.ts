@@ -1,4 +1,6 @@
-import type { AreaSnap, CommandMessage, GameSnapshot, ServerEvent, SkillNode } from './contracts';
+import type {
+  AbilitySlot, AreaSnap, CommandMessage, GameSnapshot, Inventory, ServerEvent, SkillNode,
+} from './contracts';
 import type { ConnectionStatus, PlayerSnapshot } from './types';
 import type { Settings } from '../ui/settings';
 import type { BroClipName } from './animation/broClips';
@@ -146,6 +148,10 @@ export interface GameEventMap {
   'console:toggle': Record<string, never>;
   /** Open or close the skill tree. */
   'skills:toggle': Record<string, never>;
+  /** Open or close what you are carrying. */
+  'inventory:toggle': Record<string, never>;
+  /** Everything carried, and the four ability slots it feeds. */
+  'inventory:changed': { inventory: Inventory; abilities: readonly AbilitySlot[] };
   /** The tree, its points, and whether unlearning is allowed here. */
   'skills:changed': {
     nodes: readonly SkillNode[];

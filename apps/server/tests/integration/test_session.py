@@ -81,7 +81,9 @@ def test_snapshot_shape_has_every_hud_field():
     for key in ("health", "maxHealth", "mana", "maxMana", "xp", "xpToNext", "level", "abilities", "inventory",
                 "weapon", "facing", "state", "skillTree", "skillPoints"):
         assert key in player, key
-    assert len(player["abilities"]) == 4
+    # Abilities come from the weapons carried, so the bar is as long as the
+    # hands are full -- the session fixture starts inside a dungeon unarmed.
+    assert len(player["abilities"]) == len(s.state.player.inventory.ability_slots)
     twin = snap["twin"]
     assert "intent" in twin and "utilities" in twin["intent"]
     assert "twinModel" in snap and "dims" in snap["twinModel"]
@@ -149,7 +151,8 @@ def test_commands_equip_unlock_and_use_items():
     assert s.state.twin.weapon.id == "hunter_bow"
     s.handle_input({"type": "COMMAND", "action": "RESTART", "seed": 77})
     s.step(DT)
-    assert s.seed == 77 and s.state.tick <= 1 and s.state.player.current_weapon == "iron_sword"
+    # A restart puts you back where the game starts you: empty-handed.
+    assert s.seed == 77 and s.state.tick <= 1 and s.state.player.current_weapon == "bare_hands"
 
 
 def test_seed_from_session_id_is_stable():

@@ -10,10 +10,10 @@ export const CONTROLS_TEXTURE_KEY = "controls" as const;
 export const CONTROLS_BODY_RATIO = 0.92029 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const CONTROLS_FRAME_SIZE = { width: 171, height: 69 } as const;
+export const CONTROLS_FRAME_SIZE = { width: 173, height: 69 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const CONTROLS_ANCHOR = { x: 0.49708, y: 0.49275 } as const;
+export const CONTROLS_ANCHOR = { x: 0.49711, y: 0.49275 } as const;
 
 export const CONTROLS_FRAMES = {
   a: ["button", "buttonPress", "toggleOff", "toggleOn"],

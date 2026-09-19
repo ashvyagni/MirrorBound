@@ -7,13 +7,13 @@ export const BUILDINGS_TEXTURE_KEY = "buildings" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const BUILDINGS_BODY_RATIO = 0.77209 as const;
+export const BUILDINGS_BODY_RATIO = 0.77083 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const BUILDINGS_FRAME_SIZE = { width: 247, height: 215 } as const;
+export const BUILDINGS_FRAME_SIZE = { width: 248, height: 216 } as const;
 
 /** Origin on the body centre and its feet. */
-export const BUILDINGS_ANCHOR = { x: 0.43320, y: 1.00000 } as const;
+export const BUILDINGS_ANCHOR = { x: 0.43548, y: 0.99537 } as const;
 
 export const BUILDINGS_FRAMES = {
   a: ["hut0", "hut1", "hut2", "forge0"],

@@ -7,13 +7,13 @@ export const SLIMEATTACK_TEXTURE_KEY = "slimeAttack" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const SLIMEATTACK_BODY_RATIO = 0.82817 as const;
+export const SLIMEATTACK_BODY_RATIO = 0.83803 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const SLIMEATTACK_FRAME_SIZE = { width: 433, height: 355 } as const;
+export const SLIMEATTACK_FRAME_SIZE = { width: 455, height: 355 } as const;
 
 /** Origin on the body centre and its feet. */
-export const SLIMEATTACK_ANCHOR = { x: 0.44573, y: 0.99437 } as const;
+export const SLIMEATTACK_ANCHOR = { x: 0.42418, y: 1.00000 } as const;
 
 export const SLIMEATTACK_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

@@ -7,13 +7,13 @@ export const SHARDLINGWALK_TEXTURE_KEY = "shardlingWalk" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const SHARDLINGWALK_BODY_RATIO = 0.93673 as const;
+export const SHARDLINGWALK_BODY_RATIO = 0.94694 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const SHARDLINGWALK_FRAME_SIZE = { width: 366, height: 245 } as const;
+export const SHARDLINGWALK_FRAME_SIZE = { width: 367, height: 245 } as const;
 
 /** Origin on the body centre and its feet. */
-export const SHARDLINGWALK_ANCHOR = { x: 0.50546, y: 0.97959 } as const;
+export const SHARDLINGWALK_ANCHOR = { x: 0.50409, y: 0.98776 } as const;
 
 export const SHARDLINGWALK_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

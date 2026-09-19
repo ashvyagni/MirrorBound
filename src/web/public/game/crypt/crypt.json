@@ -5,15 +5,15 @@
     "x": 2,
     "y": 2,
     "w": 100,
-    "h": 164
+    "h": 165
    },
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 33,
+    "x": 34,
     "y": 0,
     "w": 100,
-    "h": 164
+    "h": 165
    },
    "sourceSize": {
     "w": 166,
@@ -24,16 +24,16 @@
    "frame": {
     "x": 206,
     "y": 2,
-    "w": 96,
-    "h": 156
+    "w": 97,
+    "h": 157
    },
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
     "x": 28,
     "y": 8,
-    "w": 96,
-    "h": 156
+    "w": 97,
+    "h": 157
    },
    "sourceSize": {
     "w": 166,
@@ -45,15 +45,15 @@
     "x": 104,
     "y": 2,
     "w": 100,
-    "h": 160
+    "h": 161
    },
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
     "x": 28,
-    "y": 6,
+    "y": 5,
     "w": 100,
-    "h": 160
+    "h": 161
    },
    "sourceSize": {
     "w": 166,
@@ -63,7 +63,7 @@
   "bones0": {
    "frame": {
     "x": 2,
-    "y": 297,
+    "y": 299,
     "w": 152,
     "h": 90
    },
@@ -82,10 +82,10 @@
   },
   "bones1": {
    "frame": {
-    "x": 292,
-    "y": 168,
+    "x": 296,
+    "y": 169,
     "w": 158,
-    "h": 109
+    "h": 110
    },
    "rotated": false,
    "trimmed": true,
@@ -93,7 +93,7 @@
     "x": 8,
     "y": 62,
     "w": 158,
-    "h": 109
+    "h": 110
    },
    "sourceSize": {
     "w": 166,
@@ -102,18 +102,18 @@
   },
   "mushrooms0": {
    "frame": {
-    "x": 2,
-    "y": 168,
-    "w": 134,
-    "h": 127
+    "x": 305,
+    "y": 2,
+    "w": 135,
+    "h": 128
    },
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 16,
-    "y": 40,
-    "w": 134,
-    "h": 127
+    "x": 17,
+    "y": 39,
+    "w": 135,
+    "h": 128
    },
    "sourceSize": {
     "w": 166,
@@ -122,8 +122,8 @@
   },
   "mushrooms1": {
    "frame": {
-    "x": 304,
-    "y": 2,
+    "x": 2,
+    "y": 169,
     "w": 138,
     "h": 128
    },
@@ -131,7 +131,7 @@
    "trimmed": true,
    "spriteSourceSize": {
     "x": 6,
-    "y": 39,
+    "y": 38,
     "w": 138,
     "h": 128
    },
@@ -142,16 +142,16 @@
   },
   "chest0": {
    "frame": {
-    "x": 138,
-    "y": 168,
+    "x": 142,
+    "y": 169,
     "w": 152,
     "h": 122
    },
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 0,
-    "y": 45,
+    "x": 1,
+    "y": 44,
     "w": 152,
     "h": 122
    },
@@ -167,7 +167,7 @@
   "format": "RGBA8888",
   "size": {
    "w": 512,
-   "h": 389
+   "h": 391
   },
   "scale": "1"
  }

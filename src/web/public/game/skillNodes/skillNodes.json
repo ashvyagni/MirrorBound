@@ -2,9 +2,9 @@
  "frames": {
   "locked": {
    "frame": {
-    "x": 196,
+    "x": 197,
     "y": 2,
-    "w": 156,
+    "w": 157,
     "h": 157
    },
    "rotated": false,
@@ -12,7 +12,7 @@
    "spriteSourceSize": {
     "x": 22,
     "y": 26,
-    "w": 156,
+    "w": 157,
     "h": 157
    },
    "sourceSize": {
@@ -22,17 +22,17 @@
   },
   "available": {
    "frame": {
-    "x": 354,
-    "y": 2,
-    "w": 157,
+    "x": 2,
+    "y": 210,
+    "w": 158,
     "h": 157
    },
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 21,
+    "x": 20,
     "y": 26,
-    "w": 157,
+    "w": 158,
     "h": 157
    },
    "sourceSize": {
@@ -42,9 +42,9 @@
   },
   "unlocked": {
    "frame": {
-    "x": 2,
+    "x": 162,
     "y": 210,
-    "w": 157,
+    "w": 158,
     "h": 157
    },
    "rotated": false,
@@ -52,7 +52,7 @@
    "spriteSourceSize": {
     "x": 20,
     "y": 26,
-    "w": 157,
+    "w": 158,
     "h": 157
    },
    "sourceSize": {
@@ -64,7 +64,7 @@
    "frame": {
     "x": 2,
     "y": 2,
-    "w": 192,
+    "w": 193,
     "h": 206
    },
    "rotated": false,
@@ -72,7 +72,7 @@
    "spriteSourceSize": {
     "x": 0,
     "y": 0,
-    "w": 192,
+    "w": 193,
     "h": 206
    },
    "sourceSize": {
@@ -82,7 +82,7 @@
   },
   "combat": {
    "frame": {
-    "x": 2,
+    "x": 158,
     "y": 369,
     "w": 144,
     "h": 142
@@ -102,7 +102,7 @@
   },
   "magic": {
    "frame": {
-    "x": 148,
+    "x": 304,
     "y": 369,
     "w": 136,
     "h": 140
@@ -122,10 +122,10 @@
   },
   "mobility": {
    "frame": {
-    "x": 283,
-    "y": 210,
+    "x": 2,
+    "y": 369,
     "w": 154,
-    "h": 144
+    "h": 145
    },
    "rotated": false,
    "trimmed": true,
@@ -133,7 +133,7 @@
     "x": 18,
     "y": 28,
     "w": 154,
-    "h": 144
+    "h": 145
    },
    "sourceSize": {
     "w": 193,
@@ -142,9 +142,9 @@
   },
   "survival": {
    "frame": {
-    "x": 161,
+    "x": 322,
     "y": 210,
-    "w": 120,
+    "w": 122,
     "h": 150
    },
    "rotated": false,
@@ -152,7 +152,7 @@
    "spriteSourceSize": {
     "x": 34,
     "y": 28,
-    "w": 120,
+    "w": 122,
     "h": 150
    },
    "sourceSize": {
@@ -167,7 +167,7 @@
   "format": "RGBA8888",
   "size": {
    "w": 512,
-   "h": 513
+   "h": 516
   },
   "scale": "1"
  }

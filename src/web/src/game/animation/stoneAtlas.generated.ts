@@ -7,10 +7,10 @@ export const STONE_TEXTURE_KEY = "stone" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const STONE_BODY_RATIO = 0.68519 as const;
+export const STONE_BODY_RATIO = 0.68098 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const STONE_FRAME_SIZE = { width: 201, height: 162 } as const;
+export const STONE_FRAME_SIZE = { width: 201, height: 163 } as const;
 
 /** Origin on the body centre and its feet. */
 export const STONE_ANCHOR = { x: 0.51244, y: 1.00000 } as const;

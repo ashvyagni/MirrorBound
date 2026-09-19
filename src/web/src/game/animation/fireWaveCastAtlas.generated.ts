@@ -7,13 +7,13 @@ export const FIREWAVECAST_TEXTURE_KEY = "fireWaveCast" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const FIREWAVECAST_BODY_RATIO = 0.89016 as const;
+export const FIREWAVECAST_BODY_RATIO = 0.83298 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const FIREWAVECAST_FRAME_SIZE = { width: 468, height: 437 } as const;
+export const FIREWAVECAST_FRAME_SIZE = { width: 473, height: 467 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const FIREWAVECAST_ANCHOR = { x: 0.54487, y: 0.50114 } as const;
+export const FIREWAVECAST_ANCHOR = { x: 0.52220, y: 0.50964 } as const;
 
 export const FIREWAVECAST_FRAMES = {
   swing: ["swing-00", "swing-01", "swing-02", "swing-03"],

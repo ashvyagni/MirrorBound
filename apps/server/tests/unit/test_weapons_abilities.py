@@ -2,14 +2,34 @@ from mirrorbound.game.combat.abilities import ABILITIES, DEFAULT_SLOTS, AbilityT
 from mirrorbound.game.combat.weapons import WEAPONS, canonical_weapon_ids, get_weapon
 
 
-def test_four_abilities_fill_four_slots_with_distinct_types():
-    assert len(DEFAULT_SLOTS) == 4
-    types = {ABILITIES[a].type for a in DEFAULT_SLOTS}
-    assert types == {AbilityType.PROJECTILE, AbilityType.CONE, AbilityType.DASH, AbilityType.NOVA}
-    for slot in range(1, 5):
-        ability = get_ability_by_slot(slot)
-        assert ability is not None and ability.slot == slot
-    assert get_ability_by_slot(5) is None
+def test_empty_hands_still_leave_you_the_dash():
+    """With nothing equipped there is nothing to cast, but somewhere to be."""
+    assert DEFAULT_SLOTS == ("shadow_dash",)
+    assert ABILITIES["shadow_dash"].type is AbilityType.DASH
+    assert get_ability_by_slot(1, DEFAULT_SLOTS) is ABILITIES["shadow_dash"]
+    assert get_ability_by_slot(2, DEFAULT_SLOTS) is None
+
+
+def test_every_weapon_grants_two_abilities_and_they_are_real():
+    """The moveset is what you are carrying.
+
+    Two per weapon, so the two hands fill the four ability keys exactly, and
+    every id has to resolve -- a weapon granting an ability that does not exist
+    would be a bar with a hole in it.
+    """
+    for weapon_id in canonical_weapon_ids():
+        weapon = get_weapon(weapon_id)
+        if weapon_id == "bare_hands":
+            assert weapon.abilities == ()
+            continue
+        assert len(weapon.abilities) == 2, weapon_id
+        for ability in weapon.abilities:
+            assert ability in ABILITIES, f"{weapon_id} grants unknown {ability}"
+
+
+def test_the_sword_is_guard_and_go():
+    """The opening weapon teaches the two defensive buttons."""
+    assert get_weapon("iron_sword").abilities == ("aegis", "shadow_dash")
 
 
 def test_every_ability_has_hud_fields_and_cost():

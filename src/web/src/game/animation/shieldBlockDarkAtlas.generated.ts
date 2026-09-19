@@ -7,13 +7,13 @@ export const SHIELDBLOCKDARK_TEXTURE_KEY = "shieldBlockDark" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const SHIELDBLOCKDARK_BODY_RATIO = 0.88825 as const;
+export const SHIELDBLOCKDARK_BODY_RATIO = 0.88571 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const SHIELDBLOCKDARK_FRAME_SIZE = { width: 222, height: 349 } as const;
+export const SHIELDBLOCKDARK_FRAME_SIZE = { width: 229, height: 350 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const SHIELDBLOCKDARK_ANCHOR = { x: 0.45946, y: 0.48997 } as const;
+export const SHIELDBLOCKDARK_ANCHOR = { x: 0.45415, y: 0.48857 } as const;
 
 export const SHIELDBLOCKDARK_FRAMES = {
   block: ["block-00", "block-01", "block-02", "block-03"],

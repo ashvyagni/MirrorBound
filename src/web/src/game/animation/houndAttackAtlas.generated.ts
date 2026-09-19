@@ -7,7 +7,7 @@ export const HOUNDATTACK_TEXTURE_KEY = "houndAttack" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const HOUNDATTACK_BODY_RATIO = 0.67082 as const;
+export const HOUNDATTACK_BODY_RATIO = 0.69039 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
 export const HOUNDATTACK_FRAME_SIZE = { width: 399, height: 281 } as const;

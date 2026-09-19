@@ -7,13 +7,13 @@ export const ARCHERALERT_TEXTURE_KEY = "archerAlert" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const ARCHERALERT_BODY_RATIO = 0.94043 as const;
+export const ARCHERALERT_BODY_RATIO = 0.94325 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const ARCHERALERT_FRAME_SIZE = { width: 407, height: 512 } as const;
+export const ARCHERALERT_FRAME_SIZE = { width: 411, height: 511 } as const;
 
 /** Origin on the body centre and its feet. */
-export const ARCHERALERT_ANCHOR = { x: 0.55528, y: 0.99609 } as const;
+export const ARCHERALERT_ANCHOR = { x: 0.55718, y: 1.00000 } as const;
 
 export const ARCHERALERT_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

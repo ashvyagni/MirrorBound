@@ -78,7 +78,7 @@ export class KeyboardIntentSource implements IntentSource {
       // Consume edges so a key pressed while a menu was open doesn't fire later.
       this.#justDown('attack');
       for (const a of ['ability1', 'ability2', 'ability3', 'ability4'] as const) this.#justDown(a);
-      return { moveX: 0, moveY: 0, attack: false, run: false, ability: null };
+      return { moveX: 0, moveY: 0, attack: false, run: false, ability: null, aimX: 0, aimY: 0 };
     }
 
     let ability: number | null = null;
@@ -99,6 +99,10 @@ export class KeyboardIntentSource implements IntentSource {
       attack: this.#justDown('attack'),
       run: this.#isDown('run'),
       ability,
+      // The scene fills these: aiming needs the pointer, the camera and the
+      // player's position, and none of the three belong to a key table.
+      aimX: 0,
+      aimY: 0,
     };
   }
 

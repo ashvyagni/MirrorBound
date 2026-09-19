@@ -10,10 +10,10 @@ export const SPITTERIDLE_TEXTURE_KEY = "spitterIdle" as const;
 export const SPITTERIDLE_BODY_RATIO = 0.97053 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const SPITTERIDLE_FRAME_SIZE = { width: 298, height: 475 } as const;
+export const SPITTERIDLE_FRAME_SIZE = { width: 299, height: 475 } as const;
 
 /** Origin on the body centre and its feet. */
-export const SPITTERIDLE_ANCHOR = { x: 0.51007, y: 0.99158 } as const;
+export const SPITTERIDLE_ANCHOR = { x: 0.51171, y: 0.99158 } as const;
 
 export const SPITTERIDLE_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

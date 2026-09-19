@@ -7,13 +7,13 @@ export const COOLDOWNRAIL_TEXTURE_KEY = "cooldownRail" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const COOLDOWNRAIL_BODY_RATIO = 0.61635 as const;
+export const COOLDOWNRAIL_BODY_RATIO = 0.61703 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const COOLDOWNRAIL_FRAME_SIZE = { width: 172, height: 737 } as const;
+export const COOLDOWNRAIL_FRAME_SIZE = { width: 173, height: 737 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const COOLDOWNRAIL_ANCHOR = { x: 0.50000, y: 0.49932 } as const;
+export const COOLDOWNRAIL_ANCHOR = { x: 0.49711, y: 0.50068 } as const;
 
 export const COOLDOWNRAIL_FRAMES = {
   rail: ["rail", "socket"],

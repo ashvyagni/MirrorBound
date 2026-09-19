@@ -59,3 +59,20 @@ def run_ticks(session: GameSession, ticks: int, inp: PlayerInput | None = None) 
 
 def events_of(session: GameSession, event_type: str) -> list:
     return [e for e in session.state.pending_events if e.type == event_type]
+
+
+def arm(session, *weapon_ids: str):
+    """Put these weapons in the player's hands, in slot order.
+
+    Abilities belong to weapons now, so a test about `flame_burst` has to be
+    holding the staff that grants it -- the ability bar is the main hand's pair
+    followed by the offhand's. Starting bare-handed is the game's opening, not
+    something a combat test should have to work around.
+
+    Returns the session so it reads as one line at the top of a test.
+    """
+    inv = session.state.player.inventory
+    inv.weapons = list(weapon_ids)
+    inv.equipped_weapon = weapon_ids[0] if weapon_ids else ""
+    inv.offhand_weapon = weapon_ids[1] if len(weapon_ids) > 1 else ""
+    return session

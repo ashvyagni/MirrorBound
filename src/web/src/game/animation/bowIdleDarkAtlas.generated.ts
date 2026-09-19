@@ -7,13 +7,13 @@ export const BOWIDLEDARK_TEXTURE_KEY = "bowIdleDark" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const BOWIDLEDARK_BODY_RATIO = 0.90041 as const;
+export const BOWIDLEDARK_BODY_RATIO = 0.83462 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const BOWIDLEDARK_FRAME_SIZE = { width: 125, height: 482 } as const;
+export const BOWIDLEDARK_FRAME_SIZE = { width: 129, height: 520 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const BOWIDLEDARK_ANCHOR = { x: 0.61600, y: 0.51867 } as const;
+export const BOWIDLEDARK_ANCHOR = { x: 0.60465, y: 0.47885 } as const;
 
 export const BOWIDLEDARK_FRAMES = {
   swing: ["swing-00", "swing-01", "swing-02", "swing-03"],

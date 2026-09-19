@@ -10,7 +10,7 @@ export const MAPTOKENS_TEXTURE_KEY = "mapTokens" as const;
 export const MAPTOKENS_BODY_RATIO = 0.98889 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const MAPTOKENS_FRAME_SIZE = { width: 154, height: 135 } as const;
+export const MAPTOKENS_FRAME_SIZE = { width: 156, height: 135 } as const;
 
 /** Origin on the body centre and its vertical centre. */
 export const MAPTOKENS_ANCHOR = { x: 0.50000, y: 0.49630 } as const;

@@ -7,13 +7,13 @@ export const COAL_TEXTURE_KEY = "coal" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const COAL_BODY_RATIO = 0.84790 as const;
+export const COAL_BODY_RATIO = 0.84201 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const COAL_FRAME_SIZE = { width: 220, height: 286 } as const;
+export const COAL_FRAME_SIZE = { width: 222, height: 288 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const COAL_ANCHOR = { x: 0.49545, y: 0.49301 } as const;
+export const COAL_ANCHOR = { x: 0.49550, y: 0.49306 } as const;
 
 export const COAL_FRAMES = {
   cast: ["cast-00", "cast-01", "cast-02", "cast-03"],

@@ -5,7 +5,6 @@ import { GameMount } from './ui/GameMount';
 import { InventoryScreen } from './ui/InventoryScreen';
 import { NamingScreen } from './ui/NamingScreen';
 import { ConnectionOverlay } from './ui/Overlays';
-import { SkillTreeScreen } from './ui/SkillTreeScreen';
 import { useHotkeys } from './ui/useHotkeys';
 import './ui/store';
 
@@ -23,16 +22,13 @@ import './ui/store';
  * surface as the art it frames. React does not render any of it and cannot
  * reach it; it goes through the event bus like everything else.
  *
- * **Here, in the DOM**: the screens that are mostly text and scrolling, where
- * a browser does the work for free -- the character sheet, the inventory, the
- * skill tree, dialogue, naming, and the AI debug view. A skill tree is a graph
- * with tooltips and a scrollbar, and rebuilding that in Phaser to save a div
- * is work that buys nothing.
+ * **Here, in the DOM**: what is left, and the list only shrinks -- the
+ * character sheet, the inventory, dialogue, naming, and the AI debug view.
  *
  * Nothing appears twice. When a screen moves into the canvas it comes out of
  * this list, which is why `Hud`, `MapScreen`, `SettingsScreen`,
  * `ControlsScreen`, `PauseMenu`, `Toasts` and the death and victory overlays
- * are no longer here: `HudScene` draws all of them.
+ * are no longer here, and neither is the skill tree: `HudScene` draws them.
  *
  * Only one screen is ever open at a time (the store enforces it), so these
  * render in any order -- each returns null unless it is the open one.
@@ -47,7 +43,6 @@ export default function App() {
       </div>
       <CharacterScreen />
       <InventoryScreen />
-      <SkillTreeScreen />
       <DialogueScreen />
       <NamingScreen />
       <ConnectionOverlay />

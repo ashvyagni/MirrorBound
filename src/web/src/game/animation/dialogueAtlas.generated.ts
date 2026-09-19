@@ -7,13 +7,13 @@ export const DIALOGUE_TEXTURE_KEY = "dialogue" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const DIALOGUE_BODY_RATIO = 0.55370 as const;
+export const DIALOGUE_BODY_RATIO = 0.55556 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const DIALOGUE_FRAME_SIZE = { width: 188, height: 135 } as const;
+export const DIALOGUE_FRAME_SIZE = { width: 189, height: 135 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const DIALOGUE_ANCHOR = { x: 0.50000, y: 0.49630 } as const;
+export const DIALOGUE_ANCHOR = { x: 0.49735, y: 0.49630 } as const;
 
 export const DIALOGUE_FRAMES = {
   a: ["prompt", "promptPressed", "plate", "nameTab"],

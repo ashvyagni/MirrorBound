@@ -135,9 +135,9 @@ def apply_save(data: dict[str, Any], player, twin) -> None:
     inv.equipped_weapon = equipped if equipped in inv.weapons else (inv.weapons[0] if inv.weapons else "")
     offhand = p.get("offhandWeapon")
     inv.offhand_weapon = offhand if offhand in inv.weapons and offhand != inv.equipped_weapon else ""
-    slots = [a for a in p.get("abilitySlots", []) if a in ABILITIES]
-    if len(slots) == 4:
-        inv.ability_slots = slots
+    # Ability slots are no longer saved: they are derived from the two weapons
+    # in hand, which are. Restoring a stored list would let a save made before
+    # a weapon was rebalanced hand back a bar that weapon no longer grants.
     inv.consumables = {k: int(v) for k, v in p.get("consumables", {}).items() if k in CONSUMABLES and int(v) > 0}
     inv.resources.update({k: int(v) for k, v in p.get("resources", {}).items() if k in inv.resources})
     inv.relics = [r for r in p.get("relics", []) if r in RELICS]

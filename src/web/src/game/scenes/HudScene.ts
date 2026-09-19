@@ -15,6 +15,7 @@ import { InteractPrompt } from '../hud/InteractPrompt';
 import { PauseScreen } from '../hud/PauseScreen';
 import { Toast } from '../hud/Toast';
 import { Bridge } from '../hud/Bridge';
+import { SkillScreen } from '../hud/SkillScreen';
 import { complete, run, type CommandHost } from '../state/Commands';
 import { FX } from '../world/textures';
 
@@ -48,6 +49,7 @@ export class HudScene extends Phaser.Scene {
   readonly #prompt = new InteractPrompt(this);
   readonly #toast = new Toast(this);
   readonly #bridge = new Bridge();
+  readonly #skills = new SkillScreen(this);
   /** Built in `create`, because it needs the play scene to talk to. */
   #console!: Console;
   #teardown: Array<() => void> = [];
@@ -83,6 +85,7 @@ export class HudScene extends Phaser.Scene {
     this.#pause.build();
     this.#prompt.build();
     this.#toast.build();
+    this.#skills.build();
 
     // The console runs its commands against the play scene, which is the only
     // thing that can actually put something in the room.
@@ -127,6 +130,7 @@ export class HudScene extends Phaser.Scene {
           ...this.#settings.texts, ...this.#map.texts,
           ...this.#settingsScreen.texts, ...this.#pause.texts,
           ...this.#prompt.texts, ...this.#console.texts, ...this.#toast.texts,
+          ...this.#skills.texts,
         ]) {
           text.updateText();
         }
@@ -143,6 +147,13 @@ export class HudScene extends Phaser.Scene {
       eventBus.on('game:fullscreen', ({ active }) => this.#settings.setFullscreen(active)),
       eventBus.on('run:changed', (run) => this.#map.set(run)),
       eventBus.on('campaign:changed', ({ areas, canTravel }) => this.#map.setCampaign(areas, canTravel)),
+      eventBus.on('skills:changed', ({ nodes, points, respecBlockedBy }) =>
+        this.#skills.set(nodes, points, respecBlockedBy)),
+      eventBus.on('skills:toggle', () => {
+        this.#map.close();
+        this.#settingsScreen.close();
+        this.#skills.toggle();
+      }),
       eventBus.on('map:toggle', () => {
         this.#settingsScreen.close();
         this.#map.toggle();
@@ -211,6 +222,7 @@ export class HudScene extends Phaser.Scene {
     this.#pause.destroy();
     this.#prompt.destroy();
     this.#toast.destroy();
+    this.#skills.destroy();
     this.#bridge.stop();
     this.#console.destroy();
     this.#flourish.destroy();

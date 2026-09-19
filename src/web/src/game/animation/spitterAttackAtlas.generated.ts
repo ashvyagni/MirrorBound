@@ -7,13 +7,13 @@ export const SPITTERATTACK_TEXTURE_KEY = "spitterAttack" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const SPITTERATTACK_BODY_RATIO = 0.94136 as const;
+export const SPITTERATTACK_BODY_RATIO = 0.94586 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const SPITTERATTACK_FRAME_SIZE = { width: 437, height: 469 } as const;
+export const SPITTERATTACK_FRAME_SIZE = { width: 438, height: 471 } as const;
 
 /** Origin on the body centre and its feet. */
-export const SPITTERATTACK_ANCHOR = { x: 0.41876, y: 0.99147 } as const;
+export const SPITTERATTACK_ANCHOR = { x: 0.41781, y: 0.98938 } as const;
 
 export const SPITTERATTACK_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

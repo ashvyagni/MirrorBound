@@ -7,13 +7,13 @@ export const HOUNDWALK_TEXTURE_KEY = "houndWalk" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const HOUNDWALK_BODY_RATIO = 0.83921 as const;
+export const HOUNDWALK_BODY_RATIO = 0.85526 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const HOUNDWALK_FRAME_SIZE = { width: 418, height: 227 } as const;
+export const HOUNDWALK_FRAME_SIZE = { width: 418, height: 228 } as const;
 
 /** Origin on the body centre and its feet. */
-export const HOUNDWALK_ANCHOR = { x: 0.50718, y: 0.98238 } as const;
+export const HOUNDWALK_ANCHOR = { x: 0.50718, y: 0.98246 } as const;
 
 export const HOUNDWALK_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

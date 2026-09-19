@@ -10,10 +10,10 @@ export const WARDENIDLE_TEXTURE_KEY = "wardenIdle" as const;
 export const WARDENIDLE_BODY_RATIO = 0.99272 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const WARDENIDLE_FRAME_SIZE = { width: 303, height: 481 } as const;
+export const WARDENIDLE_FRAME_SIZE = { width: 304, height: 481 } as const;
 
 /** Origin on the body centre and its feet. */
-export const WARDENIDLE_ANCHOR = { x: 0.49505, y: 0.99584 } as const;
+export const WARDENIDLE_ANCHOR = { x: 0.49671, y: 0.99792 } as const;
 
 export const WARDENIDLE_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

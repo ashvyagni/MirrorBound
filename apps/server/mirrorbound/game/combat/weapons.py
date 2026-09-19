@@ -57,6 +57,15 @@ class WeaponDef:
     crit_chance: float = 0.08
     crit_multiplier: float = 1.6
     rarity: Rarity = Rarity.COMMON
+    #: The two abilities carrying this weapon grants.
+    #:
+    #: Abilities belong to weapons rather than to the player. Carrying a sword
+    #: is what gives you a shield and a step; carrying a staff is what gives
+    #: you the spell. Two weapons are held at once, so the four ability keys
+    #: are the main hand's pair followed by the offhand's -- which makes the
+    #: choice of what to carry the choice of what you can do, instead of a
+    #: loadout screen you set once and forget.
+    abilities: tuple[str, ...] = ()
     animation: str = "sword"    # client swing sheet id
     vfx: str = "slash"
     sound: str = "slash"
@@ -83,6 +92,7 @@ class WeaponDef:
             "comboLength": len(self.combo_chain),
             "rarity": self.rarity.value,
             "animation": self.animation,
+            "abilities": list(self.abilities),
             "description": self.description,
         }
 
@@ -101,6 +111,8 @@ IRON_SWORD = WeaponDef(
     combo_chain=(1.0, 1.1, 1.5),
     combo_window=0.9,
     arc_angle=2.0,
+    # Guard and go: the opening kit, and the one that teaches both defensive buttons.
+    abilities=("aegis", "shadow_dash"),
     animation="sword",
     vfx="slash",
     sound="slash",
@@ -120,6 +132,8 @@ HUNTER_BOW = WeaponDef(
     tags=("RANGED",),
     projectile=ProjectileSpec(kind="arrow", speed=520, radius=5, lifetime=1.1),
     crit_chance=0.15,
+    # Reach and recovery -- a hunter keeps its distance and patches itself up.
+    abilities=("arrow_volley", "mending_light"),
     animation="bow",
     vfx="arrow",
     sound="bow",
@@ -139,6 +153,8 @@ EMBER_STAFF = WeaponDef(
     knockback=120,
     tags=("RANGED", "MAGIC", "SPELL", "AOE", "BURST"),
     projectile=ProjectileSpec(kind="fire_bolt", speed=380, radius=9, lifetime=1.2, aoe_radius=56),
+    # Both fire: a cone in front, and a column around you when they have closed.
+    abilities=("flame_burst", "flame_pillar"),
     animation="fireStaff",
     vfx="fire",
     sound="fire",
@@ -158,6 +174,8 @@ FROST_STAFF = WeaponDef(
     knockback=40,
     tags=("RANGED", "MAGIC", "SPELL", "FAST"),
     projectile=ProjectileSpec(kind="ice_bolt", speed=440, radius=6, lifetime=1.1, slow=0.55, slow_duration=1.6),
+    # Hold them still, then punch a hole through the line.
+    abilities=("binding_nova", "arcane_bolt"),
     animation="iceStaff",
     vfx="ice",
     sound="ice",
@@ -165,8 +183,32 @@ FROST_STAFF = WeaponDef(
     description="Rapid frost bolts that slow whatever they touch.",
 )
 
+BARE_HANDS = WeaponDef(
+    id="bare_hands",
+    name="Bare Hands",
+    type=WeaponType.MELEE,
+    family="sword",
+    damage=6,
+    cooldown=0.36,
+    range=48,
+    resource_cost=0,
+    knockback=90,
+    tags=("MELEE", "FAST"),
+    combo_chain=(1.0, 1.1),
+    combo_window=0.8,
+    arc_angle=1.7,
+    # No abilities at all. Empty hands fall back to the dash, which is the one
+    # thing you can always do -- see `Inventory.ability_slots`.
+    abilities=(),
+    animation="sword",
+    vfx="slash",
+    sound="slash",
+    description="Two quick swipes. Short reach, and it will not carry you far.",
+)
+
+
 WEAPONS: dict[str, WeaponDef] = {
-    w.id: w for w in (IRON_SWORD, HUNTER_BOW, EMBER_STAFF, FROST_STAFF)
+    w.id: w for w in (BARE_HANDS, IRON_SWORD, HUNTER_BOW, EMBER_STAFF, FROST_STAFF)
 }
 
 # Backwards-compatible aliases for callers written against the earlier names.
@@ -175,7 +217,13 @@ WEAPONS["bow"] = HUNTER_BOW
 WEAPONS["fire_staff"] = EMBER_STAFF
 WEAPONS["ice_staff"] = FROST_STAFF
 
-STARTING_WEAPON = IRON_SWORD.id
+#: What you begin with, which is nothing.
+#:
+#: The opening minute is two swipes and a dash, and the first weapon you find
+#: is the first time the ability bar has anything on it. That is the point:
+#: with abilities bound to weapons, starting armed would hand over half the
+#: moveset before the player has been shown there is a choice in it.
+STARTING_WEAPON = ""
 TWIN_STARTING_WEAPON = FROST_STAFF.id
 
 

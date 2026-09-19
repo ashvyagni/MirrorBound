@@ -7,13 +7,13 @@ export const ARROW_TEXTURE_KEY = "arrow" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const ARROW_BODY_RATIO = 0.58451 as const;
+export const ARROW_BODY_RATIO = 0.58042 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const ARROW_FRAME_SIZE = { width: 352, height: 142 } as const;
+export const ARROW_FRAME_SIZE = { width: 354, height: 143 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const ARROW_ANCHOR = { x: 0.53409, y: 0.50000 } as const;
+export const ARROW_ANCHOR = { x: 0.53390, y: 0.49650 } as const;
 
 export const ARROW_FRAMES = {
   cast: ["cast-00", "cast-01", "cast-02", "cast-03"],

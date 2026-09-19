@@ -10,10 +10,10 @@ export const THORN_TEXTURE_KEY = "thorn" as const;
 export const THORN_BODY_RATIO = 0.55556 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const THORN_FRAME_SIZE = { width: 306, height: 90 } as const;
+export const THORN_FRAME_SIZE = { width: 308, height: 90 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const THORN_ANCHOR = { x: 0.55882, y: 0.47778 } as const;
+export const THORN_ANCHOR = { x: 0.55844, y: 0.47778 } as const;
 
 export const THORN_FRAMES = {
   cast: ["cast-00", "cast-01", "cast-02", "cast-03"],

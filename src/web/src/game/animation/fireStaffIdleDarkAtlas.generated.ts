@@ -7,13 +7,13 @@ export const FIRESTAFFIDLEDARK_TEXTURE_KEY = "fireStaffIdleDark" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const FIRESTAFFIDLEDARK_BODY_RATIO = 0.96588 as const;
+export const FIRESTAFFIDLEDARK_BODY_RATIO = 0.96178 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const FIRESTAFFIDLEDARK_FRAME_SIZE = { width: 132, height: 469 } as const;
+export const FIRESTAFFIDLEDARK_FRAME_SIZE = { width: 133, height: 471 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const FIRESTAFFIDLEDARK_ANCHOR = { x: 0.49242, y: 0.48827 } as const;
+export const FIRESTAFFIDLEDARK_ANCHOR = { x: 0.48872, y: 0.46921 } as const;
 
 export const FIRESTAFFIDLEDARK_FRAMES = {
   swing: ["swing-00", "swing-01", "swing-02", "swing-03"],

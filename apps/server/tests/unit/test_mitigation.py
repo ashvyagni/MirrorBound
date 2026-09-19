@@ -10,7 +10,7 @@ from mirrorbound.game.combat.mitigation import (
 )
 from mirrorbound.game.entities.entity import Vec2
 from mirrorbound.game.entities.twin import TwinIntent
-from tests.conftest import DT, combat_session
+from tests.conftest import arm, DT, combat_session
 
 
 def hit(session, amount=40.0):
@@ -85,9 +85,10 @@ def test_damage_taken_reports_what_reduced_it():
 def test_aegis_applies_the_shield_status_and_expires():
     s = combat_session("mit-aegis")
     player = s.state.player
-    player.inventory.set_slot(4, "aegis")
+    # Aegis is the sword's first: you get the shield by carrying the sword.
+    arm(s, "iron_sword")
     player.mana = player.max_mana
-    assert s.combat.process_ability(s.state, 4)
+    assert s.combat.process_ability(s.state, 1)
     assert "shield" in player.status_effects
     for _ in range(int(6.0 / DT)):
         player.tick_status(DT)
@@ -97,10 +98,11 @@ def test_aegis_applies_the_shield_status_and_expires():
 def test_taking_a_hit_interrupts_a_channelled_heal():
     s = combat_session("mit-interrupt")
     player = s.state.player
-    player.inventory.set_slot(4, "mending_light")
+    # Mending Light is the bow's second.
+    arm(s, "hunter_bow")
     player.mana = player.max_mana
     player.health = 40
-    assert s.combat.process_ability(s.state, 4)
+    assert s.combat.process_ability(s.state, 2)
     assert player.state == "channel"
     hit(s, 10)
     assert player.channel_ability == "" and player.state != "channel"
@@ -114,10 +116,11 @@ def test_taking_a_hit_interrupts_a_channelled_heal():
 def test_an_uninterrupted_channel_heals():
     s = combat_session("mit-heal")
     player = s.state.player
-    player.inventory.set_slot(4, "mending_light")
+    # Mending Light is the bow's second.
+    arm(s, "hunter_bow")
     player.mana = player.max_mana
     player.health = 40
-    s.combat.process_ability(s.state, 4)
+    s.combat.process_ability(s.state, 2)
     for _ in range(int(0.8 / DT)):
         s.step(DT)
     assert player.health == 85

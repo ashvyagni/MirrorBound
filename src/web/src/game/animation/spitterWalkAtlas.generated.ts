@@ -7,13 +7,13 @@ export const SPITTERWALK_TEXTURE_KEY = "spitterWalk" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const SPITTERWALK_BODY_RATIO = 0.98164 as const;
+export const SPITTERWALK_BODY_RATIO = 0.97742 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const SPITTERWALK_FRAME_SIZE = { width: 304, height: 463 } as const;
+export const SPITTERWALK_FRAME_SIZE = { width: 305, height: 465 } as const;
 
 /** Origin on the body centre and its feet. */
-export const SPITTERWALK_ANCHOR = { x: 0.50329, y: 0.99136 } as const;
+export const SPITTERWALK_ANCHOR = { x: 0.50492, y: 0.98925 } as const;
 
 export const SPITTERWALK_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

@@ -7,13 +7,13 @@ export const FIRESTAFFDARK_TEXTURE_KEY = "fireStaffDark" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const FIRESTAFFDARK_BODY_RATIO = 0.91242 as const;
+export const FIRESTAFFDARK_BODY_RATIO = 0.83638 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const FIRESTAFFDARK_FRAME_SIZE = { width: 504, height: 451 } as const;
+export const FIRESTAFFDARK_FRAME_SIZE = { width: 489, height: 492 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const FIRESTAFFDARK_ANCHOR = { x: 0.44048, y: 0.45898 } as const;
+export const FIRESTAFFDARK_ANCHOR = { x: 0.44785, y: 0.47561 } as const;
 
 export const FIRESTAFFDARK_FRAMES = {
   swing: ["swing-00", "swing-01", "swing-02", "swing-03"],

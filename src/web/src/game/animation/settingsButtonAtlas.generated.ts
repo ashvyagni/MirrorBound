@@ -7,13 +7,13 @@ export const SETTINGSBUTTON_TEXTURE_KEY = "settingsButton" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const SETTINGSBUTTON_BODY_RATIO = 0.99686 as const;
+export const SETTINGSBUTTON_BODY_RATIO = 0.99297 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const SETTINGSBUTTON_FRAME_SIZE = { width: 168, height: 159 } as const;
+export const SETTINGSBUTTON_FRAME_SIZE = { width: 168, height: 160 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const SETTINGSBUTTON_ANCHOR = { x: 0.50000, y: 0.50314 } as const;
+export const SETTINGSBUTTON_ANCHOR = { x: 0.50000, y: 0.50000 } as const;
 
 export const SETTINGSBUTTON_FRAMES = {
   button: ["rest", "press"],

@@ -7,13 +7,13 @@ export const RUINS_TEXTURE_KEY = "ruins" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const RUINS_BODY_RATIO = 0.79933 as const;
+export const RUINS_BODY_RATIO = 0.79333 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const RUINS_FRAME_SIZE = { width: 163, height: 223 } as const;
+export const RUINS_FRAME_SIZE = { width: 165, height: 225 } as const;
 
 /** Origin on the body centre and its feet. */
-export const RUINS_ANCHOR = { x: 0.50307, y: 1.00000 } as const;
+export const RUINS_ANCHOR = { x: 0.50303, y: 0.99556 } as const;
 
 export const RUINS_FRAMES = {
   a: ["pillar0", "pillar1", "brokenPillar0", "brokenPillar1"],

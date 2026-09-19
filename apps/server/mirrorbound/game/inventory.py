@@ -40,7 +40,8 @@ class Inventory:
     # every combat path still reads exactly one weapon and none of them had to
     # learn about slots.
     offhand_weapon: str = ""
-    ability_slots: list[str] = field(default_factory=lambda: list(DEFAULT_SLOTS))
+    # No stored ability list. What you can cast is what you are carrying --
+    # see `ability_slots` below.
     consumables: dict[str, int] = field(default_factory=dict)
     resources: dict[str, int] = field(default_factory=lambda: {"essence": 0, "shards": 0, "relics": 0})
     relics: list[str] = field(default_factory=list)
@@ -92,16 +93,28 @@ class Inventory:
         return True
 
     # --- abilities ----------------------------------------------------------
-    def set_slot(self, slot: int, ability_id: str) -> bool:
-        if not 1 <= slot <= 4:
-            return False
-        get_ability(ability_id)
-        # Keep slots unique: swap if the ability already sits elsewhere.
-        if ability_id in self.ability_slots:
-            other = self.ability_slots.index(ability_id)
-            self.ability_slots[other] = self.ability_slots[slot - 1]
-        self.ability_slots[slot - 1] = ability_id
-        return True
+    @property
+    def ability_slots(self) -> list[str]:
+        """The four ability keys, derived from the two weapons in hand.
+
+        Keys one and two are the equipped weapon's pair; three and four are the
+        offhand's. Nothing is stored, so there is no way for the bar to
+        disagree with what is being held -- swapping weapons swaps the bar, and
+        dropping a weapon takes its abilities with it.
+
+        That is the whole design: what you carry decides what you can do. A
+        stored loadout would make the two hands cosmetic and turn the choice of
+        weapon into a damage-number comparison.
+
+        With nothing equipped at all you still get the dash, because with no
+        weapon there is nothing to cast but there is always somewhere to be
+        that is not here.
+        """
+        slots: list[str] = []
+        for weapon_id in (self.equipped_weapon, self.offhand_weapon):
+            if weapon_id:
+                slots.extend(get_weapon(weapon_id).abilities)
+        return slots or list(DEFAULT_SLOTS)
 
     # --- stackables ----------------------------------------------------------
     def add_consumable(self, item_id: str, count: int = 1) -> None:

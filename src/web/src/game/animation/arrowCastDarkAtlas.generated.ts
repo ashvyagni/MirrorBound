@@ -10,10 +10,10 @@ export const ARROWCASTDARK_TEXTURE_KEY = "arrowCastDark" as const;
 export const ARROWCASTDARK_BODY_RATIO = 0.95806 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const ARROWCASTDARK_FRAME_SIZE = { width: 232, height: 453 } as const;
+export const ARROWCASTDARK_FRAME_SIZE = { width: 237, height: 453 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const ARROWCASTDARK_ANCHOR = { x: 0.45690, y: 0.49890 } as const;
+export const ARROWCASTDARK_ANCHOR = { x: 0.45570, y: 0.49890 } as const;
 
 export const ARROWCASTDARK_FRAMES = {
   swing: ["swing-00", "swing-01", "swing-02", "swing-03"],

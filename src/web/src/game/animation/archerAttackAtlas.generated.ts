@@ -7,13 +7,13 @@ export const ARCHERATTACK_TEXTURE_KEY = "archerAttack" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const ARCHERATTACK_BODY_RATIO = 0.99222 as const;
+export const ARCHERATTACK_BODY_RATIO = 0.99805 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const ARCHERATTACK_FRAME_SIZE = { width: 373, height: 514 } as const;
+export const ARCHERATTACK_FRAME_SIZE = { width: 374, height: 513 } as const;
 
 /** Origin on the body centre and its feet. */
-export const ARCHERATTACK_ANCHOR = { x: 0.48794, y: 0.99611 } as const;
+export const ARCHERATTACK_ANCHOR = { x: 0.48663, y: 0.99805 } as const;
 
 export const ARCHERATTACK_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

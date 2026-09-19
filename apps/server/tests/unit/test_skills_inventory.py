@@ -49,11 +49,18 @@ def test_inventory_weapons_equip_and_slots():
     assert not inv.equip("hunter_bow")
     inv.add_weapon("hunter_bow")
     assert inv.equip("hunter_bow")
-    # swapping ability slots keeps them unique
-    inv.set_slot(1, "shadow_dash")
-    assert inv.ability_slots.count("shadow_dash") == 1
-    assert inv.ability_slots[0] == "shadow_dash"
-    assert "arcane_bolt" in inv.ability_slots
+
+    # The ability bar is derived from the two hands, so swapping weapons swaps
+    # the bar -- there is no stored list that can disagree with what is held.
+    assert inv.equipped_weapon == "hunter_bow" and inv.offhand_weapon == "iron_sword"
+    assert inv.ability_slots == ["arrow_volley", "mending_light", "aegis", "shadow_dash"]
+
+    inv.equip("iron_sword")
+    assert inv.ability_slots == ["aegis", "shadow_dash", "arrow_volley", "mending_light"]
+
+
+def test_empty_hands_leave_only_the_dash():
+    assert Inventory().ability_slots == ["shadow_dash"]
 
 
 def test_inventory_stackables_and_relics():

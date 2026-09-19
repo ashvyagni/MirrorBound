@@ -7,7 +7,7 @@ export const STATUSBARS_TEXTURE_KEY = "statusBars" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const STATUSBARS_BODY_RATIO = 0.96875 as const;
+export const STATUSBARS_BODY_RATIO = 0.97917 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
 export const STATUSBARS_FRAME_SIZE = { width: 363, height: 48 } as const;

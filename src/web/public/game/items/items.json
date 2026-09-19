@@ -2,7 +2,7 @@
  "frames": {
   "health_potion": {
    "frame": {
-    "x": 233,
+    "x": 234,
     "y": 2,
     "w": 67,
     "h": 86
@@ -11,18 +11,18 @@
    "trimmed": true,
    "spriteSourceSize": {
     "x": 10,
-    "y": 8,
+    "y": 7,
     "w": 67,
     "h": 86
    },
    "sourceSize": {
-    "w": 81,
-    "h": 100
+    "w": 80,
+    "h": 101
    }
   },
   "mana_potion": {
    "frame": {
-    "x": 302,
+    "x": 303,
     "y": 2,
     "w": 67,
     "h": 86
@@ -31,18 +31,18 @@
    "trimmed": true,
    "spriteSourceSize": {
     "x": 8,
-    "y": 8,
+    "y": 7,
     "w": 67,
     "h": 86
    },
    "sourceSize": {
-    "w": 81,
-    "h": 100
+    "w": 80,
+    "h": 101
    }
   },
   "ember_heart": {
    "frame": {
-    "x": 371,
+    "x": 372,
     "y": 2,
     "w": 80,
     "h": 77
@@ -51,13 +51,13 @@
    "trimmed": true,
    "spriteSourceSize": {
     "x": 0,
-    "y": 16,
+    "y": 15,
     "w": 80,
     "h": 77
    },
    "sourceSize": {
-    "w": 81,
-    "h": 100
+    "w": 80,
+    "h": 101
    }
   },
   "wolf_fang": {
@@ -71,13 +71,13 @@
    "trimmed": true,
    "spriteSourceSize": {
     "x": 23,
-    "y": 5,
+    "y": 4,
     "w": 45,
     "h": 91
    },
    "sourceSize": {
-    "w": 81,
-    "h": 100
+    "w": 80,
+    "h": 101
    }
   },
   "mirror_eye": {
@@ -85,7 +85,7 @@
     "x": 2,
     "y": 2,
     "w": 57,
-    "h": 99
+    "h": 100
    },
    "rotated": false,
    "trimmed": true,
@@ -93,18 +93,18 @@
     "x": 14,
     "y": 0,
     "w": 57,
-    "h": 99
+    "h": 100
    },
    "sourceSize": {
-    "w": 81,
-    "h": 100
+    "w": 80,
+    "h": 101
    }
   },
   "essence": {
    "frame": {
     "x": 184,
     "y": 2,
-    "w": 47,
+    "w": 48,
     "h": 90
    },
    "rotated": false,
@@ -112,12 +112,12 @@
    "spriteSourceSize": {
     "x": 17,
     "y": 4,
-    "w": 47,
+    "w": 48,
     "h": 90
    },
    "sourceSize": {
-    "w": 81,
-    "h": 100
+    "w": 80,
+    "h": 101
    }
   },
   "shards": {
@@ -136,8 +136,8 @@
     "h": 93
    },
    "sourceSize": {
-    "w": 81,
-    "h": 100
+    "w": 80,
+    "h": 101
    }
   }
  },
@@ -147,7 +147,7 @@
   "format": "RGBA8888",
   "size": {
    "w": 512,
-   "h": 103
+   "h": 104
   },
   "scale": "1"
  }

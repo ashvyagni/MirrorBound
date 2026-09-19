@@ -4,7 +4,7 @@
    "frame": {
     "x": 2,
     "y": 2,
-    "w": 172,
+    "w": 173,
     "h": 182
    },
    "rotated": false,
@@ -12,19 +12,19 @@
    "spriteSourceSize": {
     "x": 0,
     "y": 6,
-    "w": 172,
+    "w": 173,
     "h": 182
    },
    "sourceSize": {
-    "w": 191,
+    "w": 193,
     "h": 188
    }
   },
   "victory": {
    "frame": {
-    "x": 176,
+    "x": 177,
     "y": 2,
-    "w": 181,
+    "w": 182,
     "h": 179
    },
    "rotated": false,
@@ -32,17 +32,17 @@
    "spriteSourceSize": {
     "x": 10,
     "y": 0,
-    "w": 181,
+    "w": 182,
     "h": 179
    },
    "sourceSize": {
-    "w": 191,
+    "w": 193,
     "h": 188
    }
   },
   "levelUp": {
    "frame": {
-    "x": 359,
+    "x": 361,
     "y": 2,
     "w": 130,
     "h": 178
@@ -50,13 +50,13 @@
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 29,
+    "x": 30,
     "y": 6,
     "w": 130,
     "h": 178
    },
    "sourceSize": {
-    "w": 191,
+    "w": 193,
     "h": 188
    }
   }

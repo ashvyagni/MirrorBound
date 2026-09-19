@@ -430,6 +430,9 @@ export interface InputMessage {
   attack: boolean;
   run: boolean;
   ability: number | null;
+  /** Where the cursor is, as a unit vector from the player. Zero for none. */
+  aimX: number;
+  aimY: number;
   seq?: number;
 }
 

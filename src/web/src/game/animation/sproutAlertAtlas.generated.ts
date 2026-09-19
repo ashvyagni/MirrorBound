@@ -7,13 +7,13 @@ export const SPROUTALERT_TEXTURE_KEY = "sproutAlert" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const SPROUTALERT_BODY_RATIO = 0.69432 as const;
+export const SPROUTALERT_BODY_RATIO = 0.69118 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const SPROUTALERT_FRAME_SIZE = { width: 371, height: 440 } as const;
+export const SPROUTALERT_FRAME_SIZE = { width: 372, height: 442 } as const;
 
 /** Origin on the body centre and its feet. */
-export const SPROUTALERT_ANCHOR = { x: 0.45822, y: 0.99773 } as const;
+export const SPROUTALERT_ANCHOR = { x: 0.45968, y: 0.99548 } as const;
 
 export const SPROUTALERT_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

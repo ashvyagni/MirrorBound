@@ -7,13 +7,13 @@ export const SCARABIDLE_TEXTURE_KEY = "scarabIdle" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const SCARABIDLE_BODY_RATIO = 0.92446 as const;
+export const SCARABIDLE_BODY_RATIO = 0.91135 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const SCARABIDLE_FRAME_SIZE = { width: 336, height: 139 } as const;
+export const SCARABIDLE_FRAME_SIZE = { width: 336, height: 141 } as const;
 
 /** Origin on the body centre and its feet. */
-export const SCARABIDLE_ANCHOR = { x: 0.49702, y: 0.98561 } as const;
+export const SCARABIDLE_ANCHOR = { x: 0.49702, y: 0.97872 } as const;
 
 export const SCARABIDLE_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

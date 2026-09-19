@@ -10,10 +10,10 @@ export const WARDENALERT_TEXTURE_KEY = "wardenAlert" as const;
 export const WARDENALERT_BODY_RATIO = 0.93294 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const WARDENALERT_FRAME_SIZE = { width: 350, height: 507 } as const;
+export const WARDENALERT_FRAME_SIZE = { width: 351, height: 507 } as const;
 
 /** Origin on the body centre and its feet. */
-export const WARDENALERT_ANCHOR = { x: 0.48571, y: 0.96252 } as const;
+export const WARDENALERT_ANCHOR = { x: 0.48433, y: 0.96252 } as const;
 
 export const WARDENALERT_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

@@ -7,10 +7,10 @@ export const DOORS_TEXTURE_KEY = "doors" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const DOORS_BODY_RATIO = 1.00000 as const;
+export const DOORS_BODY_RATIO = 0.99660 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const DOORS_FRAME_SIZE = { width: 237, height: 146 } as const;
+export const DOORS_FRAME_SIZE = { width: 237, height: 147 } as const;
 
 /** Origin on the body centre and its feet. */
 export const DOORS_ANCHOR = { x: 0.48945, y: 1.00000 } as const;

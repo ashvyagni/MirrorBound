@@ -3,17 +3,17 @@
   "xpTrough": {
    "frame": {
     "x": 2,
-    "y": 201,
+    "y": 202,
     "w": 174,
-    "h": 21
+    "h": 22
    },
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 2,
-    "y": 88,
+    "x": 1,
+    "y": 87,
     "w": 174,
-    "h": 21
+    "h": 22
    },
    "sourceSize": {
     "w": 177,
@@ -22,18 +22,18 @@
   },
   "toast": {
    "frame": {
-    "x": 296,
+    "x": 297,
     "y": 2,
-    "w": 167,
-    "h": 68
+    "w": 168,
+    "h": 69
    },
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 5,
+    "x": 4,
     "y": 64,
-    "w": 167,
-    "h": 68
+    "w": 168,
+    "h": 69
    },
    "sourceSize": {
     "w": 177,
@@ -45,7 +45,7 @@
     "x": 148,
     "y": 2,
     "w": 108,
-    "h": 108
+    "h": 109
    },
    "rotated": false,
    "trimmed": true,
@@ -53,7 +53,7 @@
     "x": 34,
     "y": 44,
     "w": 108,
-    "h": 108
+    "h": 109
    },
    "sourceSize": {
     "w": 177,
@@ -65,7 +65,7 @@
     "x": 32,
     "y": 2,
     "w": 114,
-    "h": 114
+    "h": 115
    },
    "rotated": false,
    "trimmed": true,
@@ -73,7 +73,7 @@
     "x": 31,
     "y": 42,
     "w": 114,
-    "h": 114
+    "h": 115
    },
    "sourceSize": {
     "w": 177,
@@ -85,7 +85,7 @@
     "x": 2,
     "y": 2,
     "w": 28,
-    "h": 197
+    "h": 198
    },
    "rotated": false,
    "trimmed": true,
@@ -93,7 +93,7 @@
     "x": 74,
     "y": 0,
     "w": 28,
-    "h": 197
+    "h": 198
    },
    "sourceSize": {
     "w": 177,
@@ -104,16 +104,16 @@
    "frame": {
     "x": 258,
     "y": 2,
-    "w": 36,
-    "h": 92
+    "w": 37,
+    "h": 94
    },
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
     "x": 70,
     "y": 52,
-    "w": 36,
-    "h": 92
+    "w": 37,
+    "h": 94
    },
    "sourceSize": {
     "w": 177,
@@ -123,17 +123,17 @@
   "divider": {
    "frame": {
     "x": 178,
-    "y": 201,
+    "y": 202,
     "w": 176,
-    "h": 9
+    "h": 10
    },
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
     "x": 0,
-    "y": 93,
+    "y": 92,
     "w": 176,
-    "h": 9
+    "h": 10
    },
    "sourceSize": {
     "w": 177,
@@ -147,7 +147,7 @@
   "format": "RGBA8888",
   "size": {
    "w": 512,
-   "h": 224
+   "h": 226
   },
   "scale": "1"
  }

@@ -107,7 +107,7 @@ SHADOW_DASH = AbilityDef(
     id="shadow_dash",
     name="Shadow Dash",
     type=AbilityType.DASH,
-    slot=3,
+    slot=4,
     icon="shadow_dash",
     cooldown=2.6,
     cost=10,
@@ -128,7 +128,7 @@ BINDING_NOVA = AbilityDef(
     id="binding_nova",
     name="Binding Nova",
     type=AbilityType.NOVA,
-    slot=4,
+    slot=3,
     icon="binding_nova",
     cooldown=8.0,
     cost=28,
@@ -188,13 +188,56 @@ AEGIS = AbilityDef(
     description="A ward that cuts incoming damage by 40% for five seconds.",
 )
 
+ARROW_VOLLEY = AbilityDef(
+    id="arrow_volley",
+    name="Arrow Volley",
+    type=AbilityType.PROJECTILE,
+    slot=1,
+    icon="arrow_volley",
+    cooldown=2.4,
+    cost=12,
+    cast_time=0.0,
+    range=480,
+    damage=15,
+    area=0,
+    tags=("RANGED", "PHYSICAL"),
+    projectile=ProjectileSpec(kind="arrow", speed=620, radius=6, lifetime=1.0, pierce=False),
+    vfx="arrow",
+    sound="bow",
+    description="A fast arrow loosed in your facing direction.",
+)
+
+FLAME_PILLAR = AbilityDef(
+    id="flame_pillar",
+    name="Flame Pillar",
+    type=AbilityType.NOVA,
+    slot=2,
+    icon="flame_pillar",
+    cooldown=6.5,
+    cost=24,
+    cast_time=0.25,
+    range=0,
+    damage=34,
+    area=120,
+    tags=("AOE", "SPELL", "FIRE"),
+    vfx="fire",
+    sound="fire",
+    description="A column of fire erupts around you.",
+)
+
+
 ABILITIES: dict[str, AbilityDef] = {
-    a.id: a for a in (ARCANE_BOLT, FLAME_BURST, SHADOW_DASH, BINDING_NOVA, MENDING_LIGHT, AEGIS)
+    a.id: a for a in (ARCANE_BOLT, FLAME_BURST, SHADOW_DASH, BINDING_NOVA, MENDING_LIGHT, AEGIS,
+                      ARROW_VOLLEY, FLAME_PILLAR)
 }
 
-DEFAULT_SLOTS: tuple[str, str, str, str] = (
-    ARCANE_BOLT.id, FLAME_BURST.id, SHADOW_DASH.id, BINDING_NOVA.id,
-)
+#: What you hold when nothing is equipped.
+#:
+#: Abilities belong to weapons now, not to the player -- see
+#: `WeaponDef.abilities`. This is the fallback for an empty pair of hands, and
+#: it is deliberately just the dash: with no weapon there is nothing to cast
+#: with, but there is always somewhere to be that is not here.
+DEFAULT_SLOTS: tuple[str, ...] = (SHADOW_DASH.id,)
 
 
 def get_ability(name: str) -> AbilityDef:

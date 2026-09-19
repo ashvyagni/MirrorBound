@@ -10,10 +10,10 @@ export const WARDENDEATH_TEXTURE_KEY = "wardenDeath" as const;
 export const WARDENDEATH_BODY_RATIO = 0.82618 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const WARDENDEATH_FRAME_SIZE = { width: 386, height: 489 } as const;
+export const WARDENDEATH_FRAME_SIZE = { width: 387, height: 489 } as const;
 
 /** Origin on the body centre and its feet. */
-export const WARDENDEATH_ANCHOR = { x: 0.52332, y: 0.99591 } as const;
+export const WARDENDEATH_ANCHOR = { x: 0.52455, y: 0.99591 } as const;
 
 export const WARDENDEATH_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

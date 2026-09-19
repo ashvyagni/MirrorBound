@@ -7,13 +7,13 @@ export const LIGHTS_TEXTURE_KEY = "lights" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const LIGHTS_BODY_RATIO = 0.64491 as const;
+export const LIGHTS_BODY_RATIO = 0.64145 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const LIGHTS_FRAME_SIZE = { width: 159, height: 226 } as const;
+export const LIGHTS_FRAME_SIZE = { width: 160, height: 228 } as const;
 
 /** Origin on the body centre and its feet. */
-export const LIGHTS_ANCHOR = { x: 0.40881, y: 1.00000 } as const;
+export const LIGHTS_ANCHOR = { x: 0.40625, y: 0.99561 } as const;
 
 export const LIGHTS_FRAMES = {
   a: ["brazier0", "candles0", "candles1", "torch0"],

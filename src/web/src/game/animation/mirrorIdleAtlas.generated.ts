@@ -7,13 +7,13 @@ export const MIRRORIDLE_TEXTURE_KEY = "mirrorIdle" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const MIRRORIDLE_BODY_RATIO = 0.93713 as const;
+export const MIRRORIDLE_BODY_RATIO = 0.93526 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const MIRRORIDLE_FRAME_SIZE = { width: 318, height: 501 } as const;
+export const MIRRORIDLE_FRAME_SIZE = { width: 318, height: 502 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const MIRRORIDLE_ANCHOR = { x: 0.50629, y: 0.49701 } as const;
+export const MIRRORIDLE_ANCHOR = { x: 0.50629, y: 0.49602 } as const;
 
 export const MIRRORIDLE_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

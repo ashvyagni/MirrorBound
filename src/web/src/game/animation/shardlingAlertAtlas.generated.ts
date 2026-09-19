@@ -7,13 +7,13 @@ export const SHARDLINGALERT_TEXTURE_KEY = "shardlingAlert" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const SHARDLINGALERT_BODY_RATIO = 0.85691 as const;
+export const SHARDLINGALERT_BODY_RATIO = 0.85942 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const SHARDLINGALERT_FRAME_SIZE = { width: 382, height: 311 } as const;
+export const SHARDLINGALERT_FRAME_SIZE = { width: 383, height: 313 } as const;
 
 /** Origin on the body centre and its feet. */
-export const SHARDLINGALERT_ANCHOR = { x: 0.53403, y: 0.98392 } as const;
+export const SHARDLINGALERT_ANCHOR = { x: 0.53525, y: 0.98403 } as const;
 
 export const SHARDLINGALERT_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

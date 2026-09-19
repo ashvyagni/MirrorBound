@@ -7,13 +7,13 @@ export const ICESTAFFIDLE_TEXTURE_KEY = "iceStaffIdle" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const ICESTAFFIDLE_BODY_RATIO = 0.95455 as const;
+export const ICESTAFFIDLE_BODY_RATIO = 0.95151 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const ICESTAFFIDLE_FRAME_SIZE = { width: 184, height: 462 } as const;
+export const ICESTAFFIDLE_FRAME_SIZE = { width: 185, height: 464 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const ICESTAFFIDLE_ANCHOR = { x: 0.53261, y: 0.54113 } as const;
+export const ICESTAFFIDLE_ANCHOR = { x: 0.52973, y: 0.54310 } as const;
 
 export const ICESTAFFIDLE_FRAMES = {
   swing: ["swing-00", "swing-01", "swing-02", "swing-03"],

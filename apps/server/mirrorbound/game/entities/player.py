@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from mirrorbound.game.combat.abilities import ABILITIES, AbilityDef
-from mirrorbound.game.combat.weapons import STARTING_WEAPON, WeaponDef, get_weapon
+from mirrorbound.game.combat.weapons import BARE_HANDS, STARTING_WEAPON, WeaponDef, get_weapon
 from mirrorbound.game.entities.entity import Entity, Vec2
 from mirrorbound.game.inventory import Inventory
 from mirrorbound.game.progression.progression import MAX_LEVEL, level_up_rewards, xp_to_next
@@ -20,8 +20,10 @@ class PlayerInput:
     attack: bool = False
     run: bool = False
     ability: int | None = None      # slot 1-4 pressed this tick
-    # Legacy field: ignored for aiming (facing comes from movement) but kept so
-    # older clients don't fail validation.
+    #: Unit vector toward the cursor. Zero when the client has none to send.
+    aim_x: float = 0.0
+    aim_y: float = 0.0
+    # Legacy field, kept so older clients do not fail validation.
     aim_angle: float = 0.0
 
 
@@ -91,7 +93,8 @@ class Player(Entity):
         self.max_health = self.base_max_health
         self.health = self.max_health
         self.mana = self.base_max_mana
-        self.inventory.add_weapon(STARTING_WEAPON)
+        if STARTING_WEAPON:
+            self.inventory.add_weapon(STARTING_WEAPON)
 
     # --- derived stats ---------------------------------------------------------
 
@@ -117,7 +120,13 @@ class Player(Entity):
 
     @property
     def weapon(self) -> WeaponDef:
-        return get_weapon(self.inventory.equipped_weapon or STARTING_WEAPON)
+        """What is actually swinging. Empty hands are a weapon too.
+
+        `BARE_HANDS` rather than a null: every combat path reads exactly one
+        `WeaponDef`, and giving unarmed a real definition means none of them
+        had to learn about not having one.
+        """
+        return get_weapon(self.inventory.equipped_weapon or BARE_HANDS.id)
 
     @property
     def current_weapon(self) -> str:
@@ -171,7 +180,24 @@ class Player(Entity):
         self.velocity = move * top
         if not move.is_zero():
             self.last_move_dir = move
-            # The player's latest meaningful movement direction is their facing.
+
+        # Where you point is where the cursor is, not where you are walking.
+        #
+        # That separation is what makes a top-down game feel aimed rather than
+        # driven: you can back away from something while still hitting it, and
+        # a spell goes where you were looking instead of where your last
+        # keypress happened to send you. Everything downstream -- the melee
+        # arc, the projectile's heading, which way the sprite is drawn --
+        # already reads `facing`, so pointing it at the cursor aims all of them
+        # at once.
+        #
+        # Movement is the fallback, for a client that sends no cursor (or a
+        # player using only the keyboard), so the old behaviour is still there
+        # underneath rather than replaced.
+        aim = Vec2(inp.aim_x, inp.aim_y)
+        if not aim.is_zero():
+            self.face(aim)
+        elif not move.is_zero():
             self.face(move)
 
     # --- state machine ----------------------------------------------------------

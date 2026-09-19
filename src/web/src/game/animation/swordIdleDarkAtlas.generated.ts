@@ -7,13 +7,13 @@ export const SWORDIDLEDARK_TEXTURE_KEY = "swordIdleDark" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const SWORDIDLEDARK_BODY_RATIO = 0.87309 as const;
+export const SWORDIDLEDARK_BODY_RATIO = 0.87002 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const SWORDIDLEDARK_FRAME_SIZE = { width: 145, height: 524 } as const;
+export const SWORDIDLEDARK_FRAME_SIZE = { width: 152, height: 527 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const SWORDIDLEDARK_ANCHOR = { x: 0.49655, y: 0.61069 } as const;
+export const SWORDIDLEDARK_ANCHOR = { x: 0.51316, y: 0.58065 } as const;
 
 export const SWORDIDLEDARK_FRAMES = {
   swing: ["swing-00", "swing-01", "swing-02", "swing-03"],

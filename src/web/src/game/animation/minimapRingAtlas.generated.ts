@@ -7,13 +7,13 @@ export const MINIMAPRING_TEXTURE_KEY = "minimapRing" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const MINIMAPRING_BODY_RATIO = 0.99832 as const;
+export const MINIMAPRING_BODY_RATIO = 0.99581 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const MINIMAPRING_FRAME_SIZE = { width: 301, height: 297 } as const;
+export const MINIMAPRING_FRAME_SIZE = { width: 301, height: 298 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const MINIMAPRING_ANCHOR = { x: 0.49834, y: 0.50168 } as const;
+export const MINIMAPRING_ANCHOR = { x: 0.49834, y: 0.50000 } as const;
 
 export const MINIMAPRING_FRAMES = {
   ring: ["ring"],

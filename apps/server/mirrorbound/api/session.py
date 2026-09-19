@@ -348,7 +348,7 @@ class GameSession:
         if isinstance(parsed, InputMessage):
             inp = PlayerInput(
                 move_x=parsed.moveX, move_y=parsed.moveY, attack=parsed.attack, run=parsed.run,
-                ability=parsed.ability,
+                ability=parsed.ability, aim_x=parsed.aimX, aim_y=parsed.aimY,
             )
             # Edge-triggered flags must not be lost if two client frames land
             # between two server ticks.
@@ -493,7 +493,11 @@ class GameSession:
         the client is told why rather than being left to wonder.
         """
         state = self.state
-        if state.room.safe:
+        # `safe` is a snapshot field, not a model one -- the model spells it
+        # `room_type`. Reading the snapshot's name off the Room raised inside
+        # the tick, which stopped snapshots entirely and froze the client with
+        # everything standing where it was.
+        if state.room.room_type == "village":
             state.emit("ACTION_REJECTED", actor=state.player.id, action="SPAWN",
                        reason="not in a village")
             return

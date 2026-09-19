@@ -1,7 +1,7 @@
 from mirrorbound.api.session import GameSession
 from mirrorbound.game.entities.entity import Vec2
 from mirrorbound.game.entities.player import PlayerInput
-from tests.conftest import DT, events_of, run_ticks
+from tests.conftest import arm, DT, events_of, run_ticks
 
 
 def fresh() -> GameSession:
@@ -38,6 +38,8 @@ def test_melee_swing_hits_only_in_facing_direction():
 def test_combo_chain_advances_and_finisher_hits_harder():
     s = fresh()
     p = s.state.player
+    # The three-hit chain is the sword's; bare hands only swing twice.
+    arm(s, "iron_sword")
     p.face(Vec2(1, 0))
     e = place_enemy(s, "slime", Vec2(40, 0))
     e.max_health = e.health = 10_000
@@ -98,35 +100,39 @@ def test_ember_staff_costs_mana_and_bursts_on_impact():
 def test_arcane_bolt_and_flame_burst_and_nova():
     s = fresh()
     p = s.state.player
+    # Both staves: fire fills keys one and two, frost fills three and four.
+    arm(s, "ember_staff", "frost_staff")
     p.face(Vec2(1, 0))
     near = place_enemy(s, "skeleton", Vec2(90, 10))
     around = place_enemy(s, "skeleton", Vec2(-80, 60))
-    # Flame burst: cone in front only.
-    assert s.combat.process_ability(s.state, 2)
+    # Flame burst: cone in front only. Key one, from the staff in hand.
+    assert s.combat.process_ability(s.state, 1)
     assert near.health < near.max_health and around.health == around.max_health
     cast = events_of(s, "PLAYER_ABILITY_CAST")[-1]
     assert cast.data["ability"] == "FLAME_BURST" and near.id in cast.data["targets"]
     p.state = "idle"
-    # Nova: radial, slows.
-    assert s.combat.process_ability(s.state, 4)
+    # Nova: radial, slows. Key three -- the frost staff's first.
+    assert s.combat.process_ability(s.state, 3)
     assert around.health < around.max_health
     assert "slow" in around.status_effects and around.slow_factor < 1
     p.state = "idle"
-    # Arcane bolt: a projectile appears.
-    assert s.combat.process_ability(s.state, 1)
+    # Arcane bolt: a projectile appears. Key four, the frost staff's second.
+    assert s.combat.process_ability(s.state, 4)
     assert any(pr.kind == "arcane_bolt" for pr in s.state.projectiles)
 
 
 def test_shadow_dash_emits_dash_and_dodge_telemetry():
     s = fresh()
     p = s.state.player
+    # The sword's pair: guard on one, the step on two.
+    arm(s, "iron_sword")
     p.apply_input(DT, PlayerInput(move_x=1))
     e = place_enemy(s, "skeleton", Vec2(30, 0))
     from mirrorbound.game.entities.enemy import EnemyState
     e.state = EnemyState.ATTACK
     e.windup_timer = 0.3
     e.target_id = p.id
-    assert s.combat.process_ability(s.state, 3)
+    assert s.combat.process_ability(s.state, 2)
     assert p.state == "dash"
     assert events_of(s, "PLAYER_DASHED")[0].data["action_token"] == "DASH"
     assert events_of(s, "PLAYER_DODGED")
@@ -134,8 +140,9 @@ def test_shadow_dash_emits_dash_and_dodge_telemetry():
 
 def test_ability_rejected_without_mana_emits_event():
     s = fresh()
+    arm(s, "ember_staff")
     s.state.player.mana = 0
-    assert not s.combat.process_ability(s.state, 2)
+    assert not s.combat.process_ability(s.state, 1)
     rej = events_of(s, "ACTION_REJECTED")
     assert rej and rej[0].data["reason"] == "mana"
 

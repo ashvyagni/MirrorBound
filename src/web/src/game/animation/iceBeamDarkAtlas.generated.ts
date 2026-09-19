@@ -7,13 +7,13 @@ export const ICEBEAMDARK_TEXTURE_KEY = "iceBeamDark" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const ICEBEAMDARK_BODY_RATIO = 0.97479 as const;
+export const ICEBEAMDARK_BODY_RATIO = 0.97287 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const ICEBEAMDARK_FRAME_SIZE = { width: 756, height: 119 } as const;
+export const ICEBEAMDARK_FRAME_SIZE = { width: 762, height: 129 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const ICEBEAMDARK_ANCHOR = { x: 0.49735, y: 0.49580 } as const;
+export const ICEBEAMDARK_ANCHOR = { x: 0.49869, y: 0.49612 } as const;
 
 export const ICEBEAMDARK_FRAMES = {
   cast: ["cast-00", "cast-01"],

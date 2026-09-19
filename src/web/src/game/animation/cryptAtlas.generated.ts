@@ -7,13 +7,13 @@ export const CRYPT_TEXTURE_KEY = "crypt" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const CRYPT_BODY_RATIO = 0.92006 as const;
+export const CRYPT_BODY_RATIO = 0.92297 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
 export const CRYPT_FRAME_SIZE = { width: 166, height: 172 } as const;
 
 /** Origin on the body centre and its feet. */
-export const CRYPT_ANCHOR = { x: 0.48193, y: 0.99419 } as const;
+export const CRYPT_ANCHOR = { x: 0.48795, y: 0.99419 } as const;
 
 export const CRYPT_FRAMES = {
   a: ["gravestone0", "gravestone1", "gravestone2", "bones0"],

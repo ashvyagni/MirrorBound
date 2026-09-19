@@ -7,13 +7,13 @@ export const PORTRAITRING_TEXTURE_KEY = "portraitRing" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const PORTRAITRING_BODY_RATIO = 0.99498 as const;
+export const PORTRAITRING_BODY_RATIO = 0.99598 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
 export const PORTRAITRING_FRAME_SIZE = { width: 261, height: 249 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const PORTRAITRING_ANCHOR = { x: 0.49808, y: 0.49799 } as const;
+export const PORTRAITRING_ANCHOR = { x: 0.49808, y: 0.50201 } as const;
 
 export const PORTRAITRING_FRAMES = {
   ring: ["ring"],

@@ -7,10 +7,10 @@ export const WARDENHURT_TEXTURE_KEY = "wardenHurt" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const WARDENHURT_BODY_RATIO = 0.86354 as const;
+export const WARDENHURT_BODY_RATIO = 0.86383 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const WARDENHURT_FRAME_SIZE = { width: 339, height: 480 } as const;
+export const WARDENHURT_FRAME_SIZE = { width: 339, height: 481 } as const;
 
 /** Origin on the body centre and its feet. */
 export const WARDENHURT_ANCHOR = { x: 0.48968, y: 0.99792 } as const;

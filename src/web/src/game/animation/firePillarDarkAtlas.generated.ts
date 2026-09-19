@@ -7,13 +7,13 @@ export const FIREPILLARDARK_TEXTURE_KEY = "firePillarDark" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const FIREPILLARDARK_BODY_RATIO = 0.83300 as const;
+export const FIREPILLARDARK_BODY_RATIO = 0.82966 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const FIREPILLARDARK_FRAME_SIZE = { width: 333, height: 497 } as const;
+export const FIREPILLARDARK_FRAME_SIZE = { width: 334, height: 499 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const FIREPILLARDARK_ANCHOR = { x: 0.59760, y: 0.49899 } as const;
+export const FIREPILLARDARK_ANCHOR = { x: 0.59581, y: 0.49900 } as const;
 
 export const FIREPILLARDARK_FRAMES = {
   cast: ["cast-00", "cast-01", "cast-02", "cast-03"],

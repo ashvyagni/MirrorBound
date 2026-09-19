@@ -7,13 +7,13 @@ export const SPROUTIDLE_TEXTURE_KEY = "sproutIdle" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const SPROUTIDLE_BODY_RATIO = 0.92937 as const;
+export const SPROUTIDLE_BODY_RATIO = 0.92522 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const SPROUTIDLE_FRAME_SIZE = { width: 316, height: 446 } as const;
+export const SPROUTIDLE_FRAME_SIZE = { width: 317, height: 448 } as const;
 
 /** Origin on the body centre and its feet. */
-export const SPROUTIDLE_ANCHOR = { x: 0.47468, y: 0.99776 } as const;
+export const SPROUTIDLE_ANCHOR = { x: 0.47634, y: 0.99554 } as const;
 
 export const SPROUTIDLE_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

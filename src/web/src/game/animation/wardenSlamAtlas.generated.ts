@@ -7,13 +7,13 @@ export const WARDENSLAM_TEXTURE_KEY = "wardenSlam" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const WARDENSLAM_BODY_RATIO = 0.91354 as const;
+export const WARDENSLAM_BODY_RATIO = 0.90825 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const WARDENSLAM_FRAME_SIZE = { width: 411, height: 480 } as const;
+export const WARDENSLAM_FRAME_SIZE = { width: 416, height: 485 } as const;
 
 /** Origin on the body centre and its feet. */
-export const WARDENSLAM_ANCHOR = { x: 0.53041, y: 0.98750 } as const;
+export const WARDENSLAM_ANCHOR = { x: 0.52644, y: 0.97938 } as const;
 
 export const WARDENSLAM_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

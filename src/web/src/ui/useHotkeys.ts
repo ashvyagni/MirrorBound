@@ -86,7 +86,7 @@ export function useHotkeys(): void {
           break;
         case 'skills':
           e.preventDefault();
-          toggleScreen('skills');
+          eventBus.emit('skills:toggle', {});
           break;
         case 'character':
           e.preventDefault();

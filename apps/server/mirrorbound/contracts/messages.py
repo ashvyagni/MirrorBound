@@ -15,6 +15,11 @@ class InputMessage(BaseModel):
     attack: bool = False
     run: bool = False
     ability: int | None = Field(None, ge=1, le=4)
+    # Where the cursor is, as a unit vector from the player. Attacks and spells
+    # go this way; movement no longer decides which way you are pointing.
+    # Zero means "no cursor", and facing falls back to the way you are walking.
+    aimX: float = Field(0.0, ge=-1.0, le=1.0)
+    aimY: float = Field(0.0, ge=-1.0, le=1.0)
     seq: int | None = None      # client sequence number, echoed for reconciliation
 
 

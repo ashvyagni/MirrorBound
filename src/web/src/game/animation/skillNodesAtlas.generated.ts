@@ -7,7 +7,7 @@ export const SKILLNODES_TEXTURE_KEY = "skillNodes" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const SKILLNODES_BODY_RATIO = 0.75850 as const;
+export const SKILLNODES_BODY_RATIO = 0.76214 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
 export const SKILLNODES_FRAME_SIZE = { width: 193, height: 206 } as const;

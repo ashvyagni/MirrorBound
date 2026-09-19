@@ -7,13 +7,13 @@ export const SCARABALERT_TEXTURE_KEY = "scarabAlert" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const SCARABALERT_BODY_RATIO = 0.83422 as const;
+export const SCARABALERT_BODY_RATIO = 0.82540 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const SCARABALERT_FRAME_SIZE = { width: 342, height: 187 } as const;
+export const SCARABALERT_FRAME_SIZE = { width: 343, height: 189 } as const;
 
 /** Origin on the body centre and its feet. */
-export const SCARABALERT_ANCHOR = { x: 0.48538, y: 0.98930 } as const;
+export const SCARABALERT_ANCHOR = { x: 0.48397, y: 0.98413 } as const;
 
 export const SCARABALERT_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

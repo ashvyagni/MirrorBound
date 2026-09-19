@@ -7,7 +7,7 @@ export const GLYPHS_TEXTURE_KEY = "glyphs" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const GLYPHS_BODY_RATIO = 0.83333 as const;
+export const GLYPHS_BODY_RATIO = 0.83494 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
 export const GLYPHS_FRAME_SIZE = { width: 79, height: 78 } as const;

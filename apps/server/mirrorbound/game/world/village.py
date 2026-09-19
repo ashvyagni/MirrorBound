@@ -14,6 +14,7 @@ from mirrorbound.game.dungeon.room import (
     T_DIRT,
     T_GRASS,
     T_PATH,
+    T_WATER,
     T_STONE,
     T_WALL,
     Decor,
@@ -87,14 +88,34 @@ def _paint_ground(room: Room, rng: DeterministicRNG) -> None:
     room.tiles = tiles
 
 
+def _off_road(room: Room, x: float, y: float) -> tuple[float, float]:
+    """The nearest spot to (x, y) that is not standing in a road.
+
+    Several NPCs are authored at fx=0.50, which is the crossroads exactly, so
+    the elder and the village fire pit were placed in the middle of the road.
+    Their positions are meant as "by the centre of the village", not "on the
+    tarmac", so the authored point is kept and nudged aside by up to two tiles
+    rather than re-authored.
+    """
+    if room.tile_at(x, y) not in (T_PATH, T_WATER):
+        return x, y
+    for step in range(1, 5):
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            nx, ny = x + dx * TILE * step * 0.75, y + dy * TILE * step * 0.75
+            if (TILE * 2 < nx < room.width - TILE * 2
+                    and TILE * 2 < ny < room.height - TILE * 2
+                    and room.tile_at(nx, ny) not in (T_PATH, T_WATER)):
+                return nx, ny
+    return x, y
+
+
 def _place_npcs(room: Room, area_id: str) -> None:
     for definition in VILLAGE_NPCS.get(area_id, ()):
-        room.npcs.append(Npc(definition=definition,
-                             x=definition.fx * room.width,
-                             y=definition.fy * room.height))
+        x, y = _off_road(room, definition.fx * room.width, definition.fy * room.height)
+        room.npcs.append(Npc(definition=definition, x=x, y=y))
         # An NPC is something you walk up to, not through.
-        room.decor.append(Decor(kind=definition.sprite, x=definition.fx * room.width,
-                                y=definition.fy * room.height, blocking=True, radius=14.0))
+        room.decor.append(Decor(kind=definition.sprite, x=x, y=y,
+                                blocking=True, radius=14.0))
 
 
 def _place_portals(room: Room, area_id: str) -> None:
@@ -125,9 +146,17 @@ def _decorate(room: Room, rng: DeterministicRNG) -> None:
             return False
         if pos.y < TILE * 2 or pos.y > room.height - TILE * 2:
             return False
-        # Keep the crossroads walkable.
-        if abs(pos.x - room.width / 2) < 70 or abs(pos.y - room.height / 2) < 70:
-            return False
+        # Nothing stands in a road. The dungeon generator has always checked
+        # the tile under a prop; this did not, and only kept the middle of the
+        # crossroads clear -- so a stall or a stack of crates could be dropped
+        # on the road anywhere else along it.
+        #
+        # Checked at the prop's edges as well as its centre, because a wide
+        # thing centred beside a road still sits across it.
+        for dx, dy in ((0.0, 0.0), (-radius, 0.0), (radius, 0.0), (0.0, -radius), (0.0, radius)):
+            tile = room.tile_at(pos.x + dx, pos.y + dy)
+            if tile in (T_PATH, T_WATER):
+                return False
         return all((pos - other).length() > radius + keep for other, keep in taken)
 
     def scatter(kind: str, count: int, blocking: bool, radius: float, variants: int = 3) -> None:
@@ -147,10 +176,15 @@ def _decorate(room: Room, rng: DeterministicRNG) -> None:
 
     for kind in _BUILDINGS:
         scatter(kind, rng.randint(1, 3), blocking=True, radius=26.0)
-    scatter("tree", 10 if room.biome == "grove" else 4, blocking=True, radius=22.0)
+    # Trees ring the village rather than dotting it, and there are enough of
+    # them to read as a treeline -- a handful scattered over 1600x1120 left
+    # whole quarters of the map as bare grass.
+    scatter("tree", 26 if room.biome == "grove" else 14, blocking=True, radius=22.0)
+    scatter("bush", 20, blocking=False, radius=10.0)
+    scatter("grass_tuft", 30, blocking=False, radius=8.0, variants=3)
+    scatter("flowers", 16, blocking=False, radius=8.0, variants=4)
     scatter("crate", 5, blocking=True, radius=16.0)
     scatter("torch", 8, blocking=False, radius=10.0)
-    scatter("bush", 12, blocking=False, radius=10.0)
 
 
 __all__ = ["build_village", "WIDTH", "HEIGHT"]

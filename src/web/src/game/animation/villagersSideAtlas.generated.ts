@@ -7,13 +7,13 @@ export const VILLAGERSSIDE_TEXTURE_KEY = "villagersSide" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const VILLAGERSSIDE_BODY_RATIO = 0.92308 as const;
+export const VILLAGERSSIDE_BODY_RATIO = 0.92918 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const VILLAGERSSIDE_FRAME_SIZE = { width: 201, height: 234 } as const;
+export const VILLAGERSSIDE_FRAME_SIZE = { width: 203, height: 233 } as const;
 
 /** Origin on the body centre and its feet. */
-export const VILLAGERSSIDE_ANCHOR = { x: 0.62189, y: 0.99573 } as const;
+export const VILLAGERSSIDE_ANCHOR = { x: 0.62069, y: 1.00000 } as const;
 
 export const VILLAGERSSIDE_FRAMES = {
   a: ["elder0", "smith0", "apothecary0", "hearth0"],

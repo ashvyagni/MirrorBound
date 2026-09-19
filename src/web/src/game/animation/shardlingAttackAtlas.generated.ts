@@ -7,7 +7,7 @@ export const SHARDLINGATTACK_TEXTURE_KEY = "shardlingAttack" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const SHARDLINGATTACK_BODY_RATIO = 0.86572 as const;
+export const SHARDLINGATTACK_BODY_RATIO = 0.87456 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
 export const SHARDLINGATTACK_FRAME_SIZE = { width: 444, height: 283 } as const;

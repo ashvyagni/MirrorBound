@@ -7,13 +7,13 @@ export const SCARABWALK_TEXTURE_KEY = "scarabWalk" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const SCARABWALK_BODY_RATIO = 0.96175 as const;
+export const SCARABWALK_BODY_RATIO = 0.95652 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const SCARABWALK_FRAME_SIZE = { width: 364, height: 183 } as const;
+export const SCARABWALK_FRAME_SIZE = { width: 365, height: 184 } as const;
 
 /** Origin on the body centre and its feet. */
-export const SCARABWALK_ANCHOR = { x: 0.52747, y: 0.98361 } as const;
+export const SCARABWALK_ANCHOR = { x: 0.52603, y: 0.97826 } as const;
 
 export const SCARABWALK_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],
