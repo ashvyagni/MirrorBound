@@ -185,6 +185,38 @@ export class TextureFactory {
       ctx.ellipse(32, 16, 31, 14, 0, 0, Math.PI * 2);
       ctx.fill();
     });
+    // Two shadows, because one ellipse cannot be both.
+    //
+    // A real shadow has two parts and they behave differently. Right where a
+    // thing meets the ground there is a small, dark, hard-edged contact patch
+    // -- that is the bit that makes an object look like it is *standing* on
+    // the floor rather than floating an inch above it. Away from that, the
+    // cast shadow is longer, much fainter, and soft at the edges.
+    //
+    // Drawing one mid-grey ellipse for both is what made the trees look stuck
+    // on: too dark to read as a cast shadow, too big and too symmetric to read
+    // as contact.
+    paint(this.scene, 'fx:contact', 64, 64, (ctx) => {
+      const g = ctx.createRadialGradient(32, 32, 1, 32, 32, 31);
+      g.addColorStop(0, 'rgba(0,0,0,0.55)');
+      g.addColorStop(0.55, 'rgba(0,0,0,0.34)');
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, 64, 64);
+    });
+    paint(this.scene, 'fx:cast', 128, 64, (ctx) => {
+      // Soft the whole way out, and faint: a cast shadow on grass in daylight
+      // is a tint, not a hole. The falloff starts immediately so there is no
+      // flat core to give away that this is one stretched ellipse.
+      const g = ctx.createRadialGradient(64, 32, 2, 64, 32, 62);
+      g.addColorStop(0, 'rgba(0,0,0,0.30)');
+      g.addColorStop(0.45, 'rgba(0,0,0,0.17)');
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.ellipse(64, 32, 63, 31, 0, 0, Math.PI * 2);
+      ctx.fill();
+    });
     paint(this.scene, 'fx:ring', 96, 96, (ctx) => {
       ctx.lineWidth = 5;
       ctx.strokeStyle = 'rgba(255,255,255,0.95)';

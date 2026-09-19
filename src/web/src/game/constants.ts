@@ -143,6 +143,18 @@ export const BIOMES = {
 export type BiomeName = keyof typeof BIOMES;
 
 
+/**
+ * Which way the world is lit, as an angle in radians.
+ *
+ * Every sheet in `Block 0-WORLD` is drawn with one soft light from the upper
+ * left -- highlights on upper-left faces, the shadow tone on lower-right ones.
+ * Shadows therefore fall down and to the right. It lives here rather than in
+ * either renderer because the props and the creatures have to agree: two
+ * light sources in one room is the thing that reads as wrong even when nobody
+ * can say why.
+ */
+export const LIGHT_ANGLE = Math.atan2(0.62, 0.78);
+
 // --- the interface --------------------------------------------------------
 //
 // Everything below is the in-canvas HUD's own geometry -- ring diameters, slot

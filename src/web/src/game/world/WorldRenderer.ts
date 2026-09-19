@@ -8,7 +8,7 @@
 
 import Phaser from 'phaser';
 
-import { BIOMES, DEPTH, TILE, type BiomeName } from '../constants';
+import { BIOMES, DEPTH, LIGHT_ANGLE, TILE, type BiomeName } from '../constants';
 import { isPerson, propArt, propArtSide } from './propArt';
 import type { DecorSnap, DoorSnap, RoomFull } from '../contracts';
 import type { Quality } from '../../ui/settings';
@@ -16,6 +16,11 @@ import { T, TextureFactory } from './TextureFactory';
 
 const SWAY_KINDS = new Set(['grass_tuft', 'flowers', 'bush', 'mushrooms']);
 const TREE_KINDS = new Set(['tree', 'tree_big']);
+
+/** Lying on the floor already; a flat thing casts nothing worth drawing. */
+const FLAT_KINDS: ReadonlySet<string> = new Set([
+  'flowers', 'grass_tuft', 'rubble', 'bones', 'pond', 'torch', 'candles',
+]);
 
 /** How close the player has to be before anyone turns to look, in world units. */
 const FACE_RANGE = 260;
@@ -193,28 +198,48 @@ export class WorldRenderer {
       // nothing else in here does.
       if (isPerson(d.kind)) this.people.push({ image: img, x: d.x, kind: d.kind, variant: d.variant, scale: d.scale, facing: 0 });
 
-      if (d.blocking && d.radius > 0) {
-        const shadow = this.scene.add.image(d.x, d.y - 2, 'fx:shadow').setDepth(DEPTH.shadow)
-          .setScale((d.radius * 2.6) / 64, (d.radius * 1.5) / 32).setAlpha(0.8);
-        this.#objects.push(shadow);
+      if (this.quality !== 'low') {
+        if (SWAY_KINDS.has(d.kind)) {
+          const seed = (d.x * 3 + d.y * 7) % 1000;
+          img.setOrigin(0.5, 1);
+          this.#tweens.push(this.scene.tweens.add({
+            targets: img, angle: { from: -3.5, to: 3.5 }, duration: 1600 + seed, delay: seed, yoyo: true, repeat: -1,
+            ease: 'Sine.easeInOut',
+          }));
+        } else if (TREE_KINDS.has(d.kind)) {
+          // Breathe around the size it was fitted to, not around 1.
+          //
+          // This used to set `scaleX` straight from `d.scale`, which was right
+          // when props were canvas textures painted at their world size -- the
+          // scale was only the server's little per-instance jitter. The sheets
+          // are ~190px a frame and `#fit` is what brings them down to a 104
+          // unit tree, so assigning `d.scale` here threw that away and drew
+          // every tree at twice the size, with a shadow measured off it.
+          const base = img.scaleY;
+          const flip = d.flip ? -1 : 1;
+          const seed = (d.x * 5 + d.y * 3) % 1400;
+          img.setFlipX(false);
+          img.setScale(base * flip, base);
+          this.#tweens.push(this.scene.tweens.add({
+            targets: img,
+            scaleX: { from: base * flip * 0.985, to: base * flip * 1.015 },
+            angle: { from: -0.8, to: 0.8 },
+            duration: 2600 + seed, delay: seed, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+          }));
+        }
       }
+
+      // Cast last, so it is measured against the size the prop ended up at --
+      // the tree branch above resets the scale, and a shadow taken before it
+      // would be sized for a tree that is no longer there.
+      //
+      // Everything standing up casts one, blocking or not: a bush has no
+      // collision and still sits on the floor. Only the flat things are
+      // skipped.
+      if (!FLAT_KINDS.has(d.kind)) this.#shadow(img, d.x, d.y);
+
       if (this.quality === 'low') continue;
-      if (SWAY_KINDS.has(d.kind)) {
-        const seed = (d.x * 3 + d.y * 7) % 1000;
-        img.setOrigin(0.5, 1);
-        this.#tweens.push(this.scene.tweens.add({
-          targets: img, angle: { from: -3.5, to: 3.5 }, duration: 1600 + seed, delay: seed, yoyo: true, repeat: -1,
-          ease: 'Sine.easeInOut',
-        }));
-      } else if (TREE_KINDS.has(d.kind)) {
-        const seed = (d.x * 5 + d.y * 3) % 1400;
-        this.#tweens.push(this.scene.tweens.add({
-          targets: img, scaleX: { from: d.scale * (d.flip ? -0.985 : 0.985), to: d.scale * (d.flip ? -1.015 : 1.015) },
-          angle: { from: -0.8, to: 0.8 }, duration: 2600 + seed, delay: seed, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
-        }));
-        img.setFlipX(false);
-        img.setScale(d.scale * (d.flip ? -1 : 1), d.scale);
-      } else if (d.kind === 'brazier' || d.kind === 'candles') {
+      if (d.kind === 'brazier' || d.kind === 'candles') {
         this.torches.push({ x: d.x, y: d.y - (d.kind === 'brazier' ? 40 : 10) });
         this.#fire(d.x, d.y - (d.kind === 'brazier' ? 40 : 8), d.kind === 'brazier' ? 1 : 0.45, ambient.fog);
       }
@@ -331,6 +356,63 @@ export class WorldRenderer {
       WorldRenderer.#fit(person.image, art.height, person.scale);
       person.image.setFlipX(next === -1);
     }
+  }
+
+  /**
+   * Put a prop on the ground.
+   *
+   * Two pieces, because one ellipse cannot do both jobs. The **contact** patch
+   * is small, dark and sits directly under the object: it is what makes a tree
+   * look like it is standing on the grass instead of pasted over it. The
+   * **cast** shadow is long, faint and thrown away from the light, and its
+   * length comes from how tall the thing is -- which is the part the old
+   * version had no way of knowing, because it sized both from the collision
+   * radius. A rock's radius is 18 and a pillar's is 16, so a 30-unit rock and
+   * a 118-unit pillar were casting the same shadow.
+   *
+   * Measured off `img`, after it has been fitted, so this reads the drawn size
+   * rather than anything declared about it.
+   */
+  #shadow(img: Phaser.GameObjects.Image, x: number, y: number): void {
+    // The *drawn* size, not `displayWidth`.
+    //
+    // Every frame on these sheets shares one padded source box -- 195x213 --
+    // and `displayWidth` measures that box, so a bush whose art is 112x72
+    // inside it reports 99x109. Sizing a shadow off that gave the bush one
+    // three times too big, which is most of why they read as wrong.
+    // `frame.width/height` is the trimmed cut: the art and nothing else.
+    // `abs`, because a flipped tree carries a negative scaleX.
+    const width = img.frame.width * Math.abs(img.scaleX);
+    const height = img.frame.height * Math.abs(img.scaleY);
+
+    // Thrown further by tall things and wider by broad ones. The height term
+    // decides how far it reaches; the width term keeps a low broad thing from
+    // casting a spike.
+    const reach = width * 0.34 + height * 0.30;
+
+    const cast = this.scene.add.image(x, y, 'fx:cast')
+      .setDepth(DEPTH.shadow)
+      // A third of it sits *under* the object and two thirds extend away.
+      //
+      // Anchored at its very end it detached: the whole ellipse lay beside the
+      // trunk and read as a separate grey blob dropped on the grass rather
+      // than as something the tree was casting. A shadow has to touch the
+      // thing making it, and on a canopy that means the pool under the leaves
+      // is part of the same shape.
+      .setOrigin(0.34, 0.5)
+      .setRotation(LIGHT_ANGLE)
+      .setDisplaySize(reach, width * 0.66)
+      .setAlpha(0.6);
+    this.#objects.push(cast);
+
+    // Tight and dark, where the thing actually meets the floor. Narrower than
+    // the cast pool on purpose -- a trunk touches the ground over a much
+    // smaller footprint than its canopy shades.
+    const contact = this.scene.add.image(x, y, 'fx:contact')
+      .setDepth(DEPTH.shadow)
+      .setDisplaySize(width * 0.34, width * 0.34 * 0.44)
+      .setAlpha(0.75);
+    this.#objects.push(contact);
   }
 
   destroy(): void {
