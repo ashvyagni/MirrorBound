@@ -19,6 +19,9 @@ const VARIANTS: Record<string, number> = {
   tree: 3, tree_big: 2, bush: 3, rock: 3, rock_big: 2, log: 1, flowers: 4, grass_tuft: 3, mushrooms: 2,
   pillar: 2, broken_pillar: 2, crate: 2, chest: 1, statue: 1, rubble: 3, bones: 2, gravestone: 3,
   brazier: 1, candles: 2, torch: 2, well: 1,
+  // Villages: people and the buildings they live in.
+  npc_elder: 1, npc_smith: 1, npc_apothecary: 1, hearth: 1,
+  hut: 3, hut_big: 1, forge: 1, stall: 1, banner: 1,
 };
 
 export interface TorchLight { x: number; y: number }

@@ -9,6 +9,14 @@
  * painted texture the whole game used before, so a new enemy type on the server
  * shows up as plain art rather than as a crash or a hole.
  *
+ * The same fallback covers the gap while a room's sheets are still coming down
+ * the wire. Enemy atlases load per room now, and a snapshot can arrive with
+ * enemies in it before their family has landed, so every enemy starts on the
+ * painted texture and `adoptArt` swaps it for the real sheets the moment they
+ * are ready. Nothing is ever invisible or zero-sized: the stand-in is drawn at
+ * the right size from the first frame, and the swap keeps its position, facing
+ * and state.
+ *
  * Every readability feature outranks the art: the wind-up telegraph, the hit
  * flash, the slow and burn tints, the health bar, the elite ring, the boss aura
  * and the death squash all survive unchanged, and the telegraph is drawn on its
@@ -18,7 +26,8 @@
 import Phaser from 'phaser';
 
 import {
-  ALERT_MARK, ENEMY_ART, hasEnemyArt, type EnemyArt, type EnemySheet, type EnemyStateName,
+  ALERT_MARK, ENEMY_ART, ENEMY_STATES, hasEnemyArt,
+  type EnemyArt, type EnemySheet, type EnemyStateName,
 } from '../animation/enemyClips';
 import { animationKey } from '../animation/clips';
 import { GOAT_BODY_RATIO } from '../animation/goatAtlas.generated';
@@ -45,13 +54,14 @@ function reportMissingArt(sprite: string): void {
 }
 
 export class EnemyView extends EntityView {
-  readonly sprite: Phaser.GameObjects.Sprite | Phaser.GameObjects.Image;
+  /** Swapped out by `adoptArt` when the real sheets arrive, hence not readonly. */
+  #sprite: Phaser.GameObjects.Sprite | Phaser.GameObjects.Image;
   readonly #bar: Phaser.GameObjects.Graphics;
   readonly #telegraph: Phaser.GameObjects.Graphics;
   #ring: Phaser.GameObjects.Image | null = null;
   #aura: Phaser.GameObjects.Image | null = null;
-  /** Null when this enemy is falling back to the painted texture. */
-  readonly #art: EnemyArt | null;
+  /** Null while this enemy is on the painted texture. */
+  #art: EnemyArt | null = null;
   #mark: Phaser.GameObjects.Sprite | null = null;
   #markTween: Phaser.Tweens.Tween | null = null;
   #state: EnemyStateName = 'idle';
@@ -69,28 +79,15 @@ export class EnemyView extends EntityView {
     super(scene, snap.id, snap.position, snap.boss ? 1.4 : snap.elite ? 1.1 : 0.85);
     this.snap = snap;
     this.#lastHealth = snap.health;
-    const art = hasEnemyArt(snap.sprite) && scene.textures.exists(ENEMY_ART[snap.sprite].idle.texture)
-      ? (ENEMY_ART[snap.sprite] as EnemyArt)
-      : null;
-    this.#art = art;
 
-    if (art) {
-      const sheet = art.idle;
-      this.#baseScale = this.#scaleFor(sheet);
-      this.#bodyHeight = sheet.frameSize.height * sheet.bodyRatio * this.#baseScale;
-      const sprite = scene.add.sprite(snap.position.x, snap.position.y, sheet.texture, sheet.frames[0]);
-      // Anchored on the sheet's own measured feet, so the creature stands on
-      // its position instead of hovering over it.
-      sprite.setOrigin(sheet.anchor.x, sheet.anchor.y).setScale(this.#baseScale);
-      sprite.play(animationKey(sheet.texture, 'play'));
-      this.sprite = sprite;
-    } else {
-      if (!hasEnemyArt(snap.sprite)) reportMissingArt(snap.sprite);
-      const key = scene.textures.exists(`enemy:${snap.sprite}`) ? `enemy:${snap.sprite}` : 'enemy:skeleton';
-      this.#baseScale = (PAINTED_SIZE[snap.sprite] ?? 1) * (snap.elite ? 1.22 : 1) * (snap.boss ? 1.25 : 1);
-      this.sprite = scene.add.image(snap.position.x, snap.position.y, key).setOrigin(0.5, 0.92).setScale(this.#baseScale);
-      this.#bodyHeight = this.sprite.displayHeight;
-    }
+    if (!hasEnemyArt(snap.sprite)) reportMissingArt(snap.sprite);
+    const key = scene.textures.exists(`enemy:${snap.sprite}`) ? `enemy:${snap.sprite}` : 'enemy:skeleton';
+    this.#baseScale = (PAINTED_SIZE[snap.sprite] ?? 1) * (snap.elite ? 1.22 : 1) * (snap.boss ? 1.25 : 1);
+    this.#sprite = scene.add.image(snap.position.x, snap.position.y, key).setOrigin(0.5, 0.92).setScale(this.#baseScale);
+    this.#bodyHeight = this.#sprite.displayHeight;
+    // The sheets may already be in the cache -- a room re-entered, or a family
+    // this area shares -- in which case this upgrades before the first frame.
+    this.adoptArt();
 
     this.#bar = scene.add.graphics().setDepth(DEPTH.fxHigh);
     // Under the entity band: the telegraph is floor paint, so nothing the art
@@ -106,6 +103,56 @@ export class EnemyView extends EntityView {
     }
   }
 
+  get sprite(): Phaser.GameObjects.Sprite | Phaser.GameObjects.Image {
+    return this.#sprite;
+  }
+
+  /** Whether this enemy is still standing in with the painted texture. */
+  get painted(): boolean {
+    return this.#art === null;
+  }
+
+  /**
+   * Swap the painted stand-in for Logesh's sheets once they are in the cache.
+   *
+   * Idempotent and safe to call on anything: an enemy with no art at all, one
+   * already upgraded, or one mid-death all decline. Everything that made the
+   * old sprite readable is re-derived rather than copied -- position, depth,
+   * tint and scale are all reapplied by `update` on the next frame, and the
+   * state is re-resolved from the snapshot -- so the swap cannot leave a
+   * half-configured sprite behind.
+   */
+  adoptArt(): void {
+    if (this.#art !== null || this.#dying) return;
+    if (!hasEnemyArt(this.snap.sprite)) return;
+    const art = ENEMY_ART[this.snap.sprite] as EnemyArt;
+    // Every state, not just idle: a partly loaded family would otherwise swap
+    // in and then fail to find a sheet the moment the enemy moved.
+    if (!ENEMY_STATES.every((state) => this.scene.textures.exists(art[state].texture))) return;
+    // The death sheet too, if this family has one: it is needed at the one
+    // moment there is no time left to fetch it.
+    if (art.death && !this.scene.textures.exists(art.death.texture)) return;
+
+    this.#art = art;
+    const sheet = art.idle;
+    this.#state = 'idle';
+    this.#baseScale = this.#scaleFor(sheet);
+    this.#bodyHeight = sheet.frameSize.height * sheet.bodyRatio * this.#baseScale;
+
+    const old = this.#sprite;
+    const sprite = this.scene.add.sprite(old.x, old.y, sheet.texture, sheet.frames[0]);
+    // Anchored on the sheet's own measured feet, so the creature stands on its
+    // position instead of hovering over it.
+    sprite.setOrigin(sheet.anchor.x, sheet.anchor.y).setScale(this.#baseScale);
+    sprite.setDepth(old.depth).setFlipX(old.flipX).setAlpha(old.alpha);
+    sprite.play(animationKey(sheet.texture, 'play'));
+    this.#sprite = sprite;
+    old.destroy();
+    // Pick up whatever the enemy is actually doing this instant, rather than
+    // showing an idle loop until the next state change.
+    this.#applyState(this.#stateFor());
+  }
+
   /**
    * Uniform scale for a sheet, solved from the artwork rather than the box.
    *
@@ -118,6 +165,16 @@ export class EnemyView extends EntityView {
     const art = this.#art;
     const ratio = (art?.sizeRatio ?? 1) * (this.snap.elite ? 1.22 : 1) * (this.snap.boss ? 1.25 : 1);
     return (PLAYER_BODY * ratio) / (sheet.frameSize.height * sheet.bodyRatio);
+  }
+
+  /**
+   * How far above its position a floating enemy hangs.
+   *
+   * Zero for everything that walks, so the ten families anchored on their feet
+   * are untouched.
+   */
+  #hover(): number {
+    return this.#art?.floats ? this.#bodyHeight * 0.5 : 0;
   }
 
   /**
@@ -207,12 +264,16 @@ export class EnemyView extends EntityView {
     const bobAmount = this.#art ? 0.35 : 1;
     this.#bob += dt * (moving ? 14 : 3);
     const bobY = (moving ? Math.abs(Math.sin(this.#bob)) * 3 : Math.sin(this.#bob) * 1.2) * bobAmount;
-    this.sprite.setPosition(this.x, this.y - bobY);
+    // A floating enemy is anchored on its middle, so its position would put
+    // its waist on the floor. Lifting it by half its body hangs it over the
+    // point it actually occupies, which is where the shadow and the telegraph
+    // still go.
+    this.sprite.setPosition(this.x, this.y - bobY - this.#hover());
     this.sprite.setDepth(this.depthFor(this.y));
     this.placeShadow(this.x, this.y);
     this.#ring?.setPosition(this.x, this.y);
     this.#aura?.setPosition(this.x, this.y - 30);
-    if (this.#mark?.visible) this.#mark.setPosition(this.x, this.y - this.#bodyHeight - 14);
+    if (this.#mark?.visible) this.#mark.setPosition(this.x, this.y - this.#bodyHeight - this.#hover() - 14);
 
     // Wind-up telegraph.
     this.#telegraph.clear();
@@ -246,7 +307,7 @@ export class EnemyView extends EntityView {
     if (frac < 0.999 || this.snap.elite || this.snap.boss) {
       const w = this.snap.boss ? 70 : this.snap.elite ? 44 : 34;
       const h = this.snap.boss ? 6 : 4;
-      const top = this.y - this.#bodyHeight - 8;
+      const top = this.y - this.#bodyHeight - this.#hover() - 8;
       this.#bar.fillStyle(0x14111a, 0.75);
       this.#bar.fillRoundedRect(this.x - w / 2 - 1, top - 1, w + 2, h + 2, 2);
       this.#bar.fillStyle(this.snap.boss ? PALETTE.magenta : PALETTE.healthRed, 1);
@@ -258,7 +319,14 @@ export class EnemyView extends EntityView {
     }
   }
 
-  /** Death animation, then destroy. Returns the burst position for VFX. */
+  /**
+   * Death animation, then destroy. Returns the burst position for VFX.
+   *
+   * Two deaths. A family with a drawn one plays it and fades from its last
+   * frame; everything else gets the squash, which is uniform, cheap and reads
+   * at any size. `update` has already stopped running by then, so neither can
+   * be walked back on top of by the state machine.
+   */
   die(): Vec2 {
     if (this.#dying) return { x: this.x, y: this.y };
     this.#dying = true;
@@ -270,12 +338,33 @@ export class EnemyView extends EntityView {
     this.#mark?.destroy();
     this.#mark = null;
     this.shadow?.destroy();
+    const burst = { x: this.x, y: this.y - 14 };
+
+    const drawn = this.#art?.death;
+    if (drawn && this.scene.textures.exists(drawn.texture)) {
+      const sprite = this.sprite as Phaser.GameObjects.Sprite;
+      sprite.clearTint().setTintMode(Phaser.TintModes.MULTIPLY);
+      const scale = this.#scaleFor(drawn);
+      sprite.setOrigin(drawn.anchor.x, drawn.anchor.y).setScale(scale);
+      sprite.play(animationKey(drawn.texture, 'play'), true);
+      // Held on the last frame, then faded: the clip does not loop, so the
+      // hold is what the fade runs over rather than a second pass of it.
+      sprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+        if (!this.scene) return;
+        this.scene.tweens.add({
+          targets: sprite, alpha: 0, duration: 420, ease: 'Quad.easeIn',
+          onComplete: () => this.destroy(),
+        });
+      });
+      return burst;
+    }
+
     this.sprite.setTint(0xffffff).setTintMode(Phaser.TintModes.FILL);
     this.scene.tweens.add({
       targets: this.sprite, scaleX: this.#baseScale * 1.3, scaleY: this.#baseScale * 0.2, alpha: 0, y: this.y + 6,
       duration: 260, ease: 'Quad.easeIn', onComplete: () => this.destroy(),
     });
-    return { x: this.x, y: this.y - 14 };
+    return burst;
   }
 
   override destroy(): void {

@@ -2,24 +2,39 @@ import Phaser from 'phaser';
 
 import { registerEffectAnimations, EFFECT_TEXTURES } from '../animation/abilityClips';
 import { BRO_TEXTURE, registerBroAnimations } from '../animation/broClips';
-import { ENEMY_TEXTURES, registerEnemyAnimations } from '../animation/enemyClips';
+import { registerAlertMarkAnimation, SHARED_ENEMY_TEXTURES } from '../animation/enemyClips';
 import { registerFxAnimations } from '../animation/fx';
 import { GOAT_TEXTURES, registerGoatAnimations } from '../animation/goatClips';
+import { ITEMS_TEXTURE_KEY } from '../animation/itemsAtlas.generated';
+import { SKILLNODES_TEXTURE_KEY } from '../animation/skillNodesAtlas.generated';
 import { registerWeaponAnimations, WEAPON_TEXTURES } from '../animation/weaponClips';
 import { PALETTE } from '../constants';
 import { eventBus } from '../EventBus';
 import { TextureFactory } from '../world/TextureFactory';
 
 /**
+ * Sheets the React screens draw from.
+ *
+ * They are not Phaser's to render -- `Portrait` and `AtlasIcon` read the same
+ * JSON and PNG straight from the DOM -- but loading them here fetches those
+ * exact URLs, so the HUD's potion count and the skill tree's emblems come out
+ * of the HTTP cache instead of costing a round trip the first time a screen
+ * opens. Both together are a quarter of a megabyte.
+ */
+const UI_TEXTURES: readonly string[] = [ITEMS_TEXTURE_KEY, SKILLNODES_TEXTURE_KEY];
+
+/**
  * Loads the character atlases, paints the procedural world textures, registers
  * animations, then hands off to play. Animations are registered here because
  * Phaser's animation manager is global: a scene restart must not redefine them.
  *
- * The enemy sheets are forty-five of the atlases loaded here, which is most of
- * the boot cost. They are loaded up front rather than per room because a room
- * can hold any of them and a fight that starts while its sheet is still coming
- * down the wire is worse than a longer load screen. The timings printed at the
- * end of `create` are what to watch if that trade ever needs revisiting.
+ * What is here is what the first frame cannot be drawn without: the player's
+ * three sheets, the twin, the weapons and their cast motions, the spell
+ * effects, and the shared alert mark. The twelve enemy families are *not* --
+ * they are 51 MB of the 70 this would otherwise fetch, and a room draws a few
+ * of them, so `EnemyAtlasLoader` pulls them per room from the sprite list the
+ * room snapshot carries. The timings printed at the end of `create` are what
+ * to watch if that trade ever needs revisiting.
  */
 export class PreloadScene extends Phaser.Scene {
   static readonly KEY = 'preload';
@@ -50,13 +65,15 @@ export class PreloadScene extends Phaser.Scene {
     // De-duplicated: the weapon list and the effect list overlap on nothing
     // today, but both are built from tables that can grow.
     const textures = [...new Set([
-      ...GOAT_TEXTURES, BRO_TEXTURE, ...WEAPON_TEXTURES, ...EFFECT_TEXTURES, ...ENEMY_TEXTURES,
+      ...GOAT_TEXTURES, BRO_TEXTURE, ...WEAPON_TEXTURES, ...EFFECT_TEXTURES,
+      ...SHARED_ENEMY_TEXTURES, ...UI_TEXTURES,
     ])];
     for (const texture of textures) {
       this.load.setPath(`game/${texture}`);
       this.load.atlas(texture, `${texture}.png`, `${texture}.json`);
     }
-    console.info(`[mirrorbound] queueing ${textures.length} atlases (${ENEMY_TEXTURES.length} of them enemies)`);
+    this.load.setPath();
+    console.info(`[mirrorbound] queueing ${textures.length} atlases; enemy sheets load per room`);
   }
 
   create(): void {
@@ -64,7 +81,10 @@ export class PreloadScene extends Phaser.Scene {
     registerGoatAnimations(this.anims);
     registerBroAnimations(this.anims);
     registerWeaponAnimations(this.anims);
-    registerEnemyAnimations(this.anims);
+    // Only the shared mark: each enemy family's clips are registered by
+    // `EnemyAtlasLoader` once its own sheets have arrived, because a clip whose
+    // frames name an unloaded texture is a clip that draws nothing.
+    registerAlertMarkAnimation(this.anims);
     registerEffectAnimations(this.anims);
     registerFxAnimations(this.anims);
     const registered = performance.now();

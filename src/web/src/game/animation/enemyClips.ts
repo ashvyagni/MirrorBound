@@ -14,7 +14,11 @@
 
 import type Phaser from 'phaser';
 
+import { BOSS_EFFECT_IDS, EFFECTS, registerBossEffectAnimations } from './abilityClips';
 import { animationKey, registerClips, type ClipDef } from './clips';
+
+/** The Mirror's own effect sheets, by texture key. */
+const BOSS_EFFECT_TEXTURES: readonly string[] = BOSS_EFFECT_IDS.map((id) => EFFECTS[id].texture);
 import {
   ALERTMARK_ANCHOR, ALERTMARK_BODY_RATIO, ALERTMARK_FRAMES, ALERTMARK_FRAME_SIZE, ALERTMARK_TEXTURE_KEY,
 } from './alertMarkAtlas.generated';
@@ -66,6 +70,21 @@ import {
 import {
   HOUNDWALK_ANCHOR, HOUNDWALK_BODY_RATIO, HOUNDWALK_FRAMES, HOUNDWALK_FRAME_SIZE, HOUNDWALK_TEXTURE_KEY,
 } from './houndWalkAtlas.generated';
+import {
+  MIRRORCAST_ANCHOR, MIRRORCAST_BODY_RATIO, MIRRORCAST_FRAMES, MIRRORCAST_FRAME_SIZE, MIRRORCAST_TEXTURE_KEY,
+} from './mirrorCastAtlas.generated';
+import {
+  MIRRORDEATH_ANCHOR, MIRRORDEATH_BODY_RATIO, MIRRORDEATH_FRAMES, MIRRORDEATH_FRAME_SIZE, MIRRORDEATH_TEXTURE_KEY,
+} from './mirrorDeathAtlas.generated';
+import {
+  MIRRORDRIFT_ANCHOR, MIRRORDRIFT_BODY_RATIO, MIRRORDRIFT_FRAMES, MIRRORDRIFT_FRAME_SIZE, MIRRORDRIFT_TEXTURE_KEY,
+} from './mirrorDriftAtlas.generated';
+import {
+  MIRRORIDLE_ANCHOR, MIRRORIDLE_BODY_RATIO, MIRRORIDLE_FRAMES, MIRRORIDLE_FRAME_SIZE, MIRRORIDLE_TEXTURE_KEY,
+} from './mirrorIdleAtlas.generated';
+import {
+  MIRRORSTRIKE_ANCHOR, MIRRORSTRIKE_BODY_RATIO, MIRRORSTRIKE_FRAMES, MIRRORSTRIKE_FRAME_SIZE, MIRRORSTRIKE_TEXTURE_KEY,
+} from './mirrorStrikeAtlas.generated';
 import {
   SCARABALERT_ANCHOR, SCARABALERT_BODY_RATIO, SCARABALERT_FRAMES, SCARABALERT_FRAME_SIZE, SCARABALERT_TEXTURE_KEY,
 } from './scarabAlertAtlas.generated';
@@ -167,6 +186,30 @@ export type EnemyStateName = 'idle' | 'walk' | 'alert' | 'attack';
 export interface EnemyArt extends Record<EnemyStateName, EnemySheet> {
   /** Body height as a fraction of the player's body height. */
   sizeRatio: number;
+  /**
+   * A drawn death, for the one enemy that has one.
+   *
+   * Optional because ten of the eleven families do not: they get the squash
+   * tween, which is uniform and readable. The Mirror is the end of the run and
+   * Logesh drew it a death, so it plays that instead.
+   */
+  death?: EnemySheet;
+  /**
+   * Sheets this family needs that are not its own body.
+   *
+   * The Mirror's bolt and shard ring: effect art, loaded and registered with
+   * the boss rather than at boot, because they are wanted in one room in the
+   * game and nothing else ever draws them.
+   */
+  extras?: readonly string[];
+  /**
+   * Anchored on its middle rather than its feet.
+   *
+   * The Mirror floats, so it has no ground contact; pinning its lowest pixel
+   * to the floor would make it bob every time its mantle changed length. The
+   * shadow under it becomes a hint rather than a contact point.
+   */
+  floats?: boolean;
 }
 
 /** Two bands, in play order, joined into one clip. */
@@ -184,9 +227,10 @@ function sheet(
 /**
  * Every enemy Logesh drew, keyed by the server's `sprite` id.
  *
- * The server sends five sprites today -- four of these plus `mirror`, which
- * has no sheet and falls back to the painted texture. The other seven are
- * drawn and wired so adding them server-side costs no client change.
+ * All twelve families are live on the server or one spawn table away. Their
+ * atlases are fetched per room rather than at boot -- twelve families at four
+ * sheets each is 51 MB, and a room uses at most a few of them. The Mirror is
+ * the heaviest and is only ever wanted in one room in the game.
  */
 export const ENEMY_ART = {
   skeleton: {
@@ -259,6 +303,34 @@ export const ENEMY_ART = {
     attack: sheet(SPROUTATTACK_TEXTURE_KEY, SPROUTATTACK_FRAMES, SPROUTATTACK_ANCHOR, SPROUTATTACK_FRAME_SIZE, SPROUTATTACK_BODY_RATIO, 14),
     sizeRatio: 0.80,
   },
+  /**
+   * The final boss, and the only enemy drawn from more than four sheets.
+   *
+   * Its six map onto the same four states every other family uses, so nothing
+   * about loading, scaling or state resolution is special-cased for it:
+   *
+   * - `mirrorDrift` is the walk. It does not walk; it drifts.
+   * - `mirrorCast` is the alert, which is what it does while it has your
+   *   measure and has not committed yet -- the readable half of every
+   *   predictive counter.
+   * - `mirrorStrike` is the attack.
+   * - `mirrorDeath` is the one drawn death in the game.
+   *
+   * `mirrorHurt` is on disk and not used: the white fill flash every enemy
+   * shares already reads, and a second reaction layer would fight it.
+   */
+  mirror: {
+    idle: sheet(MIRRORIDLE_TEXTURE_KEY, MIRRORIDLE_FRAMES, MIRRORIDLE_ANCHOR, MIRRORIDLE_FRAME_SIZE, MIRRORIDLE_BODY_RATIO, 8),
+    walk: sheet(MIRRORDRIFT_TEXTURE_KEY, MIRRORDRIFT_FRAMES, MIRRORDRIFT_ANCHOR, MIRRORDRIFT_FRAME_SIZE, MIRRORDRIFT_BODY_RATIO, 10),
+    alert: sheet(MIRRORCAST_TEXTURE_KEY, MIRRORCAST_FRAMES, MIRRORCAST_ANCHOR, MIRRORCAST_FRAME_SIZE, MIRRORCAST_BODY_RATIO, 13),
+    attack: sheet(MIRRORSTRIKE_TEXTURE_KEY, MIRRORSTRIKE_FRAMES, MIRRORSTRIKE_ANCHOR, MIRRORSTRIKE_FRAME_SIZE, MIRRORSTRIKE_BODY_RATIO, 16),
+    death: sheet(MIRRORDEATH_TEXTURE_KEY, MIRRORDEATH_FRAMES, MIRRORDEATH_ANCHOR, MIRRORDEATH_FRAME_SIZE, MIRRORDEATH_BODY_RATIO, 11),
+    // Taller than you, but not a wall: it has to stay readable against its own
+    // nova telegraph, which is 150 units across.
+    sizeRatio: 1.30,
+    floats: true,
+    extras: BOSS_EFFECT_TEXTURES,
+  },
   warden: {
     idle: sheet(WARDENIDLE_TEXTURE_KEY, WARDENIDLE_FRAMES, WARDENIDLE_ANCHOR, WARDENIDLE_FRAME_SIZE, WARDENIDLE_BODY_RATIO, 7),
     walk: sheet(WARDENWALK_TEXTURE_KEY, WARDENWALK_FRAMES, WARDENWALK_ANCHOR, WARDENWALK_FRAME_SIZE, WARDENWALK_BODY_RATIO, 11),
@@ -290,27 +362,72 @@ export const ALERT_MARK: EnemySheet = sheet(
   ALERTMARK_TEXTURE_KEY, ALERTMARK_FRAMES, ALERTMARK_ANCHOR, ALERTMARK_FRAME_SIZE, ALERTMARK_BODY_RATIO, 14,
 );
 
-/** Every atlas the enemies need loaded. */
-export const ENEMY_TEXTURES: readonly string[] = [
-  ...Object.values(ENEMY_ART).flatMap((art) => [art.idle.texture, art.walk.texture, art.alert.texture, art.attack.texture]),
-  ALERT_MARK.texture,
-];
+export const ENEMY_STATES = ['idle', 'walk', 'alert', 'attack'] as const;
 
-export function registerEnemyAnimations(anims: Phaser.Animations.AnimationManager): void {
-  for (const art of Object.values(ENEMY_ART)) {
-    for (const state of ['idle', 'walk', 'alert', 'attack'] as const) {
-      const def = art[state];
-      // Idle and walk loop; alert and attack play once and hold, because the
-      // snapshot that put the enemy in them is what takes it out again.
-      const clip: ClipDef = {
-        frames: def.frames,
-        frameRate: def.frameRate,
-        repeat: state === 'idle' || state === 'walk' ? -1 : 0,
-      };
-      registerClips(anims, def.texture, { play: clip });
-    }
-  }
+/**
+ * Every sheet one enemy family needs, in a fixed order.
+ *
+ * The four states, plus a drawn death for the family that has one. This is
+ * what decides both what gets fetched and what has to be present before the
+ * family counts as ready, so a family with a death sheet is not announced
+ * until its death sheet has landed too.
+ */
+export function enemySheets(sprite: EnemySpriteName): readonly EnemySheet[] {
+  const art = ENEMY_ART[sprite] as EnemyArt;
+  const sheets = ENEMY_STATES.map((state) => art[state]);
+  return art.death ? [...sheets, art.death] : sheets;
+}
+
+/** The atlas keys one enemy family needs loaded. */
+export function enemyTextures(sprite: EnemySpriteName): readonly string[] {
+  const art = ENEMY_ART[sprite] as EnemyArt;
+  return [...enemySheets(sprite).map((s) => s.texture), ...(art.extras ?? [])];
+}
+
+/**
+ * Loaded at boot rather than per room: every enemy shares it, so paying for it
+ * once up front costs 0.2 MB and saves deciding who owns it.
+ */
+export const SHARED_ENEMY_TEXTURES: readonly string[] = [ALERT_MARK.texture];
+
+export function registerAlertMarkAnimation(anims: Phaser.Animations.AnimationManager): void {
   registerClips(anims, ALERT_MARK.texture, {
     play: { frames: ALERT_MARK.frames, frameRate: ALERT_MARK.frameRate, repeat: 0 },
   });
+}
+
+/**
+ * Register one family's four clips.
+ *
+ * Called once its atlases are in the texture cache, not at boot: Phaser keys
+ * animations globally and `registerClips` is idempotent, so a family entered,
+ * left and re-entered is registered once and thereafter skipped.
+ */
+export function registerEnemyAnimations(
+  anims: Phaser.Animations.AnimationManager,
+  sprite: EnemySpriteName,
+): void {
+  const art = ENEMY_ART[sprite] as EnemyArt;
+  for (const state of ENEMY_STATES) {
+    const def = art[state];
+    // Idle and walk loop; alert and attack play once and hold, because the
+    // snapshot that put the enemy in them is what takes it out again.
+    const clip: ClipDef = {
+      frames: def.frames,
+      frameRate: def.frameRate,
+      repeat: state === 'idle' || state === 'walk' ? -1 : 0,
+    };
+    registerClips(anims, def.texture, { play: clip });
+  }
+  // Effect sheets that came down with this family, if it has any: the same
+  // rule as the body sheets -- registered once the textures are in the cache,
+  // never at boot.
+  if (art.extras) registerBossEffectAnimations(anims);
+  // A death plays once and holds on its last frame; the view fades it out
+  // from there, so it must not loop back to standing.
+  if (art.death) {
+    registerClips(anims, art.death.texture, {
+      play: { frames: art.death.frames, frameRate: art.death.frameRate, repeat: 0 },
+    });
+  }
 }

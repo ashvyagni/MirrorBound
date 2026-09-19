@@ -170,7 +170,13 @@ export class Vfx {
   nova(pos: Vec2, radius: number): void {
     // Erupts from the ground, so its base belongs on the floor line. Sized off
     // the server's own radius rather than a number picked to look right.
-    this.groundEffect('iceNova', pos, Math.max(0.6, radius / 150));
+    //
+    // The boss has its own drawn ring, which arrives with its sheets when the
+    // arena loads. `groundEffect` returns false if it has not, and `iceNova`
+    // -- which is always loaded -- is the stand-in, so the one attack that can
+    // kill you outright is never an unannounced one.
+    const size = Math.max(0.6, radius / 150);
+    if (!this.groundEffect('shardRing', pos, size)) this.groundEffect('iceNova', pos, size);
     const ring = this.scene.add.image(pos.x, pos.y - 8, 'fx:ring').setTint(PALETTE.arcane).setScale(0.1).setAlpha(1)
       .setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.fxLow);
     this.scene.tweens.add({ targets: ring, scale: (radius * 2) / 84, alpha: 0, duration: 420, ease: 'Quad.easeOut', onComplete: () => ring.destroy() });

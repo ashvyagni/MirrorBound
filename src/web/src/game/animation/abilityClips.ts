@@ -21,6 +21,8 @@ import { FIREWAVE_ANCHOR, FIREWAVE_BODY_RATIO, FIREWAVE_FRAMES, FIREWAVE_FRAME_S
 import { ICEBEAM_ANCHOR, ICEBEAM_BODY_RATIO, ICEBEAM_FRAMES, ICEBEAM_FRAME_SIZE, ICEBEAM_TEXTURE_KEY } from './iceBeamAtlas.generated';
 import { ICENOVA_ANCHOR, ICENOVA_BODY_RATIO, ICENOVA_FRAMES, ICENOVA_FRAME_SIZE, ICENOVA_TEXTURE_KEY } from './iceNovaAtlas.generated';
 import { ICESHARDS_ANCHOR, ICESHARDS_BODY_RATIO, ICESHARDS_FRAMES, ICESHARDS_FRAME_SIZE, ICESHARDS_TEXTURE_KEY } from './iceShardsAtlas.generated';
+import { MIRRORBOLT_ANCHOR, MIRRORBOLT_BODY_RATIO, MIRRORBOLT_FRAMES, MIRRORBOLT_FRAME_SIZE, MIRRORBOLT_TEXTURE_KEY } from './mirrorBoltAtlas.generated';
+import { SHARDRING_ANCHOR, SHARDRING_BODY_RATIO, SHARDRING_FRAMES, SHARDRING_FRAME_SIZE, SHARDRING_TEXTURE_KEY } from './shardRingAtlas.generated';
 import { THORN_ANCHOR, THORN_BODY_RATIO, THORN_FRAMES, THORN_FRAME_SIZE, THORN_TEXTURE_KEY } from './thornAtlas.generated';
 
 /** How long an effect lasts. */
@@ -101,7 +103,22 @@ export const EFFECTS = {
   // middle, so it grows forwards out of the staff instead of backwards over
   // the caster's head. Not a `ground` effect: it is thrown, it just stays put.
   iceBeam: effect('iceBeam', 'burst', ICEBEAM_TEXTURE_KEY, ICEBEAM_FRAMES, ICEBEAM_ANCHOR, ICEBEAM_FRAME_SIZE, ICEBEAM_BODY_RATIO, 16, 0.5, { anchorX: 0.03 }),
+  // The Mirror's two, listed in `BOSS_EFFECTS` below and therefore not fetched
+  // at boot: they are wanted in one room in the game, so they ride along with
+  // the boss's own sheets and until then its bolt draws as the painted
+  // texture, the way any kind with no sheet does.
+  mirrorBolt: effect('mirrorBolt', 'thrown', MIRRORBOLT_TEXTURE_KEY, MIRRORBOLT_FRAMES, MIRRORBOLT_ANCHOR, MIRRORBOLT_FRAME_SIZE, MIRRORBOLT_BODY_RATIO, 17, 0.34),
+  shardRing: effect('shardRing', 'burst', SHARDRING_TEXTURE_KEY, SHARDRING_FRAMES, SHARDRING_ANCHOR, SHARDRING_FRAME_SIZE, SHARDRING_BODY_RATIO, 15, 1.9, { ground: true }),
 } as const satisfies Record<string, EffectDef>;
+
+/**
+ * Effects that belong to the final boss and load with it rather than at boot.
+ *
+ * `EnemyAtlasLoader` fetches these with the mirror family and registers their
+ * clips at the same time, which is why they are named here rather than in that
+ * file: this is where an effect's texture and frames live.
+ */
+export const BOSS_EFFECT_IDS = ['mirrorBolt', 'shardRing'] as const;
 
 export type EffectId = keyof typeof EFFECTS;
 
@@ -117,31 +134,53 @@ export const PROJECTILE_ART: Readonly<Record<string, EffectId>> = {
   fire_bolt: 'fireBall',
   ice_bolt: 'iceShards',
   arcane_bolt: 'thorn',
-  mirror_bolt: 'coal',
+  mirror_bolt: 'mirrorBolt',
 };
 
 /** Extra tint for a sheet standing in for a kind it was not drawn as. */
 export const PROJECTILE_TINT: Readonly<Record<string, number>> = {
   bone_arrow: 0xd8d2c2,
   arcane_bolt: 0xb48cff,
-  mirror_bolt: 0xd62e6c,
+  // `mirror_bolt` is no longer here: it was tinted because `coal` was standing
+  // in for it, and its own sheet is already the colour it should be.
 };
 
 export function effectKey(def: EffectDef): string {
   return animationKey(def.texture, 'cast');
 }
 
-export const EFFECT_TEXTURES: readonly string[] = Object.values(EFFECTS).map((e) => e.texture);
+/** Loaded at boot: everything except the boss's own two. */
+export const EFFECT_TEXTURES: readonly string[] = Object.entries(EFFECTS)
+  .filter(([id]) => !(BOSS_EFFECT_IDS as readonly string[]).includes(id))
+  .map(([, e]) => e.texture);
 
-export function registerEffectAnimations(anims: Phaser.Animations.AnimationManager): void {
-  for (const def of Object.values(EFFECTS)) {
-    const clip: ClipDef = {
+function registerEffect(anims: Phaser.Animations.AnimationManager, def: EffectDef): void {
+  registerClips(anims, def.texture, {
+    cast: {
       frames: def.frames,
       frameRate: def.frameRate,
       // A travelling effect loops for as long as the server keeps it alive; a
       // burst plays through once and is done.
       repeat: def.kind === 'thrown' ? -1 : 0,
-    };
-    registerClips(anims, def.texture, { cast: clip });
+    } satisfies ClipDef,
+  });
+}
+
+/**
+ * Register every effect whose sheet is loaded at boot.
+ *
+ * The boss's two are skipped here on purpose: a clip whose frames name a
+ * texture that has not arrived is a clip that draws nothing, and Phaser keys
+ * animations globally so it would not be replaced later.
+ */
+export function registerEffectAnimations(anims: Phaser.Animations.AnimationManager): void {
+  for (const [id, def] of Object.entries(EFFECTS)) {
+    if ((BOSS_EFFECT_IDS as readonly string[]).includes(id)) continue;
+    registerEffect(anims, def);
   }
+}
+
+/** Register the boss's, once `EnemyAtlasLoader` has its sheets. */
+export function registerBossEffectAnimations(anims: Phaser.Animations.AnimationManager): void {
+  for (const id of BOSS_EFFECT_IDS) registerEffect(anims, EFFECTS[id]);
 }

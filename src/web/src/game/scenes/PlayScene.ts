@@ -22,6 +22,7 @@ import { TwinView } from '../entities/TwinView';
 import { WeaponOverlay } from '../entities/WeaponOverlay';
 import { eventBus } from '../EventBus';
 import { KeyboardIntentSource } from '../input/KeyboardIntentSource';
+import { EnemyAtlasLoader } from './EnemyAtlasLoader';
 import { WebSocketClient } from '../network/WebSocketClient';
 import type { PlayerSnapshot } from '../types';
 import { Ambient } from '../world/Ambient';
@@ -47,6 +48,7 @@ export class PlayScene extends Phaser.Scene {
   #vfx!: Vfx;
   #source!: KeyboardIntentSource;
   #weapon!: WeaponOverlay;
+  #enemyAtlases!: EnemyAtlasLoader;
   #player: PlayerView | null = null;
   #twin: TwinView | null = null;
   #enemies = new Map<string, EnemyView>();
@@ -76,6 +78,14 @@ export class PlayScene extends Phaser.Scene {
     this.#ambient = new Ambient(this, this.#settings.quality);
     this.#vfx = new Vfx(this, this.#settings);
     this.#weapon = new WeaponOverlay(this);
+    // When a family's sheets land, every enemy of that family standing in with
+    // the painted texture swaps to the real art in place.
+    this.#enemyAtlases = new EnemyAtlasLoader(this, (sprites) => {
+      const arrived = new Set<string>(sprites);
+      for (const view of this.#enemies.values()) {
+        if (view.painted && arrived.has(view.snap.sprite)) view.adoptArt();
+      }
+    });
     this.#debug = this.add.graphics().setDepth(DEPTH.debug);
     this.#vignette = this.add.image(0, 0, 'fx:vignette').setDepth(DEPTH.vignette).setAlpha(0.8);
 
@@ -175,9 +185,21 @@ export class PlayScene extends Phaser.Scene {
       this.#weapon.equip(weapon ? weapon.animation : this.#animationFor(snap.player.currentWeapon));
     }
 
-    if (!this.#twin) this.#twin = new TwinView(this, snap.twin.position);
-    this.#twin.showThoughts = this.#settings.showTwinThoughts;
-    this.#twin.applySnapshot(snap.twin);
+    // A dormant twin is not in the world yet. The server still simulates an
+    // entity for it -- it has a position and a health pool from the first tick
+    // -- but nothing has found it, so nothing may draw it. Without this it
+    // trails the player from the opening village and the rescue two rooms into
+    // the crypt is a scene about someone already standing there.
+    if (snap.twin.dormant) {
+      this.#twin?.destroy();
+      this.#twin = null;
+    } else {
+      // Created at the twin's own position, not the last-known one, so waking
+      // it does not play a slide in from wherever the view was last left.
+      if (!this.#twin) this.#twin = new TwinView(this, snap.twin.position);
+      this.#twin.showThoughts = this.#settings.showTwinThoughts;
+      this.#twin.applySnapshot(snap.twin);
+    }
 
     this.#syncEnemies(snap.enemies);
     this.#syncProjectiles(snap);
@@ -195,6 +217,10 @@ export class PlayScene extends Phaser.Scene {
 
   #enterRoom(room: RoomFull): void {
     this.#room = room;
+    // Ask for this room's enemy art the moment the room is known, which is one
+    // or more snapshots before its enemies are drawn. A village names none, so
+    // a safe room fetches nothing.
+    this.#enemyAtlases.request(room.enemySprites ?? []);
     for (const e of this.#enemies.values()) e.destroy();
     this.#enemies.clear();
     for (const p of this.#projectiles.values()) p.destroy();
@@ -221,12 +247,24 @@ export class PlayScene extends Phaser.Scene {
 
   #syncEnemies(enemies: EnemySnap[]): void {
     const seen = new Set<string>();
+    /**
+     * Backstop for the room's own sprite list.
+     *
+     * `RoomFull.enemySprites` is the spawn table's answer and arrives first, so
+     * it is what usually triggers the fetch. Anything that turns up without
+     * having been in it -- a summon, a future spawner, an older server with no
+     * such field -- is asked for here instead. `request` de-duplicates, so a
+     * family already loaded or in flight costs nothing.
+     */
+    let unloaded: string[] | null = null;
     for (const e of enemies) {
       seen.add(e.id);
       const view = this.#enemies.get(e.id);
       if (view) view.applySnapshot(e);
       else this.#enemies.set(e.id, new EnemyView(this, e));
+      if (this.#enemyAtlases.needs(e.sprite)) (unloaded ??= []).push(e.sprite);
     }
+    if (unloaded) this.#enemyAtlases.request(unloaded);
     for (const [id, view] of this.#enemies) {
       if (!seen.has(id)) {
         // Killed (the ENEMY_KILLED event usually gets here first) or room changed.
@@ -523,5 +561,9 @@ export class PlayScene extends Phaser.Scene {
     this.#ws.disconnect();
     this.#world.destroy();
     this.#ambient.destroy();
+    // An enemy load started in the last room can land after this; without
+    // this it would try to upgrade views belonging to a dead scene.
+    this.#enemyAtlases.stop();
+    this.#enemies.clear();
   }
 }
