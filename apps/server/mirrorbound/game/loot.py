@@ -9,7 +9,11 @@ from mirrorbound.game.entities.pickup import Pickup
 from mirrorbound.game.inventory import CONSUMABLES
 from mirrorbound.game.state import GameState
 
-WEAPON_DROPS = ("hunter_bow", "ember_staff", "frost_staff")
+# iron_sword is in here even though the player starts with one. Without it the
+# twin could only ever own ranged/magic weapons, which made the melee half of
+# its weapon scoring unreachable through play (see TwinV0Controller._preferred_weapon).
+# The "already owned" filter below is what stops it dropping pointlessly.
+WEAPON_DROPS = ("iron_sword", "hunter_bow", "ember_staff", "frost_staff")
 RELIC_DROPS = ("ember_heart", "wolf_fang", "mirror_eye")
 
 
@@ -29,6 +33,9 @@ class LootSystem:
         essence = self.rng.randint(table.essence_min, table.essence_max)
         if essence > 0:
             drops.append(state.spawn_pickup("essence", pos, amount=essence, scatter=scatter()))
+        gold = self.rng.randint(table.gold_min, table.gold_max)
+        if gold > 0:
+            drops.append(state.spawn_pickup("gold", pos, amount=gold, scatter=scatter()))
         if self.rng.chance(table.shard_chance):
             drops.append(state.spawn_pickup("shards", pos, amount=1, scatter=scatter()))
         if self.rng.chance(table.potion_chance):
@@ -36,7 +43,10 @@ class LootSystem:
         if self.rng.chance(table.mana_potion_chance):
             drops.append(state.spawn_pickup("mana_potion", pos, scatter=scatter()))
         if self.rng.chance(table.weapon_chance):
-            owned = set(state.player.inventory.weapons)
+            # A weapon is worth dropping while *either* of them still lacks it:
+            # the twin picks up what it walks over, so a sword the player
+            # already carries is still a real upgrade for a bare-handed twin.
+            owned = set(state.player.inventory.weapons) & set(state.twin.inventory.weapons)
             options = [w for w in WEAPON_DROPS if w not in owned] or list(WEAPON_DROPS)
             drops.append(state.spawn_pickup("weapon", pos, item_id=self.rng.choice(options), scatter=scatter()))
         if self.rng.chance(table.relic_chance):
@@ -49,7 +59,7 @@ class LootSystem:
     def collect(self, state: GameState) -> None:
         """Player and twin both pick things up; everything lands in the player's inventory."""
         collectors: list[Entity] = [state.player] if state.player.state != "dead" else []
-        if not state.twin.downed:
+        if not state.twin.downed and not state.twin.dormant:
             collectors.append(state.twin)
         for pickup in state.pickups:
             if not pickup.active:
@@ -68,7 +78,12 @@ class LootSystem:
         # reads from.
         inv = who.inventory if pickup.kind == "weapon" else state.player.inventory
         detail: dict = {}
-        if pickup.kind == "essence":
+        if pickup.kind == "gold":
+            # Gold is the shared purse; it never lands on the twin.
+            state.player.inventory.add_gold(pickup.amount)
+            state.emit("GOLD_GAINED", amount=pickup.amount, total=state.player.inventory.gold,
+                       position=pickup.position.to_dict())
+        elif pickup.kind == "essence":
             inv.add_resource("essence", pickup.amount)
             state.stats.essence_collected += pickup.amount
         elif pickup.kind == "shards":

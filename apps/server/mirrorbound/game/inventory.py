@@ -14,8 +14,8 @@ from mirrorbound.game.combat.weapons import get_weapon
 
 
 CONSUMABLES: dict[str, dict] = {
-    "health_potion": {"name": "Health Potion", "heal": 45, "description": "Restores 45 health.", "rarity": "common"},
-    "mana_potion": {"name": "Mana Potion", "mana": 40, "description": "Restores 40 mana.", "rarity": "common"},
+    "health_potion": {"name": "Health Potion", "heal": 40, "description": "Restores 40 health.", "rarity": "common", "price": 35},
+    "mana_potion": {"name": "Mana Potion", "mana": 35, "description": "Restores 35 mana.", "rarity": "common", "price": 30},
 }
 
 RESOURCES: dict[str, dict] = {
@@ -35,10 +35,16 @@ RELICS: dict[str, dict] = {
 class Inventory:
     weapons: list[str] = field(default_factory=list)
     equipped_weapon: str = ""
+    # The second carried weapon. `equipped_weapon` is always the one that
+    # actually swings -- the offhand is what SWAP_WEAPON trades it for -- so
+    # every combat path still reads exactly one weapon and none of them had to
+    # learn about slots.
+    offhand_weapon: str = ""
     ability_slots: list[str] = field(default_factory=lambda: list(DEFAULT_SLOTS))
     consumables: dict[str, int] = field(default_factory=dict)
     resources: dict[str, int] = field(default_factory=lambda: {"essence": 0, "shards": 0, "relics": 0})
     relics: list[str] = field(default_factory=list)
+    gold: int = 0
 
     # --- weapons -----------------------------------------------------------
     def add_weapon(self, weapon_id: str) -> bool:
@@ -48,12 +54,41 @@ class Inventory:
         self.weapons.append(weapon_id)
         if not self.equipped_weapon:
             self.equipped_weapon = weapon_id
+        elif not self.offhand_weapon:
+            self.offhand_weapon = weapon_id
         return True
 
     def equip(self, weapon_id: str) -> bool:
         if weapon_id not in self.weapons:
             return False
+        # Equipping the offhand is a swap, not an overwrite: the weapon that was
+        # in hand stays carried rather than silently falling out of the pair.
+        if weapon_id == self.offhand_weapon:
+            self.offhand_weapon = self.equipped_weapon
         self.equipped_weapon = weapon_id
+        return True
+
+    def equip_offhand(self, weapon_id: str) -> bool:
+        if weapon_id not in self.weapons or weapon_id == self.equipped_weapon:
+            return False
+        self.offhand_weapon = weapon_id
+        return True
+
+    def swap_weapons(self) -> bool:
+        """Trade the carried pair. False when there is nothing to swap to."""
+        if not self.offhand_weapon or self.offhand_weapon == self.equipped_weapon:
+            return False
+        self.equipped_weapon, self.offhand_weapon = self.offhand_weapon, self.equipped_weapon
+        return True
+
+    # --- gold ----------------------------------------------------------------
+    def add_gold(self, amount: int) -> None:
+        self.gold = max(0, self.gold + int(amount))
+
+    def spend_gold(self, amount: int) -> bool:
+        if amount < 0 or self.gold < amount:
+            return False
+        self.gold -= amount
         return True
 
     # --- abilities ----------------------------------------------------------
@@ -100,6 +135,8 @@ class Inventory:
         return {
             "weapons": [get_weapon(w).to_dict() for w in self.weapons],
             "equippedWeapon": self.equipped_weapon,
+            "offhandWeapon": self.offhand_weapon,
+            "gold": self.gold,
             "abilitySlots": list(self.ability_slots),
             "consumables": [
                 {"id": cid, "count": n, **CONSUMABLES[cid]} for cid, n in sorted(self.consumables.items())

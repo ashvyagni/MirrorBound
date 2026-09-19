@@ -25,7 +25,18 @@ class PlayerInput:
     aim_angle: float = 0.0
 
 
-PLAYER_STATES = ("idle", "walk", "run", "attack", "cast", "dash", "hurt", "dead")
+PLAYER_STATES = ("idle", "walk", "run", "attack", "cast", "channel", "drink", "dash", "hurt", "dead")
+
+# --- potions -----------------------------------------------------------------
+# Drinking is a commitment, not a free action: it takes real time, slows you
+# while it happens, and locks out attacking, casting and dashing. One shared
+# cooldown covers every potion so swapping health for mana is not a way to
+# drink twice as often.
+DRINK_SECONDS = 0.4
+DRINK_SLOW = 0.45            # movement multiplier while drinking
+POTION_SHARED_COOLDOWN = 6.0
+# Movement multiplier while channelling a cast (Mending Light).
+CHANNEL_SLOW = 0.35
 
 
 @dataclass
@@ -50,6 +61,18 @@ class Player(Entity):
     level: int = 1
     skill_points: int = 0
     unlocked_skills: set[str] = field(default_factory=set)
+
+    # Potion drinking. `finished_drink` is set for exactly one tick when a drink
+    # completes; the session reads it and is the only thing that consumes the
+    # item, so a drink that never finishes never costs anything.
+    drink_item: str = ""
+    drink_timer: float = 0.0
+    potion_cooldown: float = 0.0
+    finished_drink: str | None = None
+    # Channelled casts (Mending Light). Same one-tick handoff as drinking.
+    channel_ability: str = ""
+    channel_timer: float = 0.0
+    finished_channel: str | None = None
 
     state: str = "idle"
     state_timer: float = 0.0
@@ -141,6 +164,10 @@ class Player(Entity):
         # Swinging slows you down, but doesn't root you.
         if self.state in ("attack", "cast"):
             top *= 0.45
+        elif self.state == "drink":
+            top *= DRINK_SLOW
+        elif self.state == "channel":
+            top *= CHANNEL_SLOW
         self.velocity = move * top
         if not move.is_zero():
             self.last_move_dir = move
@@ -158,7 +185,11 @@ class Player(Entity):
         """Per-tick housekeeping: cooldowns, regen, state timers."""
         self.state_timer += dt
         self.tick_status(dt)
+        self.finished_drink = None
+        self.finished_channel = None
 
+        if self.potion_cooldown > 0:
+            self.potion_cooldown = max(0.0, self.potion_cooldown - dt)
         if self.attack_cooldown > 0:
             self.attack_cooldown -= dt
         if self.combo_timer > 0:
@@ -174,7 +205,23 @@ class Player(Entity):
         if self.state != "dead":
             self.mana = min(self.max_mana, self.mana + self.mana_regen * dt)
 
-        if self.state == "dash":
+        if self.state == "drink":
+            self.drink_timer -= dt
+            if self.drink_timer <= 0:
+                # Hand the finished item to the session; it applies the effect
+                # and takes the item from the inventory. Nothing is consumed
+                # here, so an interrupted drink costs the player nothing.
+                self.finished_drink = self.drink_item
+                self.drink_item = ""
+                self.potion_cooldown = POTION_SHARED_COOLDOWN
+                self.set_state("idle")
+        elif self.state == "channel":
+            self.channel_timer -= dt
+            if self.channel_timer <= 0:
+                self.finished_channel = self.channel_ability
+                self.channel_ability = ""
+                self.set_state("idle")
+        elif self.state == "dash":
             self.dash_timer -= dt
             if self.dash_timer <= 0:
                 self.dash_velocity = Vec2()
@@ -200,7 +247,58 @@ class Player(Entity):
     # --- combat -----------------------------------------------------------------
 
     def can_attack(self) -> bool:
-        return self.attack_cooldown <= 0 and self.state not in ("dead", "hurt", "dash")
+        return self.attack_cooldown <= 0 and self.state not in ("dead", "hurt", "dash", "drink", "channel")
+
+    # --- potions ----------------------------------------------------------------
+
+    def can_drink(self, item_id: str, spec: dict) -> tuple[bool, str]:
+        """Whether a drink may start. Checks the state machine, the shared
+        cooldown, and whether the potion would do anything at all."""
+        if self.state in ("dead", "hurt", "dash"):
+            return False, "incapacitated"
+        if self.state == "drink":
+            return False, "already drinking"
+        if self.potion_cooldown > 0:
+            return False, "cooldown"
+        if self.inventory.consumables.get(item_id, 0) <= 0:
+            return False, "none left"
+        # Drinking at full is a wasted potion, not a valid action.
+        if spec.get("heal") and self.health >= self.max_health:
+            return False, "health full"
+        if spec.get("mana") and self.mana >= self.max_mana:
+            return False, "mana full"
+        return True, "ok"
+
+    def begin_drink(self, item_id: str) -> None:
+        self.drink_item = item_id
+        self.drink_timer = DRINK_SECONDS
+        self.channel_ability = ""
+        self.set_state("drink")
+
+    def cancel_drink(self) -> str:
+        """Abort a drink in progress without consuming anything. Returns the
+        item that was being drunk (empty when none was)."""
+        item, self.drink_item = self.drink_item, ""
+        self.drink_timer = 0.0
+        if self.state == "drink":
+            self.set_state("idle")
+        return item
+
+    # --- channelled casts --------------------------------------------------------
+
+    def begin_channel(self, ability_id: str, duration: float) -> None:
+        self.channel_ability = ability_id
+        self.channel_timer = duration
+        self.set_state("channel")
+
+    def interrupt_channel(self) -> str:
+        """Abort a channel. The mana and cooldown were already spent at the
+        start, so an interrupt is a real loss -- that is the point of it."""
+        ability, self.channel_ability = self.channel_ability, ""
+        self.channel_timer = 0.0
+        if self.state == "channel":
+            self.set_state("idle")
+        return ability
 
     def start_attack(self, weapon: WeaponDef) -> float:
         """Begin an attack; returns the combo damage multiplier for this hit."""
@@ -230,6 +328,10 @@ class Player(Entity):
     def can_use_ability(self, ability: AbilityDef) -> tuple[bool, str]:
         if self.state in ("dead", "hurt"):
             return False, "incapacitated"
+        if self.state == "drink":
+            return False, "drinking"
+        if self.state == "channel":
+            return False, "channelling"
         if self.state == "dash" and ability.type.value != "dash":
             return False, "dashing"
         if self.ability_cooldowns.get(ability.id, 0) > 0:
@@ -262,6 +364,15 @@ class Player(Entity):
         if actual > 0 and self.health > 0:
             self.set_state("hurt")
         if self.health <= 0:
+            # Death cancels everything pending. The drink is not consumed; the
+            # channel's mana is already gone, which is the cost of being caught
+            # mid-cast.
+            self.drink_item = ""
+            self.drink_timer = 0.0
+            self.channel_ability = ""
+            self.channel_timer = 0.0
+            self.finished_drink = None
+            self.finished_channel = None
             self.set_state("dead")
             self.active = True  # the player entity persists while dead so the camera has somewhere to be
             self.respawn_timer = 3.0
@@ -359,6 +470,11 @@ class Player(Entity):
             "kills": self.kills,
             "deaths": self.deaths,
             "targetId": self.target_id,
+            "potionCooldown": round(max(0.0, self.potion_cooldown), 2),
+            "potionCooldownTotal": POTION_SHARED_COOLDOWN,
+            "drinking": self.drink_item or None,
+            "channelling": self.channel_ability or None,
+            "gold": self.inventory.gold,
             "respawnIn": round(max(0.0, self.respawn_timer), 1) if self.state == "dead" else 0,
         })
         if detail:

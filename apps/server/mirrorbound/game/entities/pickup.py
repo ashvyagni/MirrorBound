@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from mirrorbound.game.entities.entity import Entity, Vec2
 
-PICKUP_KINDS = ("essence", "shards", "health_potion", "mana_potion", "weapon", "relic")
+PICKUP_KINDS = ("essence", "shards", "gold", "health_potion", "mana_potion", "weapon", "relic")
 
 
 @dataclass
