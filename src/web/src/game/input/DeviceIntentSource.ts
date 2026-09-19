@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 
 import { eventBus } from '../EventBus';
+import { keybinds, type Action } from '../state/Keybinds';
 import type { Intent, IntentSource } from '../types';
 
 /**
@@ -10,9 +11,13 @@ import type { Intent, IntentSource } from '../types';
  * for a gamepad, a replay, or an agent feed from the backend is a one-line
  * change at the call site, because everything downstream only consumes
  * `Intent`.
+ *
+ * That isolation is also what made rebinding cheap. This file is the only place
+ * that ever knew a key code, so binding them from a table meant changing the
+ * table -- nothing downstream of `Intent` noticed, and nothing had to.
  */
 export class DeviceIntentSource implements IntentSource {
-  readonly #keys: Record<'left' | 'right' | 'up' | 'down' | 'altLeft' | 'altRight' | 'altUp' | 'altDown' | 'run' | 'attack' | 'slot1' | 'slot2' | 'slot3' | 'companionAttack' | 'hand1' | 'hand2' | 'potionCycle' | 'potionUse' | 'map', Phaser.Input.Keyboard.Key>;
+  #keys = new Map<Action, Phaser.Input.Keyboard.Key[]>();
 
   /** Left mouse button, latched until the next sample so a click between
    *  frames is never dropped. */
@@ -20,44 +25,22 @@ export class DeviceIntentSource implements IntentSource {
   /** A click the in-game bar has already used. Without this, equipping a
    *  weapon from the bar would also swing it on the way past. */
   #consumed = false;
+  /** Set while the settings screen is listening for a key to bind. Without it,
+   *  pressing `W` to rebind "move up" also walks the goat into a tree. */
+  #suspended = false;
   readonly #release: Array<() => void> = [];
 
   constructor(
-    keyboard: Phaser.Input.Keyboard.KeyboardPlugin,
+    private readonly keyboard: Phaser.Input.Keyboard.KeyboardPlugin,
     pointer?: Phaser.Input.InputPlugin,
   ) {
-    const { KeyCodes } = Phaser.Input.Keyboard;
-    this.#keys = {
-      left: keyboard.addKey(KeyCodes.LEFT),
-      right: keyboard.addKey(KeyCodes.RIGHT),
-      up: keyboard.addKey(KeyCodes.UP),
-      down: keyboard.addKey(KeyCodes.DOWN),
-      altLeft: keyboard.addKey(KeyCodes.A),
-      altRight: keyboard.addKey(KeyCodes.D),
-      altUp: keyboard.addKey(KeyCodes.W),
-      altDown: keyboard.addKey(KeyCodes.S),
-      run: keyboard.addKey(KeyCodes.SHIFT),
-      attack: keyboard.addKey(KeyCodes.J),
-      // Abilities sit on the number row, one per slot the weapon offers.
-      slot1: keyboard.addKey(KeyCodes.ONE),
-      slot2: keyboard.addKey(KeyCodes.TWO),
-      slot3: keyboard.addKey(KeyCodes.THREE),
-      companionAttack: keyboard.addKey(KeyCodes.K),
-      // Weapons cycle rather than sitting on their own number keys: the number
-      // row is already the ability bar, and a carousel needs no more keys as
-      // weapons are added.
-      // One key per hand, not a cycle: Q is always the left slot and E is
-      // always the right one, so the weapon a key reaches never depends on
-      // what is already in hand.
-      hand1: keyboard.addKey(KeyCodes.Q),
-      hand2: keyboard.addKey(KeyCodes.E),
-      // The dial and the drink get their own keys, because rotating what you
-      // are about to drink and drinking it are different mistakes to make.
-      potionCycle: keyboard.addKey(KeyCodes.R),
-      potionUse: keyboard.addKey(KeyCodes.F),
-      map: keyboard.addKey(KeyCodes.M),
-    };
+    this.#bind();
 
+    // Rebuilt rather than patched when a binding changes: the set of keys is
+    // small, and a rebuild cannot leave a stale key behind still firing.
+    this.#release.push(keybinds.onChange(() => this.#bind()));
+
+    const { KeyCodes } = Phaser.Input.Keyboard;
     // Stop the browser scrolling the page when the player walks.
     keyboard.addCapture([
       KeyCodes.LEFT, KeyCodes.RIGHT, KeyCodes.UP, KeyCodes.DOWN, KeyCodes.SPACE,
@@ -75,37 +58,85 @@ export class DeviceIntentSource implements IntentSource {
     // is sampled, so a flag set there is always seen on the right frame.
     this.#release.push(
       eventBus.on('hud:pointer-used', () => { this.#consumed = true; }),
+      eventBus.on('input:suspend', ({ suspended }) => { this.#suspended = suspended; }),
     );
   }
 
+  /** Build one Phaser key per bound code, from the current table. */
+  #bind(): void {
+    for (const keys of this.#keys.values()) {
+      for (const key of keys) key.destroy();
+    }
+    this.#keys.clear();
+
+    for (const [action, binding] of Object.entries(keybinds.all())) {
+      const codes = [binding.primary, binding.secondary]
+        // -1 marks an action left unbound when its key was taken by another.
+        .filter((code): code is number => typeof code === 'number' && code >= 0);
+      this.#keys.set(
+        action as Action,
+        codes.map((code) => this.keyboard.addKey(code)),
+      );
+    }
+  }
+
+  /** Whether any key bound to this action is currently held. */
+  #down(action: Action): boolean {
+    const keys = this.#keys.get(action);
+    return keys ? keys.some((k) => k.isDown) : false;
+  }
+
+  /**
+   * Whether this action was pressed on this frame.
+   *
+   * Every key is polled rather than short-circuited, because `JustDown`
+   * *consumes* the press -- skipping the second key of a pair would leave it
+   * latched to fire on some later frame instead.
+   */
+  #pressed(action: Action): boolean {
+    const keys = this.#keys.get(action);
+    if (!keys) return false;
+    let hit = false;
+    for (const key of keys) {
+      if (Phaser.Input.Keyboard.JustDown(key)) hit = true;
+    }
+    return hit;
+  }
+
   sample(): Intent {
-    const k = this.#keys;
-    const left = k.left.isDown || k.altLeft.isDown;
-    const right = k.right.isDown || k.altRight.isDown;
-    const up = k.up.isDown || k.altUp.isDown;
-    const down = k.down.isDown || k.altDown.isDown;
-    // Taken before the `||` below could short-circuit past it: a click that
+    // Taken before anything below could short-circuit past it: a click that
     // lands on the same frame as a key press still has to be consumed, or it
     // sits latched and fires a phantom swing on some later frame.
     const clicked = this.#takeClick();
 
+    // While a key is being bound, every press belongs to the binding dialog.
+    // The presses are still polled above so nothing stays latched.
+    if (this.#suspended) {
+      for (const action of this.#keys.keys()) this.#pressed(action);
+      return { ...NEUTRAL };
+    }
+
+    const right = this.#down('moveRight');
+    const left = this.#down('moveLeft');
+    const down = this.#down('moveDown');
+    const up = this.#down('moveUp');
+
     return {
       moveX: (right ? 1 : 0) - (left ? 1 : 0),
       moveY: (down ? 1 : 0) - (up ? 1 : 0),
-      // JustDown consumes the press, so an edge is reported exactly once.
-      attack: Phaser.Input.Keyboard.JustDown(k.attack) || clicked,
-      ability: Phaser.Input.Keyboard.JustDown(k.slot1) ? 0
-        : Phaser.Input.Keyboard.JustDown(k.slot2) ? 1
-        : Phaser.Input.Keyboard.JustDown(k.slot3) ? 2
+      attack: this.#pressed('attack') || clicked,
+      ability: this.#pressed('ability1') ? 0
+        : this.#pressed('ability2') ? 1
+        : this.#pressed('ability3') ? 2
         : null,
-      run: k.run.isDown,
-      companionAttack: Phaser.Input.Keyboard.JustDown(k.companionAttack),
-      weaponSlot: Phaser.Input.Keyboard.JustDown(k.hand1) ? 0
-        : Phaser.Input.Keyboard.JustDown(k.hand2) ? 1
+      run: this.#down('run'),
+      companionAttack: this.#pressed('companion'),
+      weaponSlot: this.#pressed('hand1') ? 0
+        : this.#pressed('hand2') ? 1
         : null,
-      potionCycle: Phaser.Input.Keyboard.JustDown(k.potionCycle) ? 1 : 0,
-      potionUse: Phaser.Input.Keyboard.JustDown(k.potionUse),
-      mapToggle: Phaser.Input.Keyboard.JustDown(k.map),
+      potionCycle: this.#pressed('potionCycle') ? 1 : 0,
+      potionUse: this.#pressed('potionUse'),
+      mapToggle: this.#pressed('map'),
     };
   }
 
@@ -119,6 +150,16 @@ export class DeviceIntentSource implements IntentSource {
 
   destroy(): void {
     for (const off of this.#release) off();
-    for (const key of Object.values(this.#keys)) key.destroy();
+    for (const keys of this.#keys.values()) {
+      for (const key of keys) key.destroy();
+    }
+    this.#keys.clear();
   }
 }
+
+/** What a suspended frame reports: nothing happening. */
+const NEUTRAL: Intent = {
+  moveX: 0, moveY: 0, attack: false, run: false, ability: null,
+  companionAttack: false, weaponSlot: null, potionCycle: 0,
+  potionUse: false, mapToggle: false,
+};

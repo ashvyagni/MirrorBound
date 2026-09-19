@@ -9,6 +9,7 @@ import { Hotbar } from '../hud/Hotbar';
 import { Minimap, type MapView } from '../hud/Minimap';
 import { Portrait } from '../hud/Portrait';
 import { SettingsButton } from '../hud/SettingsButton';
+import { SettingsScreen } from '../hud/SettingsScreen';
 import { FX } from '../world/textures';
 
 /**
@@ -36,6 +37,7 @@ export class HudScene extends Phaser.Scene {
   readonly #settings = new SettingsButton(this);
   readonly #map = new MapScreen(this);
   readonly #flourish = new Flourish(this);
+  readonly #settingsScreen = new SettingsScreen(this);
   #teardown: Array<() => void> = [];
 
   constructor() {
@@ -61,6 +63,7 @@ export class HudScene extends Phaser.Scene {
     // Last of the built pieces, so the map's scrim covers the whole interface
     // when it opens rather than sliding under the hotbar.
     this.#map.build();
+    this.#settingsScreen.build();
 
     this.#loadFont();
     this.#listen();
@@ -88,6 +91,7 @@ export class HudScene extends Phaser.Scene {
         for (const text of [
           ...this.#hotbar.texts, ...this.#rail.texts,
           ...this.#settings.texts, ...this.#map.texts,
+          ...this.#settingsScreen.texts,
         ]) {
           text.updateText();
         }
@@ -103,7 +107,16 @@ export class HudScene extends Phaser.Scene {
       eventBus.on('map:changed', (view) => this.#minimap.set(view as MapView)),
       eventBus.on('game:fullscreen', ({ active }) => this.#settings.setFullscreen(active)),
       eventBus.on('run:changed', (run) => this.#map.set(run)),
-      eventBus.on('map:toggle', () => this.#map.toggle()),
+      eventBus.on('map:toggle', () => {
+        this.#settingsScreen.close();
+        this.#map.toggle();
+      }),
+      // Only one screen at a time: two scrims stack into an unreadable murk,
+      // and the one underneath still takes clicks.
+      eventBus.on('settings:toggle', () => {
+        this.#map.close();
+        this.#settingsScreen.toggle();
+      }),
       eventBus.on('flourish', ({ name }) => this.#flourish.show(name)),
       eventBus.on('flourish:clear', () => this.#flourish.clear()),
 
@@ -136,6 +149,7 @@ export class HudScene extends Phaser.Scene {
     this.#rail.destroy();
     this.#settings.destroy();
     this.#map.destroy();
+    this.#settingsScreen.destroy();
     this.#flourish.destroy();
   }
 }

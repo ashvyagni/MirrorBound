@@ -26,7 +26,7 @@ import { buildRun } from '../world/Run';
 import { TextureFactory } from '../world/TextureFactory';
 import { WorldRenderer } from '../world/WorldRenderer';
 import { Ambient } from '../world/Ambient';
-import { DEFAULT_QUALITY } from '../../ui/settings';
+import { getSettings } from '../../ui/settings';
 import { buildWorldTextures } from '../world/textures';
 
 /** How often recharge state is pushed to the views, in seconds. */
@@ -73,9 +73,10 @@ export class PlayScene extends Phaser.Scene {
     // deleted and the snapshot goes straight in.
     this.#grove = buildGrove();
     const textures = new TextureFactory(this);
-    this.#world = new WorldRenderer(this, textures, DEFAULT_QUALITY);
+    const quality = getSettings().quality;
+    this.#world = new WorldRenderer(this, textures, quality);
     this.#world.build(this.#grove.room);
-    this.#ambient = new Ambient(this, DEFAULT_QUALITY);
+    this.#ambient = new Ambient(this, quality);
     this.#ambient.build(this.#grove.room);
     this.#blockers = blockers(this.#grove.room);
 
@@ -117,7 +118,10 @@ export class PlayScene extends Phaser.Scene {
 
   #setUpCamera(): void {
     const camera = this.cameras.main;
-    camera.setZoom(RENDER_SCALE);
+    // `RENDER_SCALE` supersamples the artwork and the setting scales on top of
+    // it, so a player zooming out gets more of the room rather than a softer
+    // picture of the same amount.
+    camera.setZoom(RENDER_SCALE * getSettings().zoom);
     camera.setBackgroundColor(PALETTE.night);
     camera.setBounds(0, 0, this.#grove.room.width, this.#grove.room.height);
     camera.startFollow(this.#goat, true, CAMERA.lerp, CAMERA.lerp);
@@ -481,6 +485,14 @@ export class PlayScene extends Phaser.Scene {
       }),
 
       eventBus.on('hud:ready', () => this.#pushAll()),
+
+      // Settings arrive as a whole; each system takes the part that concerns
+      // it rather than being told about its own field individually.
+      eventBus.on('ui:settings', (settings) => {
+        this.cameras.main.setZoom(RENDER_SCALE * settings.zoom);
+        this.#world.setQuality(settings.quality);
+        this.#ambient.setQuality(settings.quality);
+      }),
       eventBus.on('loadout:swap', () => this.#swapWeapon()),
       eventBus.on('loadout:select', ({ slot }) => this.#selectHand(slot as WeaponSlot)),
       eventBus.on('loadout:cycle-potion', ({ step }) => this.#cyclePotion(step)),

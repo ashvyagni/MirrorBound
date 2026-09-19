@@ -1,6 +1,7 @@
 import type { BroClipName } from './animation/broClips';
 import type { MapView } from './hud/Minimap';
 import type { Run as RunSnapshot } from './world/Run';
+import type { Settings as SettingsSnapshot } from '../ui/settings';
 import type { LoadoutSnapshot } from './state/Loadout';
 import type { VitalsSnapshot } from './state/Vitals';
 import type { ClipName } from './animation/goatClips';
@@ -109,6 +110,13 @@ export interface GameEventMap {
   'flourish': { name: 'death' | 'victory' | 'levelUp' };
   /** Take the held mark down. Only death holds, so only death needs this. */
   'flourish:clear': Record<string, never>;
+  /** Settings changed. The camera, the renderer and the ambient layer each
+   *  pick up what concerns them rather than being told individually. */
+  'ui:settings': SettingsSnapshot;
+  /** Open or close the settings screen. */
+  'settings:toggle': Record<string, never>;
+  /** Stop the game reading the keyboard, while a key is being rebound. */
+  'input:suspend': { suspended: boolean };
   /** Toggle physics body overlays. */
   'debug:toggle-bodies': { enabled: boolean };
 }

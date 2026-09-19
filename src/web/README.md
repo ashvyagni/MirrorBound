@@ -27,6 +27,11 @@ npm run lint
 | `F` | Drink the selected potion |
 | `M` | Open the full map |
 
+Every one of these is rebindable. The settings screen's Controls tab takes the
+next key you press, and the table persists -- `DeviceIntentSource` was already
+the only thing in the game that knew a key code, which is what made rebinding a
+change to one table rather than a hunt through the codebase.
+
 `Q` and `E` are bound to *hands*, not to a carousel: two weapons are carried at
 a time, so each key always reaches the same weapon. Which two is decided in the
 Loadout panel, which is the whole of the inventory.
@@ -157,6 +162,28 @@ consumable ids from its `CONSUMABLES` — so adopting the real ones is deleting
 `state/Vitals.ts` and pointing the HUD at the snapshot. The two-weapon rule is
 the exception: `main`'s `Inventory` has a weapons list and a single
 `equipped_weapon`, so carrying two is a server change rather than a rename.
+
+## Settings
+
+The gear opens a two-tab screen drawn in the canvas, not in React, for the same
+reason the rest of the HUD is: it has to survive fullscreen, where no DOM panel
+beside the game exists any more.
+
+`ui/settings.ts` carries all nine of `main`'s settings even though this branch
+can honour three -- zoom, quality and the hitbox overlay. There is no audio
+module here, nothing shakes, nothing draws damage numbers and there is no twin
+to have thoughts about. Keeping the shape means adopting `main`'s store later is
+deleting a file, and it means a setting saved now is still the right setting
+when the system behind it arrives. The six that do nothing are *named* on the
+screen rather than hidden, so they read as coming rather than missing -- and so
+nobody wires a slider to nothing to fill the space.
+
+`state/Keybinds.ts` is the binding table. Rebinding steals a key rather than
+refusing it: someone putting attack on `K` wants attack on `K`, and refusing
+leaves them to work out that the companion had it. The row that lost its key
+shows a dash, which is a problem you can see rather than one you have to deduce.
+Escape, Tab, F5 and F12 are reserved, because binding the key that closes the
+screen you are binding from leaves clearing storage by hand as the only way out.
 
 ## The room
 
