@@ -98,11 +98,9 @@ export class Hotbar {
     const hand: Hand = { icon, label, highlight, x, y };
     this.#objects.push(highlight, icon);
 
-    const hit = new Phaser.Geom.Rectangle(
-      x - this.#item / 2, y - this.#item / 2, this.#item, this.#item,
-    );
+    // The frame's own bounds; see the note in `SettingsButton`.
     icon
-      .setInteractive(hit, Phaser.Geom.Rectangle.Contains)
+      .setInteractive({ useHandCursor: true })
       .on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => {
         eventBus.emit('hud:pointer-used', {});
         eventBus.emit('loadout:select', { slot: index === 0 ? 0 : 1 });
@@ -122,11 +120,8 @@ export class Hotbar {
     );
     this.#objects.push(this.#potionIcon, this.#dial);
 
-    const hit = new Phaser.Geom.Rectangle(
-      x - this.#dialSize / 2, y - this.#dialSize / 2, this.#dialSize, this.#dialSize,
-    );
     this.#dial
-      .setInteractive(hit, Phaser.Geom.Rectangle.Contains)
+      .setInteractive({ useHandCursor: true })
       .on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, (p: Phaser.Input.Pointer) => {
         eventBus.emit('hud:pointer-used', {});
         // Right-click turns the dial, left-click drinks. One control, both

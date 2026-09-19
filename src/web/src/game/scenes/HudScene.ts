@@ -10,7 +10,12 @@ import { Minimap, type MapView } from '../hud/Minimap';
 import { Portrait } from '../hud/Portrait';
 import { SettingsButton } from '../hud/SettingsButton';
 import { SettingsScreen } from '../hud/SettingsScreen';
+import { Console } from '../hud/Console';
+import { InteractPrompt } from '../hud/InteractPrompt';
+import { PauseScreen } from '../hud/PauseScreen';
+import { complete, run, type CommandHost } from '../state/Commands';
 import { FX } from '../world/textures';
+import { PlayScene } from './PlayScene';
 
 /**
  * The interface drawn inside the game.
@@ -38,6 +43,10 @@ export class HudScene extends Phaser.Scene {
   readonly #map = new MapScreen(this);
   readonly #flourish = new Flourish(this);
   readonly #settingsScreen = new SettingsScreen(this);
+  readonly #pause = new PauseScreen(this);
+  readonly #prompt = new InteractPrompt(this);
+  /** Built in `create`, because it needs the play scene to talk to. */
+  #console!: Console;
   #teardown: Array<() => void> = [];
 
   constructor() {
@@ -64,6 +73,14 @@ export class HudScene extends Phaser.Scene {
     // when it opens rather than sliding under the hotbar.
     this.#map.build();
     this.#settingsScreen.build();
+    this.#pause.build();
+    this.#prompt.build();
+
+    // The console runs its commands against the play scene, which is the only
+    // thing that can actually put something in the room.
+    const host = this.scene.get(PlayScene.KEY) as unknown as CommandHost;
+    this.#console = new Console(this, complete, (line) => run(line, host));
+    this.#console.build();
 
     this.#loadFont();
     this.#listen();
@@ -91,7 +108,8 @@ export class HudScene extends Phaser.Scene {
         for (const text of [
           ...this.#hotbar.texts, ...this.#rail.texts,
           ...this.#settings.texts, ...this.#map.texts,
-          ...this.#settingsScreen.texts,
+          ...this.#settingsScreen.texts, ...this.#pause.texts,
+          ...this.#prompt.texts, ...this.#console.texts,
         ]) {
           text.updateText();
         }
@@ -113,6 +131,14 @@ export class HudScene extends Phaser.Scene {
       }),
       // Only one screen at a time: two scrims stack into an unreadable murk,
       // and the one underneath still takes clicks.
+      eventBus.on('console:toggle', () => {
+        this.#map.close();
+        this.#settingsScreen.close();
+        this.#console.toggle();
+      }),
+      eventBus.on('game:pause', ({ paused }) => this.#pause.setVisible(paused)),
+      eventBus.on('pause:stats', (stats) => this.#pause.set(stats)),
+      eventBus.on('interact:target', (target) => this.#prompt.set(target)),
       eventBus.on('settings:toggle', () => {
         this.#map.close();
         this.#settingsScreen.toggle();
@@ -138,6 +164,8 @@ export class HudScene extends Phaser.Scene {
     this.#portrait.step(dt);
     this.#hotbar.step(dt);
     this.#minimap.draw();
+    this.#console.step(dt);
+    this.#prompt.step();
   }
 
   #dispose(): void {
@@ -150,6 +178,9 @@ export class HudScene extends Phaser.Scene {
     this.#settings.destroy();
     this.#map.destroy();
     this.#settingsScreen.destroy();
+    this.#pause.destroy();
+    this.#prompt.destroy();
+    this.#console.destroy();
     this.#flourish.destroy();
   }
 }

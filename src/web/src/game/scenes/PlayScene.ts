@@ -6,10 +6,16 @@ import {
   GUARD, isSpell, slotInfo, WEAPONS, type SlotId, type WeaponId,
 } from '../animation/weaponClips';
 import {
-  CAMERA, GOAT_DISPLAY_HEIGHT, HIT_RANGE, PALETTE, PHYSICS, RENDER_SCALE, TILE, VITALS,
+  CAMERA, GOAT_DISPLAY_HEIGHT, HIT_RANGE, MIRROR, PALETTE, PHYSICS, RENDER_SCALE,
+  TILE, VITALS,
 } from '../constants';
 import { Bro } from '../entities/Bro';
 import { Dummy } from '../entities/Dummy';
+import { Mirror } from '../entities/Mirror';
+import { Mob, MOBS, type MobId } from '../entities/Mob';
+import { Pickup } from '../entities/Pickup';
+import type { ItemName } from '../animation/items';
+import { PAUSE, PICKUP } from '../constants';
 import { Projectile } from '../entities/Projectile';
 import { Shield } from '../entities/Shield';
 import { Weapon } from '../entities/Weapon';
@@ -35,6 +41,11 @@ const COOLDOWN_PUSH = 0.1;
 /** How often the minimap is told where everything is, in seconds. */
 const MAP_PUSH = 0.12;
 
+/** How close a hit has to land on the boss. Wider than a dummy's, because the
+ *  boss is two and a half times the goat and a reach tuned to a dummy would
+ *  pass straight through its mantle. */
+const MIRROR_HIT_RANGE = HIT_RANGE + GOAT_DISPLAY_HEIGHT * MIRROR.sizeRatio * 0.3;
+
 export class PlayScene extends Phaser.Scene {
   static readonly KEY = 'play';
 
@@ -48,6 +59,17 @@ export class PlayScene extends Phaser.Scene {
   /** Blocking props the goat has to walk around. */
   #blockers: Array<{ x: number; y: number; r: number }> = [];
   #dummies: Dummy[] = [];
+  /** The boss, once summoned. There is only ever one. */
+  #mirror: Mirror | null = null;
+  #mobs: Mob[] = [];
+  #pickups: Pickup[] = [];
+  #paused = false;
+  /** Seconds of play. A paused game does not age. */
+  #elapsed = 0;
+  /** What the pause screen counts. */
+  #tally = { hits: 0, casts: 0, potions: 0 };
+  /** What the goat is standing next to, so the prompt and `interact` agree. */
+  #near: Pickup | null = null;
   #shots: Projectile[] = [];
   #source!: IntentSource;
   readonly #cooldowns = new Cooldowns<SlotId>();
@@ -139,6 +161,14 @@ export class PlayScene extends Phaser.Scene {
     const dt = Math.min(deltaMs, 50) / 1000;
 
     const intent = this.#source.sample(dt);
+
+    if (intent.consoleToggle) eventBus.emit('console:toggle', {});
+    if (intent.pauseToggle) this.#setPaused(!this.#paused);
+
+    // Paused stops the world, not the interface: the HUD scene keeps running
+    // so the pause panel is drawn and its buttons still take clicks.
+    if (this.#paused) return;
+    this.#elapsed += dt;
     this.#cooldowns.step(dt);
     this.#vitals.step(dt);
     this.#pushCooldowns(dt);
@@ -158,6 +188,7 @@ export class PlayScene extends Phaser.Scene {
     if (intent.attack && this.#weapon.equipped) {
       this.#weapon.strike();
       this.#emitWeapon();
+      this.#tally.hits += 1;
       this.#strikeAt(this.#reachPoint(70));
     }
 
@@ -166,6 +197,14 @@ export class PlayScene extends Phaser.Scene {
     if (intent.potionCycle !== 0) this.#cyclePotion(intent.potionCycle);
     if (intent.potionUse) this.#usePotion();
     if (intent.mapToggle) eventBus.emit('map:toggle', {});
+
+    // It drifts toward the goat and stops out of reach, which is the only
+    // behaviour it has -- there is no enemy AI on this branch to give it more.
+    this.#mirror?.step(dt, { x: this.#goat.x, y: this.#goat.y });
+    for (const mob of this.#mobs) mob.step(dt, { x: this.#goat.x, y: this.#goat.y });
+    for (const pickup of this.#pickups) pickup.step(dt);
+    this.#trackNearest();
+    if (intent.interact) this.#interact();
 
     for (const shot of this.#shots) {
       if (!shot.busy) continue;
@@ -263,6 +302,7 @@ export class PlayScene extends Phaser.Scene {
       return;
     }
     this.#emitVitals();
+    this.#tally.casts += 1;
     this.#startCooldown(entry);
     // The weapon's own motion, if it has one for this spell, with the spell
     // held back until the frame that actually throws it.
@@ -335,6 +375,7 @@ export class PlayScene extends Phaser.Scene {
       eventBus.emit('loadout:potion-empty', { id: this.#loadout.potion.id });
       return;
     }
+    this.#tally.potions += 1;
     if (potion.heal) this.#vitals.heal(potion.heal);
     if (potion.mana) this.#vitals.restoreMana(potion.mana);
 
@@ -354,6 +395,142 @@ export class PlayScene extends Phaser.Scene {
     this.#emitLoadout();
     this.#emitWeapon();
     eventBus.emit('weapon:cooldowns', { active: this.#cooldowns.snapshot() });
+  }
+
+  /**
+   * Put the Mirror in the room, or take it out again.
+   *
+   * Summoned rather than placed by the generator: the grove is the *first*
+   * room and this belongs in the last one. It is here to be looked at until
+   * there is a room to put it in.
+   */
+  #spawnMirror(): void {
+    if (this.#mirror) {
+      this.#mirror.destroy();
+      this.#mirror = null;
+      return;
+    }
+    const { room } = this.#grove;
+    // Up the room from the player's spawn, far enough that the whole of it is
+    // on screen at once -- it is two and a half goats tall.
+    this.#mirror = new Mirror(this, room.width / 2, room.height * 0.34);
+  }
+
+  // --- pause ------------------------------------------------------------------
+
+  /**
+   * Stop the world and blur it.
+   *
+   * The blur goes on the play camera, not the HUD's: blurring the panel along
+   * with the world would make the thing you are meant to read the hardest thing
+   * on screen. Two cameras is what makes that separation free.
+   */
+  #setPaused(paused: boolean): void {
+    if (paused === this.#paused) return;
+    this.#paused = paused;
+
+    // Phaser 4 moved camera effects onto `filters`; `internal` applies before
+    // the camera's own transform, which is what blurs the world rather than
+    // the screen it is drawn to.
+    const filters = this.cameras.main.filters.internal;
+    if (paused) {
+      filters.addBlur(1, PAUSE.blur, PAUSE.blur, PAUSE.blurStrength);
+      eventBus.emit('pause:stats', {
+        elapsed: this.#elapsed,
+        room: this.#grove.room.name,
+        biome: this.#grove.room.biome,
+        health: this.#vitals.health,
+        maxHealth: VITALS.maxHealth,
+        ...this.#tally,
+      });
+    } else {
+      filters.clear();
+    }
+    eventBus.emit('game:pause', { paused });
+  }
+
+  // --- spawning and picking up -------------------------------------------------
+
+  /** A point a little in front of the goat, where spawned things appear. */
+  #spawnPoint(distance = 160): Vec2 {
+    const { room } = this.#grove;
+    const aim = this.#goat.aim;
+    return {
+      x: Phaser.Math.Clamp(this.#goat.x + aim.x * distance, TILE * 2, room.width - TILE * 2),
+      y: Phaser.Math.Clamp(this.#goat.y + aim.y * distance, TILE * 2, room.height - TILE * 2),
+    };
+  }
+
+  spawnMob(id: MobId): string {
+    const at = this.#spawnPoint();
+    this.#mobs.push(new Mob(this, id, at.x, at.y));
+    return `${MOBS[id].name} spawned.`;
+  }
+
+  spawnItem(item: ItemName): string {
+    const at = this.#spawnPoint(110);
+    this.#pickups.push(new Pickup(this, item, at.x, at.y));
+    return `${item} dropped.`;
+  }
+
+  spawnBoss(): string {
+    this.#spawnMirror();
+    return this.#mirror ? 'The Mirror is here.' : 'The Mirror is gone.';
+  }
+
+  /** Take everything spawned back out. */
+  clearSpawned(): string {
+    const count = this.#mobs.length + this.#pickups.length + (this.#mirror ? 1 : 0);
+    for (const mob of this.#mobs) mob.destroy();
+    for (const pickup of this.#pickups) pickup.destroy();
+    this.#mobs = [];
+    this.#pickups = [];
+    this.#near = null;
+    eventBus.emit('interact:target', null);
+    this.#mirror?.destroy();
+    this.#mirror = null;
+    return `Cleared ${count}.`;
+  }
+
+  /**
+   * Find the nearest thing in reach, and tell the HUD about it.
+   *
+   * Pushed only when it changes: the prompt is a label that appears and
+   * disappears, and re-sending the same target sixty times a second would make
+   * the HUD rebuild it just as often.
+   */
+  #trackNearest(): void {
+    let best: Pickup | null = null;
+    let bestDistance = Infinity;
+    for (const pickup of this.#pickups) {
+      if (pickup.taken) continue;
+      const d = Phaser.Math.Distance.Between(this.#goat.x, this.#goat.y, pickup.x, pickup.y);
+      if (d < pickup.reach && d < bestDistance) {
+        best = pickup;
+        bestDistance = d;
+      }
+    }
+    if (best === this.#near) return;
+    this.#near = best;
+    eventBus.emit(
+      'interact:target',
+      best ? { label: best.item.replace(/_/g, ' '), x: best.x, y: best.y - PICKUP.reach } : null,
+    );
+  }
+
+  #interact(): void {
+    const target = this.#near;
+    if (!target || target.taken) return;
+    target.take();
+    this.#pickups = this.#pickups.filter((p) => p !== target);
+    this.#near = null;
+    eventBus.emit('interact:target', null);
+
+    // Potions go into the carousel; everything else is picked up and counted.
+    if (target.item === 'health_potion' || target.item === 'mana_potion') {
+      this.#loadout.give(target.item, 1);
+      this.#emitLoadout();
+    }
   }
 
   #emitVitals(): void {
@@ -397,6 +574,17 @@ export class PlayScene extends Phaser.Scene {
    * reasoning about an oriented box.
    */
   #strikeAt(point: Vec2): void {
+    const boss = this.#mirror;
+    if (boss && !boss.dead
+        && Phaser.Math.Distance.Between(boss.x, boss.y, point.x, point.y) < MIRROR_HIT_RANGE) {
+      boss.hit();
+    }
+    for (const mob of this.#mobs) {
+      if (Phaser.Math.Distance.Between(mob.x, mob.y, point.x, point.y)
+          < HIT_RANGE + mob.displayHeight * 0.3) {
+        mob.hit();
+      }
+    }
     for (const dummy of this.#dummies) {
       if (dummy.reacting) continue;
       if (Phaser.Math.Distance.Between(dummy.x, dummy.y, point.x, point.y) < HIT_RANGE) {
@@ -491,6 +679,7 @@ export class PlayScene extends Phaser.Scene {
       }),
 
       eventBus.on('hud:ready', () => this.#pushAll()),
+      eventBus.on('debug:spawn-boss', () => this.#spawnMirror()),
 
       // Settings arrive as a whole; each system takes the part that concerns
       // it rather than being told about its own field individually.
@@ -543,6 +732,12 @@ export class PlayScene extends Phaser.Scene {
     this.#teardown = [];
     this.#source?.destroy?.();
     this.#cooldowns.clear();
+    for (const mob of this.#mobs) mob.destroy();
+    for (const pickup of this.#pickups) pickup.destroy();
+    this.#mobs = [];
+    this.#pickups = [];
+    this.#mirror?.destroy();
+    this.#mirror = null;
     this.#world.destroy();
     this.#ambient.destroy();
     this.scene.stop(HudScene.KEY);

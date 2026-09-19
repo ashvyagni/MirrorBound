@@ -32,11 +32,13 @@ export class SettingsButton {
     fitWidth(this.#button, settings.size);
     this.#objects.push(this.#button);
 
-    const hit = new Phaser.Geom.Rectangle(
-      settings.x - settings.size / 2, settings.y - settings.size / 2, settings.size, settings.size,
-    );
+    // No hit area passed, on purpose. Phaser takes the frame's own bounds and
+    // applies the object's origin and scale itself. A hand-built rectangle is
+    // in the object's LOCAL texture space -- this one used to be built from
+    // absolute canvas coordinates, which put the gear's hit area about
+    // eighteen hundred pixels away from the gear and made it unclickable.
     this.#button
-      .setInteractive(hit, Phaser.Geom.Rectangle.Contains)
+      .setInteractive({ useHandCursor: true })
       // The pressed frame is the art's own, not a tint: the two were drawn to
       // register exactly, which is the only reason the sheet has two cells.
       .on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => {

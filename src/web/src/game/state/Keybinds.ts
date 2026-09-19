@@ -18,7 +18,7 @@ export type Action =
   | 'ability1' | 'ability2' | 'ability3'
   | 'hand1' | 'hand2'
   | 'potionCycle' | 'potionUse'
-  | 'map';
+  | 'map' | 'pause' | 'console' | 'interact';
 
 /** A binding is two keys, because movement has always had arrows and WASD. */
 export interface Binding {
@@ -55,6 +55,9 @@ export const ACTIONS: readonly ActionInfo[] = [
   { action: 'potionUse', label: 'Drink', group: 'Loadout' },
 
   { action: 'map', label: 'Map', group: 'Interface' },
+  { action: 'pause', label: 'Pause', group: 'Interface' },
+  { action: 'interact', label: 'Interact', group: 'Interface' },
+  { action: 'console', label: 'Console', group: 'Interface' },
 ];
 
 export const DEFAULT_BINDINGS: Readonly<Record<Action, Binding>> = {
@@ -73,6 +76,11 @@ export const DEFAULT_BINDINGS: Readonly<Record<Action, Binding>> = {
   potionCycle: { primary: K.R },
   potionUse: { primary: K.F },
   map: { primary: K.M },
+  pause: { primary: K.P },
+  // Space, not E: E already draws the second hand, and the defaults are not
+  // run through the conflict checker -- a duplicate here fires both actions.
+  interact: { primary: K.SPACE },
+  console: { primary: K.BACK_SLASH },
 };
 
 /**

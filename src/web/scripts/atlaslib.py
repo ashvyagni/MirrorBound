@@ -115,6 +115,19 @@ class SheetSpec:
     #: chrome that is never drawn above a few dozen pixels, where it only buys
     #: a megabyte of atlas nobody sees. Resampled once here with a good kernel.
     downscale: float = 1.0
+    #: Erase this many pixels either side of every cell boundary before the
+    #: frames are found.
+    #:
+    #: Image models draw the grid. Block 0-MOB forbids cell borders in as many
+    #: words and six of the boss's ten sheets came back with them anyway, 1 to
+    #: 2 pixels thick and fully opaque -- which welds all eight frames into one
+    #: blob and loses the sheet.
+    #:
+    #: Safe because the same brief requires 24 pixels of clear background
+    #: around every frame's artwork, so a few pixels at the exact boundary can
+    #: only ever be background or a border. Cheaper than regenerating a sheet
+    #: that is otherwise correct, and it keeps working the next time.
+    strip_grid: int = 0
     #: Hue rotation applied to every frame of the sheet, in degrees.
     #:
     #: What makes a corrupted weapon cheap. The weapon sheets carry no
@@ -226,6 +239,27 @@ def components(mask: np.ndarray, min_area: int) -> list[np.ndarray]:
 
     found.sort(key=lambda pair: -pair[0])
     return [blob for _, blob in found]
+
+
+def strip_grid_lines(alpha: np.ndarray, spec: SheetSpec) -> np.ndarray:
+    """Clear the drawn cell borders out of a sheet's alpha."""
+    if spec.strip_grid <= 0:
+        return alpha
+
+    out = alpha.copy()
+    pad = spec.strip_grid
+    for band in spec.bands:
+        if not band.grid_cols:
+            continue
+        cell = (band.x1 - band.x0) / band.grid_cols
+        # Every boundary including the band's own two outer edges: a model that
+        # draws the internal dividers usually draws the frame around them too.
+        for i in range(band.grid_cols + 1):
+            x = int(round(band.x0 + i * cell))
+            out[band.y0:band.y1, max(0, x - pad):x + pad + 1] = 0.0
+        out[max(0, band.y0 - pad):band.y0 + pad + 1, band.x0:band.x1] = 0.0
+        out[max(0, band.y1 - pad):band.y1 + pad + 1, band.x0:band.x1] = 0.0
+    return out
 
 
 def band_mask(spec: SheetSpec, shape: tuple[int, int]) -> np.ndarray:
@@ -862,6 +896,7 @@ def build(spec: SheetSpec, out_dir: Path, ts_out: Path) -> None:
     else:
         raise SystemExit(f"[{spec.name}] unknown key mode {spec.key!r}")
 
+    alpha = strip_grid_lines(alpha, spec)
     frames = collect_frames(rgb, alpha, spec)
 
     left, right, up, down = cell = measure_cell(frames)

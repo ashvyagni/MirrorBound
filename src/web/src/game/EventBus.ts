@@ -2,6 +2,7 @@ import type { BroClipName } from './animation/broClips';
 import type { MapView } from './hud/Minimap';
 import type { Run as RunSnapshot } from './world/Run';
 import type { Settings as SettingsSnapshot } from '../ui/settings';
+import type { PauseStats as PauseSnapshot } from './hud/PauseScreen';
 import type { LoadoutSnapshot } from './state/Loadout';
 import type { VitalsSnapshot } from './state/Vitals';
 import type { ClipName } from './animation/goatClips';
@@ -117,6 +118,16 @@ export interface GameEventMap {
   'settings:toggle': Record<string, never>;
   /** Stop the game reading the keyboard, while a key is being rebound. */
   'input:suspend': { suspended: boolean };
+  /** Put the Mirror in the room, for testing. */
+  'debug:spawn-boss': Record<string, never>;
+  /** Open or close the console. */
+  'console:toggle': Record<string, never>;
+  /** Pause or resume. The play scene stops; the HUD does not. */
+  'game:pause': { paused: boolean };
+  /** What the pause screen shows. Pushed when it opens. */
+  'pause:stats': PauseSnapshot;
+  /** What the goat is standing next to, or null. Drives the prompt. */
+  'interact:target': { label: string; x: number; y: number } | null;
   /** Toggle physics body overlays. */
   'debug:toggle-bodies': { enabled: boolean };
 }

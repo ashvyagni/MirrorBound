@@ -137,6 +137,9 @@ export class DeviceIntentSource implements IntentSource {
       potionCycle: this.#pressed('potionCycle') ? 1 : 0,
       potionUse: this.#pressed('potionUse'),
       mapToggle: this.#pressed('map'),
+      pauseToggle: this.#pressed('pause'),
+      consoleToggle: this.#pressed('console'),
+      interact: this.#pressed('interact'),
     };
   }
 
@@ -161,5 +164,6 @@ export class DeviceIntentSource implements IntentSource {
 const NEUTRAL: Intent = {
   moveX: 0, moveY: 0, attack: false, run: false, ability: null,
   companionAttack: false, weaponSlot: null, potionCycle: 0,
-  potionUse: false, mapToggle: false,
+  potionUse: false, mapToggle: false, pauseToggle: false,
+  consoleToggle: false, interact: false,
 };

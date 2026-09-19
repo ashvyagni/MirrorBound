@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "f-00": {
+   "frame": {
+    "x": 316,
+    "y": 400,
+    "w": 205,
+    "h": 310
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 75,
+    "y": 40,
+    "w": 205,
+    "h": 310
+   },
+   "sourceSize": {
+    "w": 350,
+    "h": 396
+   }
+  },
+  "f-01": {
+   "frame": {
+    "x": 2,
+    "y": 713,
+    "w": 211,
+    "h": 298
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 70,
+    "y": 45,
+    "w": 211,
+    "h": 298
+   },
+   "sourceSize": {
+    "w": 350,
+    "h": 396
+   }
+  },
+  "f-02": {
+   "frame": {
+    "x": 773,
+    "y": 400,
+    "w": 199,
+    "h": 305
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 74,
+    "y": 43,
+    "w": 199,
+    "h": 305
+   },
+   "sourceSize": {
+    "w": 350,
+    "h": 396
+   }
+  },
+  "f-03": {
+   "frame": {
+    "x": 523,
+    "y": 400,
+    "w": 248,
+    "h": 306
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 54,
+    "y": 41,
+    "w": 248,
+    "h": 306
+   },
+   "sourceSize": {
+    "w": 350,
+    "h": 396
+   }
+  },
+  "f-04": {
+   "frame": {
+    "x": 2,
+    "y": 400,
+    "w": 312,
+    "h": 311
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 25,
+    "y": 64,
+    "w": 312,
+    "h": 311
+   },
+   "sourceSize": {
+    "w": 350,
+    "h": 396
+   }
+  },
+  "f-05": {
+   "frame": {
+    "x": 697,
+    "y": 2,
+    "w": 322,
+    "h": 334
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 19,
+    "y": 43,
+    "w": 322,
+    "h": 334
+   },
+   "sourceSize": {
+    "w": 350,
+    "h": 396
+   }
+  },
+  "f-06": {
+   "frame": {
+    "x": 353,
+    "y": 2,
+    "w": 342,
+    "h": 365
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 8,
+    "y": 21,
+    "w": 342,
+    "h": 365
+   },
+   "sourceSize": {
+    "w": 350,
+    "h": 396
+   }
+  },
+  "f-07": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 349,
+    "h": 396
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 349,
+    "h": 396
+   },
+   "sourceSize": {
+    "w": 350,
+    "h": 396
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "hatchCrack.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 1024,
+   "h": 1013
+  },
+  "scale": "1"
+ }
+}

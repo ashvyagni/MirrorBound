@@ -114,6 +114,11 @@ export class Loadout {
     return this.#potion;
   }
 
+  /** Add to a stack. What picking one up off the floor does. */
+  give(id: string, count = 1): void {
+    this.#counts[id] = (this.#counts[id] ?? 0) + count;
+  }
+
   /** Drink the selected potion, if there is one. Returns it, or null. */
   usePotion(): PotionDef | null {
     const potion = this.potion;

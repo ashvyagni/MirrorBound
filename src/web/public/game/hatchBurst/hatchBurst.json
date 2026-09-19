@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "f-00": {
+   "frame": {
+    "x": 749,
+    "y": 441,
+    "w": 272,
+    "h": 260
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 76,
+    "y": 112,
+    "w": 272,
+    "h": 260
+   },
+   "sourceSize": {
+    "w": 422,
+    "h": 437
+   }
+  },
+  "f-01": {
+   "frame": {
+    "x": 2,
+    "y": 441,
+    "w": 399,
+    "h": 369
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 11,
+    "y": 32,
+    "w": 399,
+    "h": 369
+   },
+   "sourceSize": {
+    "w": 422,
+    "h": 437
+   }
+  },
+  "f-02": {
+   "frame": {
+    "x": 1514,
+    "y": 2,
+    "w": 388,
+    "h": 374
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 18,
+    "y": 33,
+    "w": 388,
+    "h": 374
+   },
+   "sourceSize": {
+    "w": 422,
+    "h": 437
+   }
+  },
+  "f-03": {
+   "frame": {
+    "x": 403,
+    "y": 441,
+    "w": 344,
+    "h": 367
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 33,
+    "y": 41,
+    "w": 344,
+    "h": 367
+   },
+   "sourceSize": {
+    "w": 422,
+    "h": 437
+   }
+  },
+  "f-04": {
+   "frame": {
+    "x": 1136,
+    "y": 2,
+    "w": 376,
+    "h": 394
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 26,
+    "y": 30,
+    "w": 376,
+    "h": 394
+   },
+   "sourceSize": {
+    "w": 422,
+    "h": 437
+   }
+  },
+  "f-05": {
+   "frame": {
+    "x": 426,
+    "y": 2,
+    "w": 392,
+    "h": 418
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 15,
+    "y": 9,
+    "w": 392,
+    "h": 418
+   },
+   "sourceSize": {
+    "w": 422,
+    "h": 437
+   }
+  },
+  "f-06": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 422,
+    "h": 437
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 422,
+    "h": 437
+   },
+   "sourceSize": {
+    "w": 422,
+    "h": 437
+   }
+  },
+  "f-07": {
+   "frame": {
+    "x": 820,
+    "y": 2,
+    "w": 314,
+    "h": 415
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 52,
+    "y": 9,
+    "w": 314,
+    "h": 415
+   },
+   "sourceSize": {
+    "w": 422,
+    "h": 437
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "hatchBurst.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 2048,
+   "h": 812
+  },
+  "scale": "1"
+ }
+}

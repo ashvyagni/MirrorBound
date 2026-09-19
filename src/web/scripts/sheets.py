@@ -677,5 +677,70 @@ def _corrupt(spec: SheetSpec) -> SheetSpec:
 #: Every weapon, cast motion and effect the player has, as the boss's.
 CORRUPTED = tuple(_corrupt(spec) for spec in (*WEAPONS, *CASTS, *SPELLS, *SHIELDS))
 
+
+# --- the Mirror -------------------------------------------------------------
+
+def _mirror(name: str, file: str, width: int = 1536, height: int = 1024) -> SheetSpec:
+    """One animation of the boss.
+
+    Like `_mob`, but it does not stand on anything: `anchor="center"`, exactly
+    as the companion it grew out of. Pinning a floating creature's lowest pixel
+    to a floor makes it bob every time its mantle changes length.
+
+    `strip_grid` because six of these ten sheets came back with the cell
+    borders drawn in -- see the note on that field.
+    """
+    half = height // 2
+    return SheetSpec(
+        name=name,
+        source=ASSETS / "enemies" / file,
+        body=_mob_body,
+        anchor="center",
+        key="green",
+        body_min_area=300,
+        strip_grid=3,
+        bands=(
+            Band("a", 0, half, 0, width, 4, grid_cols=4,
+                 names=tuple(f"f-{i:02d}" for i in range(4))),
+            Band("b", half, height, 0, width, 4, grid_cols=4,
+                 names=tuple(f"f-{i:02d}" for i in range(4, 8))),
+        ),
+    )
+
+
+MIRROR = tuple(
+    _mirror(f"mirror{clip.capitalize()}", f"mirror-{clip}.png")
+    for clip in ("idle", "drift", "strike", "cast", "hurt", "death")
+)
+
+#: The hatching, in two sheets. Deliberately no `normalize_to`: every other
+#: multi-band sheet uses it to stop a character changing size between
+#: animations, and these are the one case where the size change *is* the
+#: animation -- normalising them would flatten the whole cutscene to one size.
+HATCH = (
+    _mirror("hatchCrack", "hatch-crack.png", 1774, 887),
+    _mirror("hatchBurst", "hatch-burst.png", 1774, 887),
+)
+
+
+def _boss_spell(name: str, file: str) -> SheetSpec:
+    """Its own two effects: the player's spell builder, on the 1774x887 canvas
+    these two came back at, plus the grid strip."""
+    return replace(
+        _spell(name, f"spells/{file}", "green"),
+        strip_grid=3,
+        bands=(
+            Band("cast", 0, 443, 0, 1774, 4, grid_cols=4,
+                 names=tuple(f"cast-{i:02d}" for i in range(4))),
+            Band("cast_b", 443, 887, 0, 1774, 4, grid_cols=4,
+                 names=tuple(f"cast-{i:02d}" for i in range(4, 8))),
+        ),
+    )
+
+
+BOSS_SPELLS = (_boss_spell("mirrorBolt", "mirror-bolt.png"),
+               _boss_spell("shardRing", "shard-ring.png"))
+
 SHEETS = (GOAT, BRO, DUMMY, *FACINGS, *WEAPONS, *CASTS, *SHIELDS, *SPELLS,
-          ICONS, *UI, *SCREENS, *ENEMIES, *CORRUPTED)
+          ICONS, *UI, *SCREENS, *ENEMIES, *CORRUPTED,
+          *MIRROR, *HATCH, *BOSS_SPELLS)

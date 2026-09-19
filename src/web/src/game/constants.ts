@@ -158,6 +158,81 @@ export const COMPANION = {
 export const COMPANION_DISPLAY_HEIGHT =
   (GOAT_DISPLAY_HEIGHT * GOAT_BODY_RATIO * COMPANION.sizeRatio) / BRO_BODY_RATIO;
 
+/**
+ * The Mirror: the twin, corrupted, and the run's last room.
+ *
+ * `main` gives it 520 health against the player's 100 and a speed of 190,
+ * which is only just under the goat's run. The numbers here are the ones the
+ * server does not carry -- how big it is drawn and how it moves while drifting.
+ */
+export const MIRROR = {
+  /**
+   * Drawn size as a multiple of the goat's display height.
+   *
+   * Two and a half, between the two and three the design asks for. Measured
+   * against the goat rather than against the companion it grew from, because
+   * the goat is the thing it will be standing next to.
+   */
+  sizeRatio: 2.5,
+  /** Seconds to close most of the gap to its target. Slower than the
+   *  companion's: it is enormous, and enormous things turn late. */
+  responseTime: 0.42,
+  /** Fraction of the remaining gap it actually closes, so it drifts in rather
+   *  than homing. */
+  followScale: 0.55,
+  /** It stops this far out. `main` gives it an attack range of 70 and both
+   *  ranged and spell tags, so it has no reason to close all the way. */
+  keepDistance: 190,
+  /** Where its shadow sits below it, as a fraction of its drawn height. */
+  shadowDrop: 0.46,
+} as const;
+
+/**
+ * The eleven creatures.
+ *
+ * Only what every one of them shares. What differs -- size, speed, reach -- is
+ * a row in `MOBS`, because eleven numbers that differ belong beside each other
+ * rather than scattered across eleven files.
+ */
+export const MOB = {
+  frameRate: { idle: 9, alert: 14, walk: 12, attack: 16 },
+  /** Where the creature's feet sit in its frame. The sheets are anchored on
+   *  their own lowest body pixel, so this is very near the bottom. */
+  footAnchor: 0.94,
+  /** How close the player gets before it notices. */
+  aggroRange: 320,
+  /** Seconds between swings once it is in reach. */
+  swingCooldown: 1.1,
+  /** The alert mark, as a multiple of the creature's drawn height. */
+  markScale: 0.55,
+  markLift: 1.05,
+  /** Milliseconds the mark holds before the game fades it -- the sheet's own
+   *  fade frames keyed out entirely, so this is where the fade lives. */
+  markHold: 420,
+  markFade: 260,
+} as const;
+
+/** An item lying on the floor. */
+export const PICKUP = {
+  /** Drawn height as a multiple of the goat's. */
+  sizeRatio: 0.34,
+  /** How close the goat has to be. Generous on purpose: an item you have to
+   *  stand exactly on is an item you walk past. */
+  reach: 46,
+  bobSpeed: 2.6,
+  bobAmount: 4,
+  shadowDrop: 4,
+  takeRise: 26,
+  takeTime: 260,
+} as const;
+
+/** Paused, and the console. */
+export const PAUSE = {
+  /** How hard the play camera blurs behind the panel. */
+  blur: 2,
+  blurStrength: 1.1,
+} as const;
+
 /** Drawn height of the practice dummy, in world units. */
 export const DUMMY_HEIGHT = 68;
 

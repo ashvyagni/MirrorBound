@@ -65,6 +65,12 @@ export interface Intent {
   potionUse: boolean;
   /** True only on the frame the map was asked to open or close. */
   mapToggle: boolean;
+  /** True only on the frame the game was paused or resumed. */
+  pauseToggle: boolean;
+  /** True only on the frame the console was asked to open. */
+  consoleToggle: boolean;
+  /** True only on the frame an interaction was requested. */
+  interact: boolean;
 }
 
 export const NEUTRAL_INTENT: Readonly<Intent> = Object.freeze({
@@ -78,6 +84,9 @@ export const NEUTRAL_INTENT: Readonly<Intent> = Object.freeze({
   potionCycle: 0,
   potionUse: false,
   mapToggle: false,
+  pauseToggle: false,
+  consoleToggle: false,
+  interact: false,
 });
 
 /** Anything that can drive the character. */
