@@ -115,12 +115,20 @@ function runFrom(snap: GameSnapshot): Run | null {
   return { rooms, current: dungeon.currentIndex };
 }
 
-function mapFrom(snap: GameSnapshot, size: { width: number; height: number }): MapView {
+function mapFrom(
+  snap: GameSnapshot,
+  size: { width: number; height: number },
+  doors: readonly { x: number; y: number; locked: boolean }[],
+): MapView {
   return {
     room: size,
     player: snap.player.position,
-    // Everything else worth a dot: the twin first, then live enemies.
-    marks: [snap.twin.position, ...snap.enemies.map((e) => e.position)],
+    // `marks` is enemies only. The twin used to be folded in here and drawn in
+    // the same colour, which made the one friendly thing on the map
+    // indistinguishable from the things trying to kill you.
+    marks: snap.enemies.map((e) => e.position),
+    twin: snap.twin.position,
+    doors,
   };
 }
 
@@ -144,6 +152,8 @@ export function bridgeSnapshotToHud(): () => void {
   let lastCooldowns: unknown = null;
   let lastRun: unknown = null;
   let roomSize = { width: 0, height: 0 };
+  // Doors only ride full-room snapshots, so they are cached like the size is.
+  let doors: { x: number; y: number; locked: boolean }[] = [];
   let latest: GameSnapshot | null = null;
 
   const push = (snap: GameSnapshot, force = false): void => {
@@ -151,6 +161,11 @@ export function bridgeSnapshotToHud(): () => void {
     const p = snap.player;
 
     if (isRoomFull(snap.room)) roomSize = { width: snap.room.width, height: snap.room.height };
+    // Lite snapshots still carry the door list, and locks change as a room is
+    // cleared, so this is refreshed from whichever shape arrived.
+    doors = snap.room.doors
+      .filter((d) => d.targetIndex !== null)
+      .map((d) => ({ x: d.x, y: d.y, locked: d.locked }));
 
     const vitals = { health: p.health, maxHealth: p.maxHealth, mana: p.mana, maxMana: p.maxMana };
     if (force || !same(vitals, lastVitals)) {
@@ -178,7 +193,7 @@ export function bridgeSnapshotToHud(): () => void {
 
     // The minimap redraws every frame from its own copy, so this one is pushed
     // unconditionally -- the dots move on every snapshot by definition.
-    if (roomSize.width > 0) eventBus.emit('map:changed', mapFrom(snap, roomSize));
+    if (roomSize.width > 0) eventBus.emit('map:changed', mapFrom(snap, roomSize, doors));
   };
 
   const offSnapshot = eventBus.on('game:snapshot', (snap) => push(snap));

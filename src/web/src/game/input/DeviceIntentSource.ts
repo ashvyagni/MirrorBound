@@ -3,6 +3,19 @@ import Phaser from 'phaser';
 import { eventBus } from '../EventBus';
 import { NEUTRAL_INTENT, type Intent, type IntentSource } from '../types';
 
+type KeyName =
+  | 'left' | 'right' | 'up' | 'down' | 'altLeft' | 'altRight' | 'altUp' | 'altDown'
+  | 'run' | 'attack' | 'altAttack' | 'slot1' | 'slot2' | 'slot3' | 'slot4'
+  | 'companionAttack' | 'hand1' | 'hand2' | 'potionCycle' | 'potionUse' | 'map';
+
+/** The keys that report a press rather than a state. */
+const EDGE_KEYS = [
+  'attack', 'altAttack', 'slot1', 'slot2', 'slot3', 'slot4',
+  'companionAttack', 'hand1', 'hand2', 'potionCycle', 'potionUse', 'map',
+] as const satisfies readonly KeyName[];
+
+type EdgeKey = (typeof EDGE_KEYS)[number];
+
 /**
  * Translates this machine's input devices into an `Intent`.
  *
@@ -12,7 +25,21 @@ import { NEUTRAL_INTENT, type Intent, type IntentSource } from '../types';
  * `Intent`.
  */
 export class DeviceIntentSource implements IntentSource {
-  readonly #keys: Record<'left' | 'right' | 'up' | 'down' | 'altLeft' | 'altRight' | 'altUp' | 'altDown' | 'run' | 'attack' | 'slot1' | 'slot2' | 'slot3' | 'slot4' | 'companionAttack' | 'hand1' | 'hand2' | 'potionCycle' | 'potionUse' | 'map', Phaser.Input.Keyboard.Key>;
+  readonly #keys: Record<KeyName, Phaser.Input.Keyboard.Key>;
+
+  /**
+   * Presses seen since the last sample.
+   *
+   * Deliberately not `Phaser.Input.Keyboard.JustDown`. That reads a flag which
+   * keydown sets and keyup *clears*, so a tap beginning and ending between two
+   * frames is dropped entirely -- and it only reports the press if you ask,
+   * which meant the `slot1 ? 1 : slot2 ? 2 : ...` chain below left the
+   * unasked-for slots still flagged, to fire an ability a frame or two later
+   * that nobody pressed. Latching on the key's own `down` event makes an edge
+   * survive however long the frame took, and draining every latch each sample
+   * makes a press fire exactly once, on the frame after it happened.
+   */
+  readonly #edges = new Set<EdgeKey>();
 
   /** Left mouse button, latched until the next sample so a click between
    *  frames is never dropped. */
@@ -41,6 +68,11 @@ export class DeviceIntentSource implements IntentSource {
       altDown: keyboard.addKey(KeyCodes.S),
       run: keyboard.addKey(KeyCodes.SHIFT),
       attack: keyboard.addKey(KeyCodes.J),
+      // Space is the other attack key. It was already in addCapture below --
+      // so the page did not scroll -- but nothing was ever bound to it, which
+      // made Space the one key that looked deliberately handled and did
+      // nothing at all.
+      altAttack: keyboard.addKey(KeyCodes.SPACE),
       // Abilities sit on the number row, one per slot the weapon offers.
       slot1: keyboard.addKey(KeyCodes.ONE),
       slot2: keyboard.addKey(KeyCodes.TWO),
@@ -78,6 +110,13 @@ export class DeviceIntentSource implements IntentSource {
       this.#release.push(() => pointer.off(Phaser.Input.Events.POINTER_DOWN, onDown));
     }
 
+    for (const name of EDGE_KEYS) {
+      const key = this.#keys[name];
+      const onDown = () => { this.#edges.add(name); };
+      key.on(Phaser.Input.Keyboard.Events.DOWN, onDown);
+      this.#release.push(() => key.off(Phaser.Input.Keyboard.Events.DOWN, onDown));
+    }
+
     // The bar runs in its own scene, whose input is processed before this one
     // is sampled, so a flag set there is always seen on the right frame.
     this.#release.push(
@@ -85,14 +124,16 @@ export class DeviceIntentSource implements IntentSource {
     );
   }
 
+  /** Was this key pressed since the last sample? Consumes the press. */
+  #took(name: EdgeKey): boolean {
+    return this.#edges.delete(name);
+  }
+
   sample(): Intent {
     const k = this.#keys;
     if (this.muted) {
-      // Drain every edge-triggered key so nothing fires later.
-      for (const key of [k.attack, k.slot1, k.slot2, k.slot3, k.slot4, k.companionAttack,
-        k.hand1, k.hand2, k.potionCycle, k.potionUse, k.map]) {
-        Phaser.Input.Keyboard.JustDown(key);
-      }
+      // Drop every pending press so nothing fires when the menu closes.
+      this.#edges.clear();
       this.#takeClick();
       return { ...NEUTRAL_INTENT };
     }
@@ -100,31 +141,33 @@ export class DeviceIntentSource implements IntentSource {
     const right = k.right.isDown || k.altRight.isDown;
     const up = k.up.isDown || k.altUp.isDown;
     const down = k.down.isDown || k.altDown.isDown;
-    // Taken before the `||` below could short-circuit past it: a click that
-    // lands on the same frame as a key press still has to be consumed, or it
-    // sits latched and fires a phantom swing on some later frame.
+
+    // Every edge is taken before any of them is used: `a ? 1 : b ? 2 : null`
+    // would stop asking after the first hit and leave the rest latched for a
+    // later frame. Same reason the click is taken before the `||` below it.
     const clicked = this.#takeClick();
+    const hitAttack = this.#took('attack');
+    const hitAltAttack = this.#took('altAttack');
+    const slot1 = this.#took('slot1');
+    const slot2 = this.#took('slot2');
+    const slot3 = this.#took('slot3');
+    const slot4 = this.#took('slot4');
+    const hand1 = this.#took('hand1');
+    const hand2 = this.#took('hand2');
 
     return {
       moveX: (right ? 1 : 0) - (left ? 1 : 0),
       moveY: (down ? 1 : 0) - (up ? 1 : 0),
-      // JustDown consumes the press, so an edge is reported exactly once.
-      attack: Phaser.Input.Keyboard.JustDown(k.attack) || clicked,
+      attack: hitAttack || hitAltAttack || clicked,
       // 1-indexed: this is the server's `InputMessage.ability` slot, not an
       // array index. The sandbox counted from 0 because it had no server.
-      ability: Phaser.Input.Keyboard.JustDown(k.slot1) ? 1
-        : Phaser.Input.Keyboard.JustDown(k.slot2) ? 2
-        : Phaser.Input.Keyboard.JustDown(k.slot3) ? 3
-        : Phaser.Input.Keyboard.JustDown(k.slot4) ? 4
-        : null,
+      ability: slot1 ? 1 : slot2 ? 2 : slot3 ? 3 : slot4 ? 4 : null,
       run: k.run.isDown,
-      companionAttack: Phaser.Input.Keyboard.JustDown(k.companionAttack),
-      weaponSlot: Phaser.Input.Keyboard.JustDown(k.hand1) ? 0
-        : Phaser.Input.Keyboard.JustDown(k.hand2) ? 1
-        : null,
-      potionCycle: Phaser.Input.Keyboard.JustDown(k.potionCycle) ? 1 : 0,
-      potionUse: Phaser.Input.Keyboard.JustDown(k.potionUse),
-      mapToggle: Phaser.Input.Keyboard.JustDown(k.map),
+      companionAttack: this.#took('companionAttack'),
+      weaponSlot: hand1 ? 0 : hand2 ? 1 : null,
+      potionCycle: this.#took('potionCycle') ? 1 : 0,
+      potionUse: this.#took('potionUse'),
+      mapToggle: this.#took('map'),
     };
   }
 

@@ -123,8 +123,12 @@ export const COMPANION = {
    * themselves rather than their frame boxes -- its cell is padded by thruster
    * trails and bob range, so matching cell heights would draw it far smaller
    * than intended.
+   *
+   * Half the goat. At a third it read as a pet rather than the other half of
+   * the game's title, and at seventy-odd pixels tall the goat leaves plenty of
+   * room for a companion that size to stay a clearly separate silhouette.
    */
-  sizeRatio: 1 / 3,
+  sizeRatio: 0.5,
   /** How far up the screen it hovers from the goat's footing. Small: in a
    *  top-down view this is a position on the floor, not a height. */
   neckOffsetY: -18,

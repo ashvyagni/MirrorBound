@@ -21,8 +21,20 @@ import { Panel } from './Panel';
 const WIDTH = 1180;
 const HEIGHT = 620;
 const TOKEN = 74;
-/** Rooms per row before the chain folds back. */
-const PER_ROW = 5;
+/**
+ * Least horizontal room a token may have before the chain folds onto another
+ * line: the token itself plus enough gap for a corridor to read between two.
+ *
+ * The fold used to be a fixed five-per-row. That suited the ten-room sequence
+ * the sandbox invented, but the server generates seven: the second row held
+ * two, and because odd rows run right to left it pinned them to the far
+ * corner, so the map read "1 2 3 4 5", then 6 alone on the right with 7 back
+ * to its left, across an otherwise empty line.
+ *
+ * Folding is now decided by whether the tokens would actually collide, so a
+ * run that fits on one line gets one line whatever its length.
+ */
+const MIN_STEP = TOKEN * 1.5;
 
 export class MapScreen {
   #panel!: Panel;
@@ -66,17 +78,23 @@ export class MapScreen {
     this.#objects = [];
 
     const content = this.#panel.contentSize(WIDTH, HEIGHT);
-    const rows = Math.ceil(run.rooms.length / PER_ROW);
-    const stepX = content.width / PER_ROW;
+    const count = Math.max(1, run.rooms.length);
+    const fitPerRow = Math.max(1, Math.floor(content.width / MIN_STEP));
+    const rows = Math.max(1, Math.ceil(count / fitPerRow));
+    // Spread the rooms evenly over however many rows they need, rather than
+    // filling fixed-width rows and leaving the last one a stub.
+    const perRow = Math.ceil(count / rows);
+    const stepX = content.width / perRow;
     const stepY = Math.min(150, content.height / (rows + 0.6));
     const top = -((rows - 1) * stepY) / 2;
 
     const at = (index: number) => {
-      const row = Math.floor(index / PER_ROW);
-      const col = index % PER_ROW;
+      const row = Math.floor(index / perRow);
+      const col = index % perRow;
       // Serpentine: odd rows run right to left, so the chain never jumps back
-      // across the whole panel to start the next line.
-      const slot = row % 2 === 0 ? col : PER_ROW - 1 - col;
+      // across the whole panel to start the next line. With balanced rows the
+      // reversal lands the fold directly under the room it follows.
+      const slot = row % 2 === 0 ? col : perRow - 1 - col;
       return {
         x: -content.width / 2 + stepX * (slot + 0.5),
         y: top + row * stepY,
