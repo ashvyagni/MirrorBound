@@ -94,6 +94,7 @@ class GameSession:
         self.snapshots_sent = 0
         self.room_dirty = True
         self.last_error: str | None = None
+        self._paused_by_disconnect = False
         self._build_world()
 
     # ------------------------------------------------------------- world setup
@@ -548,6 +549,22 @@ class GameSession:
         self.pending_input = None
         self.pending_commands = []
         self._build_world()
+
+    def set_connected(self, connected: bool) -> None:
+        """Freeze the world while nobody is watching it.
+
+        A reload takes a second or two, and without this the player comes back
+        having been hit by things they could not see. Tracked separately from
+        `state.paused` so it cannot fight the pause menu: reconnecting only
+        lifts the pause this put on.
+        """
+        if connected:
+            if self._paused_by_disconnect:
+                self._paused_by_disconnect = False
+                self.state.paused = False
+        elif not self.state.paused:
+            self._paused_by_disconnect = True
+            self.state.paused = True
 
     def stop(self) -> None:
         self.running = False
