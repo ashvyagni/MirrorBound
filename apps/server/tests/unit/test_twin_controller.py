@@ -100,8 +100,10 @@ def test_ranged_leaning_style_favors_flank_and_assist_over_attack():
         melee_style.get("preferred_range").update(0.0, 0.2, i)
         ranged_style.get("preferred_range").update(1.0, 0.2, i)
     target = ent("enemy_7", 500, 400)
-    o = obs(ent("player_1", 400, 400, "player", 100, 100), ent("twin_1", 380, 420, "twin", 90, 90), [target],
-            player_target_id="enemy_7")
+    # A second enemy so ATTACK has one of its own to weigh; the comparison is
+    # about how the range lean moves each utility, not about availability.
+    o = obs(ent("player_1", 400, 400, "player", 100, 100), ent("twin_1", 380, 420, "twin", 90, 90),
+            [target, ent("enemy_8", 300, 400)], player_target_id="enemy_7")
     melee_intent = TwinV0Controller(melee_style).decide(o)
     ranged_intent = TwinV0Controller(ranged_style).decide(o)
     assert ranged_intent.utilities["FLANK"] > melee_intent.utilities["FLANK"]
@@ -149,8 +151,10 @@ def test_unconfident_new_style_biases_nothing():
     confidence, and every new term here is centered at (x - 0.5), so a
     fresh twin's decisions are provably untouched by this change.
     """
+    # Two enemies: ATTACK now means "one of my own choosing", so it needs
+    # something other than the player's target to be a live candidate at all.
     o = obs(ent("player_1", 400, 400, "player", 100, 100), ent("twin_1", 380, 420, "twin", 90, 90),
-            [ent("enemy_7", 500, 400)], player_target_id="enemy_7")
+            [ent("enemy_7", 500, 400), ent("enemy_8", 300, 400)], player_target_id="enemy_7")
     intent = TwinV0Controller(TwinStyleModel()).decide(o)
     style = TwinStyleModel()
     assert style.confident_value("preferred_range") == 0.5
@@ -277,3 +281,74 @@ def test_predicted_aoe_pushes_the_twin_to_flank_instead_of_standing_in_it():
             player_target_id="enemy_7", player_model=model)
     intent = TwinV0Controller().decide(o)
     assert intent.utilities["FLANK"] > intent.utilities["ASSIST"]
+
+
+def _pair(player_target: EntitySnapshot, spare: EntitySnapshot) -> AgentObservation:
+    """The player is on `player_target`; `spare` is free for the twin to take."""
+    return obs(ent("player_1", 400, 400, "player", 100, 100), ent("twin_1", 380, 420, "twin", 90, 90),
+               [player_target, spare], player_target_id=player_target.id)
+
+
+def test_attack_never_picks_the_enemy_the_player_is_already_on():
+    """ATTACK means "one of my own choosing". Letting it pick the player's
+    target made it the same action as ASSIST under a second name, which made
+    both the debug HUD and any measurement of the twin's behaviour meaningless:
+    measured, the twin "chose ATTACK over ASSIST" 212 times against an elite,
+    on the player's own target every single time.
+    """
+    c = TwinV0Controller()
+    target = ent("enemy_7", 500, 400)
+    spare = ent("enemy_8", 250, 400)
+    intent = c.decide(_pair(target, spare))
+    for _ in range(4):
+        intent = c.decide(_pair(target, spare))
+        if intent.intent_type == "ATTACK":
+            assert intent.target_id == spare.id, "ATTACK took the player's own target"
+
+    # With nothing else alive, ATTACK has nothing to offer and ASSIST carries it.
+    only = obs(ent("player_1", 400, 400, "player", 100, 100), ent("twin_1", 380, 420, "twin", 90, 90),
+               [target], player_target_id=target.id)
+    solo = TwinV0Controller().decide(only)
+    assert solo.utilities["ATTACK"] <= 0.0
+    assert solo.intent_type == "ASSIST"
+
+
+def test_a_target_worth_doubling_pulls_the_twin_in_and_a_trivial_one_does_not():
+    """The whole point of the focus rule: the twin joins the fight when this
+    particular enemy is worth two of you, and goes and finds its own when it
+    is not. A Hollow Archer shooting the player is worth it; a fresh weak
+    melee with an isolated enemy free to pick off is not.
+    """
+    spare = ent("enemy_8", 250, 400)
+
+    ranged = TwinV0Controller().decide(_pair(ent("enemy_7", 500, 400, "ranged"), spare))
+    assert ranged.utilities["ASSIST"] > ranged.utilities["ATTACK"], ranged.utilities
+
+    elite = TwinV0Controller().decide(_pair(ent("enemy_7", 500, 400, "melee", elite=True), spare))
+    assert elite.utilities["ASSIST"] > elite.utilities["ATTACK"], elite.utilities
+
+    # Nearly dead: not worth abandoning a free isolated enemy for.
+    dying = TwinV0Controller().decide(_pair(ent("enemy_7", 500, 400, "melee", hp=3, max_hp=50), spare))
+    assert dying.utilities["ATTACK"] > dying.utilities["ASSIST"], dying.utilities
+
+
+def test_the_focus_rule_is_off_when_the_player_has_no_target():
+    """No target, no focus: ATTACK is not penalised for picking freely.
+
+    Asserted as a comparison rather than as "ATTACK wins", because whether it
+    wins depends on everything else on the board -- with two enemies inside
+    THREAT_RADIUS of the player, PROTECT legitimately beats it.
+    """
+    enemies = [ent("enemy_7", 500, 400, "ranged"), ent("enemy_8", 250, 400)]
+    player, twin = ent("player_1", 400, 400, "player", 100, 100), ent("twin_1", 380, 420, "twin", 90, 90)
+
+    untargeted = TwinV0Controller().decide(
+        obs(player, twin, enemies, player_target_id=None))
+    targeted = TwinV0Controller().decide(
+        obs(player, twin, enemies, player_target_id="enemy_7"))
+
+    assert untargeted.utilities["ASSIST"] <= 0.0, "no target means nothing to assist"
+    assert untargeted.utilities["ATTACK"] > 0.0
+    # The ranged target is worth doubling, so ATTACK pays the split penalty for
+    # walking away from it -- and pays nothing when there is no fight to leave.
+    assert untargeted.utilities["ATTACK"] > targeted.utilities["ATTACK"]

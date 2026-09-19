@@ -68,6 +68,31 @@ DISENGAGED_POSTURE = {"RETREAT", "REPOSITION", "FOLLOW", "EXPLORE"}
 COMBO_INTERCEPT_WEIGHT = 0.25
 COMBO_FLANK_WEIGHT = 0.18
 
+# How much the twin wants to join the fight the player is already in, rather
+# than start one of its own.
+#
+# Measured before this existed: across 549 in-combat decisions the twin chose
+# ATTACK 512 times, ASSIST once and FLANK never -- ATTACK beat ASSIST by +0.230
+# on average and never once lost. The twin was a second independent attacker
+# rather than a companion, and six of the twelve intents were unreachable.
+#
+# The fix is not "make ASSIST bigger". It is to ask whether *this particular*
+# target is worth two of you, and let that decide. A fresh Bramble Sprout is
+# not; a Hollow Archer pecking at the player from range is, and so is anything
+# elite. So both sides move: ASSIST and FLANK rise with how much the target is
+# worth doubling, and ATTACK is penalised by the same amount for walking away
+# from it -- which leaves ATTACK winning cleanly when the player's target is
+# nearly dead, or when there is an isolated enemy free to pick off.
+TARGET_WORTH_HEALTH = 0.30     # a healthy target takes two of you a while
+TARGET_WORTH_ELITE = 0.35      # elites and the boss are the fights worth joining
+TARGET_WORTH_RANGED = 0.25     # something shooting the player will not be walked away from
+TARGET_WORTH_CROWD = 0.10      # per other enemy pressing the player, up to two
+
+ASSIST_FOCUS_WEIGHT = 0.35
+FLANK_FOCUS_WEIGHT = 0.30
+# What ATTACK gives up by picking a different target while that fight is on.
+SPLIT_PENALTY = 0.30
+
 
 def clamp01(x: float) -> float:
     return 0.0 if x < 0 else 1.0 if x > 1 else x
@@ -214,6 +239,18 @@ class TwinV0Controller:
             base = {"ranged": 0.9, "boss": 1.0, "fast": 0.6, "melee": 0.4, "tank": 0.3}.get(e.role, 0.5)
             return base + (0.2 if e.elite else 0.0)
 
+        def worth_joining(e: EntitySnapshot) -> float:
+            """How much this target is worth both of you, 0..1."""
+            w = TARGET_WORTH_HEALTH * e.health_fraction
+            w += TARGET_WORTH_ELITE if (e.elite or e.boss) else 0.0
+            w += TARGET_WORTH_RANGED if e.role == "ranged" else 0.0
+            pressing = sum(1 for o in enemies
+                           if o.id != e.id and (o.position - player.position).length() < THREAT_RADIUS)
+            w += TARGET_WORTH_CROWD * min(pressing, 2)
+            return clamp01(w)
+
+        focus = worth_joining(player_target) if player_target is not None else 0.0
+
         candidates: list[Candidate] = []
 
         # --- RETREAT: low health with enemies around -------------------------------
@@ -262,28 +299,48 @@ class TwinV0Controller:
         if player_target is not None:
             u = 0.42 + 0.35 * aggression + 0.15 * player_aggr * player_aggr_conf
             u += RANGE_LEAN_ASSIST_WEIGHT * (range_lean - 0.5)
+            u += ASSIST_FOCUS_WEIGHT * focus
             if aoe_incoming:
                 u -= 0.2   # the player is about to blanket that spot; don't stand in it
+            why = f"player is fighting {player_target.role}"
+            if focus > 0.5:
+                why = f"{player_target.role} is worth both of us ({focus:.2f})"
             candidates.append(Candidate("ASSIST", u, player_target, None,
-                                        f"player is fighting {player_target.role}" + (" (AoE predicted)" if aoe_incoming else "")))
+                                        why + (" (AoE predicted)" if aoe_incoming else "")))
         else:
             candidates.append(Candidate("ASSIST", 0.0, None, None, "player has no target"))
 
         # --- ATTACK: take an enemy of our own choosing -------------------------------
-        if enemies:
+        # Literally of its own choosing: the player's current target is excluded,
+        # because picking that one is ASSIST and offering the same action under
+        # two names makes both the debug HUD and any measurement of what the
+        # twin does meaningless. Measured while it did: with one enemy left, the
+        # twin "chose ATTACK over ASSIST" 212 times against an elite -- on the
+        # player's own target, every time. It was assisting under another name.
+        own = [e for e in enemies if player_target is None or e.id != player_target.id]
+        if own:
             def score(e: EntitySnapshot) -> float:
                 d = (e.position - twin.position).length()
                 s = 1.0 - clamp01(d / 520)
                 s += 0.35 if isolated(e) else 0.0
                 s += 0.3 * (danger(e) if target_pref > 0.5 else (1 - e.health_fraction))
                 return s
-            best = max(enemies, key=score)
+            best = max(own, key=score)
             crowd = sum(1 for o in enemies if (o.position - best.position).length() < ISOLATION_RADIUS) - 1
             u = 0.33 + 0.35 * aggression + (0.22 if isolated(best) else 0.0) - 0.12 * crowd * (1 - risk)
             u -= RANGE_LEAN_ATTACK_WEIGHT * (range_lean - 0.5)
+            # Walking away from a fight worth doubling has a cost.
+            splitting = player_target is not None
+            if splitting:
+                u -= SPLIT_PENALTY * focus
             u *= clamp01(0.35 + twin_hp)
-            candidates.append(Candidate("ATTACK", u, best, None,
-                                        ("isolated " if isolated(best) else "") + f"{best.role}, aggression {aggression:.2f}"))
+            why = ("isolated " if isolated(best) else "") + f"{best.role}, aggression {aggression:.2f}"
+            if splitting and focus > 0.5:
+                why += f" (leaving the {player_target.role} to you)"
+            candidates.append(Candidate("ATTACK", u, best, None, why))
+        elif enemies:
+            candidates.append(Candidate("ATTACK", 0.0, None, None,
+                                        "nothing to fight but the player's own target"))
         else:
             candidates.append(Candidate("ATTACK", 0.0, None, None, "no enemies"))
 
@@ -293,6 +350,7 @@ class TwinV0Controller:
             hold = obs.twin_weapon_range * (0.7 if obs.twin_weapon_is_melee else 0.55)
             pos = player_target.position + away_from_player * max(40.0, hold)
             u = 0.3 + 0.3 * mobility + (0.28 if aoe_incoming else 0.0) + 0.1 * aggression
+            u += FLANK_FOCUS_WEIGHT * focus
             u += RANGE_LEAN_FLANK_WEIGHT * (range_lean - 0.5)
             u += SPELL_PREFERENCE_FLANK_WEIGHT * (spell_lean - 0.5)
             u += COMBO_FLANK_WEIGHT * combo_pressure

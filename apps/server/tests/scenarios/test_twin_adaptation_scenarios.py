@@ -43,7 +43,14 @@ def _observation(
     player_target_id: str | None = "__default__",
     player_model: dict | None = None,
 ) -> AgentObservation:
-    enemies = enemies if enemies is not None else [_entity("enemy_1", 500, 400)]
+    # Two by default. ATTACK means "an enemy of my own choosing" and excludes
+    # whatever the player is already on, so with a single enemy it is not a
+    # live candidate at all and these scenarios would be comparing it against
+    # nothing. The second is placed far from the first so both read as
+    # isolated and neither crowds the other.
+    enemies = enemies if enemies is not None else [
+        _entity("enemy_1", 500, 400), _entity("enemy_2", 150, 400),
+    ]
     if player_target_id == "__default__":
         player_target_id = enemies[0].id if enemies else None
     return AgentObservation(
