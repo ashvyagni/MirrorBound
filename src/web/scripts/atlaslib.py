@@ -115,6 +115,37 @@ class SheetSpec:
     #: chrome that is never drawn above a few dozen pixels, where it only buys
     #: a megabyte of atlas nobody sees. Resampled once here with a good kernel.
     downscale: float = 1.0
+    #: Hue rotation applied to every frame of the sheet, in degrees.
+    #:
+    #: What makes a corrupted weapon cheap. The weapon sheets carry no
+    #: character -- they are composited over whoever is holding them -- so the
+    #: boss can hold the player's own sword, and "corrupted" is that same sword
+    #: rotated toward violet. One source sheet, two atlases, and the two cannot
+    #: drift apart because there is only one drawing.
+    #:
+    #: It also reads better than redrawing would. A corrupted weapon that is
+    #: literally your weapon says the boss took yours; one drawn separately
+    #: says it happens to own a different sword.
+    #:
+    #: Done here rather than with a runtime tint for the reason the band-level
+    #: `fx_hue_shift` already documents: Phaser's tint is a multiply, so it can
+    #: only darken a channel and cannot turn an orange flame violet.
+    hue_shift: float = 0.0
+    #: Rotate this sheet's *dominant* hue to this one, in degrees.
+    #:
+    #: Preferred over `hue_shift` for the corrupted variants, because the
+    #: weapons do not share a starting colour: the sword's effects sit at 348
+    #: degrees, the fire family at 25 and the ice family at 189. One rotation
+    #: cannot take all three to violet, and three hand-tuned rotations are
+    #: three numbers that quietly stop being right the first time a sheet is
+    #: redrawn. Measuring each sheet and solving its own rotation is one
+    #: constant instead -- and the constant is read off the twin, which is the
+    #: thing doing the corrupting.
+    hue_target: float | None = None
+    #: Pulled toward this, 0..1, after the hue rotation. Corruption is not only
+    #: a different colour -- it is a colder, deader one, and a pure rotation
+    #: leaves a cheerful violet sword.
+    desaturate: float = 0.0
     #: How the background is separated from the art.
     #: "black"  -- artwork on black with near-black outlines. Outline and
     #:            background share a value, so only geometry can tell them
@@ -473,6 +504,59 @@ FX_GLOW_REACH = 10
 CLEAN_MARGIN = 5
 
 
+def dominant_hue(rgb: np.ndarray) -> float | None:
+    """The sheet's own colour, as a circular mean over its saturated pixels.
+
+    Only confidently coloured pixels vote. A sheet is mostly bone white and
+    dark outline, and letting those in drags every answer toward the same
+    meaningless average.
+    """
+    scaled = rgb / 255.0
+    high = scaled.max(axis=2)
+    low = scaled.min(axis=2)
+    sat = np.where(high > 0, (high - low) / np.maximum(high, 1e-6), 0.0)
+    voters = (sat > 0.45) & (high > 0.35)
+    if voters.sum() < 200:
+        return None
+
+    red, green, blue = scaled[..., 0], scaled[..., 1], scaled[..., 2]
+    chroma = high - low
+    hue = np.zeros_like(high)
+    safe = chroma > 1e-6
+    with np.errstate(invalid="ignore"):
+        r_max = safe & (high == red)
+        g_max = safe & (high == green) & ~r_max
+        b_max = safe & (high == blue) & ~r_max & ~g_max
+        hue[r_max] = ((green - blue)[r_max] / chroma[r_max]) % 6
+        hue[g_max] = ((blue - red)[g_max] / chroma[g_max]) + 2
+        hue[b_max] = ((red - green)[b_max] / chroma[b_max]) + 4
+    angles = np.deg2rad(hue[voters] * 60.0)
+    mean = np.arctan2(np.sin(angles).mean(), np.cos(angles).mean())
+    return float(np.rad2deg(mean) % 360.0)
+
+
+def recolour(rgb: np.ndarray, spec: SheetSpec) -> np.ndarray:
+    """Apply a sheet's whole-sheet hue rotation and desaturation.
+
+    A no-op for every sheet that does not ask for one, which is all of them but
+    the corrupted variants.
+    """
+    if spec.hue_target is None and not spec.hue_shift and not spec.desaturate:
+        return rgb
+
+    shift = spec.hue_shift
+    if spec.hue_target is not None:
+        found = dominant_hue(rgb)
+        if found is not None:
+            shift = spec.hue_target - found
+
+    out = rotate_hue(rgb, shift)
+    if spec.desaturate:
+        grey = out.mean(axis=2, keepdims=True)
+        out = out + (grey - out) * spec.desaturate
+    return out
+
+
 def rotate_hue(rgb: np.ndarray, degrees: float) -> np.ndarray:
     """Rotate hue, leaving saturation and value alone."""
     if not degrees:
@@ -576,7 +660,7 @@ def collect_frames(rgb: np.ndarray, alpha: np.ndarray, spec: SheetSpec) -> list[
         labels = segment(band, spec, alpha, body, fx, clusters)
         anchor_y = _band_anchor_y(body, band, spec.anchor)
         ys, xs = slice(band.y0, band.y1), slice(band.x0, band.x1)
-        band_rgb = rgb[band.y0:band.y1, band.x0:band.x1]
+        band_rgb = recolour(rgb[band.y0:band.y1, band.x0:band.x1], spec)
         band_alpha = alpha[band.y0:band.y1, band.x0:band.x1]
 
         for i, (lo, hi) in enumerate(clusters):

@@ -2324,3 +2324,494 @@ which mobs actually earn one.
 
 The grove's three are the only ones that block anything. Ruins and crypt can
 wait until the first stage plays.
+
+---
+
+# Part D — The Mirror
+
+The final boss: the twin, corrupted. `main` already names it — `mirror`, "The
+Mirror", 520 health against the player's 100, speed 190, `MIRROR` behaviour,
+tagged `MELEE`, `RANGED` **and** `SPELL`, with a projectile it calls
+`mirror_bolt`. So the server already says this thing fights with everything the
+player has. The art is drawn to that.
+
+Two to three times the goat's height, which makes it four to six times the
+companion it grew out of.
+
+## The part that needs no art at all
+
+**It carries the player's weapons, and they are already drawn.**
+
+Weapon, cast and effect sheets carry no character — they are composited over
+whoever holds them, which is why one sword works for the goat. The boss holds
+the same sheets. "Corrupted" is that same drawing rotated to violet, which the
+pipeline now does on its own: `hue_target` on a `SheetSpec` measures the
+sheet's own dominant hue and rotates it to the twin's.
+
+That is **26 atlases** — every weapon, every cast motion, every effect, plus
+both shield poses — generated from the source sheets the player's versions are
+generated from. They are in the repo already. Nothing was drawn.
+
+It reads better than redrawing would, which is the real argument. A corrupted
+fireball that is *literally your fireball* in violet says the boss took yours.
+One drawn separately says it happens to own a different fireball.
+
+One rotation could not do it, and that is worth knowing before anyone tries:
+the sword's effects sit at 348 degrees, the fire family at 25, the ice family
+at 189. So each sheet measures itself and solves its own rotation to a single
+constant — `CORRUPT_HUE`, 270 degrees, a clear violet. Not the companion's
+present 224, which is a blue: that is the creature *before* it turns, and
+rotating the arsenal to it came back cheerful rather than corrupted.
+
+## The part that does
+
+Ten sheets: six for the body, two for the hatching, two for its own abilities.
+
+They continue the numbering in `docs/art-prompts.md`, which ends at 60, so the
+whole project stays one sequence and the Figma board has no two sheets sharing
+a number.
+
+| # | sheet | attach |
+| --- | --- | --- |
+| 61 | Mirror — idle | the concept sheet |
+| 62 | Mirror — drift | 61 |
+| 63 | Mirror — strike | 61 |
+| 64 | Mirror — cast | 61 |
+| 65 | Mirror — hurt | 61 |
+| 66 | Mirror — death | 61 |
+| 67 | hatch — the crack | `assets/characters/bro.jpg` **and** 61 |
+| 68 | hatch — the burst | 67 |
+| 69 | mirror bolt | 61 |
+| 70 | shard ring | 61 |
+
+### Two overrides, before any of them
+
+**Block 0-MOB's ground line does not apply.** It says every creature stands on
+an invisible line with its feet on it. The Mirror floats, exactly as the
+companion it grew from does, and its sheets are anchored on their middle
+instead. Say so in every prompt or the frames come back with a foot edge that
+is not there.
+
+**Do not let it copy the concept sheet's layout.** The reference has a title
+panel, labels, a size comparison and twelve rows in one image. Block 0-MOB
+already forbids text, but an attached image is a strong instruction and it will
+try. Every prompt below says to take the creature's *design* from the reference
+and nothing else.
+
+---
+
+### 61. Mirror — idle — `assets/enemies/mirror-idle.png`
+
+Attach the concept sheet. **This sheet defines the creature**; the other five
+inherit from it.
+
+```
+Sheet 61: THE CORRUPTED TWIN, HOVERING. Its resting loop.
+
+USE THE ATTACHED IMAGE FOR THE CREATURE'S DESIGN ONLY -- its shape, its
+colours, its crystals, its silhouette. Do NOT copy its layout: no title panel,
+no labels, no size comparison, no rows of thumbnails, no text anywhere. One
+creature, eight frames, on the 4 x 2 grid described in the brief.
+
+OVERRIDE: this creature FLOATS. It has no feet and touches no ground. Ignore
+the ground-line rule entirely -- there is no ground line on this sheet, and the
+creature is centred in its cell with clear space below it.
+
+THE CREATURE, from the reference:
+- A tall, ragged mantle of white and pale violet shards hanging like torn
+  feathers, widest at the bottom, tapering to nothing -- no legs, no feet.
+- A crown of long violet crystal spikes above a dark face, with one large
+  faceted crystal at the very top, bigger than the rest.
+- Two round dark eyes with violet pupils, set close together and low, with a
+  pale angular brow above them. No mouth.
+- A single violet diamond set into the chest.
+- Six or seven crystal shards floating FREE around it, unattached, at
+  different distances and angles.
+- A thin elliptical ring of violet light orbiting the crown.
+- Flat, boldly outlined, two or three tones per surface, as the brief says --
+  the reference is rendered more softly than this game is, so follow the brief
+  on shading and the reference on shape.
+
+PROPORTION: about twice as tall as it is wide, including the mantle.
+
+THE MOTION: it hovers. The body rises and falls slowly; the loose shards drift
+on their own slower rhythm, never in step with the body; the ring turns. It
+does not look around and it does not move from the spot.
+
+FRAMES, one seamless loop:
+1. Body at its middle height, mantle hanging, shards spread. THE RESTING POSE.
+2. Rising, mantle trailing down, shards drifting outward.
+3. At its highest, mantle at its longest, crown ring tilted.
+4. Beginning to settle, shards drifting back inward.
+5. At its middle height falling, mantle gathering.
+6. At its lowest, mantle bunched, shards closest to the body.
+7. Rising again, shards pushing outward.
+8. Almost exactly frame 1, flowing cleanly back into it.
+
+Keep the drift SMALL -- it is enormous and enormously still. The whole loop
+should read as menace holding position, not as something bobbing.
+```
+
+### 62. Mirror — drift — `assets/enemies/mirror-drift.png`
+
+Attach sheet 61.
+
+```
+Sheet 62: THE SAME CREATURE FROM THE ATTACHED SHEET, MOVING.
+
+Same creature, same design, same colours, same size. It FLOATS: no ground
+line, centred in its cell. A seamless 8-frame loop, travelling to the RIGHT.
+
+It does not walk and it does not lean into the movement like a runner. It
+GLIDES, and the mantle and the free shards lag behind it -- that lag is the
+entire read, because the body itself barely changes shape.
+
+It moves IN PLACE: it does not travel across its cell.
+
+FRAMES:
+1. Body upright, mantle streaming back to the LEFT, shards trailing behind it.
+2. Mantle streaming further back, its tips whipping.
+3. The body tilts a few degrees forward into the direction of travel; shards
+   strung out in a longer tail.
+4. Held at its furthest forward tilt, mantle at full stream.
+5. The body straightens; the mantle begins to catch up.
+6. Mantle gathering under it, shards closing the gap.
+7. The body tilts a few degrees BACK as it steadies; shards overtaking it
+   slightly.
+8. Returning to upright, flowing cleanly back into frame 1.
+
+The crown ring stays level through all eight frames whatever the body does --
+a thing this powerful does not let its crown tilt. The mantle never lifts to
+show anything underneath it.
+```
+
+### 63. Mirror — strike — `assets/enemies/mirror-strike.png`
+
+Attach sheet 61.
+
+```
+Sheet 63: THE SAME CREATURE FROM THE ATTACHED SHEET, SWINGING A WEAPON IT IS
+NOT HOLDING.
+
+Same creature, same design, same colours, same size. Floats: no ground line.
+Plays ONCE, to the RIGHT.
+
+THE IMPORTANT PART: draw NO weapon. The game composites one over this sheet --
+that is how the player's own goat swings, and it is why one sword works for
+both of them. Draw the creature making the swing and leave its hand empty.
+
+The motion is a wide overhand sweep from upper left to lower right. Its arms
+are not arms: the mantle's upper shards gather and drive, so the whole left
+side of the mantle rises, sharpens into a point, and lashes across.
+
+FRAME 1 IS THE RESTING POSE FROM THE ATTACHED SHEET.
+
+FRAMES:
+1. The resting pose, unchanged.
+2. WIND UP: the whole body leans back and left, the mantle's upper shards
+   gathering and lifting high to the left, free shards pulled in close.
+3. Fully wound: arched back, the gathered shards at their highest and furthest
+   left, crown crystal blazing. The most extreme backward drawing here.
+4. Held, a fraction further back -- the hang before it commits.
+5. THE SWING: the gathered shards lash down and across to the right, the body
+   driven forward with them, mantle flung out behind. Reaching further right
+   than in any other frame. This is the frame that lands the blow.
+6. Follow-through: past the strike, body still forward, shards scattered wide
+   and streaming.
+7. Recovery: the body draws back upright, shards being pulled home.
+8. Back to the resting pose, matching frame 1.
+
+No weapon, no trail, no slash arc, no impact -- the game draws every one of
+those. An empty swing is correct.
+```
+
+### 64. Mirror — cast — `assets/enemies/mirror-cast.png`
+
+Attach sheet 61.
+
+```
+Sheet 64: THE SAME CREATURE FROM THE ATTACHED SHEET, CASTING.
+
+Same creature, same design, same colours, same size. Floats: no ground line.
+Plays ONCE, to the RIGHT.
+
+Where the strike is a lash, this is a summoning: it opens, everything on it
+lights, and it throws. The effect it throws is drawn on its OWN sheet, so draw
+the casting and draw nothing leaving it.
+
+FRAME 1 IS THE RESTING POSE FROM THE ATTACHED SHEET.
+
+FRAMES:
+1. The resting pose, unchanged.
+2. The free shards STOP drifting and snap to attention, all pointing the same
+   way -- right. The chest diamond brightens.
+3. The mantle spreads WIDE, opening like a fan, the body rising. Every crystal
+   on it brightening together.
+4. Fully open and at its tallest, mantle spread to its widest, crown crystal
+   and chest diamond both blazing, free shards ringed around it and aimed
+   right. The largest drawing on the sheet, and the frame the player reads to
+   know a cast is coming.
+5. Held at full spread, a fraction brighter.
+6. THE RELEASE: everything snaps FORWARD at once -- mantle whipping right, all
+   free shards flung toward the right edge, body punched forward. Light dumps
+   out of the chest diamond. THE EFFECT LEAVES ON THIS FRAME, but do not draw
+   it: leave the space in front of the creature empty.
+7. Spent: the mantle collapses, shards scattered and dimming, the body sagging
+   slightly. The dimmest drawing on the sheet.
+8. Gathering back to the resting pose, matching frame 1.
+
+No projectile, no beam, no muzzle flash, no spell in the air.
+```
+
+### 65. Mirror — hurt — `assets/enemies/mirror-hurt.png`
+
+Attach sheet 61.
+
+```
+Sheet 65: THE SAME CREATURE FROM THE ATTACHED SHEET, TAKING A HIT.
+
+Same creature, same design, same colours, same size. Floats: no ground line.
+Plays ONCE. It is struck from the RIGHT and recoils to the LEFT.
+
+It has 520 health against the player's 100, so a single hit does not stagger
+it. This is a flinch that it immediately refuses -- the recoil is small and the
+recovery is fast and contemptuous.
+
+FRAME 1 IS THE RESTING POSE FROM THE ATTACHED SHEET.
+
+FRAMES:
+1. The resting pose, unchanged.
+2. IMPACT: the whole body jolts left and compresses, mantle crumpling, free
+   shards knocked outward. Two or three shards CRACK -- draw a hard white
+   fracture line across them.
+3. Held at the furthest left, body squashed, crown ring knocked out of level --
+   the only frame in which it is.
+4. The body swells back, crystals flaring hard and bright, shards snapping back
+   toward their places. Anger, not recovery.
+5. Overshooting slightly to the RIGHT, taller than at rest, mantle sharp.
+6. Settling back toward centre, crown ring righting itself.
+7. Almost at rest, cracks still visible on the same shards.
+8. Back to the resting pose, matching frame 1. THE CRACKS REMAIN -- it does not
+   heal within the animation.
+```
+
+### 66. Mirror — death — `assets/enemies/mirror-death.png`
+
+Attach sheet 61.
+
+```
+Sheet 66: THE SAME CREATURE FROM THE ATTACHED SHEET, BREAKING APART.
+
+Same creature, same design, same colours, same size. Floats: no ground line.
+Plays ONCE and does NOT loop. The last frame is the pose the game holds on.
+
+It is made of crystal, so it does not slump -- it shatters, and what is left
+sinks. Slow at the start and fast at the end: the opposite of the flinch.
+
+FRAME 1 IS THE RESTING POSE FROM THE ATTACHED SHEET.
+
+FRAMES:
+1. The resting pose, unchanged.
+2. Everything goes still and the light inside it flares WHITE -- brighter than
+   anywhere else in this creature's whole set.
+3. Fracture lines spread across every crystal at once, white and hard-edged.
+   The body has not moved.
+4. The crown crystal SHATTERS: its pieces fly up and outward, the ring above
+   it breaking into arcs. The body begins to sag.
+5. The free shards blow outward in every direction and the mantle comes apart
+   down its length, the upper body collapsing into loose pieces.
+6. Most of it is gone -- scattered fragments spreading outward, the light
+   draining out of them, only the lower mantle still holding a shape.
+7. The last fragments falling and fading, very dim, the chest diamond the one
+   thing still lit.
+8. Nearly empty: a few faint fragments low in the cell and the chest diamond
+   going out. This is the frame the game rests on, so it must read as finished
+   rather than as mid-fall.
+```
+
+### 67. The hatching — the crack — `assets/enemies/hatch-crack.png`
+
+Attach **`assets/characters/bro.jpg`** and sheet 61. Both matter: this sheet
+has to start as one creature and end on the way to the other.
+
+```
+Sheet 67: A SMALL FLOATING COMPANION BEGINNING TO CRACK OPEN. Part one of two.
+
+Two images are attached. The FIRST is the creature as it is now: small, pale,
+round, friendly, with a small crown and a soft glow. The SECOND is what it
+becomes: tall, sharp, violet, crowned in crystal. THIS SHEET IS THE BEGINNING
+OF THE FIRST TURNING INTO THE SECOND. It ends before the change completes.
+
+Both creatures FLOAT. No ground line, no feet, centred in the cell with clear
+space below.
+
+THROUGHOUT THIS SHEET THE CREATURE STAYS SMALL -- the size of the first
+reference, not the second. Nothing grows here. What changes is what is
+happening inside it.
+
+FRAME 1 IS THE FIRST REFERENCE'S RESTING POSE, exactly as that creature idles.
+
+FRAMES:
+1. The small companion, at rest, unchanged and unharmed.
+2. It flinches and goes rigid, eyes wide, glow guttering.
+3. A single hairline crack opens down its front, from crown to base. Thin,
+   dark, with a hard violet light deep inside it.
+4. The crack forks. Two more open across its body. Violet light rakes out of
+   all three across the frame.
+5. The whole shell swells -- the body pushed outward from within, cracks
+   widening into gaps, the light behind them now brighter than the creature.
+6. More violet light than creature: the shell is a dark lattice of fragments
+   held together over a blazing interior, its original shape only just
+   readable.
+7. The shell loses its shape -- fragments beginning to separate, pushed apart,
+   the silhouette bulging where the crown is about to come through.
+8. The shell at its furthest swollen, about to fail: violet light blowing out
+   between every fragment, one sharp crystal tip just breaking the surface at
+   the top. HOLD THE SIZE -- this is still the small creature.
+
+Nothing has emerged yet. The second sheet does that.
+```
+
+### 68. The hatching — the burst — `assets/enemies/hatch-burst.png`
+
+Attach sheet 67 and sheet 61.
+
+```
+Sheet 68: THE SHELL BURSTING AND THE EVOLVED FORM RISING. Part two of two.
+
+Two sheets are attached: the one that ends with a small shell about to fail,
+and the one that shows what comes out. This sheet joins them.
+
+Floats throughout: no ground line, centred in the cell.
+
+THE SCALE CHANGE IS THE POINT. Frame 1 is the SMALL creature, the size it is on
+the attached first sheet. Frame 8 is the evolved form at FULL size -- two to
+three times a goat, which is four to six times what it started as. It must
+grow visibly across these eight frames, and most of the growth belongs in
+frames 4 to 6 so it reads as an eruption rather than an inflation.
+
+Draw the creature LARGE ENOUGH IN ITS CELL that frame 8 has at least 24 pixels
+of clear space around it, and let the early frames be small within the same
+cell -- do not rescale the cell to fit each frame.
+
+FRAME 1 MATCHES THE LAST FRAME OF THE ATTACHED FIRST SHEET.
+
+FRAMES:
+1. The swollen shell, blowing violet light out of every crack. Small.
+2. THE BURST: the shell blows apart into fragments flung to every edge of the
+   cell, a hard white flash at the centre where it was.
+3. Through the flash, a dark silhouette: the crown's crystal spikes rising
+   first, already larger than the shell that held them.
+4. The shape climbing fast, the mantle unfurling downward beneath the crown
+   like something falling open. Roughly half final size.
+5. Still growing, mantle spreading to its width, the free crystal shards
+   forming up around it out of the shell's own fragments -- the pieces of the
+   old creature becoming the new one's orbit.
+6. Nearly full size, the crown ring sweeping into place around it, eyes opening.
+7. At full size, everything flared wide at its most extreme -- mantle at its
+   widest, all shards thrown outward, every crystal at its brightest.
+8. Settling into the evolved form's RESTING POSE, exactly as sheet 61's frame 1
+   -- mantle hanging, shards spread, ring turning. The game holds here and
+   crossfades into the idle loop, so any difference from that frame shows as a
+   jump.
+```
+
+### 69. Mirror bolt — `assets/spells/mirror-bolt.png`
+
+Attach sheet 61. `main` names this projectile in the boss's own definition:
+`ProjectileSpec(kind="mirror_bolt", speed=430, radius=7, lifetime=1.3)`.
+
+```
+Sheet 69: A SHARD OF MIRROR IN FLIGHT.
+
+OVERRIDE: this sheet has no creature in it. It is a single small object.
+
+THE OBJECT: one long, narrow, double-pointed crystal shard, sharp at both ends
+and widest at its middle -- the same crystal the creature in the attached sheet
+is crowned and ringed with, so it reads as a piece of it. Flat violet with one
+paler facet down its upper edge, one darker facet below, and a thick dark
+outline.
+
+It flies POINT FIRST toward the RIGHT and it is drawn horizontally, long across
+the cell. It does not tumble.
+
+Behind it, a short trail of three or four smaller shards of the same violet,
+falling behind and shrinking -- objects with their own outlines, not a glow and
+not a smear.
+
+FRAMING: centred in its cell, occupying the middle third of the cell's height.
+It stays at the SAME position and the SAME size in all eight frames. The game
+moves it across the screen; a sheet that also moves it makes the two motions
+fight.
+
+FRAMES, one seamless loop:
+1. Shard level, three trailing shards close behind it.
+2. Trailing shards drifting back and shrinking, a new one appearing at the base.
+3. A faint pale gleam travels along the shard's upper facet, front to back.
+4. The gleam reaching the back, trailing shards at their widest spread.
+5. Shard level, a fresh tight cluster behind it.
+6. Trailing shards beginning to drift.
+7. The gleam starting again at the front.
+8. Returning to match frame 1, flowing cleanly back into it.
+```
+
+### 70. Shard ring — `assets/spells/shard-ring.png`
+
+Attach sheet 61.
+
+```
+Sheet 70: A RING OF CRYSTAL SHARDS ERUPTING OUTWARD.
+
+OVERRIDE: this sheet has no creature in it. It is an effect.
+
+THE EFFECT: a ring of the same violet crystal shards, thrown up out of nothing
+and driven outward in every direction from a point at the centre.
+
+It is seen FLAT ON, as a ring that expands across the ground around the
+creature -- so it is drawn as a wide, shallow ELLIPSE, about twice as wide as
+it is tall, not as a circle. Every shard points outward along its own radius.
+
+It expands from nothing to the full width of its cell across the eight frames,
+and it plays ONCE. Frame 8 must read as spent, not as still growing.
+
+FRAMES:
+1. A small hard white flash at the centre, no shards yet.
+2. Eight or ten shard tips breaking outward from the flash, very close in.
+3. The ring a third of its final width, shards clearly separate and pointing
+   outward, brightest here.
+4. Two thirds of its width, the shards longer and leaning further outward, gaps
+   opening between them as the ring stretches.
+5. Near full width, shards at their longest and beginning to tilt over.
+6. Full width, shards falling outward past the ring, the centre now empty.
+7. Shards breaking up into smaller fragments, fading, the ring losing its shape.
+8. Nearly gone: a faint scatter of fragments at the ring's furthest extent. The
+   game ends the clip here, so it must read as finished.
+```
+
+### Wiring all of it in
+
+The six body sheets are one spec each, the same shape a mob's takes but
+floating:
+
+```python
+def _mirror(name: str, file: str) -> SheetSpec:
+    """One animation of the boss. Like `_mob`, but it does not stand on
+    anything -- `anchor="center"`, exactly as the companion it grew from."""
+    return replace(_mob(name, file), anchor="center")
+
+MIRROR = tuple(
+    _mirror(f"mirror{clip.capitalize()}", f"mirror-{clip}.png")
+    for clip in ("idle", "drift", "strike", "cast", "hurt", "death")
+)
+HATCH = (_mirror("hatchCrack", "hatch-crack.png"),
+         _mirror("hatchBurst", "hatch-burst.png"))
+```
+
+The two effects go through `_spell` like every other projectile, and the
+corrupted arsenal is already built — the boss reaches for `swordADark`,
+`fireBallDark`, `iceNovaDark` and the rest by name.
+
+**The hatch sheets need `normalize_to` left unset.** Every other multi-band
+sheet uses it to stop a character changing size between animations; these two
+are the one case where the size change is the animation, and normalising them
+would flatten the entire cutscene back to one size.

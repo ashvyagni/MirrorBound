@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "swing-00": {
+   "frame": {
+    "x": 328,
+    "y": 2,
+    "w": 72,
+    "h": 418
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 188,
+    "y": 5,
+    "w": 72,
+    "h": 418
+   },
+   "sourceSize": {
+    "w": 460,
+    "h": 451
+   }
+  },
+  "swing-01": {
+   "frame": {
+    "x": 402,
+    "y": 2,
+    "w": 363,
+    "h": 415
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 97,
+    "y": 7,
+    "w": 363,
+    "h": 415
+   },
+   "sourceSize": {
+    "w": 460,
+    "h": 451
+   }
+  },
+  "swing-02": {
+   "frame": {
+    "x": 767,
+    "y": 2,
+    "w": 384,
+    "h": 412
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 53,
+    "y": 25,
+    "w": 384,
+    "h": 412
+   },
+   "sourceSize": {
+    "w": 460,
+    "h": 451
+   }
+  },
+  "swing-03": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 324,
+    "h": 451
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 67,
+    "y": 0,
+    "w": 324,
+    "h": 451
+   },
+   "sourceSize": {
+    "w": 460,
+    "h": 451
+   }
+  },
+  "swing-04": {
+   "frame": {
+    "x": 1564,
+    "y": 2,
+    "w": 365,
+    "h": 388
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 71,
+    "y": 7,
+    "w": 365,
+    "h": 388
+   },
+   "sourceSize": {
+    "w": 460,
+    "h": 451
+   }
+  },
+  "swing-05": {
+   "frame": {
+    "x": 2,
+    "y": 455,
+    "w": 384,
+    "h": 386
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 44,
+    "y": 7,
+    "w": 384,
+    "h": 386
+   },
+   "sourceSize": {
+    "w": 460,
+    "h": 451
+   }
+  },
+  "swing-06": {
+   "frame": {
+    "x": 1153,
+    "y": 2,
+    "w": 336,
+    "h": 412
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 10,
+    "w": 336,
+    "h": 412
+   },
+   "sourceSize": {
+    "w": 460,
+    "h": 451
+   }
+  },
+  "swing-07": {
+   "frame": {
+    "x": 1491,
+    "y": 2,
+    "w": 71,
+    "h": 410
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 188,
+    "y": 10,
+    "w": 71,
+    "h": 410
+   },
+   "sourceSize": {
+    "w": 460,
+    "h": 451
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "fireStaffDark.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 2048,
+   "h": 843
+  },
+  "scale": "1"
+ }
+}

@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "swing-00": {
+   "frame": {
+    "x": 381,
+    "y": 2,
+    "w": 105,
+    "h": 398
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 173,
+    "y": 0,
+    "w": 105,
+    "h": 398
+   },
+   "sourceSize": {
+    "w": 411,
+    "h": 505
+   }
+  },
+  "swing-01": {
+   "frame": {
+    "x": 266,
+    "y": 2,
+    "w": 113,
+    "h": 402
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 171,
+    "y": 32,
+    "w": 113,
+    "h": 402
+   },
+   "sourceSize": {
+    "w": 411,
+    "h": 505
+   }
+  },
+  "swing-02": {
+   "frame": {
+    "x": 121,
+    "y": 2,
+    "w": 143,
+    "h": 435
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 152,
+    "y": 16,
+    "w": 143,
+    "h": 435
+   },
+   "sourceSize": {
+    "w": 411,
+    "h": 505
+   }
+  },
+  "swing-03": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 117,
+    "h": 467
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 171,
+    "y": 38,
+    "w": 117,
+    "h": 467
+   },
+   "sourceSize": {
+    "w": 411,
+    "h": 505
+   }
+  },
+  "swing-04": {
+   "frame": {
+    "x": 2,
+    "y": 471,
+    "w": 353,
+    "h": 378
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 50,
+    "y": 29,
+    "w": 353,
+    "h": 378
+   },
+   "sourceSize": {
+    "w": 411,
+    "h": 505
+   }
+  },
+  "swing-05": {
+   "frame": {
+    "x": 357,
+    "y": 471,
+    "w": 378,
+    "h": 377
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 33,
+    "y": 24,
+    "w": 378,
+    "h": 377
+   },
+   "sourceSize": {
+    "w": 411,
+    "h": 505
+   }
+  },
+  "swing-06": {
+   "frame": {
+    "x": 2,
+    "y": 851,
+    "w": 376,
+    "h": 374
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 47,
+    "w": 376,
+    "h": 374
+   },
+   "sourceSize": {
+    "w": 411,
+    "h": 505
+   }
+  },
+  "swing-07": {
+   "frame": {
+    "x": 488,
+    "y": 2,
+    "w": 251,
+    "h": 389
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 28,
+    "y": 7,
+    "w": 251,
+    "h": 389
+   },
+   "sourceSize": {
+    "w": 411,
+    "h": 505
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "iceNovaCastDark.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 1024,
+   "h": 1227
+  },
+  "scale": "1"
+ }
+}

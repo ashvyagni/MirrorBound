@@ -7,6 +7,8 @@ from pathlib import Path
 
 import numpy as np
 
+from dataclasses import replace
+
 from atlaslib import Band, SheetSpec
 
 ASSETS = Path(__file__).resolve().parents[3] / "assets"
@@ -635,5 +637,45 @@ BARS_PLATES = _ui("barsPlates", "bars-plates.png", (
 SCREENS = (SCREEN_FRAME, CONTROLS, MAP_TOKENS, BOSS_BAR, FLOURISHES,
            ITEMS, SKILL_NODES, BARS_PLATES)
 
+
+# --- the corrupted twin's arsenal -------------------------------------------
+
+#: The colour everything the boss carries is rotated to, so a corrupted weapon
+#: reads as belonging to the thing holding it rather than to the player it was
+#: taken from.
+#:
+#: The evolved form's violet, not the companion's. `bro` measures 224 degrees,
+#: which is a blue -- that is the creature *before* it turns, and rotating the
+#: arsenal to it came back cheerfully blue rather than corrupted. 270 is a
+#: clear violet, a few degrees off the palette's own `frameLine` at 263, and it
+#: matches the concept art for the evolved form.
+CORRUPT_HUE = 270.0
+
+#: How far the corrupted colour is pulled toward grey. Corruption is not only a
+#: different hue, it is a colder and deader one -- a pure rotation leaves a
+#: cheerful violet sword that looks like a reskin rather than a theft.
+CORRUPT_DESATURATE = 0.22
+
+
+def _corrupt(spec: SheetSpec) -> SheetSpec:
+    """The same drawing, rotated to the twin's colour.
+
+    No new art. Weapon, cast and spell sheets carry no character -- they are
+    composited over whoever holds them -- so the boss holds the player's own
+    weapons, and every one of these is generated from the source sheet the
+    player's version is generated from. They cannot drift apart, because there
+    is only one drawing.
+    """
+    return replace(
+        spec,
+        name=f"{spec.name}Dark",
+        hue_target=CORRUPT_HUE,
+        desaturate=CORRUPT_DESATURATE,
+    )
+
+
+#: Every weapon, cast motion and effect the player has, as the boss's.
+CORRUPTED = tuple(_corrupt(spec) for spec in (*WEAPONS, *CASTS, *SPELLS, *SHIELDS))
+
 SHEETS = (GOAT, BRO, DUMMY, *FACINGS, *WEAPONS, *CASTS, *SHIELDS, *SPELLS,
-          ICONS, *UI, *SCREENS, *ENEMIES)
+          ICONS, *UI, *SCREENS, *ENEMIES, *CORRUPTED)
