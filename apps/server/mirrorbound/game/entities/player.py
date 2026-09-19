@@ -422,6 +422,30 @@ class Player(Entity):
         self.recompute_max_health()
         return True, "ok"
 
+    def respec(self) -> int:
+        """Refund every unlocked node and return the points handed back.
+
+        All of them, not one at a time: the tree has prerequisites, so
+        unlearning a tier-1 node while a tier-3 node depends on it would leave
+        a build the tree itself says is impossible. Clearing the whole thing is
+        the only refund that cannot produce an illegal state.
+
+        Health is recomputed and clamped rather than refilled -- respeccing out
+        of Resilience must not be a way to top up, and it must not leave the
+        player above a maximum that just went down.
+        """
+        from mirrorbound.game.progression.skills import SKILLS
+
+        if not self.unlocked_skills:
+            return 0
+        refunded = sum(SKILLS[s].cost for s in self.unlocked_skills if s in SKILLS)
+        self.unlocked_skills.clear()
+        self.skill_points += refunded
+        self.recompute_max_health()
+        self.health = min(self.health, self.max_health)
+        self.mana = min(self.mana, self.max_mana)
+        return refunded
+
     # --- serialisation -----------------------------------------------------------------
 
     def abilities_to_dict(self) -> list[dict]:

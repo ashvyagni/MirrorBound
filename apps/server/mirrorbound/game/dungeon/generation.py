@@ -15,7 +15,7 @@ from mirrorbound.game.dungeon.room import (
     Decor, Door, EnemySpawn, Room,
 )
 from mirrorbound.game.dungeon.templates import (
-    DEFAULT_SEQUENCE, RoomTemplate, RoomType, biome_for, get_random_template,
+    DEFAULT_SEQUENCE, TUTORIAL_COMBAT, RoomTemplate, RoomType, biome_for, get_random_template,
 )
 from mirrorbound.game.entities.entity import Vec2
 
@@ -61,17 +61,28 @@ class DungeonGenerator:
         self.rng = rng.spawn("dungeon")
 
     def generate(self, room_count: int = 7, sequence: tuple[RoomType, ...] | None = None,
-                 biome: str | None = None) -> DungeonRun:
+                 biome: str | None = None, tutorial: bool = False) -> DungeonRun:
         """`biome` pins every room in the run to one biome. Without it the run
         shades from grove to crypt over its own length, which is right for a
         single long descent and wrong once the world has areas that each have
-        a look of their own."""
+        a look of their own.
+
+        `tutorial` makes the run's first combat room the authored teaching one
+        rather than a roll of the four. The opening dungeon passes it; nothing
+        else does."""
         seq = list(sequence or DEFAULT_SEQUENCE)
         if room_count != len(seq):
             seq = self._sequence_for(room_count)
         rooms: list[Room] = []
+        first_combat = True
         for index, room_type in enumerate(seq):
-            template = get_random_template(room_type, self.rng)
+            # The run's first fight is authored, not rolled: see TUTORIAL_COMBAT.
+            # Only in the opening area -- later dungeons have the twin, levels
+            # and a bought weapon behind them, and should surprise you.
+            teaching = tutorial and first_combat and room_type is RoomType.COMBAT
+            if room_type is RoomType.COMBAT:
+                first_combat = False
+            template = TUTORIAL_COMBAT if teaching else get_random_template(room_type, self.rng)
             room_rng = self.rng.spawn(f"room:{index}")
             rooms.append(self._build_room(index, len(seq), template, room_rng, biome=biome))
         # Link doors: each room's south door leads back, north door leads on.

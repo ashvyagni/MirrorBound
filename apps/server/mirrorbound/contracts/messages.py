@@ -23,7 +23,7 @@ CommandAction = Literal[
     "PAUSE", "RESUME", "RESTART", "REQUEST_ROOM", "SET_TWIN_STANCE",
     # World and progression.
     "SWAP_WEAPON", "SET_OFFHAND", "TRAVEL", "TALK", "BUY_ITEM", "SET_NAME",
-    "TWIN_REQUEST", "SAVE",
+    "TWIN_REQUEST", "SAVE", "RESPEC",
 ]
 
 

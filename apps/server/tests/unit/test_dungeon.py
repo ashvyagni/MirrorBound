@@ -2,7 +2,9 @@ from mirrorbound.game.core.rng import DeterministicRNG
 from mirrorbound.game.dungeon.generation import DungeonGenerator
 from mirrorbound.game.dungeon.room import T_PATH, T_WALL, T_WATER, TILE
 from mirrorbound.game.dungeon.templates import DEFAULT_SEQUENCE
+from mirrorbound.game.entities.enemy import get_archetype
 from mirrorbound.game.entities.entity import Vec2
+from mirrorbound.game.world.village import build_village
 
 
 def gen(seed: int = 7, count: int = 7):
@@ -75,3 +77,75 @@ def test_arbitrary_room_counts_still_bookend_correctly():
     run = gen(3, count=4)
     assert run.rooms[0].room_type == "entrance" and run.rooms[-1].room_type == "boss"
     assert len(run.rooms) == 4
+
+
+# --- the per-room art contract ----------------------------------------------
+#
+# The client fetches enemy atlases per room from `enemySprites` rather than
+# loading all twelve families at boot. That makes this field load-bearing: a
+# room that under-reports leaves its enemies drawn as painted stand-ins, and a
+# room that over-reports pulls megabytes it never draws. These pin both ends.
+
+
+def test_every_room_names_the_sprites_its_spawns_will_use():
+    run = gen()
+    for room in run.rooms:
+        sprites = room.enemy_sprites()
+        assert sprites == sorted(set(sprites)), "must be sorted and distinct, so the snapshot is stable"
+        wanted = {get_archetype(s.enemy_type).sprite for s in room.enemy_spawns}
+        assert set(sprites) == wanted
+
+
+def test_the_boss_room_names_the_mirror():
+    run = gen()
+    assert run.rooms[-1].enemy_sprites() == ["mirror"]
+
+
+def test_a_village_names_no_enemy_art_at_all():
+    village = build_village("hollow_reach", DeterministicRNG(3))
+    assert village.enemy_spawns == []
+    assert village.enemy_sprites() == []
+    assert village.to_dict()["enemySprites"] == []
+
+
+def test_the_snapshot_carries_the_same_list_the_method_returns():
+    for room in gen().rooms:
+        assert room.to_dict()["enemySprites"] == room.enemy_sprites()
+
+
+# --- the tutorial's first fight -------------------------------------------------
+
+
+def test_the_tutorial_runs_first_fight_is_authored_not_rolled():
+    """That fight is taken alone, at level one, before the twin is found.
+
+    Any combat room may roll any of the four templates; rolling the five-enemy
+    sanctum into the room that teaches fighting is the difference between a
+    tutorial and a wall. Every seed must give the same opening.
+    """
+    for seed in range(12):
+        run = DungeonGenerator(DeterministicRNG(seed)).generate(room_count=7, tutorial=True)
+        first = next(r for r in run.rooms if r.room_type == "combat")
+        assert first.enemy_sprites() == sorted({"skeleton", "hound", "archer"})
+        assert len(first.enemy_spawns) == 4
+        assert not any(s.enemy_type == "brute" for s in first.enemy_spawns)
+
+
+def test_only_the_first_combat_room_is_pinned():
+    """The second one rolls, or the whole dungeon is the same fight twice."""
+    seen = set()
+    for seed in range(30):
+        run = DungeonGenerator(DeterministicRNG(seed)).generate(room_count=7, tutorial=True)
+        combats = [r for r in run.rooms if r.room_type == "combat"]
+        assert len(combats) >= 2
+        seen.add(tuple(combats[1].enemy_sprites()))
+    assert len(seen) > 1, "later combat rooms still vary by seed"
+
+
+def test_without_the_tutorial_flag_the_first_fight_rolls_like_any_other():
+    seen = set()
+    for seed in range(30):
+        run = DungeonGenerator(DeterministicRNG(seed)).generate(room_count=7)
+        first = next(r for r in run.rooms if r.room_type == "combat")
+        seen.add(tuple(first.enemy_sprites()))
+    assert len(seen) > 1

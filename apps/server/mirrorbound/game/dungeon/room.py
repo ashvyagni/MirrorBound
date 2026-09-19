@@ -212,6 +212,19 @@ class Room:
                 return door
         return None
 
+    def enemy_sprites(self) -> list[str]:
+        """Distinct sprite names this room's spawns will use, sorted so the
+        snapshot is stable tick to tick."""
+        from mirrorbound.game.entities.enemy import get_archetype
+
+        names = set()
+        for spawn in self.enemy_spawns:
+            try:
+                names.add(get_archetype(spawn.enemy_type).sprite)
+            except ValueError:
+                continue
+        return sorted(names)
+
     def portal_at(self, pos: Vec2, radius: float) -> Portal | None:
         for portal in self.portals:
             if portal.contains(pos, radius):
@@ -256,6 +269,10 @@ class Room:
             "decor": [d.to_dict() for d in self.decor],
             "doors": [d.to_dict() for d in self.doors],
             "portals": [p.to_dict() for p in self.portals],
+            # Which enemy art this room will actually need. The client loads
+            # sheets per room from this rather than every sheet at boot: there
+            # are twelve enemy families and a room uses at most a few.
+            "enemySprites": self.enemy_sprites(),
             "cleared": self.cleared,
             "safe": self.room_type == "village",
             "areaId": self.area_id,

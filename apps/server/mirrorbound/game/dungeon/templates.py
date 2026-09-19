@@ -147,6 +147,17 @@ WARDEN_GATE = RoomTemplate(
     title_pool=("The Warden's Gate",),
 )
 
+#: The combat room the game teaches fighting in.
+#:
+#: Four enemies, no brute, and one of each role -- two chargers, a darter and a
+#: shooter -- so the first fight shows what the archetypes are without needing
+#: an answer to all of them at once. Any combat room may roll any template
+#: except this one case: the first fight of a run is taken alone, at level one,
+#: with a starter sword and whatever potions were bought, and it comes *before*
+#: the twin is found. Rolling the five-enemy sanctum there is the difference
+#: between a tutorial and a wall.
+TUTORIAL_COMBAT = COMBAT_GLADE
+
 TEMPLATES: dict[RoomType, tuple[RoomTemplate, ...]] = {
     RoomType.ENTRANCE: (ENTRANCE,),
     RoomType.COMBAT: (COMBAT_GLADE, COMBAT_RUIN, SWARM_NEST, COMBAT_SANCTUM),
@@ -184,5 +195,5 @@ def get_random_template(room_type: RoomType, rng) -> RoomTemplate:
 
 __all__ = [
     "RoomType", "RoomTemplate", "SpawnSpec", "TEMPLATES", "DEFAULT_SEQUENCE",
-    "biome_for", "get_random_template",
+    "TUTORIAL_COMBAT", "biome_for", "get_random_template",
 ]
