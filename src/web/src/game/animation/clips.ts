@@ -16,6 +16,24 @@ export interface ClipDef {
   hold?: boolean;
 }
 
+/** Which of the three drawn views a direction lands on. */
+export type ViewDirection = 'side' | 'front' | 'back';
+
+/**
+ * Pick a view from a direction, biased toward the side.
+ *
+ * The side sheets are the only ones drawn in profile, so a diagonal belongs on
+ * them: a direction counts as vertical only when it is within about thirty
+ * degrees of straight up or down, which leaves a clean 45 reading as a profile.
+ * `bias` is how far `x` may run before the direction stops counting as
+ * vertical, as a fraction of `y`.
+ */
+export function viewForDirection(v: { x: number; y: number }, bias = 0.58): ViewDirection {
+  if (v.y === 0) return 'side';
+  if (Math.abs(v.x) > Math.abs(v.y) * bias) return 'side';
+  return v.y < 0 ? 'back' : 'front';
+}
+
 /** Animation keys are global in Phaser, so they are namespaced by texture. */
 export function animationKey(texture: string, clip: string): string {
   return `${texture}:${clip}`;

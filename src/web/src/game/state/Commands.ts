@@ -1,12 +1,19 @@
-import { ITEM_NAMES, type ItemName } from '../animation/items';
-import { MOBS, MOB_IDS, type MobId } from '../entities/Mob';
+import { ITEM_NAMES } from '../animation/items';
+import type { CommandMessage } from '../contracts';
 
 /**
  * What the console can do.
  *
  * A table rather than a switch, because the same table has to answer two
  * questions -- "run this" and "what might they be typing" -- and two lists that
- * have to agree is one list that eventually does not.
+ * have to agree are one list that eventually does not.
+ *
+ * Every verb here is a `CommandMessage` the server already accepts. The
+ * sandbox's console spawned creatures into the room directly; nothing does
+ * that any more, because the room belongs to the server and a client that
+ * invented a skeleton would be corrected by the next snapshot. What replaces
+ * it is more useful anyway: travel, equip, unlock and respec are the things
+ * worth reaching for without a menu.
  */
 
 export interface Suggestion {
@@ -14,38 +21,88 @@ export interface Suggestion {
   hint: string;
 }
 
-/** What the console needs from the world in order to change it. */
-export interface CommandHost {
-  spawnMob(id: MobId): string;
-  spawnItem(item: ItemName): string;
-  spawnBoss(): string;
-  clearSpawned(): string;
-}
-
-interface Target {
-  /** What you type. */
-  token: string;
-  /** What it is, shown dim to the right. */
-  hint: string;
-  run(host: CommandHost): string;
-}
-
-/** Everything `spawn` accepts, in the order it completes them. */
-export const SPAWNABLE: readonly Target[] = [
-  { token: 'mirror', hint: 'the boss', run: (h) => h.spawnBoss() },
-  ...MOB_IDS.map((id) => ({
-    token: id,
-    hint: MOBS[id].name,
-    run: (h: CommandHost) => h.spawnMob(id),
-  })),
-  ...ITEM_NAMES.map((item) => ({
-    token: item,
-    hint: item.endsWith('_potion') ? 'potion' : 'item',
-    run: (h: CommandHost) => h.spawnItem(item),
-  })),
+/** Areas the campaign defines, in map order. */
+export const AREAS: readonly { id: string; name: string }[] = [
+  { id: 'hollow_reach', name: 'village · grove' },
+  { id: 'wakewood_crypt', name: 'dungeon · grove' },
+  { id: 'emberfall', name: 'village · ruins' },
+  { id: 'ashen_deep', name: 'dungeon · ruins · the Warden' },
+  { id: 'mirror_sanctum', name: 'dungeon · crypt · the Mirror' },
 ];
 
-const VERBS = ['spawn', 'clear', 'help'] as const;
+/** The four weapons the server ships with. */
+export const WEAPON_IDS: readonly { id: string; name: string }[] = [
+  { id: 'iron_sword', name: 'sword' },
+  { id: 'hunter_bow', name: 'bow' },
+  { id: 'ember_staff', name: 'fire staff' },
+  { id: 'frost_staff', name: 'ice staff' },
+];
+
+interface Verb {
+  /** What you type. */
+  token: string;
+  /** What it does, shown dim to the right. */
+  hint: string;
+  /** Completions for the argument, if it takes one. */
+  options?: readonly { id: string; name: string }[];
+  /** The message to send. `arg` is the resolved option id. */
+  build(arg: string): Omit<CommandMessage, 'type'> | string;
+}
+
+/**
+ * Everything `spawn` accepts, in the order it completes them.
+ *
+ * These are `ARCHETYPES` on the server verbatim. What comes back is a real
+ * enemy with a real `EnemyDef`, a real controller and a real loot table --
+ * the Mirror summoned here is the Mirror, and it will come for you.
+ */
+export const SPAWNABLE: readonly { id: string; name: string }[] = [
+  { id: 'mirror', name: 'the final boss' },
+  { id: 'warden', name: 'the Ashen Warden · guardian' },
+  { id: 'skeleton', name: 'Bone Knight' },
+  { id: 'archer', name: 'Hollow Archer' },
+  { id: 'hound', name: 'Gloom Hound' },
+  { id: 'slime', name: 'Mire Slime' },
+  { id: 'acolyte', name: 'Ash Acolyte' },
+  { id: 'brute', name: 'Crypt Brute' },
+  { id: 'scarab', name: 'Husk Scarab' },
+];
+
+const VERBS: readonly Verb[] = [
+  {
+    token: 'spawn', hint: 'put an enemy in the room', options: SPAWNABLE,
+    build: (enemyType) => (enemyType
+      ? { action: 'SPAWN', enemyType }
+      : 'spawn what? Tab lists what there is.'),
+  },
+  {
+    token: 'travel', hint: 'go to an area', options: AREAS,
+    build: (areaId) => (areaId ? { action: 'TRAVEL', areaId } : 'travel where?'),
+  },
+  {
+    token: 'equip', hint: 'draw a weapon', options: WEAPON_IDS,
+    build: (weaponId) => (weaponId ? { action: 'EQUIP_WEAPON', weaponId } : 'equip what?'),
+  },
+  {
+    token: 'use', hint: 'drink or consume',
+    options: ITEM_NAMES.map((id) => ({ id, name: id.replace(/_/g, ' ') })),
+    build: (itemId) => (itemId ? { action: 'USE_ITEM', itemId } : 'use what?'),
+  },
+  { token: 'swap', hint: 'trade the two carried weapons', build: () => ({ action: 'SWAP_WEAPON' }) },
+  { token: 'respec', hint: 'refund every skill point', build: () => ({ action: 'RESPEC' }) },
+  { token: 'save', hint: 'write the run to disk', build: () => ({ action: 'SAVE' }) },
+  { token: 'restart', hint: 'start the run again', build: () => ({ action: 'RESTART' }) },
+  { token: 'pause', hint: 'stop the world', build: () => ({ action: 'PAUSE' }) },
+  { token: 'resume', hint: 'start it again', build: () => ({ action: 'RESUME' }) },
+  { token: 'help', hint: 'list the commands', build: () => HELP },
+];
+
+const HELP = VERBS.map((v) => v.token).join(' · ') + '   —   Tab completes, ↑ recalls';
+
+/** What the console needs from the game in order to change it. */
+export interface CommandHost {
+  send(message: Omit<CommandMessage, 'type'>): void;
+}
 
 /**
  * Best completion for a partial line.
@@ -59,45 +116,42 @@ export function complete(line: string): Suggestion | null {
   const space = lower.indexOf(' ');
 
   if (space === -1) {
-    const verb = VERBS.find((v) => v.startsWith(lower));
+    const verb = VERBS.find((v) => v.token.startsWith(lower));
     if (!verb) return null;
     return {
-      value: verb === 'spawn' ? 'spawn ' : verb,
-      hint: verb === 'spawn' ? 'spawn <thing>'
-        : verb === 'clear' ? 'remove everything spawned'
-        : 'list the commands',
+      value: verb.options ? `${verb.token} ` : verb.token,
+      hint: verb.hint,
     };
   }
 
-  const verb = lower.slice(0, space);
-  if (verb !== 'spawn') return null;
+  const verb = VERBS.find((v) => v.token === lower.slice(0, space));
+  if (!verb?.options) return null;
 
   const rest = lower.slice(space + 1);
-  const target = SPAWNABLE.find((t) => t.token.toLowerCase().startsWith(rest));
-  if (!target) return null;
-  return { value: `spawn ${target.token}`, hint: target.hint };
+  const option = verb.options.find((o) => o.id.toLowerCase().startsWith(rest));
+  if (!option) return null;
+  return { value: `${verb.token} ${option.id}`, hint: option.name };
 }
 
 /** Run a line. Always returns something to show, including on failure. */
 export function run(line: string, host: CommandHost): string {
-  const [verb, ...rest] = line.trim().split(/\s+/);
-  const lower = (verb ?? '').toLowerCase();
+  const [word, ...rest] = line.trim().split(/\s+/);
+  const lower = (word ?? '').toLowerCase();
+  const verb = VERBS.find((v) => v.token === lower);
+  if (!verb) return `Unknown command: ${word}`;
 
-  if (lower === 'help') {
-    return 'spawn <thing> · clear · help   —   Tab completes, ↑ recalls';
-  }
-  if (lower === 'clear') return host.clearSpawned();
-
-  if (lower === 'spawn') {
-    const token = (rest[0] ?? '').toLowerCase();
-    if (!token) return 'spawn what? Tab lists what there is.';
-    const target = SPAWNABLE.find((t) => t.token.toLowerCase() === token);
+  let arg = (rest[0] ?? '').toLowerCase();
+  if (verb.options && arg) {
     // An exact miss falls back to a prefix, so a half-typed name still works
     // when you hit Enter instead of Tab.
-    const guess = target ?? SPAWNABLE.find((t) => t.token.toLowerCase().startsWith(token));
-    if (!guess) return `No such thing: ${token}`;
-    return guess.run(host);
+    const option = verb.options.find((o) => o.id.toLowerCase() === arg)
+      ?? verb.options.find((o) => o.id.toLowerCase().startsWith(arg));
+    if (!option) return `No such thing: ${arg}`;
+    arg = option.id;
   }
 
-  return `Unknown command: ${verb}`;
+  const built = verb.build(arg);
+  if (typeof built === 'string') return built;
+  host.send(built);
+  return `${verb.token}${arg ? ` ${arg}` : ''} — sent.`;
 }

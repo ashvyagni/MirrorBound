@@ -1,7 +1,13 @@
 # Art prompts
 
-Sheets 1–72 are drawn: 106 source sheets, 132 built atlases. Everything still
-to make is **the world** — sheets 73 to 84 below.
+Sheets 1–81 are drawn. What is left is **the floor and the boss**:
+
+| still to make | what it unblocks |
+| --- | --- |
+| **82–84** floor tiles, three biomes | the last procedurally-painted thing in the game |
+| **85** four ability icons | three of the server's six abilities borrow someone else's icon |
+| **86** the Ashen Warden's hurt, death and slam | the guardian boss currently dies by vanishing |
+| **87** six speaker portraits | the dialogue plate's portrait window has never had a face in it |
 
 This file is the style blocks, whatever is unmade, and the rules the pipeline
 learned the hard way.
@@ -889,6 +895,253 @@ tile by laying it out 3 x 3 before wiring it in; a seam that is invisible in a
 single cell is a hard grid line across the whole floor. The grass, dirt and
 water tiles are the forgiving ones because their detail is scattered; the
 flagstones and the wall are the ones that will need an edge fixed by hand.
+
+---
+
+### 85. The four missing ability icons — `assets/ui/ability-icons.png`
+
+The icon sheet was drawn for the sandbox's seven spells. The server has six
+abilities with different names, and three of them have nothing to draw with:
+`shadow_dash`, `mending_light` and `aegis` are borrowing `arrow`, `iceBeam` and
+`sword` today, which `animation/abilityIcons.ts` marks as borrowed. `arcane_bolt`
+borrows `fireBall`, which is close but wrong-coloured.
+
+Paste **Block 0-ITEM** first — these are objects and emblems, not chrome.
+
+```
+Sheet 85: EIGHT ABILITY ICONS, one per cell, on a 1536 x 1024 canvas in a
+strict 4 x 2 grid of 384 x 512 cells. Each icon is centred in its own cell with
+clear green around it. They are unrelated marks, not an animation.
+
+These are read at about forty pixels on a dark plate, so they are SIMPLE: one
+clear silhouette each, thick dark outline, two or three flat tones. No frames,
+no plates, no circles behind them -- the game draws the socket and puts the
+icon in it. No text, no numbers.
+
+Every icon is drawn at the SAME optical size, about 300 pixels across, so a row
+of them reads as one set.
+
+TOP ROW -- the four the game needs now.
+1. ARCANE BOLT. A single tapered dart of raw magic flying point-first to the
+   upper right, with two short motion streaks trailing behind its tail. Violet
+   #9a6ad6 core, pale lilac highlight along its upper edge, hot pink #d62e6c at
+   the very tip. Not a flame, not an arrow with fletching -- a bolt of light
+   with a hard leading point.
+2. SHADOW DASH. A forward-leaning wedge of motion: one solid dark figure-shaped
+   chevron at the front, and two progressively fainter copies of the same
+   chevron trailing behind it to the left, like an afterimage. Near-black
+   #2a2238 for the leading shape, deep violet for the two trails, pale pink rim
+   light down the front edge. It reads as a dash, not as an arrow.
+3. MENDING LIGHT. A rounded cross or four-petal bloom of soft light with a
+   bright core, and three small rising motes above it. Warm cream #e8dcc8 body,
+   gold #f0c060 core, soft pink #f5a4c0 at the petal tips. Gentle and rounded --
+   no sharp points, no medical cross, no heart.
+4. AEGIS. A broad rounded shield seen face-on, its surface plain, with one bold
+   horizontal band across the middle. Cool grey-blue #6d97ab plate, pale blue
+   #a0cae4 highlight along the top-left edge, dark outline. Add three short
+   straight lines radiating outward from the shield's upper edge to say it is
+   raised, not carried. No crest, no boss stud, no emblem on the face.
+
+BOTTOM ROW -- four spares, so the next ability needs no new sheet.
+5. A clenched gauntlet fist, knuckles forward, in dark iron with a pale rim.
+6. A pair of crossed daggers, bone-white blades, brown grips.
+7. A simple open eye with a violet iris and a pale sclera, lashes as three
+   short strokes above it.
+8. An hourglass, cream frame, pale blue sand in the lower bulb.
+```
+
+**Wiring.** Add the sheet to `sheets.py` beside `ICONS`, then replace the three
+borrowed entries in `src/web/src/game/animation/abilityIcons.ts` and empty
+`BORROWED_ICONS`. The frame names must be the server's ability ids verbatim --
+`arcane_bolt`, `shadow_dash`, `mending_light`, `aegis` -- so a new ability on
+the server indexes its own icon with no second lookup table.
+
+---
+
+### 86. The Ashen Warden — three boss sheets
+
+**There is a boss before the Mirror, and it is half-drawn.** `enemy.py` defines
+`WARDEN` — *The Ashen Warden*, 420 health, the guardian at the bottom of the
+Ashen Deep — and `templates.py` puts it in `WARDEN_GATE`, the one room of
+`RoomType.GUARDIAN`. Its brief in the source is worth quoting, because it is
+what these sheets have to show:
+
+> a tank that keeps hitting the same place, so it is beaten by moving, which is
+> the lesson the Mirror will later punish you for over-learning.
+
+It has the four sheets every ordinary enemy has — idle, alert, walk, attack —
+and none of the three a boss needs. The Mirror has six clips and a hatch; the
+Warden dies today by vanishing.
+
+All three sheets below are **the same creature already drawn** in
+`assets/enemies/warden-idle.png`. Attach that file with every one of these
+prompts, and say so — the Warden is a heavy stone-and-ash guardian and a fresh
+description of it will come back as a different creature.
+
+Paste **Block 0-MOB** first.
+
+#### 86a. Warden hurt — `assets/enemies/warden-hurt.png`
+
+```
+Sheet 86a: THE ASHEN WARDEN, TAKING A HIT. I have attached the Warden's idle
+sheet -- this is the SAME creature, same size, same colours, same silhouette.
+
+THE FEELING: it is enormous and it barely cares. This is not a stagger. It is
+a heavy body absorbing a blow and immediately setting itself again, which is
+what makes it frightening.
+
+FRAMES:
+1. The settled idle pose, for one frame, so the clip can cut in from anywhere.
+2. The impact: the whole body compressed downward and braced, head dropping,
+   shoulders hunching forward. A sharp flinch, not a lean.
+3. Deepest point of the flinch -- lowest and widest. Two or three small chips
+   of stone breaking loose from the shoulder and hanging in the air beside it.
+4. Beginning to rise, head still down.
+5. Rising further, the chips falling away below.
+6. Almost upright, head starting to lift.
+7. Upright, head lifting, weight resettling.
+8. Back to exactly the pose of frame 1, so the clip returns cleanly to idle.
+
+Nothing leaves the creature but the stone chips. No blood, no flash, no impact
+star, no motion lines -- the game draws its own hit flash over this.
+```
+
+#### 86b. Warden death — `assets/enemies/warden-death.png`
+
+```
+Sheet 86b: THE ASHEN WARDEN, DYING. I have attached the Warden's idle sheet --
+the SAME creature.
+
+THE FEELING: a stone guardian going out, not a body falling over. It comes
+apart where it stands and what is left is a heap that belongs on the floor.
+
+The last frame is a RESTING POSE the game holds on, so it must read as a
+finished object and not as a frame of motion.
+
+FRAMES:
+1. The idle pose, struck: body rigid, head thrown back, arms falling slack.
+2. Buckling at the knees, still upright, cracks opening across the chest and
+   shoulders in a darker tone.
+3. Dropping to one knee, head down, the cracks wider and beginning to glow a
+   dull ember orange #ff9a3c from within.
+4. Both knees down, shoulders collapsing inward, larger pieces separating.
+5. The upper body coming apart -- head and one shoulder breaking free and
+   falling, the ember light brighter through the gaps.
+6. Mostly collapsed: a heap of broken stone with the shape of a torso still
+   readable in it, ember light fading.
+7. A low mound of rubble, one large fragment still recognisably part of a
+   shoulder, faint ember glow in the deepest cracks.
+8. A settled heap of grey rubble and ash on the ground. No glow left. Wider
+   than it is tall, clearly finished, clearly no longer a creature.
+
+No skull, no ghost, no rising spirit, no text.
+```
+
+#### 86c. Warden slam — `assets/enemies/warden-slam.png`
+
+Its signature. The existing `warden-attack` is an ordinary swing; this is the
+telegraphed, same-place-every-time ground strike the design is built around,
+and it is what the dodge is taught against.
+
+```
+Sheet 86c: THE ASHEN WARDEN, SLAMMING THE GROUND. I have attached the Warden's
+idle sheet -- the SAME creature.
+
+THE FEELING: slow, enormous, and announced. More than half the sheet is the
+wind-up, on purpose: the player has to have time to read it and leave.
+
+FRAMES 1-5 ARE THE WIND-UP. Take your time with them.
+1. The idle pose, weight beginning to shift back.
+2. Rearing: both arms lifting, body leaning back, head tipping up.
+3. Higher -- arms raised well above the head, fists together, body arched back,
+   the whole silhouette tall and open.
+4. The highest point. Fully extended, absolutely still, the most readable pose
+   on the sheet. This is the frame the player decides on.
+5. Held at the top, a fraction of a lean forward. Nothing else has moved.
+6. THE STRIKE: arms driven straight down, body folded forward over them, fists
+   at ground level. Fast and total -- the biggest change between any two frames
+   on this sheet.
+7. Impact landed: fists on the ground, body low and braced over them, cracks
+   spreading outward across the floor from the point of contact, and a low ring
+   of dust and stone chips thrown outward at ground level around the fists.
+8. Holding low, recovering: head beginning to lift, the dust ring wider and
+   thinner, cracks still on the ground.
+
+The cracks and dust stay LOW and close to the ground and read as flat on the
+floor, not as a vertical blast. Draw them in dull stone grey and pale ash --
+no fire, no shockwave ring of light, no glow. The game adds its own telegraph
+under the creature while it winds up.
+```
+
+**Wiring.** These three go into `enemyClips.ts` as extra states on `warden`.
+`EnemyView` drives `idle / walk / alert / attack` off the snapshot today, so it
+needs two more cases — `windingUp` plus a heavy role picks `slam`, and the
+existing hit and death paths pick `hurt` and `death` instead of tinting and
+shrinking the walk sheet.
+
+---
+
+### 87. Who is talking — `assets/ui/speakers.png`
+
+`dialogue.png` gave us a plate with a portrait window cut into its left end and
+a `speakerFrame` to sit in it. Nothing has ever been drawn to go inside.
+
+`npc.py` names four: Elder Mara, Oren the Smith, Siv the Apothecary, and the
+Hearth. The twin gets one too, because `NamingScreen` and every line the twin
+speaks wants a face beside it.
+
+Paste **Block 0-UI** first — these are drawn flat to the screen, like the rest
+of the interface, not as figures standing in a world.
+
+```
+Sheet 87: SIX SPEAKER PORTRAITS, one per cell, on a 1536 x 1024 canvas in a
+strict 4 x 2 grid of 384 x 512 cells: four in the top row, TWO in the bottom
+row at the left. The remaining two cells are left as plain empty green.
+
+Each portrait is a HEAD AND SHOULDERS, facing the viewer, cropped at the
+collarbone, centred in its cell and filling about three quarters of the cell's
+height. Flat on to the screen -- not a figure standing in a room, not a body.
+
+ONE FACE, SIX PEOPLE. Every portrait is built on the same head: a large
+rounded skull, the same soft cartoon features -- two dark dot eyes, small
+simple mouth, no nose, no eyebrows, no individual modelling. They differ only
+in hair, headwear, clothing at the shoulders, and skin tone. Six portraits in a
+row must read as six people from one village, not six illustrators.
+
+No background behind any of them -- the green is keyed out and the game draws
+its own frame around the portrait. No shoulders-up vignette, no circle, no
+border, no name.
+
+TOP ROW.
+1. ELDER MARA. An old woman. Deep lined face, white hair pulled up and back, a
+   soft pink #f5a4c0 shawl over deep purple #4a4650 robes at the shoulders.
+   Calm, level, unbothered.
+2. OREN THE SMITH. A broad-faced man, short dark beard, bald crown, a smear of
+   soot across one cheek. Heavy brown leather #6a4a32 apron straps over a cream
+   shirt at the shoulders.
+3. SIV THE APOTHECARY. A younger woman, dark hair in a single braid falling
+   over her right shoulder, a teal-green #3e6f4a collar. Small and attentive.
+4. THE HEARTH. NOT A PERSON. The village fire pit seen from the front at eye
+   level: a low ring of rough grey stones #7d7880 with a neat stack of split
+   logs #6a4a32 inside it, drawn at the same size a head would be. NO FLAME --
+   the game lights it.
+
+BOTTOM ROW, FIRST TWO CELLS ONLY.
+5. THE TWIN. The player's twin: the same soft face, but drawn as the small
+   blue-white companion creature rather than a person -- a rounded pale head
+   with two small dark eyes and two short horn stubs, cool blue-white #a0cae4
+   body tone, no clothing at all. Gentle, a little uncertain.
+6. A GENERIC VILLAGER. A man in a plain cream tunic collar and a soft brown
+   cap, mid-brown hair, empty pleasant expression. This is the fallback any
+   unnamed speaker uses.
+
+The other two cells: nothing. Plain green.
+```
+
+**Wiring.** Frame names are the NPC ids the server sends — `elder_mara`,
+`smith_oren`, `apothecary_siv`, `hearth`, `twin`, `villager` — so a line of
+dialogue indexes its own face. The dialogue screen composes
+`dialogue.plate` + `dialogue.speakerFrame` + this portrait + `dialogue.nameTab`.
 
 ---
 

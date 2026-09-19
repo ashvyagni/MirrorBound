@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 
 import { PALETTE, RENDER_SCALE, VIEW } from './constants';
-import { HudScene } from './scenes/HudScene';
 import { PlayScene } from './scenes/PlayScene';
+import { HudScene } from './scenes/HudScene';
 import { PreloadScene } from './scenes/PreloadScene';
 
 /**
@@ -10,7 +10,7 @@ import { PreloadScene } from './scenes/PreloadScene';
  *
  * Imported lazily by the React mount so Phaser -- which needs `window` at
  * module scope -- is never pulled into a non-browser context, and so the
- * ~1.4 MB engine chunk is fetched only when the game is actually shown.
+ * engine chunk is fetched only when the game is actually shown.
  */
 export function createGame(parent: HTMLElement, fullscreenTarget?: HTMLElement): Phaser.Game {
   const game = new Phaser.Game({
@@ -25,28 +25,20 @@ export function createGame(parent: HTMLElement, fullscreenTarget?: HTMLElement):
     scale: {
       mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH,
-      // Fullscreen the whole stage rather than the canvas alone, so the exit
-      // button -- a sibling of the canvas -- stays on screen.
       ...(fullscreenTarget ? { fullscreenTarget } : {}),
     },
-    physics: {
-      default: 'arcade',
-      arcade: {
-        // Nothing falls: the world is seen from above, so `y` is depth into
-        // the scene rather than height above a floor.
-        gravity: { x: 0, y: 0 },
-        debug: false,
-      },
-    },
+    // No client-side physics: the server owns movement and collisions.
     // HudScene is listed but inactive; PlayScene launches it once the world
-    // exists, so the bar can never paint against a weapon that is not there.
+    // exists, so the interface never draws over an empty room.
     scene: [PreloadScene, PlayScene, HudScene],
+    // In development the loop runs on timers instead of requestAnimationFrame so
+    // the game keeps stepping while the window is occluded (automated QA drives
+    // it from a hidden browser pane). Production keeps vsync-locked RAF.
+    fps: { target: 60, forceSetTimeOut: import.meta.env.DEV },
   });
 
-  // Dev-only handle, for poking at scenes and input from the console.
   if (import.meta.env.DEV) {
     (window as unknown as { game?: Phaser.Game }).game = game;
   }
-
   return game;
 }

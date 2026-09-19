@@ -1,76 +1,30 @@
 import type { ClipName } from './animation/goatClips';
 
-/** What the goat is doing. One of these is always true, and only one. */
-export type PlayerState =
-  | 'idle'
-  | 'walk'
-  | 'run'
-  | 'attack'
-  | 'hurt'
-  | 'die';
+export type { ClipName };
 
-/** Which way the sprite is flipped. The art is drawn side-on even though the
- *  world is seen from above, so left and right is all a sheet can express. */
+/** What the player character is doing, as far as the renderer is concerned. */
+export type PlayerState = 'idle' | 'walk' | 'run' | 'attack' | 'hurt' | 'die';
+
 export type Facing = 1 | -1;
-
-/** Where the character is actually pointing, which the sheet cannot show. */
-export interface Vec2 {
-  x: number;
-  y: number;
-}
 
 /**
  * One frame of "what should the character try to do".
  *
  * Nothing downstream knows whether this came from a keyboard, a replay, or an
- * agent on the other end of a socket -- which is the point. The AI service can
- * drive the character through exactly this shape, with no special path through
- * the game code.
+ * agent -- which is the point. Facing is *not* part of it: the server derives
+ * facing from movement, so aiming never depends on the mouse.
  */
 export interface Intent {
   /** -1 full left, 0 neutral, 1 full right. */
   moveX: number;
-  /** -1 full up the screen, 0 neutral, 1 full down. Up the screen is further
-   *  away: this is depth into the scene, not height above a floor. */
+  /** -1 full up, 0 neutral, 1 full down. */
   moveY: number;
   /** True only on the frame the attack was requested. */
   attack: boolean;
   /** Hold to run instead of walk. */
   run: boolean;
-  /** Ability slot requested this frame: 0, 1 or 2. Null for none. */
+  /** Ability slot pressed this frame (1-4). */
   ability: number | null;
-  /** True only on the frame the companion was told to attack. */
-  companionAttack: boolean;
-  /**
-   * Which hand to draw from: 0, 1, or null to leave it alone.
-   *
-   * A choice rather than a step. Two weapons are carried, so "next" and
-   * "previous" describe the same move and neither says which hand you actually
-   * wanted -- whereas a key per hand always lands on the same weapon, which is
-   * the thing that has to be true under pressure.
-   *
-   * Switching is an intent like any other, so the same feed that walks and
-   * swings can also change what is in hand.
-   */
-  weaponSlot: 0 | 1 | null;
-  /**
-   * Step the potion dial: -1 back, 1 forward, 0 stay.
-   *
-   * An intent rather than a key the HUD reads directly, for the same reason
-   * `weaponCycle` is one -- the dial is a thing the character does, so a replay
-   * and an agent can turn it too.
-   */
-  potionCycle: -1 | 0 | 1;
-  /** True only on the frame the selected potion was drunk. */
-  potionUse: boolean;
-  /** True only on the frame the map was asked to open or close. */
-  mapToggle: boolean;
-  /** True only on the frame the game was paused or resumed. */
-  pauseToggle: boolean;
-  /** True only on the frame the console was asked to open. */
-  consoleToggle: boolean;
-  /** True only on the frame an interaction was requested. */
-  interact: boolean;
 }
 
 export const NEUTRAL_INTENT: Readonly<Intent> = Object.freeze({
@@ -78,15 +32,7 @@ export const NEUTRAL_INTENT: Readonly<Intent> = Object.freeze({
   moveY: 0,
   attack: false,
   run: false,
-  companionAttack: false,
   ability: null,
-  weaponSlot: null,
-  potionCycle: 0,
-  potionUse: false,
-  mapToggle: false,
-  pauseToggle: false,
-  consoleToggle: false,
-  interact: false,
 });
 
 /** Anything that can drive the character. */
@@ -96,13 +42,15 @@ export interface IntentSource {
   destroy?(): void;
 }
 
-/** Snapshot pushed to the UI each time something meaningful changes. */
+/** Snapshot pushed to the UI each time the local character view changes. */
 export interface PlayerSnapshot {
   state: PlayerState;
   clip: ClipName;
   facing: Facing;
-  /** Where the character is aiming, normalised. */
-  aim: Vec2;
+  positionX: number;
+  positionY: number;
   velocityX: number;
   velocityY: number;
 }
+
+export type ConnectionStatus = 'connecting' | 'open' | 'closed' | 'error';

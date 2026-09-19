@@ -3,7 +3,7 @@ import Phaser from 'phaser';
 import { GOAT_FRAMES, GOAT_TEXTURE_KEY } from '../animation/goatAtlas.generated';
 import { PORTRAITRING_TEXTURE_KEY } from '../animation/portraitRingAtlas.generated';
 import { STATUSBARS_TEXTURE_KEY } from '../animation/statusBarsAtlas.generated';
-import { HUD_ART, PALETTE, VITALS } from '../constants';
+import { HUD_ART, PALETTE } from '../constants';
 import type { VitalsSnapshot } from '../state/Vitals';
 import { fitWidth } from './fit';
 
@@ -26,6 +26,15 @@ interface Bar {
  * breaks it -- which is why the portrait needed one piece generated rather than
  * two, and why the face here can never drift from the one in the wordmark.
  */
+/**
+ * How long the bars take to catch up to a new value, in seconds.
+ *
+ * The number is here rather than in `constants.ts` because it is a property of
+ * this animation and nothing else reads it -- the server's numbers arrive
+ * instantly and this is only how fast the drawn bar chases them.
+ */
+const CHASE_TIME = 0.18;
+
 export class Portrait {
   #face!: Phaser.GameObjects.Sprite;
   #bars: Bar[] = [];
@@ -96,7 +105,7 @@ export class Portrait {
     const left = x + bars.width * bars.inset.left;
     const width = bars.width * (1 - bars.inset.left - bars.inset.right);
     const inner = height * (1 - bars.inset.top - bars.inset.bottom);
-    const colour = frame === 'hp' ? PALETTE.magenta : PALETTE.frost;
+    const colour = frame === 'hp' ? PALETTE.magenta : PALETTE.ice;
 
     // Chase first: it is the pale edge left behind by a change, and it has to
     // sit under the fill so a gain covers it rather than the other way round.
@@ -134,7 +143,7 @@ export class Portrait {
       bar.fill.width = bar.width * bar.target;
 
       if (bar.trail > bar.target) {
-        const blend = 1 - Math.exp(-deltaSeconds / VITALS.chaseTime);
+        const blend = 1 - Math.exp(-deltaSeconds / CHASE_TIME);
         bar.trail += (bar.target - bar.trail) * blend;
         if (bar.trail - bar.target < 0.002) bar.trail = bar.target;
       } else {

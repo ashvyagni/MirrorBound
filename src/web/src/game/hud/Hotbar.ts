@@ -6,7 +6,7 @@ import { HOTBAR_TEXTURE_KEY } from '../animation/hotbarAtlas.generated';
 import { ICONS_TEXTURE_KEY } from '../animation/iconsAtlas.generated';
 import { ITEMS_TEXTURE_KEY } from '../animation/itemsAtlas.generated';
 import { POTIONDIAL_TEXTURE_KEY } from '../animation/potionDialAtlas.generated';
-import { WEAPONS } from '../animation/weaponClips';
+import { weaponIcon } from '../animation/abilityIcons';
 import { HUD, HUD_ART, PALETTE, PIXEL_FONT } from '../constants';
 import { eventBus } from '../EventBus';
 import { POTIONS, type LoadoutSnapshot } from '../state/Loadout';
@@ -157,7 +157,7 @@ export class Hotbar {
         hand.icon.play(goatAnimationKey('idle'), true);
       } else {
         hand.icon.stop();
-        hand.icon.setTexture(ICONS_TEXTURE_KEY, WEAPONS[id].icon);
+        hand.icon.setTexture(ICONS_TEXTURE_KEY, weaponIcon(id));
       }
       fitInside(hand.icon, this.#item);
 

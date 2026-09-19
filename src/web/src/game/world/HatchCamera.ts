@@ -1,7 +1,7 @@
 import type Phaser from 'phaser';
 
 import { CAMERA } from '../constants';
-import type { Vec2 } from '../types';
+import type { Vec2 } from '../contracts';
 
 /** Briefly frame the hatch, then blend back to the player's current position. */
 export class HatchCamera {

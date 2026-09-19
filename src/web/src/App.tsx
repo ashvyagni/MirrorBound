@@ -1,51 +1,56 @@
-import { AnimatedCursor } from './ui/AnimatedCursor';
-import { AnimatedMark } from './ui/AnimatedMark';
-import { CompanionPanel } from './ui/CompanionPanel';
-import { ControlsPanel } from './ui/ControlsPanel';
-import { DevTools } from './ui/DevTools';
+import { CharacterScreen } from './ui/CharacterScreen';
+import { DebugOverlay } from './ui/DebugOverlay';
+import { DialogueScreen } from './ui/DialogueScreen';
 import { GameMount } from './ui/GameMount';
-import { LoadoutPanel } from './ui/LoadoutPanel';
-import { usePlayerSnapshot } from './ui/usePlayerSnapshot';
+import { InventoryScreen } from './ui/InventoryScreen';
+import { NamingScreen } from './ui/NamingScreen';
+import { ConnectionOverlay } from './ui/Overlays';
+import { SkillTreeScreen } from './ui/SkillTreeScreen';
+import { useHotkeys } from './ui/useHotkeys';
+import './ui/store';
 
+/**
+ * The page is the game.
+ *
+ * The interface is drawn in two places, and the split is deliberate rather
+ * than historical.
+ *
+ * **Inside the canvas**, as `HudScene`: everything that sits over the world
+ * and has to feel like part of it -- the portrait and its bars, the minimap in
+ * its ring, the hotbar, the cooldown rail, the settings and map screens, the
+ * pause screen, the console, the interaction prompt and the toasts. That is
+ * hand-drawn chrome assembled from the atlases, and it belongs on the same
+ * surface as the art it frames. React does not render any of it and cannot
+ * reach it; it goes through the event bus like everything else.
+ *
+ * **Here, in the DOM**: the screens that are mostly text and scrolling, where
+ * a browser does the work for free -- the character sheet, the inventory, the
+ * skill tree, dialogue, naming, and the AI debug view. A skill tree is a graph
+ * with tooltips and a scrollbar, and rebuilding that in Phaser to save a div
+ * is work that buys nothing.
+ *
+ * Nothing appears twice. When a screen moves into the canvas it comes out of
+ * this list, which is why `Hud`, `MapScreen`, `SettingsScreen`,
+ * `ControlsScreen`, `PauseMenu`, `Toasts` and the death and victory overlays
+ * are no longer here: `HudScene` draws all of them.
+ *
+ * Only one screen is ever open at a time (the store enforces it), so these
+ * render in any order -- each returns null unless it is the open one.
+ */
 export default function App() {
-  const snapshot = usePlayerSnapshot();
-
+  useHotkeys();
   return (
-    <div className="page">
-      <AnimatedCursor />
-      <header className="masthead">
-        <div className="masthead__brand">
-          <AnimatedMark />
-          <div>
-            <h1 className="masthead__title">Mirrorbound</h1>
-            <p className="masthead__sub">Character sandbox</p>
-          </div>
-        </div>
-        <span className="pill" data-live={snapshot !== null}>
-          {snapshot ? snapshot.state : 'loading'}
-        </span>
-      </header>
-
-      <main className="stage-grid">
-        <div className="stage-col">
-          <GameMount />
-          <p className="stage-caption">
-            Move with the arrow keys in any direction. Arm the goat from the
-            loadout and press <kbd>J</kbd> — the sword chains through three
-            swings if you keep going.
-          </p>
-        </div>
-
-        <aside className="rail">
-          <LoadoutPanel />
-          <ControlsPanel />
-          <CompanionPanel />
-        </aside>
-      </main>
-
-      <footer className="footer">
-        <DevTools snapshot={snapshot} />
-      </footer>
+    <div className="stage">
+      <GameMount />
+      <div className="viewport">
+        <DebugOverlay />
+      </div>
+      <CharacterScreen />
+      <InventoryScreen />
+      <SkillTreeScreen />
+      <DialogueScreen />
+      <NamingScreen />
+      <ConnectionOverlay />
     </div>
   );
 }

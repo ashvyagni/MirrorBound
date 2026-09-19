@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "elder0": {
+   "frame": {
+    "x": 112,
+    "y": 2,
+    "w": 120,
+    "h": 222
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 56,
+    "y": 2,
+    "w": 120,
+    "h": 222
+   },
+   "sourceSize": {
+    "w": 201,
+    "h": 226
+   }
+  },
+  "smith0": {
+   "frame": {
+    "x": 710,
+    "y": 2,
+    "w": 156,
+    "h": 200
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 20,
+    "y": 26,
+    "w": 156,
+    "h": 200
+   },
+   "sourceSize": {
+    "w": 201,
+    "h": 226
+   }
+  },
+  "apothecary0": {
+   "frame": {
+    "x": 594,
+    "y": 2,
+    "w": 114,
+    "h": 202
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 47,
+    "y": 22,
+    "w": 114,
+    "h": 202
+   },
+   "sourceSize": {
+    "w": 201,
+    "h": 226
+   }
+  },
+  "hearth0": {
+   "frame": {
+    "x": 2,
+    "y": 228,
+    "w": 200,
+    "h": 141
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 84,
+    "w": 200,
+    "h": 141
+   },
+   "sourceSize": {
+    "w": 201,
+    "h": 226
+   }
+  },
+  "villager0": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 108,
+    "h": 224
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 68,
+    "y": 0,
+    "w": 108,
+    "h": 224
+   },
+   "sourceSize": {
+    "w": 201,
+    "h": 226
+   }
+  },
+  "villager1": {
+   "frame": {
+    "x": 486,
+    "y": 2,
+    "w": 106,
+    "h": 214
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 54,
+    "y": 12,
+    "w": 106,
+    "h": 214
+   },
+   "sourceSize": {
+    "w": 201,
+    "h": 226
+   }
+  },
+  "villager2": {
+   "frame": {
+    "x": 234,
+    "y": 2,
+    "w": 114,
+    "h": 216
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 50,
+    "y": 8,
+    "w": 114,
+    "h": 216
+   },
+   "sourceSize": {
+    "w": 201,
+    "h": 226
+   }
+  },
+  "villager3": {
+   "frame": {
+    "x": 350,
+    "y": 2,
+    "w": 134,
+    "h": 216
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 36,
+    "y": 8,
+    "w": 134,
+    "h": 216
+   },
+   "sourceSize": {
+    "w": 201,
+    "h": 226
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "villagers.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 1024,
+   "h": 371
+  },
+  "scale": "1"
+ }
+}

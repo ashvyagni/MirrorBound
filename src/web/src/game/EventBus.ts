@@ -1,25 +1,61 @@
+import type { AreaSnap, CommandMessage, GameSnapshot, ServerEvent, SkillNode } from './contracts';
+import type { ConnectionStatus, PlayerSnapshot } from './types';
+import type { Settings } from '../ui/settings';
 import type { BroClipName } from './animation/broClips';
+import type { ClipName } from './animation/goatClips';
+import type { WeaponId } from './animation/weaponClips';
+import type { IconName } from './animation/icons';
 import type { MapView } from './hud/Minimap';
-import type { Run as RunSnapshot } from './world/Run';
-import type { Settings as SettingsSnapshot } from '../ui/settings';
 import type { PauseStats as PauseSnapshot } from './hud/PauseScreen';
 import type { LoadoutSnapshot } from './state/Loadout';
 import type { VitalsSnapshot } from './state/Vitals';
-import type { ClipName } from './animation/goatClips';
-import type { SlotId, WeaponId } from './animation/weaponClips';
-import type { PlayerSnapshot, PlayerState } from './types';
+import type { Run as RunSnapshot } from './world/Run';
+import type { PlayerState } from './types';
 
 /**
- * The only channel between React and Phaser.
+ * The only channel between React, Phaser and the network.
  *
- * Keeping it to one typed bus means the game never reaches into the DOM and
- * React never reaches into a scene -- so the game can later be driven by a
- * WebSocket feed from the backend through the same events, with nothing in the
- * UI needing to know the difference.
+ * React never reaches into a scene; Phaser never touches the DOM. Everything
+ * crosses here, typed.
+ *
+ * It carries two families of event, and the split is the whole shape of this
+ * client. `game:snapshot` and its neighbours are the server talking: they are
+ * authoritative, they arrive twenty times a second, and nothing the interface
+ * does can change what is in them. Everything under `vitals:`, `loadout:`,
+ * `map:` and the rest is the HUD's own vocabulary -- small, already-shaped
+ * facts about what to draw.
+ *
+ * `hud/Bridge.ts` is the only thing that speaks both. It reads a snapshot and
+ * emits the second family from it, which is what lets the HUD stay a pure view
+ * of already-decided state and keeps the word "snapshot" out of every panel.
  */
 export interface GameEventMap {
   /** The play scene finished booting and is accepting commands. */
   'game:ready': { scene: string };
+  /** Asset loading progress, 0..1. */
+  'game:loading': { progress: number };
+  /** A full authoritative snapshot arrived from the server. */
+  'game:snapshot': GameSnapshot;
+  /** Server events since the previous snapshot (VFX / audio / toasts). */
+  'game:events': ServerEvent[];
+  /** WebSocket state. */
+  'game:connection': { status: ConnectionStatus; attempt: number };
+  /** Emitted whenever the local player view's state or facing changes. */
+  'player:changed': PlayerSnapshot;
+  /** UI asks the server to do something discrete (equip, unlock, pause...). */
+  'ui:command': CommandMessage;
+  /** UI opened or closed a screen; the game stops sending movement while open. */
+  'ui:modal': { open: boolean };
+  /** Settings changed (volume, zoom, quality, debug overlay). */
+  'ui:settings': Settings;
+  /** Ask the game to enter or leave fullscreen. Must originate from a click. */
+  'game:toggle-fullscreen': Record<string, never>;
+  /** Reports whether the game is currently fullscreen. */
+  'game:fullscreen': { active: boolean };
+  /** Toggle physics/debug drawing in-world. */
+  'debug:toggle-overlay': { enabled: boolean };
+
+  // --- the HUD's own vocabulary, fed by hud/Bridge.ts ------------------------
   /**
    * The HUD scene has built and subscribed.
    *
@@ -30,10 +66,6 @@ export interface GameEventMap {
    * and the state is pushed then.
    */
   'hud:ready': Record<string, never>;
-  /** Asset loading progress, 0..1. */
-  'game:loading': { progress: number };
-  /** Emitted whenever the player's state or facing changes. */
-  'player:changed': PlayerSnapshot;
   /** Emitted every frame; the UI throttles this itself. */
   'player:tick': PlayerSnapshot;
   /** Force a specific clip, ignoring the state machine. For the debug dock. */
@@ -48,21 +80,8 @@ export interface GameEventMap {
   'weapon:equip': { id: WeaponId | null };
   /** Reports the equipped weapon and where the combo is up to. */
   'weapon:changed': { id: WeaponId | null; step: number; length: number };
-  /** Ask the game to enter or leave fullscreen. Must originate from a click:
-   *  browsers only grant fullscreen inside a user gesture, and the bus is
-   *  synchronous, so the gesture survives the hop into Phaser. */
-  'game:toggle-fullscreen': Record<string, never>;
-  /** Reports whether the game is currently fullscreen. */
-  'game:fullscreen': { active: boolean };
   /** Cast the ability in the given slot of the equipped weapon. */
   'weapon:cast': { slot: number };
-  /** Reports what was cast, and how long it is now recharging for. The UI
-   *  runs its own timer off this rather than being told every frame: the game
-   *  stays the authority on whether a cast is allowed, and a sweep is purely
-   *  something to look at. */
-  'weapon:cast-done': { id: SlotId; cooldown: number };
-  /** A cast was refused because the ability is still recharging. */
-  'weapon:cast-blocked': { id: SlotId; remaining: number };
   /**
    * Everything currently recharging, pushed a few times a second while any
    * ability is, and once more as the last one finishes.
@@ -72,7 +91,7 @@ export interface GameEventMap {
    * time and `performance.now()` does not, and the two then disagree about
    * whether a spell is ready.
    */
-  'weapon:cooldowns': { active: Partial<Record<SlotId, { left: number; total: number }>> };
+  'weapon:cooldowns': { active: Partial<Record<IconName, { left: number; total: number }>> };
   /** The in-game bar handled this frame's click, so nothing else should also
    *  act on it -- clicking a weapon slot must not swing the weapon too. */
   'hud:pointer-used': Record<string, never>;
@@ -105,15 +124,18 @@ export interface GameEventMap {
   'map:changed': MapView;
   /** Open or close the full map. */
   'map:toggle': Record<string, never>;
+  /** The Reach: every area, and whether you can set out right now. */
+  'campaign:changed': {
+    areas: readonly AreaSnap[];
+    /** Travel only ever leaves from a village; the map says so when it cannot. */
+    canTravel: boolean;
+  };
   /** Where the player is in the run, for the full map. */
   'run:changed': RunSnapshot;
   /** Mark a moment: death, a room cleared, a level gained. */
   'flourish': { name: 'death' | 'victory' | 'levelUp' };
   /** Take the held mark down. Only death holds, so only death needs this. */
   'flourish:clear': Record<string, never>;
-  /** Settings changed. The camera, the renderer and the ambient layer each
-   *  pick up what concerns them rather than being told individually. */
-  'ui:settings': SettingsSnapshot;
   /** Open or close the settings screen. */
   'settings:toggle': Record<string, never>;
   /** Stop the game reading the keyboard, while a key is being rebound. */
@@ -122,6 +144,15 @@ export interface GameEventMap {
   'debug:spawn-boss': Record<string, never>;
   /** Open or close the console. */
   'console:toggle': Record<string, never>;
+  /** Open or close the skill tree. */
+  'skills:toggle': Record<string, never>;
+  /** The tree, its points, and whether unlearning is allowed here. */
+  'skills:changed': {
+    nodes: readonly SkillNode[];
+    points: number;
+    /** Empty when unlearning is allowed; otherwise why it is not. */
+    respecBlockedBy: string;
+  };
   /** Pause or resume. The play scene stops; the HUD does not. */
   'game:pause': { paused: boolean };
   /** What the pause screen shows. Pushed when it opens. */

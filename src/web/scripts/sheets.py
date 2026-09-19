@@ -534,6 +534,18 @@ MOBS = tuple(
     for clip in MOB_CLIPS
 )
 
+#: What a boss has that an ordinary creature does not.
+#:
+#: The Warden is the guardian at the bottom of the Ashen Deep and the only
+#: thing between the player and the Mirror, and it had the same four sheets as
+#: a skeleton -- so it flinched by flashing white and died by vanishing.
+#: `slam` is its signature: the telegraphed, same-place-every-time ground
+#: strike the whole encounter is designed around.
+WARDEN_BOSS = tuple(
+    _mob(f"warden{clip.capitalize()}", f"warden-{clip}.png")
+    for clip in ("hurt", "death", "slam")
+)
+
 #: The mark that pops over whichever mob just noticed you. One sheet for all
 #: eleven, composited above them -- see the note in `art-prompts-2.md`.
 #: `anchor="center"`: it stands on nothing, and the game places it by its middle.
@@ -763,6 +775,120 @@ def _boss_spell(name: str, file: str) -> SheetSpec:
 BOSS_SPELLS = (_boss_spell("mirrorBolt", "mirror-bolt.png"),
                _boss_spell("shardRing", "shard-ring.png"))
 
+
+# --- the world --------------------------------------------------------------
+
+def _prop(name: str, file: str, bands: tuple[Band, ...], downscale: float) -> SheetSpec:
+    """One prop per cell, standing on the floor.
+
+    `anchor="feet"` rather than "center": `WorldRenderer` places every prop with
+    `setOrigin(0.5, 1)` so the base of a tree is the point that touches the
+    ground, and the sway tween rotates about that same point. A centred origin
+    would make a swaying tree pivot around its own canopy.
+    """
+    return SheetSpec(
+        name=name,
+        source=ASSETS / "world" / file,
+        body=_ui_body,
+        anchor="feet",
+        key="green",
+        downscale=downscale,
+        bands=bands,
+    )
+
+
+#: Trees and bushes -- the grove's whole silhouette.
+FLORA = _prop("flora", "flora.png", (
+    Band("a", 0, 512, 0, 1536, 4, grid_cols=4,
+         names=("tree0", "tree1", "tree2", "treeBig0")),
+    Band("b", 512, 1024, 0, 1536, 4, grid_cols=4,
+         names=("treeBig1", "bush0", "bush1", "bush2")),
+), 0.5)
+
+#: Flowers, grass tufts and a fallen log. Small, and drawn large on the sheet,
+#: so this one is downscaled hardest.
+GROUNDCOVER = _prop("groundcover", "groundcover.png", (
+    Band("a", 0, 512, 0, 1536, 4, grid_cols=4,
+         names=("flowers0", "flowers1", "flowers2", "flowers3")),
+    Band("b", 512, 1024, 0, 1536, 4, grid_cols=4,
+         names=("grassTuft0", "grassTuft1", "grassTuft2", "log0")),
+), 0.25)
+
+#: Boulders and rubble, neutral grey so they sit in all three biomes.
+STONE = _prop("stone", "stone.png", (
+    Band("a", 0, 512, 0, 1536, 4, grid_cols=4,
+         names=("rock0", "rock1", "rock2", "rockBig0")),
+    Band("b", 512, 1024, 0, 1536, 4, grid_cols=4,
+         names=("rockBig1", "rubble0", "rubble1", "rubble2")),
+), 0.5)
+
+#: Cut stonework: what the ruins biome is built from.
+RUINS = _prop("ruins", "ruins.png", (
+    Band("a", 0, 512, 0, 1536, 4, grid_cols=4,
+         names=("pillar0", "pillar1", "brokenPillar0", "brokenPillar1")),
+    Band("b", 512, 1024, 0, 1536, 4, grid_cols=4,
+         names=("statue0", "well0", "crate0", "crate1")),
+), 0.5)
+
+#: Grave markers, bones, fungus and a chest.
+CRYPT = _prop("crypt", "crypt.png", (
+    Band("a", 0, 512, 0, 1536, 4, grid_cols=4,
+         names=("gravestone0", "gravestone1", "gravestone2", "bones0")),
+    Band("b", 512, 1024, 0, 1536, 4, grid_cols=4,
+         names=("bones1", "mushrooms0", "mushrooms1", "chest0")),
+), 0.5)
+
+#: Fire holders, drawn cold. The game puts an animated flame on each.
+LIGHTS = _prop("lights", "lights.png", (
+    Band("a", 0, 512, 0, 1536, 4, grid_cols=4,
+         names=("brazier0", "candles0", "candles1", "torch0")),
+    Band("b", 512, 1024, 0, 384, 1, grid_cols=1, names=("torch1",)),
+), 0.5)
+
+#: Four states of one gateway. Wider than tall, so the grid is one row of four
+#: on a 2172x724 sheet rather than the usual 1536x1024.
+DOORS = _prop("doors", "doors.png", (
+    Band("a", 0, 724, 0, 2172, 4, grid_cols=4,
+         names=("gateClosed", "gateOpen", "arch", "sealed")),
+), 0.5)
+
+#: The village. `village.py` has been placing these five kinds since villages
+#: existed; until this sheet they had no texture and were silently skipped.
+BUILDINGS = _prop("buildings", "buildings.png", (
+    Band("a", 0, 512, 0, 1536, 4, grid_cols=4,
+         names=("hut0", "hut1", "hut2", "forge0")),
+    Band("b", 512, 1024, 0, 1536, 4, grid_cols=4,
+         names=("hutBig0", "hutBig1", "stall0", "banner0")),
+), 0.5)
+
+#: The people, face on. Frame names are the sprite each NPC asks for.
+VILLAGERS = _prop("villagers", "villagers.png", (
+    Band("a", 0, 512, 0, 1536, 4, grid_cols=4,
+         names=("elder0", "smith0", "apothecary0", "hearth0")),
+    Band("b", 512, 1024, 0, 1536, 4, grid_cols=4,
+         names=("villager0", "villager1", "villager2", "villager3")),
+), 0.5)
+
+#: The same people in profile, so a villager can turn to face you.
+VILLAGERS_SIDE = _prop("villagersSide", "villagers-side.png", (
+    Band("a", 0, 512, 0, 1536, 4, grid_cols=4,
+         names=("elder0", "smith0", "apothecary0", "hearth0")),
+    Band("b", 512, 1024, 0, 1536, 4, grid_cols=4,
+         names=("villager0", "villager1", "villager2", "villager3")),
+), 0.5)
+
+WORLD = (FLORA, GROUNDCOVER, STONE, RUINS, CRYPT, LIGHTS, DOORS,
+         BUILDINGS, VILLAGERS, VILLAGERS_SIDE)
+
+#: Who is talking. Sits in the dialogue plate's portrait window.
+SPEAKERS = _ui("speakers", "speakers.png", (
+    Band("a", 0, 512, 0, 1536, 4, grid_cols=4,
+         names=("elder_mara", "smith_oren", "apothecary_siv", "hearth")),
+    Band("b", 512, 1024, 0, 768, 2, grid_cols=2,
+         names=("twin", "villager")),
+), 0.5)
+
 SHEETS = (GOAT, BRO, DUMMY, *FACINGS, *WEAPONS, *CASTS, *SHIELDS, *SPELLS,
           ICONS, *UI, *SCREENS, *ENEMIES, *CORRUPTED,
-          *MIRROR, *HATCH, *BOSS_SPELLS)
+          *MIRROR, *HATCH, *BOSS_SPELLS, *WORLD, SPEAKERS,
+          *WARDEN_BOSS)

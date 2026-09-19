@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 
 import { COOLDOWNRAIL_TEXTURE_KEY } from '../animation/cooldownRailAtlas.generated';
 import { ICONS_TEXTURE_KEY } from '../animation/iconsAtlas.generated';
-import { slotInfo, type SlotId } from '../animation/weaponClips';
+import type { IconName } from '../animation/icons';
 import { HUD, HUD_ART, PALETTE, PIXEL_FONT, RENDER_SCALE, VIEW } from '../constants';
 import { fitInside, fitWidth } from './fit';
 import { controlArt } from './controlArt';
@@ -15,7 +15,15 @@ interface Socket {
   label: Phaser.GameObjects.Text;
 }
 
-type Recharging = Partial<Record<SlotId, { left: number; total: number }>>;
+/**
+ * What is recharging, keyed by the icon that stands for it.
+ *
+ * Keyed by icon and not by ability id on purpose. The rail's whole job is to
+ * show a picture and a number; which server ability produced them is settled
+ * once in `animation/abilityIcons.ts`, and letting an id reach this far would
+ * make the rail the second place that has to know the two vocabularies.
+ */
+type Recharging = Partial<Record<IconName, { left: number; total: number }>>;
 
 /**
  * What is recharging, stacked up the right-hand side.
@@ -134,11 +142,10 @@ export class CooldownRail {
         this.#hide(socket);
         return;
       }
-      const [id, timer] = entry;
-      const info = slotInfo(id as SlotId);
+      const [icon, timer] = entry;
 
       socket.frame.setVisible(true);
-      socket.icon.setVisible(true).setTexture(ICONS_TEXTURE_KEY, info.icon);
+      socket.icon.setVisible(true).setTexture(ICONS_TEXTURE_KEY, icon);
       fitInside(socket.icon, this.#size * 0.52);
 
       socket.sweep.setVisible(true);

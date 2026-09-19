@@ -1,0 +1,114 @@
+{
+ "frames": {
+  "brazier0": {
+   "frame": {
+    "x": 127,
+    "y": 2,
+    "w": 158,
+    "h": 160
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 56,
+    "w": 158,
+    "h": 160
+   },
+   "sourceSize": {
+    "w": 159,
+    "h": 226
+   }
+  },
+  "candles0": {
+   "frame": {
+    "x": 2,
+    "y": 230,
+    "w": 105,
+    "h": 122
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 18,
+    "y": 90,
+    "w": 105,
+    "h": 122
+   },
+   "sourceSize": {
+    "w": 159,
+    "h": 226
+   }
+  },
+  "candles1": {
+   "frame": {
+    "x": 287,
+    "y": 2,
+    "w": 121,
+    "h": 132
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 3,
+    "y": 84,
+    "w": 121,
+    "h": 132
+   },
+   "sourceSize": {
+    "w": 159,
+    "h": 226
+   }
+  },
+  "torch0": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 61,
+    "h": 226
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 36,
+    "y": 0,
+    "w": 61,
+    "h": 226
+   },
+   "sourceSize": {
+    "w": 159,
+    "h": 226
+   }
+  },
+  "torch1": {
+   "frame": {
+    "x": 65,
+    "y": 2,
+    "w": 60,
+    "h": 220
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 54,
+    "y": 6,
+    "w": 60,
+    "h": 220
+   },
+   "sourceSize": {
+    "w": 159,
+    "h": 226
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "lights.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 512,
+   "h": 354
+  },
+  "scale": "1"
+ }
+}

@@ -1,24 +1,33 @@
-import Phaser from 'phaser';
-
 /**
  * What every key does, and which key does it.
  *
- * `DeviceIntentSource` was the only thing in the game that knew a key code, and
- * that is exactly what made this cheap: the rest of the game consumes `Intent`
- * and has never heard of a keyboard. Rebinding is therefore a change to one
- * table and a rebuild of one object, not a hunt through the codebase.
+ * Logesh's `state/Keybinds.ts`, adapted to `main`'s control set. His design is
+ * kept whole -- one table, two keys per action, steal-rather-than-refuse on a
+ * conflict, a reserved set that cannot be bound, validation on the way out of
+ * storage -- because it is the right shape and it was already written.
  *
- * `main` has a `KEYBINDS` list, but it is a read-only one for display -- the
- * keys there are hardcoded too. This is new on both sides.
+ * What changed: `main` has four abilities rather than three, no companion
+ * attack key, two potions on their own keys, and five interface screens. The
+ * table below is `main`'s controls, not his.
+ *
+ * One table serves both halves of the input. Phaser reads it for movement and
+ * combat (`KeyboardIntentSource`); React reads it for the menu and world keys
+ * (`useHotkeys`). Both compare on Phaser's key codes, which are the same
+ * numbers `KeyboardEvent.keyCode` reports, so there is one source of truth and
+ * no second table to drift.
  */
 
+import Phaser from 'phaser';
+
 export type Action =
-  | 'moveLeft' | 'moveRight' | 'moveUp' | 'moveDown'
-  | 'run' | 'attack' | 'companion'
-  | 'ability1' | 'ability2' | 'ability3'
-  | 'hand1' | 'hand2'
-  | 'potionCycle' | 'potionUse'
-  | 'map' | 'pause' | 'console' | 'interact';
+  | 'moveUp' | 'moveDown' | 'moveLeft' | 'moveRight' | 'run'
+  | 'attack' | 'ability1' | 'ability2' | 'ability3' | 'ability4'
+  | 'swapWeapon' | 'healthPotion' | 'manaPotion'
+  | 'interact' | 'character' | 'inventory' | 'skills' | 'map' | 'pause' | 'debug'
+  // The in-canvas HUD's own: the potion dial is one slot you turn and drink
+  // from rather than one key per flask, and the console is how anything gets
+  // put in the room without a menu for it.
+  | 'potionCycle' | 'potionUse' | 'companion' | 'console';
 
 /** A binding is two keys, because movement has always had arrows and WASD. */
 export interface Binding {
@@ -29,13 +38,13 @@ export interface Binding {
 export interface ActionInfo {
   action: Action;
   label: string;
-  /** Rows are grouped under these in the settings screen. */
-  group: 'Movement' | 'Combat' | 'Loadout' | 'Interface';
+  /** Rows are grouped under these in the Controls screen. */
+  group: 'Movement' | 'Combat' | 'Items' | 'Interface';
 }
 
 const K = Phaser.Input.Keyboard.KeyCodes;
 
-/** Every action, in the order the settings screen lists them. */
+/** Every action, in the order the Controls screen lists them. */
 export const ACTIONS: readonly ActionInfo[] = [
   { action: 'moveUp', label: 'Move up', group: 'Movement' },
   { action: 'moveDown', label: 'Move down', group: 'Movement' },
@@ -47,48 +56,62 @@ export const ACTIONS: readonly ActionInfo[] = [
   { action: 'ability1', label: 'Ability 1', group: 'Combat' },
   { action: 'ability2', label: 'Ability 2', group: 'Combat' },
   { action: 'ability3', label: 'Ability 3', group: 'Combat' },
-  { action: 'companion', label: 'Companion attack', group: 'Combat' },
+  { action: 'ability4', label: 'Ability 4', group: 'Combat' },
 
-  { action: 'hand1', label: 'Draw first hand', group: 'Loadout' },
-  { action: 'hand2', label: 'Draw second hand', group: 'Loadout' },
-  { action: 'potionCycle', label: 'Turn the potion dial', group: 'Loadout' },
-  { action: 'potionUse', label: 'Drink', group: 'Loadout' },
+  { action: 'swapWeapon', label: 'Swap weapons', group: 'Items' },
+  { action: 'healthPotion', label: 'Drink health potion', group: 'Items' },
+  { action: 'manaPotion', label: 'Drink mana potion', group: 'Items' },
 
-  { action: 'map', label: 'Map', group: 'Interface' },
+  { action: 'interact', label: 'Talk / interact', group: 'Interface' },
+  { action: 'character', label: 'Character', group: 'Interface' },
+  { action: 'inventory', label: 'Inventory', group: 'Interface' },
+  { action: 'skills', label: 'Skills', group: 'Interface' },
+  { action: 'map', label: 'World map', group: 'Interface' },
   { action: 'pause', label: 'Pause', group: 'Interface' },
-  { action: 'interact', label: 'Interact', group: 'Interface' },
+  { action: 'debug', label: 'AI debug view', group: 'Interface' },
+
+  { action: 'potionCycle', label: 'Turn the potion dial', group: 'Items' },
+  { action: 'potionUse', label: 'Drink', group: 'Items' },
+  { action: 'companion', label: 'Call the twin', group: 'Combat' },
   { action: 'console', label: 'Console', group: 'Interface' },
 ];
 
 export const DEFAULT_BINDINGS: Readonly<Record<Action, Binding>> = {
-  moveUp: { primary: K.UP, secondary: K.W },
-  moveDown: { primary: K.DOWN, secondary: K.S },
-  moveLeft: { primary: K.LEFT, secondary: K.A },
-  moveRight: { primary: K.RIGHT, secondary: K.D },
+  moveUp: { primary: K.W, secondary: K.UP },
+  moveDown: { primary: K.S, secondary: K.DOWN },
+  moveLeft: { primary: K.A, secondary: K.LEFT },
+  moveRight: { primary: K.D, secondary: K.RIGHT },
   run: { primary: K.SHIFT },
-  attack: { primary: K.J },
-  companion: { primary: K.K },
+  attack: { primary: K.J, secondary: K.SPACE },
   ability1: { primary: K.ONE },
   ability2: { primary: K.TWO },
   ability3: { primary: K.THREE },
-  hand1: { primary: K.Q },
-  hand2: { primary: K.E },
-  potionCycle: { primary: K.R },
-  potionUse: { primary: K.F },
+  ability4: { primary: K.FOUR },
+  swapWeapon: { primary: K.Q },
+  healthPotion: { primary: K.F },
+  manaPotion: { primary: K.G },
+  interact: { primary: K.E },
+  character: { primary: K.C },
+  inventory: { primary: K.I },
+  skills: { primary: K.K },
   map: { primary: K.M },
   pause: { primary: K.P },
-  // Space, not E: E already draws the second hand, and the defaults are not
-  // run through the conflict checker -- a duplicate here fires both actions.
-  interact: { primary: K.SPACE },
+  debug: { primary: K.F3 },
+  // The dial turns with R and pours with F. `healthPotion` and `manaPotion`
+  // keep their own keys as well: the dial is the faster way once you know it
+  // is there, and a direct key is the faster way before you do.
+  potionCycle: { primary: K.R },
+  potionUse: { primary: K.F, secondary: K.H },
+  companion: { primary: K.T },
   console: { primary: K.BACK_SLASH },
 };
 
 /**
  * Keys the game refuses to bind.
  *
- * Not a style preference. Escape closes the screen you would be rebinding from,
- * and F5 and F12 belong to the browser -- binding either means the only way out
- * of the mistake is clearing storage by hand.
+ * Not a style preference. Escape closes the screen you would be rebinding from
+ * and always pauses, and F5 and F12 belong to the browser -- binding any of
+ * them means the only way out of the mistake is clearing storage by hand.
  */
 const RESERVED = new Set<number>([K.ESC, K.F5, K.F12, K.TAB]);
 
@@ -108,12 +131,12 @@ const NAMES: Record<number, string> = (() => {
     [K.ONE]: '1', [K.TWO]: '2', [K.THREE]: '3', [K.FOUR]: '4',
     [K.FIVE]: '5', [K.SIX]: '6', [K.SEVEN]: '7', [K.EIGHT]: '8',
     [K.NINE]: '9', [K.ZERO]: '0',
-    [K.BACK_SLASH]: '\\', [K.BACKSPACE]: 'Bksp', [K.ENTER]: 'Enter', [K.COMMA]: ',', [K.PERIOD]: '.',
+    [K.BACKSPACE]: 'Bksp', [K.ENTER]: 'Enter', [K.COMMA]: ',', [K.PERIOD]: '.',
   };
 })();
 
 export function keyName(code: number | undefined): string {
-  if (code === undefined) return '—';
+  if (code === undefined || code < 0) return '—';
   return NAMES[code] ?? `#${code}`;
 }
 
@@ -126,7 +149,7 @@ export interface Conflict {
  * The live binding table.
  *
  * Held here rather than in the scene because it outlives any one scene: a
- * rebind made from the settings screen has to survive the play scene
+ * rebind made from the Controls screen has to survive the play scene
  * restarting, and reading it back from storage on every restart is how the two
  * quietly diverge.
  */
@@ -184,6 +207,26 @@ export class Keybinds {
     return this.#bindings;
   }
 
+  /** The keys bound to an action, primary first, unbound ones dropped. */
+  codes(action: Action): number[] {
+    const b = this.#bindings[action];
+    return [b.primary, b.secondary].filter((c): c is number => typeof c === 'number' && c >= 0);
+  }
+
+  /**
+   * Which action this key code fires, if any.
+   *
+   * What React's hotkey handler asks, once per keydown, so it never needs a
+   * key-name table of its own.
+   */
+  actionFor(code: number): Action | null {
+    for (const { action } of ACTIONS) {
+      const b = this.#bindings[action];
+      if (b.primary === code || b.secondary === code) return action;
+    }
+    return null;
+  }
+
   /** Whether a key may be bound at all. */
   static reserved(code: number): boolean {
     return RESERVED.has(code);
@@ -203,8 +246,8 @@ export class Keybinds {
    * Bind a key, taking it off whatever held it.
    *
    * Stealing rather than refusing: a player rebinding attack to `K` means they
-   * want attack on `K`, and refusing it leaves them to work out that the
-   * companion has it first. The row that lost its key shows a dash, which is a
+   * want attack on `K`, and refusing it leaves them to work out that the skill
+   * screen has it first. The row that lost its key shows a dash, which is a
    * problem you can see rather than one you have to deduce.
    */
   set(action: Action, slot: 'primary' | 'secondary', code: number): Conflict | null {
@@ -215,11 +258,9 @@ export class Keybinds {
       const other = this.#bindings[taken.action];
       if (other.primary === code) {
         // Promote the spare so the action is not left unbound when it has one.
-        if (other.secondary !== undefined) {
-          this.#bindings[taken.action] = { primary: other.secondary };
-        } else {
-          this.#bindings[taken.action] = { primary: -1 };
-        }
+        this.#bindings[taken.action] = other.secondary !== undefined
+          ? { primary: other.secondary }
+          : { primary: -1 };
       } else {
         this.#bindings[taken.action] = { primary: other.primary };
       }
@@ -250,3 +291,16 @@ export class Keybinds {
 
 /** One table for the whole session. */
 export const keybinds = new Keybinds();
+
+/**
+ * The key code for a DOM keyboard event, in Phaser's numbering.
+ *
+ * `keyCode` is deprecated but every browser still reports it, and for the keys
+ * this game binds -- letters, digits, arrows, space, shift, function keys --
+ * it is exactly Phaser's `KeyCodes`. `code` is the modern field but names keys
+ * by physical position (`KeyA`), which would need its own translation table;
+ * one table is the whole point of this file.
+ */
+export function eventKeyCode(e: KeyboardEvent): number {
+  return e.keyCode || e.which || 0;
+}

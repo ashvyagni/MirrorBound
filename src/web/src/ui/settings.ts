@@ -1,21 +1,14 @@
 /**
- * Player settings.
- *
- * The shape is `main`'s verbatim, all nine of them, even though this branch can
- * only honour three today -- there is no audio module here, nothing shakes,
- * nothing draws damage numbers and there is no twin to have thoughts about. A
- * matching shape means adopting `main`'s store later is deleting this file, and
- * it means a setting saved here is still the right setting when the systems
- * behind it arrive.
- *
- * What the settings screen shows is a different question, and the answer is
- * "the ones that do something" -- see `SETTINGS_AVAILABLE`.
+ * Player settings. Persisted to localStorage; broadcast on the event bus so
+ * the audio manager, the camera and the renderer pick changes up live.
  */
 
 import { eventBus } from '@/game/EventBus';
 
-export type Quality = 'high' | 'medium' | 'low';
-export const QUALITIES: readonly Quality[] = ['low', 'medium', 'high'];
+/** Every quality level, in the order the settings screen offers them. */
+export const QUALITIES = ['low', 'medium', 'high'] as const;
+
+export type Quality = (typeof QUALITIES)[number];
 
 export interface Settings {
   masterVolume: number;   // 0..1
@@ -41,26 +34,6 @@ export const DEFAULT_SETTINGS: Settings = {
   showTwinThoughts: true,
 };
 
-/** What this branch renders at until the settings screen changes it. */
-export const DEFAULT_QUALITY: Quality = DEFAULT_SETTINGS.quality;
-
-/**
- * The settings with something behind them here.
- *
- * Listed rather than inferred, because a setting that silently does nothing is
- * worse than one that is absent: it teaches the player that the screen is a
- * decoration. The six left out need an audio manager, a shake, floating
- * numbers and a twin -- none of which exist on this branch yet.
- */
-export const SETTINGS_AVAILABLE: ReadonlySet<keyof Settings> =
-  new Set(['zoom', 'quality', 'debugOverlay']);
-
-/** Every setting, in the order a screen should list them. */
-export const SETTINGS_KEYS: ReadonlyArray<keyof Settings> = [
-  'masterVolume', 'musicVolume', 'sfxVolume', 'zoom', 'quality',
-  'screenShake', 'damageNumbers', 'debugOverlay', 'showTwinThoughts',
-];
-
 const KEY = 'mirrorbound.settings.v1';
 
 let current: Settings = load();
@@ -85,7 +58,7 @@ export function updateSettings(patch: Partial<Settings>): Settings {
   try {
     window.localStorage.setItem(KEY, JSON.stringify(current));
   } catch {
-    /* private mode: settings simply do not persist */
+    /* private mode: settings simply don't persist */
   }
   eventBus.emit('ui:settings', current);
   return current;

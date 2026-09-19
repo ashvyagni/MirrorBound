@@ -14,9 +14,9 @@ import { Console } from '../hud/Console';
 import { InteractPrompt } from '../hud/InteractPrompt';
 import { PauseScreen } from '../hud/PauseScreen';
 import { Toast } from '../hud/Toast';
+import { Bridge } from '../hud/Bridge';
 import { complete, run, type CommandHost } from '../state/Commands';
 import { FX } from '../world/textures';
-import { PlayScene } from './PlayScene';
 
 /**
  * The interface drawn inside the game.
@@ -47,9 +47,14 @@ export class HudScene extends Phaser.Scene {
   readonly #pause = new PauseScreen(this);
   readonly #prompt = new InteractPrompt(this);
   readonly #toast = new Toast(this);
+  readonly #bridge = new Bridge();
   /** Built in `create`, because it needs the play scene to talk to. */
   #console!: Console;
   #teardown: Array<() => void> = [];
+  /** World frozen, for any reason. */
+  #paused = false;
+  /** A DOM screen is open over the game. */
+  #modal = false;
 
   constructor() {
     super({ key: HudScene.KEY, active: false });
@@ -81,7 +86,12 @@ export class HudScene extends Phaser.Scene {
 
     // The console runs its commands against the play scene, which is the only
     // thing that can actually put something in the room.
-    const host = this.scene.get(PlayScene.KEY) as unknown as CommandHost;
+    // The console talks to the server, not to the scene next door: every verb
+    // it has is a message the server already accepts, and the room it would
+    // otherwise be changing belongs to the server anyway.
+    const host: CommandHost = {
+      send: (message) => eventBus.emit('ui:command', { type: 'COMMAND', ...message }),
+    };
     // The console closes on Enter, so what a command did is said by the toast
     // rather than by a panel that is no longer on screen.
     this.#console = new Console(this, complete, (line) => this.#toast.show(run(line, host)));
@@ -89,6 +99,8 @@ export class HudScene extends Phaser.Scene {
 
     this.#loadFont();
     this.#listen();
+    // Started last, so the first snapshot it translates lands in a built HUD.
+    this.#bridge.start();
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.#dispose());
 
@@ -130,6 +142,7 @@ export class HudScene extends Phaser.Scene {
       eventBus.on('map:changed', (view) => this.#minimap.set(view as MapView)),
       eventBus.on('game:fullscreen', ({ active }) => this.#settings.setFullscreen(active)),
       eventBus.on('run:changed', (run) => this.#map.set(run)),
+      eventBus.on('campaign:changed', ({ areas, canTravel }) => this.#map.setCampaign(areas, canTravel)),
       eventBus.on('map:toggle', () => {
         this.#settingsScreen.close();
         this.#map.toggle();
@@ -141,7 +154,19 @@ export class HudScene extends Phaser.Scene {
         this.#settingsScreen.close();
         this.#console.toggle();
       }),
-      eventBus.on('game:pause', ({ paused }) => this.#pause.setVisible(paused)),
+      // The pause SCREEN and the world being paused are not the same thing.
+      // Every DOM screen asks the server to pause while it is open -- that is
+      // how the skill tree stops the world behind it -- so showing this panel
+      // on `paused` alone put it over the skill tree the moment K was pressed.
+      // It is shown only when nothing else is.
+      eventBus.on('game:pause', ({ paused }) => {
+        this.#paused = paused;
+        this.#pause.setVisible(paused && !this.#modal);
+      }),
+      eventBus.on('ui:modal', ({ open }) => {
+        this.#modal = open;
+        this.#pause.setVisible(this.#paused && !open);
+      }),
       eventBus.on('pause:stats', (stats) => this.#pause.set(stats)),
       eventBus.on('interact:target', (target) => this.#prompt.set(target)),
       eventBus.on('settings:toggle', () => {
@@ -186,6 +211,7 @@ export class HudScene extends Phaser.Scene {
     this.#pause.destroy();
     this.#prompt.destroy();
     this.#toast.destroy();
+    this.#bridge.stop();
     this.#console.destroy();
     this.#flourish.destroy();
   }

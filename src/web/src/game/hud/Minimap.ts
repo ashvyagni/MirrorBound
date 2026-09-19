@@ -2,11 +2,9 @@ import type Phaser from 'phaser';
 
 import { MINIMAPRING_TEXTURE_KEY } from '../animation/minimapRingAtlas.generated';
 import { BIOMES, HUD_ART, PALETTE, type BiomeName } from '../constants';
-import {
-  TILE_DIRT, TILE_GRASS, TILE_PATH, TILE_STONE, TILE_WALL, TILE_WATER,
-} from '../contracts';
+import type { Vec2 } from '../contracts';
+import { T } from '../world/TextureFactory';
 import { fitWidth } from './fit';
-import type { Vec2 } from '../types';
 
 /**
  * What the map is told. Positions are world units.
@@ -115,12 +113,12 @@ export class Minimap {
     const palette = BIOMES[view.biome] ?? BIOMES.grove;
     const colourFor = (tile: number): string => {
       switch (tile) {
-        case TILE_WALL: return palette.wall;
-        case TILE_PATH: return palette.path;
-        case TILE_STONE: return palette.stone;
-        case TILE_DIRT: return palette.dirt;
-        case TILE_WATER: return palette.water;
-        case TILE_GRASS:
+        case T.WALL: return palette.wall;
+        case T.PATH: return palette.path;
+        case T.STONE: return palette.stone;
+        case T.DIRT: return palette.dirt;
+        case T.WATER: return palette.water;
+        case T.GRASS:
         default: return palette.grass[0]!;
       }
     };
@@ -135,7 +133,7 @@ export class Minimap {
     for (let row = 0; row < rows; row += 1) {
       const line = view.tiles[row]!;
       for (let col = 0; col < cols; col += 1) {
-        ctx.fillStyle = colourFor(line[col] ?? TILE_GRASS);
+        ctx.fillStyle = colourFor(line[col] ?? T.GRASS);
         ctx.fillRect(
           Math.floor(originX + col * scale), Math.floor(originY + row * scale),
           step, step,

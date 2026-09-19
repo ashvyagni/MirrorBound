@@ -289,6 +289,147 @@ export function paintProps(scene: Phaser.Scene): void {
     ctx.fillRect(46, 10, 4, 34);
     poly(ctx, [[2, 12], [54, 12], [28, 2]], '#6a4a32', OUTLINE);
   });
+  paintVillage(scene);
+}
+
+// --- the village ---------------------------------------------------------------
+// A village has to read as somewhere people live, and the people in it have to
+// be findable: each vendor is drawn differently enough to pick out across the
+// square, because "walk up to the smith" is the instruction the game gives.
+
+/** A standing figure: the shared silhouette every villager is a variation of. */
+function villager(
+  ctx: Ctx, rng: () => number, robe: string, trim: string, accent: string,
+  opts: { hood?: boolean; apron?: boolean } = {},
+): void {
+  const cx = 22;
+  blob(ctx, cx, 62, 16, 5, 'rgba(10,8,14,0.34)', { outline: 'rgba(0,0,0,0)' });   // ground shadow
+  // Robe: wider at the hem so it reads as cloth rather than a pillar.
+  poly(ctx, [[cx - 8, 26], [cx + 8, 26], [cx + 13, 62], [cx - 13, 62]], robe, OUTLINE);
+  poly(ctx, [[cx - 13, 62], [cx + 13, 62], [cx + 11, 58], [cx - 11, 58]], shade(robe, 0.7), 'rgba(0,0,0,0)');
+  if (opts.apron) {
+    poly(ctx, [[cx - 7, 32], [cx + 7, 32], [cx + 9, 58], [cx - 9, 58]], trim, 'rgba(0,0,0,0.3)');
+  }
+  // Shoulders and sleeves.
+  blob(ctx, cx - 10, 32, 5, 7, shade(robe, 0.85), { outline: OUTLINE });
+  blob(ctx, cx + 10, 32, 5, 7, shade(robe, 0.85), { outline: OUTLINE });
+  // Head, hooded or bare.
+  if (opts.hood) {
+    poly(ctx, [[cx - 9, 24], [cx + 9, 24], [cx + 6, 8], [cx - 6, 8]], shade(robe, 1.12), OUTLINE);
+    blob(ctx, cx, 20, 5, 5, '#2a2030', { outline: 'rgba(0,0,0,0)' });
+    glow(ctx, cx, 19, 6, accent, 0.5);
+  } else {
+    blob(ctx, cx, 17, 7, 8, '#c8a583', { outline: OUTLINE, highlight: 0.35 });
+    blob(ctx, cx, 11, 8, 5, trim, { outline: OUTLINE });        // hair
+  }
+  blob(ctx, cx, 27, 9, 3, trim, { outline: 'rgba(0,0,0,0.35)' });  // collar
+  speckle(ctx, rng, cx + 13, 62, 8, [shade(robe, 1.3), shade(robe, 0.7)], 0.7, 2, 0.35);
+}
+
+function paintVillage(scene: Phaser.Scene): void {
+  // The elder: hooded, violet, lantern-eyed. Reads as the one who talks.
+  paint(scene, 'prop:npc_elder:0', 44, 68, (ctx, rng) => {
+    villager(ctx, rng, '#4a3d6e', '#b9a4e6', '#a0cae4', { hood: true });
+    glow(ctx, 22, 44, 9, '#7c6add', 0.35);
+  });
+  // The smith: leather apron, an ember at the belt, a hammer.
+  paint(scene, 'prop:npc_smith:0', 44, 68, (ctx, rng) => {
+    villager(ctx, rng, '#6a4a32', '#3a2a1e', '#f0c060', { apron: true });
+    ctx.fillStyle = '#4a4650';
+    ctx.fillRect(34, 34, 3, 22);            // hammer haft
+    ctx.fillStyle = '#8b8792';
+    ctx.fillRect(31, 30, 9, 6);             // head
+    glow(ctx, 22, 44, 7, '#f0c060', 0.3);
+  });
+  // The apothecary: green robe, a bottle that catches the light.
+  paint(scene, 'prop:npc_apothecary:0', 44, 68, (ctx, rng) => {
+    villager(ctx, rng, '#3f6a4c', '#d8cfa8', '#63c26d');
+    blob(ctx, 34, 42, 4, 6, '#d62e6c', { outline: OUTLINE, highlight: 0.6 });
+    ctx.fillStyle = '#d8cfa8';
+    ctx.fillRect(33, 35, 2, 4);             // cork
+  });
+  // The hearth: a fire ring, not a person. Warm, and obviously the safe spot.
+  paint(scene, 'prop:hearth:0', 64, 56, (ctx, rng) => {
+    blob(ctx, 32, 46, 26, 9, 'rgba(10,8,14,0.3)', { outline: 'rgba(0,0,0,0)' });
+    for (let i = 0; i < 9; i++) {
+      const a = (i / 9) * Math.PI * 2;
+      blob(ctx, 32 + Math.cos(a) * 22, 44 + Math.sin(a) * 9, 6, 5, shade('#7d7880', 0.8 + rng() * 0.5),
+           { outline: OUTLINE });
+    }
+    // Logs, then the fire on top of them.
+    poly(ctx, [[20, 40], [44, 34], [46, 39], [22, 45]], '#5a3d2a', OUTLINE);
+    poly(ctx, [[20, 34], [44, 40], [42, 45], [18, 39]], '#4a3122', OUTLINE);
+    glow(ctx, 32, 30, 22, '#f0c060', 0.55);
+    glow(ctx, 32, 26, 13, '#d62e6c', 0.4);
+    blob(ctx, 32, 30, 7, 11, '#f5a03c', { outline: 'rgba(0,0,0,0)', highlight: 0.7 });
+    blob(ctx, 32, 26, 4, 7, '#ffe09a', { outline: 'rgba(0,0,0,0)' });
+  });
+
+  // Buildings. Painted as simple shapes with a lit window, because a village
+  // seen from above is mostly roofs and the light coming out of them.
+  const roofs = ['#6a3f44', '#4f4a6a', '#5a4a32'];
+  for (let v = 0; v < 3; v++) {
+    const roof = roofs[v] ?? roofs[0]!;
+    paint(scene, `prop:hut:${v}`, 96, 92, (ctx, rng) => {
+      blob(ctx, 48, 84, 40, 9, 'rgba(10,8,14,0.32)', { outline: 'rgba(0,0,0,0)' });
+      poly(ctx, [[14, 44], [82, 44], [82, 82], [14, 82]], '#6b5b48', OUTLINE);      // walls
+      poly(ctx, [[6, 46], [90, 46], [48, 10]], roof, OUTLINE);                       // roof
+      poly(ctx, [[6, 46], [48, 10], [48, 46]], shade(roof, 1.15), 'rgba(0,0,0,0)');  // lit slope
+      ctx.fillStyle = '#2a2230';
+      ctx.fillRect(40, 58, 16, 24);                                                  // door
+      glow(ctx, 26, 58, 9, '#f0c060', 0.45);
+      ctx.fillStyle = '#f0c060';
+      ctx.fillRect(22, 54, 9, 9);                                                    // window
+      speckle(ctx, rng, 90, 82, 16, [shade(roof, 1.3), shade(roof, 0.7)], 0.7, 2, 0.3);
+    });
+  }
+  paint(scene, 'prop:hut_big:0', 128, 116, (ctx, rng) => {
+    blob(ctx, 64, 106, 54, 11, 'rgba(10,8,14,0.32)', { outline: 'rgba(0,0,0,0)' });
+    poly(ctx, [[18, 54], [110, 54], [110, 104], [18, 104]], '#6b5b48', OUTLINE);
+    poly(ctx, [[8, 56], [120, 56], [64, 12]], '#4f4a6a', OUTLINE);
+    poly(ctx, [[8, 56], [64, 12], [64, 56]], shade('#4f4a6a', 1.15), 'rgba(0,0,0,0)');
+    ctx.fillStyle = '#2a2230';
+    ctx.fillRect(54, 74, 20, 30);
+    for (const wx of [28, 88]) {
+      glow(ctx, wx + 5, 72, 11, '#f0c060', 0.42);
+      ctx.fillStyle = '#f0c060';
+      ctx.fillRect(wx, 66, 11, 11);
+    }
+    speckle(ctx, rng, 120, 104, 20, ['#8d7d68', '#4a3f34'], 0.7, 2, 0.3);
+  });
+  paint(scene, 'prop:forge:0', 104, 96, (ctx) => {
+    blob(ctx, 52, 88, 44, 10, 'rgba(10,8,14,0.32)', { outline: 'rgba(0,0,0,0)' });
+    poly(ctx, [[16, 40], [88, 40], [88, 86], [16, 86]], '#544a52', OUTLINE);
+    poly(ctx, [[10, 42], [94, 42], [52, 12]], '#3c3640', OUTLINE);
+    // The mouth of the forge: the brightest thing in the village after the hearth.
+    glow(ctx, 52, 66, 26, '#d62e6c', 0.5);
+    glow(ctx, 52, 68, 15, '#f0c060', 0.8);
+    poly(ctx, [[38, 84], [66, 84], [62, 56], [42, 56]], '#1a1420', OUTLINE);
+    blob(ctx, 52, 74, 9, 8, '#f5a03c', { outline: 'rgba(0,0,0,0)', highlight: 0.7 });
+    ctx.fillStyle = '#3c3640';
+    ctx.fillRect(74, 8, 12, 36);          // chimney
+    glow(ctx, 80, 8, 12, '#7d7880', 0.3); // smoke
+  });
+  paint(scene, 'prop:stall:0', 88, 72, (ctx, rng) => {
+    blob(ctx, 44, 66, 36, 8, 'rgba(10,8,14,0.3)', { outline: 'rgba(0,0,0,0)' });
+    ctx.fillStyle = '#5a3d2a';
+    ctx.fillRect(12, 26, 4, 40);
+    ctx.fillRect(72, 26, 4, 40);
+    poly(ctx, [[8, 28], [80, 28], [80, 40], [8, 40]], '#8b8792', OUTLINE);   // counter
+    // Striped awning.
+    for (let i = 0; i < 6; i++) {
+      poly(ctx, [[8 + i * 12, 8], [20 + i * 12, 8], [20 + i * 12, 26], [8 + i * 12, 26]],
+           i % 2 === 0 ? '#a83a56' : '#e0d4c4', 'rgba(0,0,0,0.25)');
+    }
+    speckle(ctx, rng, 80, 40, 10, ['#f0c060', '#63c26d', '#d62e6c'], 0.9, 3, 0.7);  // goods
+  });
+  paint(scene, 'prop:banner:0', 30, 84, (ctx) => {
+    ctx.fillStyle = '#4a4650';
+    ctx.fillRect(13, 10, 4, 74);
+    poly(ctx, [[6, 14], [24, 14], [24, 48], [15, 56], [6, 48]], '#4a3d6e', OUTLINE);
+    glow(ctx, 15, 30, 8, '#a0cae4', 0.4);
+    blob(ctx, 15, 30, 5, 5, '#a0cae4', { outline: 'rgba(0,0,0,0)', highlight: 0.6 });
+  });
 }
 
 // --- enemies ------------------------------------------------------------------

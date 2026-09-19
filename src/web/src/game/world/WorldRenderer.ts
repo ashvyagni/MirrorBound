@@ -9,19 +9,40 @@
 import Phaser from 'phaser';
 
 import { BIOMES, DEPTH, TILE, type BiomeName } from '../constants';
+import { isPerson, propArt, propArtSide } from './propArt';
 import type { DecorSnap, DoorSnap, RoomFull } from '../contracts';
 import type { Quality } from '../../ui/settings';
 import { T, TextureFactory } from './TextureFactory';
 
 const SWAY_KINDS = new Set(['grass_tuft', 'flowers', 'bush', 'mushrooms']);
 const TREE_KINDS = new Set(['tree', 'tree_big']);
+
+/** How close the player has to be before anyone turns to look, in world units. */
+const FACE_RANGE = 260;
+/** Directly in front counts as face-on, so nobody flickers as you walk past. */
+const FACE_DEADZONE = 26;
 const VARIANTS: Record<string, number> = {
   tree: 3, tree_big: 2, bush: 3, rock: 3, rock_big: 2, log: 1, flowers: 4, grass_tuft: 3, mushrooms: 2,
   pillar: 2, broken_pillar: 2, crate: 2, chest: 1, statue: 1, rubble: 3, bones: 2, gravestone: 3,
   brazier: 1, candles: 2, torch: 2, well: 1,
+  // Villages: people and the buildings they live in.
+  npc_elder: 1, npc_smith: 1, npc_apothecary: 1, hearth: 1,
+  hut: 3, hut_big: 1, forge: 1, stall: 1, banner: 1,
 };
 
 export interface TorchLight { x: number; y: number }
+
+/** Somebody standing in a village, and which way they are drawn. */
+interface Person {
+  image: Phaser.GameObjects.Image;
+  x: number;
+  kind: string;
+  variant: number;
+  /** The server's per-instance size jitter, reapplied on every turn. */
+  scale: number;
+  /** -1 left, 0 toward the viewer, 1 right. Redrawn only when it changes. */
+  facing: -1 | 0 | 1;
+}
 
 export class WorldRenderer {
   #objects: Phaser.GameObjects.GameObject[] = [];
@@ -31,6 +52,8 @@ export class WorldRenderer {
   #emitters: Phaser.GameObjects.Particles.ParticleEmitter[] = [];
   room: RoomFull | null = null;
   torches: TorchLight[] = [];
+  /** Villagers and shopkeepers, so they can turn toward the player. */
+  people: Person[] = [];
 
   constructor(private readonly scene: Phaser.Scene, private readonly textures: TextureFactory, private quality: Quality) {}
 
@@ -109,11 +132,43 @@ export class WorldRenderer {
 
   // --- decor ---------------------------------------------------------------------
 
-  #textureFor(d: DecorSnap): string | null {
+  /**
+   * The drawn sheet for a prop, or the painted stand-in, or nothing.
+   *
+   * Drawn art first: `propArt` covers every decor kind the server places, the
+   * village buildings and the people included -- and those two had no texture
+   * at all before, so `VARIANTS` returned undefined and the whole village was
+   * skipped silently. The painted fallback still catches anything the sheets
+   * have never seen, which is what keeps a new decor kind on the server
+   * rendering as *something*.
+   */
+  #artFor(d: DecorSnap): { texture: string; frame?: string; height?: number } | null {
+    const drawn = propArt(d.kind, d.variant);
+    if (drawn && this.scene.textures.exists(drawn.texture)) return drawn;
+
     const variants = VARIANTS[d.kind];
     if (variants === undefined) return null;
     const key = `prop:${d.kind}:${d.variant % variants}`;
-    return this.scene.textures.exists(key) ? key : null;
+    // The painted textures were drawn at their world size already, so they
+    // need no height: the canvas IS the size.
+    return this.scene.textures.exists(key) ? { texture: key } : null;
+  }
+
+  /**
+   * Scale a prop to the size it is meant to be in the world.
+   *
+   * Measured off the frame in hand rather than the sheet's shared box. These
+   * are single static frames, so there is no animation to breathe, and the
+   * trimmed height is exactly the drawn art -- whereas the shared box is the
+   * union of a tree and a bush on the same sheet and would size both wrong.
+   */
+  static #fit(img: Phaser.GameObjects.Image, height: number | undefined, scale: number): void {
+    if (height === undefined) {
+      img.setScale(scale);
+      return;
+    }
+    const drawn = img.frame.height || 1;
+    img.setScale((height / drawn) * scale);
   }
 
   #buildDecor(room: RoomFull, biome: BiomeName): void {
@@ -125,11 +180,18 @@ export class WorldRenderer {
         this.#buildTorch(d);
         continue;
       }
-      const key = this.#textureFor(d);
-      if (!key) continue;
-      const img = this.scene.add.image(d.x, d.y, key).setOrigin(0.5, 1).setScale(d.scale).setFlipX(d.flip);
+      const art = this.#artFor(d);
+      if (!art) continue;
+      const img = this.scene.add.image(d.x, d.y, art.texture, art.frame)
+        .setOrigin(0.5, 1).setFlipX(d.flip);
+      WorldRenderer.#fit(img, art.height, d.scale);
       img.setDepth(DEPTH.entityBase + d.y * 0.01);
       this.#objects.push(img);
+
+      // People watch you. Kept as a list the scene steps rather than a tween,
+      // because which way they face depends on where you are standing and
+      // nothing else in here does.
+      if (isPerson(d.kind)) this.people.push({ image: img, x: d.x, kind: d.kind, variant: d.variant, scale: d.scale, facing: 0 });
 
       if (d.blocking && d.radius > 0) {
         const shadow = this.scene.add.image(d.x, d.y - 2, 'fx:shadow').setDepth(DEPTH.shadow)
@@ -238,6 +300,39 @@ export class WorldRenderer {
     }
   }
 
+  /**
+   * Turn the villagers toward the player.
+   *
+   * They are drawn face-on until you are beside them, and then they turn --
+   * which is the whole difference between a village of cardboard cut-outs and
+   * a village of people who have noticed you. The profile sheet is a second
+   * set of the same eight figures, so turning is a frame swap and a flip.
+   *
+   * `FACE_RANGE` is generous on purpose: somebody who only turns once you are
+   * on top of them reads as broken rather than as shy.
+   */
+  facePeople(player: { x: number; y: number }): void {
+    for (const person of this.people) {
+      const dx = player.x - person.x;
+      const next: -1 | 0 | 1 = Math.abs(dx) < FACE_DEADZONE || Math.abs(dx) > FACE_RANGE
+        ? 0
+        : (dx < 0 ? -1 : 1);
+      if (next === person.facing) continue;
+      person.facing = next;
+
+      const art = next === 0
+        ? propArt(person.kind, person.variant)
+        : propArtSide(person.kind, person.variant);
+      if (!art) continue;
+      person.image.setTexture(art.texture, art.frame);
+      // Re-fitted, not just re-framed: the profile sheet trims to a different
+      // height than the face-on one, so keeping the old scale would make
+      // everybody grow or shrink the moment they turned.
+      WorldRenderer.#fit(person.image, art.height, person.scale);
+      person.image.setFlipX(next === -1);
+    }
+  }
+
   destroy(): void {
     for (const t of this.#tweens) t.stop();
     this.#tweens = [];
@@ -245,6 +340,7 @@ export class WorldRenderer {
     this.#emitters = [];
     for (const o of this.#objects) o.destroy();
     this.#objects = [];
+    this.people = [];
     this.#doorSprites.clear();
     this.#doorGlows.clear();
     this.room = null;

@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "pillar0": {
+   "frame": {
+    "x": 106,
+    "y": 2,
+    "w": 73,
+    "h": 214
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 52,
+    "y": 9,
+    "w": 73,
+    "h": 214
+   },
+   "sourceSize": {
+    "w": 163,
+    "h": 223
+   }
+  },
+  "pillar1": {
+   "frame": {
+    "x": 181,
+    "y": 2,
+    "w": 75,
+    "h": 214
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 38,
+    "y": 9,
+    "w": 75,
+    "h": 214
+   },
+   "sourceSize": {
+    "w": 163,
+    "h": 223
+   }
+  },
+  "brokenPillar0": {
+   "frame": {
+    "x": 423,
+    "y": 2,
+    "w": 80,
+    "h": 143
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 34,
+    "y": 80,
+    "w": 80,
+    "h": 143
+   },
+   "sourceSize": {
+    "w": 163,
+    "h": 223
+   }
+  },
+  "brokenPillar1": {
+   "frame": {
+    "x": 242,
+    "y": 227,
+    "w": 80,
+    "h": 100
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 34,
+    "y": 123,
+    "w": 80,
+    "h": 100
+   },
+   "sourceSize": {
+    "w": 163,
+    "h": 223
+   }
+  },
+  "statue0": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 102,
+    "h": 223
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 34,
+    "y": 0,
+    "w": 102,
+    "h": 223
+   },
+   "sourceSize": {
+    "w": 163,
+    "h": 223
+   }
+  },
+  "well0": {
+   "frame": {
+    "x": 258,
+    "y": 2,
+    "w": 163,
+    "h": 198
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 14,
+    "w": 163,
+    "h": 198
+   },
+   "sourceSize": {
+    "w": 163,
+    "h": 223
+   }
+  },
+  "crate0": {
+   "frame": {
+    "x": 2,
+    "y": 227,
+    "w": 118,
+    "h": 122
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 22,
+    "y": 82,
+    "w": 118,
+    "h": 122
+   },
+   "sourceSize": {
+    "w": 163,
+    "h": 223
+   }
+  },
+  "crate1": {
+   "frame": {
+    "x": 122,
+    "y": 227,
+    "w": 118,
+    "h": 121
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 22,
+    "y": 82,
+    "w": 118,
+    "h": 121
+   },
+   "sourceSize": {
+    "w": 163,
+    "h": 223
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "ruins.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 512,
+   "h": 351
+  },
+  "scale": "1"
+ }
+}

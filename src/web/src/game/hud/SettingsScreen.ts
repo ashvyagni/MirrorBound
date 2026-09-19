@@ -327,7 +327,7 @@ export class SettingsScreen {
     const gap = 48;
     const colWidth = (this.#right - this.#left - gap) / 2;
     const groups: readonly (readonly ActionInfo['group'][])[] = [
-      ['Movement', 'Combat'], ['Loadout', 'Interface'],
+      ['Movement', 'Combat'], ['Items', 'Interface'],
     ];
     groups.forEach((column, index) => {
       const x = this.#left + index * (colWidth + gap);

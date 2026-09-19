@@ -1,84 +1,111 @@
 import Phaser from 'phaser';
 
+import { registerEffectAnimations, EFFECT_TEXTURES } from '../animation/abilityClips';
 import { BRO_TEXTURE, registerBroAnimations } from '../animation/broClips';
+import { registerAlertMarkAnimation, SHARED_ENEMY_TEXTURES } from '../animation/enemyClips';
 import { registerFxAnimations } from '../animation/fx';
-import {
-  GOAT_TEXTURES, registerFacingAnimations, registerGoatAnimations,
-} from '../animation/goatClips';
-import { ABILITY_TEXTURES, registerAbilityAnimations } from '../animation/abilityClips';
-import { registerWeaponAnimations, WEAPON_TEXTURES } from '../animation/weaponClips';
-import { DUMMY_TEXTURE_KEY } from '../animation/dummyAtlas.generated';
-import { ICONS_TEXTURE_KEY } from '../animation/iconsAtlas.generated';
-import { SHIELDBLOCK_TEXTURE_KEY } from '../animation/shieldBlockAtlas.generated';
-import { SHIELDPARRY_TEXTURE_KEY } from '../animation/shieldParryAtlas.generated';
-import { HUD_TEXTURES } from '../hud/textures';
-import { Dummy } from '../entities/Dummy';
-import { HATCH_TEXTURES, registerHatchAnimations } from '../entities/Hatch';
-import { MIRROR_TEXTURES, registerMirrorAnimations } from '../entities/Mirror';
-import { MOB_TEXTURES, registerMobAnimations } from '../entities/Mob';
+import { GOAT_TEXTURES, registerGoatAnimations } from '../animation/goatClips';
 import { ITEMS_TEXTURE_KEY } from '../animation/itemsAtlas.generated';
-import { Shield } from '../entities/Shield';
+import { SKILLNODES_TEXTURE_KEY } from '../animation/skillNodesAtlas.generated';
+import { registerWeaponAnimations, WEAPON_TEXTURES } from '../animation/weaponClips';
 import { PALETTE } from '../constants';
+import { HUD_TEXTURES } from '../hud/textures';
+import { WORLD_TEXTURES } from '../world/propArt';
 import { eventBus } from '../EventBus';
+import { TextureFactory } from '../world/TextureFactory';
 
 /**
- * Loads the atlas, then hands off to play.
+ * Sheets the React screens draw from.
  *
- * Animations are registered here rather than in the play scene because Phaser's
- * animation manager is global: doing it once, after the texture exists, means a
- * scene restart never redefines them.
+ * They are not Phaser's to render -- `Portrait` and `AtlasIcon` read the same
+ * JSON and PNG straight from the DOM -- but loading them here fetches those
+ * exact URLs, so the HUD's potion count and the skill tree's emblems come out
+ * of the HTTP cache instead of costing a round trip the first time a screen
+ * opens. Both together are a quarter of a megabyte.
+ */
+// The interface draws from its own sheets, and every one is listed in
+// `hud/textures.ts` so the preloader cannot be given a new piece of chrome and
+// quietly miss its texture -- a missing HUD texture is a green box in the
+// corner of the screen, which is slower to notice than a crash.
+const UI_TEXTURES: readonly string[] = [
+  ITEMS_TEXTURE_KEY, SKILLNODES_TEXTURE_KEY, ...HUD_TEXTURES, ...WORLD_TEXTURES,
+];
+
+/**
+ * Loads the character atlases, paints the procedural world textures, registers
+ * animations, then hands off to play. Animations are registered here because
+ * Phaser's animation manager is global: a scene restart must not redefine them.
+ *
+ * What is here is what the first frame cannot be drawn without: the player's
+ * three sheets, the twin, the weapons and their cast motions, the spell
+ * effects, and the shared alert mark. The twelve enemy families are *not* --
+ * they are 51 MB of the 70 this would otherwise fetch, and a room draws a few
+ * of them, so `EnemyAtlasLoader` pulls them per room from the sprite list the
+ * room snapshot carries. The timings printed at the end of `create` are what
+ * to watch if that trade ever needs revisiting.
  */
 export class PreloadScene extends Phaser.Scene {
   static readonly KEY = 'preload';
+
+  #startedAt = 0;
 
   constructor() {
     super(PreloadScene.KEY);
   }
 
   preload(): void {
-    // The loading screen has no camera zoom, so it is laid out against the
-    // canvas itself rather than world units.
+    this.#startedAt = performance.now();
     const { width, height } = this.cameras.main;
-    const barWidth = Math.round(width * 0.36);
+    const barWidth = Math.round(width * 0.3);
+    this.cameras.main.setBackgroundColor(PALETTE.night);
 
-    const track = this.add
-      .rectangle(width / 2, height / 2, barWidth, 4, PALETTE.taupe, 0.25)
-      .setOrigin(0.5);
-    const fill = this.add
-      .rectangle(track.x - barWidth / 2, height / 2, 0, 4, PALETTE.magenta)
-      .setOrigin(0, 0.5);
+    this.add.text(width / 2, height / 2 - 40, 'MIRRORBOUND', {
+      fontFamily: '"Instrument Serif", Georgia, serif', fontSize: '44px', color: '#f2e8df',
+    }).setOrigin(0.5);
+    const track = this.add.rectangle(width / 2, height / 2 + 10, barWidth, 4, PALETTE.taupe, 0.25).setOrigin(0.5);
+    const fill = this.add.rectangle(track.x - barWidth / 2, height / 2 + 10, 0, 4, PALETTE.magenta).setOrigin(0, 0.5);
 
     this.load.on(Phaser.Loader.Events.PROGRESS, (progress: number) => {
-      fill.width = barWidth * progress;
-      eventBus.emit('game:loading', { progress });
+      fill.width = barWidth * progress * 0.8;
+      eventBus.emit('game:loading', { progress: progress * 0.8 });
     });
 
-    // The icon sheet is loaded here too: the in-game bar draws from it, so it
-    // has to be a Phaser texture and not only a CSS background.
-    for (const texture of [
-      ...GOAT_TEXTURES, BRO_TEXTURE, ...WEAPON_TEXTURES, ...ABILITY_TEXTURES,
-      DUMMY_TEXTURE_KEY, ICONS_TEXTURE_KEY,
-      SHIELDBLOCK_TEXTURE_KEY, SHIELDPARRY_TEXTURE_KEY,
-      ...HUD_TEXTURES, ...MIRROR_TEXTURES, ...HATCH_TEXTURES, ...MOB_TEXTURES,
-      ITEMS_TEXTURE_KEY,
-    ]) {
+    // De-duplicated: the weapon list and the effect list overlap on nothing
+    // today, but both are built from tables that can grow.
+    const textures = [...new Set([
+      ...GOAT_TEXTURES, BRO_TEXTURE, ...WEAPON_TEXTURES, ...EFFECT_TEXTURES,
+      ...SHARED_ENEMY_TEXTURES, ...UI_TEXTURES,
+    ])];
+    for (const texture of textures) {
       this.load.setPath(`game/${texture}`);
       this.load.atlas(texture, `${texture}.png`, `${texture}.json`);
     }
+    this.load.setPath();
+    console.info(`[mirrorbound] queueing ${textures.length} atlases; enemy sheets load per room`);
   }
 
   create(): void {
+    const loaded = performance.now();
     registerGoatAnimations(this.anims);
-    registerFacingAnimations(this.anims);
     registerBroAnimations(this.anims);
     registerWeaponAnimations(this.anims);
-    registerAbilityAnimations(this.anims);
-    Dummy.register(this.anims);
-    Shield.register(this.anims);
+    // Only the shared mark: each enemy family's clips are registered by
+    // `EnemyAtlasLoader` once its own sheets have arrived, because a clip whose
+    // frames name an unloaded texture is a clip that draws nothing.
+    registerAlertMarkAnimation(this.anims);
+    registerEffectAnimations(this.anims);
     registerFxAnimations(this.anims);
-    registerMirrorAnimations(this.anims);
-    registerHatchAnimations(this.anims);
-    registerMobAnimations(this.anims);
+    const registered = performance.now();
+    // Paint the world once, up front, so the first room appears without a hitch.
+    const factory = new TextureFactory(this);
+    factory.ensureCommon();
+    factory.ensureBiome('grove');
+    console.info(
+      `[mirrorbound] atlases loaded in ${Math.round(loaded - this.#startedAt)}ms; `
+      + `animations registered in ${Math.round(registered - loaded)}ms; `
+      + `textures painted in ${Math.round(performance.now() - registered)}ms`,
+    );
+    eventBus.emit('game:loading', { progress: 1 });
     this.scene.start('play');
   }
 }

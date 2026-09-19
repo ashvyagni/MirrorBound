@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "gravestone0": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 100,
+    "h": 164
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 33,
+    "y": 0,
+    "w": 100,
+    "h": 164
+   },
+   "sourceSize": {
+    "w": 166,
+    "h": 172
+   }
+  },
+  "gravestone1": {
+   "frame": {
+    "x": 206,
+    "y": 2,
+    "w": 96,
+    "h": 156
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 28,
+    "y": 8,
+    "w": 96,
+    "h": 156
+   },
+   "sourceSize": {
+    "w": 166,
+    "h": 172
+   }
+  },
+  "gravestone2": {
+   "frame": {
+    "x": 104,
+    "y": 2,
+    "w": 100,
+    "h": 160
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 28,
+    "y": 6,
+    "w": 100,
+    "h": 160
+   },
+   "sourceSize": {
+    "w": 166,
+    "h": 172
+   }
+  },
+  "bones0": {
+   "frame": {
+    "x": 2,
+    "y": 297,
+    "w": 152,
+    "h": 90
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 82,
+    "w": 152,
+    "h": 90
+   },
+   "sourceSize": {
+    "w": 166,
+    "h": 172
+   }
+  },
+  "bones1": {
+   "frame": {
+    "x": 292,
+    "y": 168,
+    "w": 158,
+    "h": 109
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 8,
+    "y": 62,
+    "w": 158,
+    "h": 109
+   },
+   "sourceSize": {
+    "w": 166,
+    "h": 172
+   }
+  },
+  "mushrooms0": {
+   "frame": {
+    "x": 2,
+    "y": 168,
+    "w": 134,
+    "h": 127
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 16,
+    "y": 40,
+    "w": 134,
+    "h": 127
+   },
+   "sourceSize": {
+    "w": 166,
+    "h": 172
+   }
+  },
+  "mushrooms1": {
+   "frame": {
+    "x": 304,
+    "y": 2,
+    "w": 138,
+    "h": 128
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 6,
+    "y": 39,
+    "w": 138,
+    "h": 128
+   },
+   "sourceSize": {
+    "w": 166,
+    "h": 172
+   }
+  },
+  "chest0": {
+   "frame": {
+    "x": 138,
+    "y": 168,
+    "w": 152,
+    "h": 122
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 45,
+    "w": 152,
+    "h": 122
+   },
+   "sourceSize": {
+    "w": 166,
+    "h": 172
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "crypt.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 512,
+   "h": 389
+  },
+  "scale": "1"
+ }
+}
