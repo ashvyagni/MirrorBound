@@ -67,7 +67,7 @@ ASHEN_DEEP = AreaDef(
     id="ashen_deep", name="The Ashen Deep", kind="dungeon", biome="ruins",
     subtitle="The road down, and the warden that keeps it.",
     sequence=(RoomType.ENTRANCE, RoomType.COMBAT, RoomType.TREASURE, RoomType.COMBAT,
-              RoomType.EXPLORATION, RoomType.ELITE),
+              RoomType.EXPLORATION, RoomType.GUARDIAN),
     requires="wakewood_crypt", map_x=0.74, map_y=0.44, difficulty=1.35,
     completion_gold=260, completion_seal="seal_of_ash",
 )

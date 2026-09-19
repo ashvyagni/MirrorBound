@@ -172,6 +172,7 @@ class GameSession:
             self.dungeon = DungeonGenerator(rng).generate(
                 room_count=len(area.sequence) or self.room_count,
                 sequence=area.sequence or None,
+                biome=area.biome,
             )
             for room in self.dungeon.rooms:
                 room.area_id = area_id

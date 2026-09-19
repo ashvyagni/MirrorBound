@@ -27,3 +27,6 @@ Thumbs.db
 # Replay recordings
 apps/server/runs/
 
+# Player checkpoints: per-machine run state, not project content.
+apps/server/saves/
+

@@ -60,7 +60,12 @@ class DungeonGenerator:
     def __init__(self, rng: DeterministicRNG):
         self.rng = rng.spawn("dungeon")
 
-    def generate(self, room_count: int = 7, sequence: tuple[RoomType, ...] | None = None) -> DungeonRun:
+    def generate(self, room_count: int = 7, sequence: tuple[RoomType, ...] | None = None,
+                 biome: str | None = None) -> DungeonRun:
+        """`biome` pins every room in the run to one biome. Without it the run
+        shades from grove to crypt over its own length, which is right for a
+        single long descent and wrong once the world has areas that each have
+        a look of their own."""
         seq = list(sequence or DEFAULT_SEQUENCE)
         if room_count != len(seq):
             seq = self._sequence_for(room_count)
@@ -68,7 +73,7 @@ class DungeonGenerator:
         for index, room_type in enumerate(seq):
             template = get_random_template(room_type, self.rng)
             room_rng = self.rng.spawn(f"room:{index}")
-            rooms.append(self._build_room(index, len(seq), template, room_rng))
+            rooms.append(self._build_room(index, len(seq), template, room_rng, biome=biome))
         # Link doors: each room's south door leads back, north door leads on.
         for i, room in enumerate(rooms):
             for door in room.doors:
@@ -94,9 +99,10 @@ class DungeonGenerator:
 
     # --- room construction --------------------------------------------------------
 
-    def _build_room(self, index: int, total: int, template: RoomTemplate, rng: DeterministicRNG) -> Room:
+    def _build_room(self, index: int, total: int, template: RoomTemplate, rng: DeterministicRNG,
+                    biome: str | None = None) -> Room:
         w, h = template.width, template.height
-        biome = biome_for(index, total)
+        biome = biome or biome_for(index, total)
         room = Room(
             index=index,
             room_type=template.room_type.value,
