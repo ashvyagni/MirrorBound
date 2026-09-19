@@ -27,6 +27,7 @@ import { eventBus } from '../EventBus';
 import type { SlotId, WeaponId } from '../animation/weaponClips';
 import type { LoadoutSnapshot } from '../state/Loadout';
 import type { MapView } from './Minimap';
+import { floorTextureKey } from '../world/WorldRenderer';
 import type { Run, RunRoom, RoomKind, Biome } from '../world/Run';
 
 /** Server weapon id -> the sheet that draws it. */
@@ -119,6 +120,7 @@ function mapFrom(
   snap: GameSnapshot,
   size: { width: number; height: number },
   doors: readonly { x: number; y: number; locked: boolean }[],
+  floorKey: string | null,
 ): MapView {
   return {
     room: size,
@@ -129,6 +131,7 @@ function mapFrom(
     marks: snap.enemies.map((e) => e.position),
     twin: snap.twin.position,
     doors,
+    floorKey,
   };
 }
 
@@ -154,13 +157,19 @@ export function bridgeSnapshotToHud(): () => void {
   let roomSize = { width: 0, height: 0 };
   // Doors only ride full-room snapshots, so they are cached like the size is.
   let doors: { x: number; y: number; locked: boolean }[] = [];
+  // Named from the room, so the minimap can draw the same floor image the
+  // world renderer already composed instead of painting terrain twice.
+  let floorKey: string | null = null;
   let latest: GameSnapshot | null = null;
 
   const push = (snap: GameSnapshot, force = false): void => {
     latest = snap;
     const p = snap.player;
 
-    if (isRoomFull(snap.room)) roomSize = { width: snap.room.width, height: snap.room.height };
+    if (isRoomFull(snap.room)) {
+      roomSize = { width: snap.room.width, height: snap.room.height };
+      floorKey = floorTextureKey(snap.room.id, snap.room.seed);
+    }
     // Lite snapshots still carry the door list, and locks change as a room is
     // cleared, so this is refreshed from whichever shape arrived.
     doors = snap.room.doors
@@ -193,7 +202,7 @@ export function bridgeSnapshotToHud(): () => void {
 
     // The minimap redraws every frame from its own copy, so this one is pushed
     // unconditionally -- the dots move on every snapshot by definition.
-    if (roomSize.width > 0) eventBus.emit('map:changed', mapFrom(snap, roomSize, doors));
+    if (roomSize.width > 0) eventBus.emit('map:changed', mapFrom(snap, roomSize, doors, floorKey));
   };
 
   const offSnapshot = eventBus.on('game:snapshot', (snap) => push(snap));

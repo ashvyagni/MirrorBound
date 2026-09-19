@@ -59,7 +59,7 @@ export class MapScreen {
     this.#texts.push(...this.#panel.texts);
 
     this.#caption = this.scene.add
-      .text(0, HEIGHT / 2 - this.#panel.inset * 0.7, '', {
+      .text(0, HEIGHT / 2 - this.#panel.inset - HUD.hintSize, '', {
         fontFamily: PIXEL_FONT.stack,
         fontSize: `${HUD.hintSize}px`,
         color: HUD.dimInk,
@@ -86,7 +86,9 @@ export class MapScreen {
     const perRow = Math.ceil(count / rows);
     const stepX = content.width / perRow;
     const stepY = Math.min(150, content.height / (rows + 0.6));
-    const top = -((rows - 1) * stepY) / 2;
+    // Nudged up by half the caption's lane so a single row sits optically
+    // centred in the space it actually has rather than in the whole panel.
+    const top = -((rows - 1) * stepY) / 2 - HUD.hintSize * 0.5;
 
     const at = (index: number) => {
       const row = Math.floor(index / perRow);

@@ -1,24 +1,20 @@
 import type Phaser from 'phaser';
 
-import { SCREENFRAME_TEXTURE_KEY } from '../animation/screenFrameAtlas.generated';
 import { HUD, PALETTE, PIXEL_FONT } from '../constants';
+import { ensurePanelFrame, PANEL_FRAME_INSET, PANEL_FRAME_KEY } from './panelFrame';
 
 /**
  * A framed panel at any size.
  *
- * The frame art is one 506px square drawn so its corners stay fixed, its edges
- * tile and its middle is thrown away -- which is what a nine-slice is, and what
- * `Phaser.GameObjects.NineSlice` does natively. Every screen is built out of
- * this rather than drawing its own chrome, for the same reason one alert mark
- * serves eleven creatures: five copies of the same border drift apart.
+ * The frame is a nine-slice: corners stay fixed, edges tile, the middle is
+ * thrown away. Every screen is built out of this rather than drawing its own
+ * chrome, for the same reason one alert mark serves eleven creatures: five
+ * copies of the same border drift apart.
  *
- * The prompt asked for a 120px border on a 1024px square. The atlas trimmed it
- * to 506, so the inset is that border at the same ratio -- solved rather than
- * typed, because the next time the frame is redrawn the ratio survives and a
- * hardcoded 60 does not.
+ * The texture it slices is composed in `panelFrame.ts`, because the drawn art
+ * is only a top-left corner and slicing that directly leaves a panel with no
+ * right or bottom edge.
  */
-const SOURCE_SIZE = 1024;
-const SOURCE_BORDER = 120;
 
 export interface PanelOptions {
   width: number;
@@ -35,8 +31,8 @@ export class Panel {
   #texts: Phaser.GameObjects.Text[] = [];
 
   constructor(scene: Phaser.Scene, x: number, y: number, opts: PanelOptions) {
-    const frame = scene.textures.get(SCREENFRAME_TEXTURE_KEY).get('frame');
-    this.inset = Math.round((frame.width / SOURCE_SIZE) * SOURCE_BORDER);
+    ensurePanelFrame(scene);
+    this.inset = PANEL_FRAME_INSET;
 
     this.container = scene.add.container(x, y);
 
@@ -56,15 +52,17 @@ export class Panel {
     this.container.add(fill);
 
     const nine = scene.add.nineslice(
-      0, 0, SCREENFRAME_TEXTURE_KEY, 'frame',
+      0, 0, PANEL_FRAME_KEY, undefined,
       opts.width, opts.height,
       this.inset, this.inset, this.inset, this.inset,
     );
     this.container.add(nine);
 
     if (opts.title) {
+      // Just inside the border, not centred on it. Centring put the text on
+      // the bar, where the frame's own inner line cut through the letters.
       const title = scene.add
-        .text(0, -opts.height / 2 + this.inset * 0.5, opts.title.toUpperCase(), {
+        .text(0, -opts.height / 2 + this.inset + HUD.labelSize * 0.9, opts.title.toUpperCase(), {
           fontFamily: PIXEL_FONT.stack,
           fontSize: `${HUD.labelSize + 6}px`,
           color: HUD.ink,

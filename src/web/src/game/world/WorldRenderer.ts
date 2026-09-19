@@ -13,6 +13,17 @@ import type { DecorSnap, DoorSnap, RoomFull } from '../contracts';
 import type { Quality } from '../../ui/settings';
 import { T, TextureFactory } from './TextureFactory';
 
+/**
+ * Key of the composed floor texture for a room.
+ *
+ * Exported because the minimap draws this same texture rather than painting a
+ * second, worse copy of the room -- the whole floor is already one image, so
+ * the map is that image scaled into the ring.
+ */
+export function floorTextureKey(roomId: string, seed: number): string {
+  return `floor:${roomId}:${seed}`;
+}
+
 const SWAY_KINDS = new Set(['grass_tuft', 'flowers', 'bush', 'mushrooms']);
 const TREE_KINDS = new Set(['tree', 'tree_big']);
 const VARIANTS: Record<string, number> = {
@@ -60,7 +71,7 @@ export class WorldRenderer {
     // The whole floor is composed once into a single canvas texture: one draw
     // call per frame instead of ~1800 tile sprites, and no dependence on the
     // RenderTexture API, which changed between Phaser 3 and 4.
-    const floorKey = `floor:${room.id}:${seed}`;
+    const floorKey = floorTextureKey(room.id, seed);
     if (this.scene.textures.exists(floorKey)) this.scene.textures.remove(floorKey);
     const canvas = this.scene.textures.createCanvas(floorKey, room.width, room.height);
     if (canvas) {
