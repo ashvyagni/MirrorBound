@@ -12,8 +12,8 @@ WORKDIR /app
 # Copy dependency files
 COPY pyproject.toml uv.lock ./
 
-# Install dependencies system-wide using uv
-RUN uv sync --system
+# Install dependencies using uv (creates .venv)
+RUN uv sync
 
 # Copy application code
 COPY . .
@@ -21,5 +21,5 @@ COPY . .
 # Set default port to 8000, but allow override via Render/Koyeb environment variable
 ENV PORT=8000
 
-# Run uvicorn on the configured port
-CMD uvicorn main:app --host 0.0.0.0 --port $PORT
+# Run uvicorn on the configured port using the virtual environment created by uv
+CMD uv run uvicorn main:app --host 0.0.0.0 --port $PORT
