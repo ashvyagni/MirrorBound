@@ -376,7 +376,18 @@ export const HUD_ART = {
      *  walls are. */
     inset: { left: 0.108, right: 0.028, top: 0.3, bottom: 0.3 },
   },
-  minimap: { x: 1920 - 150, y: 150, size: 228 },
+  minimap: {
+    x: 1920 - 150, y: 150, size: 228,
+    /**
+     * The ring's opening, as a fraction of the drawn ring.
+     *
+     * The map is painted to exactly this and no larger. Guessing it is how the
+     * floor ends up either tucked inside the frame with a gap or running under
+     * it -- the same measurement the rail's channel and the socket's opening
+     * already get. Measured: 263px of opening in 300px of ring.
+     */
+    innerRatio: 0.8767,
+  },
   settings: { x: 78, y: 1080 - 78, size: 80 },
   hotbar: {
     /**

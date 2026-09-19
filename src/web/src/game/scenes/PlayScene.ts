@@ -376,8 +376,14 @@ export class PlayScene extends Phaser.Scene {
     if (this.#mapPush > 0) return;
     this.#mapPush = MAP_PUSH;
 
+    const { room } = this.#grove;
     eventBus.emit('map:changed', {
-      room: { width: this.#grove.room.width, height: this.#grove.room.height },
+      room: { width: room.width, height: room.height },
+      // The grid itself, so the minimap paints the floor rather than a disc.
+      // Repainting is keyed off `roomId`, so sending it every push is free.
+      tiles: room.tiles,
+      biome: room.biome,
+      roomId: room.id,
       player: { x: this.#goat.x, y: this.#goat.y },
       marks: this.#dummies.map((d) => ({ x: d.x, y: d.y })),
     });

@@ -105,7 +105,7 @@ fullscreen — where no DOM panel beside the game exists any more.
 | `hud/Portrait.ts` | the goat's face in its ring, health and mana |
 | `hud/Hotbar.ts` | two hands and the potion dial |
 | `hud/CooldownRail.ts` | what is recharging, stacked up the right |
-| `hud/Minimap.ts` | the room and what is in it |
+| `hud/Minimap.ts` | the room's own tiles, painted in miniature |
 | `hud/MapScreen.ts` | the full run, on `M` |
 | `hud/SettingsScreen.ts` | two tabs: display, and rebindable controls |
 | `hud/SettingsButton.ts` | the gear |
