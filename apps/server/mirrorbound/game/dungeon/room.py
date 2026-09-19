@@ -69,6 +69,36 @@ class Door:
 
 
 @dataclass
+class Portal:
+    """A way out of one *area* and into another.
+
+    Doors link rooms inside a dungeon by index; a portal links whole areas by
+    id (village -> dungeon, dungeon -> village). Keeping them separate means a
+    door never has to know whether its target is in this dungeon or another
+    part of the world.
+    """
+    id: str
+    x: float
+    y: float
+    target_area: str
+    label: str = ""
+    kind: str = "gate"          # gate | road | descent
+    locked: bool = False
+    lock_reason: str = ""
+    radius: float = 54.0
+
+    def contains(self, pos: Vec2, radius: float) -> bool:
+        return (pos - Vec2(self.x, self.y)).length() <= self.radius + radius
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id, "x": round(self.x, 1), "y": round(self.y, 1),
+            "targetArea": self.target_area, "label": self.label, "kind": self.kind,
+            "locked": self.locked, "lockReason": self.lock_reason, "radius": self.radius,
+        }
+
+
+@dataclass
 class EnemySpawn:
     enemy_type: str
     position: Vec2
@@ -96,10 +126,18 @@ class Room:
     cleared: bool = False
     visited: bool = False
     seed: int = 0
+    # Area this room belongs to; part of the room id so heatmaps and telemetry
+    # from the first village never merge with the second one's.
+    area_id: str = ""
+    portals: list[Portal] = field(default_factory=list)
+    npcs: list = field(default_factory=list)      # list[Npc]; untyped to keep this module import-free
+    # Set once the room's one-time rewards have been handed out, so a room that
+    # is re-entered cannot be farmed.
+    looted: bool = False
 
     @property
     def id(self) -> str:
-        return f"room_{self.index}"
+        return f"{self.area_id}_room_{self.index}" if self.area_id else f"room_{self.index}"
 
     def __post_init__(self):
         if not self.tiles:
@@ -174,6 +212,12 @@ class Room:
                 return door
         return None
 
+    def portal_at(self, pos: Vec2, radius: float) -> Portal | None:
+        for portal in self.portals:
+            if portal.contains(pos, radius):
+                return portal
+        return None
+
     def door_to(self, target_index: int) -> Door | None:
         for door in self.doors:
             if door.target_index == target_index:
@@ -211,6 +255,9 @@ class Room:
             "tiles": self.tiles,
             "decor": [d.to_dict() for d in self.decor],
             "doors": [d.to_dict() for d in self.doors],
+            "portals": [p.to_dict() for p in self.portals],
             "cleared": self.cleared,
+            "safe": self.room_type == "village",
+            "areaId": self.area_id,
             "seed": self.seed,
         }

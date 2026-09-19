@@ -292,11 +292,6 @@ export class TextureFactory {
     bolt('proj:ice_bolt', '#9fe3ff', '#ffffff', 10);
     bolt('proj:arcane_bolt', '#b48cff', '#ffffff', 11);
     bolt('proj:mirror_bolt', '#d62e6c', '#ffe6f0', 11);
-    // The grove and ruins ranged mobs. Logesh drew a thorn sheet
-    // (thornAtlas.generated.ts); these painted stand-ins keep projectiles one
-    // consistent style until ProjectileView learns to animate.
-    arrow('proj:thorn', '#8a6b3f', '#cfe0a8');
-    bolt('proj:ember_bolt', '#ff9a4d', '#ffe6b0', 12);
   }
 
   // --- doors ----------------------------------------------------------------------------

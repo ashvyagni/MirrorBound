@@ -19,6 +19,7 @@ class AbilityType(Enum):
     DASH = "dash"
     NOVA = "nova"
     HEAL = "heal"
+    SHIELD = "shield"
 
 
 @dataclass(frozen=True)
@@ -144,8 +145,51 @@ BINDING_NOVA = AbilityDef(
     description="A ring of binding light. Damages and heavily slows every enemy around you.",
 )
 
+MENDING_LIGHT = AbilityDef(
+    id="mending_light",
+    name="Mending Light",
+    type=AbilityType.HEAL,
+    slot=4,
+    icon="mending_light",
+    cooldown=11.0,
+    cost=26,
+    # The only ability with a real cast time. Heal is meant to be a decision you
+    # commit to and can lose, not a reflex -- taking a hit during the cast
+    # interrupts it and refunds nothing, so healing under pressure means making
+    # space first. See CombatSystem.update for the interrupt.
+    cast_time=0.55,
+    range=0,
+    damage=0,
+    area=0,
+    tags=("SUPPORT", "DEFENSIVE", "MAGIC"),
+    effect_value=45,       # health restored
+    vfx="mend",
+    sound="heal",
+    description="Channel for a moment to restore 45 health. Taking a hit interrupts it.",
+)
+
+AEGIS = AbilityDef(
+    id="aegis",
+    name="Aegis",
+    type=AbilityType.SHIELD,
+    slot=4,
+    icon="aegis",
+    cooldown=14.0,
+    cost=20,
+    cast_time=0.0,
+    range=0,
+    damage=0,
+    area=0,
+    tags=("DEFENSIVE", "MAGIC"),
+    effect_tags=("SHIELD",),
+    duration=5.0,
+    vfx="aegis",
+    sound="shield",
+    description="A ward that cuts incoming damage by 40% for five seconds.",
+)
+
 ABILITIES: dict[str, AbilityDef] = {
-    a.id: a for a in (ARCANE_BOLT, FLAME_BURST, SHADOW_DASH, BINDING_NOVA)
+    a.id: a for a in (ARCANE_BOLT, FLAME_BURST, SHADOW_DASH, BINDING_NOVA, MENDING_LIGHT, AEGIS)
 }
 
 DEFAULT_SLOTS: tuple[str, str, str, str] = (

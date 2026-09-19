@@ -20,7 +20,9 @@ class RoomType(Enum):
     TREASURE = "treasure"
     EVENT = "event"
     ELITE = "elite"
+    GUARDIAN = "guardian"
     BOSS = "boss"
+    VILLAGE = "village"
 
 
 @dataclass(frozen=True)
@@ -65,7 +67,10 @@ BIOME_ROSTER: dict[str, dict[str, str]] = {
               # The grove has no fourth silhouette in the design ("—" in the
               # table), so its quick slot falls back to the sprout.
               "fast": "sprout"},
-    "ruins": {"melee": "shardling", "tank": "warden", "ranged": "acolyte", "fast": "scarab"},
+    # The ruins' heavy is the brute, not the Warden. The Warden is a 420hp
+    # elite guardian placed by hand at its own gate; putting it behind a
+    # generic `tank` slot would drop a mini-boss into every ruins combat room.
+    "ruins": {"melee": "shardling", "tank": "brute", "ranged": "acolyte", "fast": "scarab"},
     "crypt": {"melee": "skeleton", "tank": "slime", "ranged": "archer", "fast": "hound"},
 }
 
@@ -144,13 +149,49 @@ BOSS_MIRROR = RoomTemplate(
     title_pool=("The Mirror Sanctum",),
 )
 
+SWARM_NEST = RoomTemplate(
+    # The scarabs' room. Nothing here is dangerous on its own, which is the
+    # point: the room is about where you stand, not what you kill first.
+    name="swarm_nest", room_type=RoomType.COMBAT, width=1280, height=960,
+    spawns=(
+        SpawnSpec("scarab", 0.20, 0.24), SpawnSpec("scarab", 0.35, 0.20),
+        SpawnSpec("scarab", 0.50, 0.18), SpawnSpec("scarab", 0.65, 0.20),
+        SpawnSpec("scarab", 0.80, 0.24), SpawnSpec("scarab", 0.28, 0.58),
+        SpawnSpec("scarab", 0.72, 0.58), SpawnSpec("brute", 0.50, 0.40),
+    ),
+    tree_density=0.3, rock_density=1.2, ruin_density=1.0, flora_density=0.4, torches=5,
+    title_pool=("The Husk Nest", "Chitin Hollow"),
+)
+
+COMBAT_SANCTUM = RoomTemplate(
+    # Acolytes behind a brute: the ranged control problem, with something in
+    # front of it that punishes walking straight at the casters.
+    name="combat_sanctum", room_type=RoomType.COMBAT, width=1600, height=1120,
+    spawns=(
+        SpawnSpec("acolyte", 0.28, 0.24), SpawnSpec("acolyte", 0.72, 0.24),
+        SpawnSpec("brute", 0.50, 0.42), SpawnSpec("skeleton", 0.36, 0.62),
+        SpawnSpec("skeleton", 0.64, 0.62),
+    ),
+    tree_density=0.0, rock_density=0.6, ruin_density=2.0, flora_density=0.2, torches=8,
+    title_pool=("The Ash Sanctum", "Choir of Cinders"),
+)
+
+WARDEN_GATE = RoomTemplate(
+    name="warden_gate", room_type=RoomType.GUARDIAN, width=1440, height=1080,
+    spawns=(SpawnSpec("warden", 0.50, 0.34), SpawnSpec("scarab", 0.24, 0.30),
+            SpawnSpec("scarab", 0.76, 0.30)),
+    tree_density=0.0, rock_density=0.5, ruin_density=2.0, flora_density=0.1, torches=10,
+    title_pool=("The Warden's Gate",),
+)
+
 TEMPLATES: dict[RoomType, tuple[RoomTemplate, ...]] = {
     RoomType.ENTRANCE: (ENTRANCE,),
-    RoomType.COMBAT: (COMBAT_GLADE, COMBAT_RUIN),
+    RoomType.COMBAT: (COMBAT_GLADE, COMBAT_RUIN, SWARM_NEST, COMBAT_SANCTUM),
     RoomType.EXPLORATION: (EXPLORATION_GROVE,),
     RoomType.TREASURE: (TREASURE_VAULT,),
     RoomType.EVENT: (EXPLORATION_GROVE,),
     RoomType.ELITE: (ELITE_ARENA,),
+    RoomType.GUARDIAN: (WARDEN_GATE,),
     RoomType.BOSS: (BOSS_MIRROR,),
 }
 

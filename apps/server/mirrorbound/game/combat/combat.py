@@ -15,6 +15,7 @@ import math
 
 from mirrorbound.game.combat.abilities import AbilityDef, AbilityType
 from mirrorbound.game.combat.hitbox import Hitbox, HitboxShape
+from mirrorbound.game.combat.mitigation import apply_reduction
 from mirrorbound.game.combat.weapons import ProjectileSpec, WeaponDef
 from mirrorbound.game.core.events import EventBus
 from mirrorbound.game.core.rng import DeterministicRNG
@@ -193,8 +194,17 @@ class CombatSystem:
                         enemy.apply_status("slow", ability.duration, slow_factor=ability.effect_value)
                     hits.append(enemy.id)
         elif ability.type is AbilityType.HEAL:
-            healed = player.heal(ability.effect_value)
-            state.emit("PLAYER_HEALED", amount=healed, remaining=player.health, source=ability.id)
+            if ability.cast_time > 0:
+                # A channel: the heal lands when the channel finishes, and only
+                # if nothing interrupts it. The session completes it.
+                player.begin_channel(ability.id, ability.cast_time)
+                extra = {"channel": ability.cast_time}
+            else:
+                healed = player.heal(ability.effect_value)
+                state.emit("PLAYER_HEALED", amount=healed, remaining=player.health, source=ability.id)
+        elif ability.type is AbilityType.SHIELD:
+            player.apply_status("shield", ability.duration)
+            extra = {"duration": ability.duration}
 
         state.emit(
             "PLAYER_ABILITY_CAST",
@@ -351,11 +361,18 @@ class CombatSystem:
                 state.emit("PLAYER_DODGED", tags=["MOBILITY", "DEFENSIVE"], position=player.position.to_dict(),
                            dodged=[attacker_id], distance=0.0)
             return 0.0
-        actual = player.take_hit(amount)
+        reduced, mitigations = apply_reduction(state, player.id, amount)
+        actual = player.take_hit(reduced)
         if actual <= 0:
             return 0.0
         if knockback > 0:
             player.knockback = player.knockback + direction * knockback * 0.6
+        # A hit breaks a channelled cast. The mana is already spent, so this is
+        # the real cost of trying to heal while something can still reach you.
+        interrupted = player.interrupt_channel()
+        if interrupted:
+            state.emit("ABILITY_INTERRUPTED", actor=player.id, ability=interrupted, by=attacker_id,
+                       position=player.position.to_dict())
         state.stats.damage_taken += actual
         attacker = state.entity_by_id(attacker_id)
         state.emit(
@@ -366,6 +383,7 @@ class CombatSystem:
             damage=round(actual, 1),
             remaining=round(player.health, 1),
             position=player.position.to_dict(),
+            mitigatedBy=mitigations,
         )
         if player.state == "dead":
             state.phase = "dead"
@@ -378,7 +396,8 @@ class CombatSystem:
         twin = state.twin
         if twin.downed or twin.invulnerable_for > 0:
             return 0.0
-        actual = twin.take_hit(amount)
+        reduced, _ = apply_reduction(state, twin.id, amount)
+        actual = twin.take_hit(reduced)
         if actual <= 0:
             return 0.0
         if knockback > 0:

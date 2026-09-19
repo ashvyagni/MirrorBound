@@ -41,6 +41,11 @@ class LootTable:
     mana_potion_chance: float = 0.06
     weapon_chance: float = 0.0
     relic_chance: float = 0.0
+    # Gold is the only thing vendors take. Kept proportional to how much of a
+    # fight the enemy is, so the shop prices in world/npc.py stay reachable
+    # without grinding (a village trip is ~two cleared rooms' worth).
+    gold_min: int = 3
+    gold_max: int = 8
 
 
 @dataclass(frozen=True)
@@ -110,11 +115,12 @@ SLIME = EnemyDef(
     loot=LootTable(2, 4, 0.10, 0.14, 0.06), role="tank",
 )
 
-# --- the grove -----------------------------------------------------------------
-# Seven archetypes below are the creatures Logesh designed in docs/art-prompts-2.md,
-# which assigns each one a biome and a combat role. Stats are new -- the doc is an
-# art brief, not a balance sheet -- but every role, name and biome comes from it,
-# so the thing you fight matches the thing that was drawn.
+# --- the grove and the ruins -----------------------------------------------------
+# The three creatures from docs/art-prompts-2.md that main does not already have.
+# Their art was drawn and is already loaded; without these the grove has no weak
+# melee and no ranged mob of its own, and the ruins have no weak melee. Stats are
+# new -- the doc is an art brief, not a balance sheet -- but the name, biome and
+# combat role of each come from it.
 
 SPROUT = EnemyDef(
     id="sprout", name="Bramble Sprout", health=26, damage=7, speed=104,
@@ -123,13 +129,6 @@ SPROUT = EnemyDef(
     tags=("MELEE",), knockback=90, loot=LootTable(1, 2, 0.03, 0.06, 0.04), role="melee",
 )
 
-BRUTE = EnemyDef(
-    id="brute", name="Bark Brute", health=140, damage=19, speed=62,
-    attack_range=52, aggro_range=250, attack_cooldown=1.9, attack_windup=0.66,
-    behavior=EnemyBehavior.TANK, size=19, xp_reward=40, sprite="brute",
-    tags=("MELEE", "HEAVY"), knockback=230, knockback_resist=0.65,
-    loot=LootTable(2, 5, 0.12, 0.14, 0.08), role="tank",
-)
 
 SPITTER = EnemyDef(
     id="spitter", name="Thorn Spitter", health=40, damage=11, speed=74,
@@ -140,8 +139,6 @@ SPITTER = EnemyDef(
     loot=LootTable(1, 3, 0.07, 0.08, 0.10), role="ranged",
 )
 
-# --- the ruins -----------------------------------------------------------------
-
 SHARDLING = EnemyDef(
     id="shardling", name="Shardling", health=30, damage=8, speed=112,
     attack_range=38, aggro_range=250, attack_cooldown=1.05, attack_windup=0.3,
@@ -149,33 +146,8 @@ SHARDLING = EnemyDef(
     tags=("MELEE",), knockback=95, loot=LootTable(1, 2, 0.04, 0.06, 0.05), role="melee",
 )
 
-WARDEN = EnemyDef(
-    # "It is the wall of the biome. It does not chase well; it blocks." -- hence
-    # TANK and a deliberately short aggro range: it holds ground rather than
-    # crossing the room at you.
-    id="warden", name="Pillar Warden", health=175, damage=21, speed=54,
-    attack_range=58, aggro_range=210, attack_cooldown=2.1, attack_windup=0.74,
-    behavior=EnemyBehavior.TANK, size=20, xp_reward=46, sprite="warden",
-    tags=("MELEE", "HEAVY"), knockback=250, knockback_resist=0.78,
-    loot=LootTable(3, 6, 0.14, 0.16, 0.08), role="tank",
-)
 
-ACOLYTE = EnemyDef(
-    id="acolyte", name="Ember Acolyte", health=46, damage=14, speed=80,
-    attack_range=310, aggro_range=390, attack_cooldown=2.0, attack_windup=0.6,
-    behavior=EnemyBehavior.KEEP_DISTANCE, size=12, xp_reward=32, sprite="acolyte",
-    tags=("RANGED", "SPELL"), knockback=70,
-    projectile=ProjectileSpec(kind="ember_bolt", speed=320, radius=7, lifetime=1.5),
-    loot=LootTable(2, 4, 0.10, 0.08, 0.12), role="ranged",
-)
 
-SCARAB = EnemyDef(
-    id="scarab", name="Scarab Sentinel", health=44, damage=10, speed=196,
-    attack_range=36, aggro_range=340, attack_cooldown=0.95, attack_windup=0.24,
-    behavior=EnemyBehavior.DART, size=12, xp_reward=28, sprite="scarab",
-    tags=("MELEE", "FAST"), knockback=100, knockback_resist=0.2,
-    loot=LootTable(1, 3, 0.06, 0.06, 0.05), role="fast",
-)
 
 
 # --- the crypt -----------------------------------------------------------------
@@ -189,13 +161,60 @@ MIRROR = EnemyDef(
     loot=LootTable(12, 20, 1.0, 0.5, 0.5, relic_chance=1.0), boss=True, role="boss",
 )
 
+# --- added archetypes --------------------------------------------------------
+# Each one exists because it asks the player a question the others do not.
+# Variants that only change a number were deliberately not added.
+
+ACOLYTE = EnemyDef(
+    # The control question: it never closes, and its bolt slows you, so ignoring
+    # it while you fight something else is how a fight gets away from you.
+    id="acolyte", name="Ash Acolyte", health=48, damage=10, speed=84,
+    attack_range=340, aggro_range=420, attack_cooldown=2.4, attack_windup=0.75,
+    behavior=EnemyBehavior.KEEP_DISTANCE, size=13, xp_reward=36, sprite="acolyte",
+    tags=("RANGED", "SPELL"), knockback=40,
+    projectile=ProjectileSpec(kind="acolyte_bolt", speed=270, radius=8, lifetime=2.0,
+                              slow=0.55, slow_duration=1.8),
+    loot=LootTable(2, 4, 0.12, 0.08, 0.16), role="ranged",
+)
+
+BRUTE = EnemyDef(
+    # The spacing question: a long, obvious wind-up that hurts badly, and a body
+    # that barely flinches. You are meant to see it coming and leave.
+    id="brute", name="Crypt Brute", health=180, damage=26, speed=62,
+    attack_range=62, aggro_range=280, attack_cooldown=2.6, attack_windup=0.95,
+    behavior=EnemyBehavior.TANK, size=22, xp_reward=58, sprite="brute",
+    tags=("MELEE", "HEAVY"), knockback=300, knockback_resist=0.8,
+    loot=LootTable(4, 7, 0.25, 0.20, 0.10, weapon_chance=0.12), role="tank",
+)
+
+SCARAB = EnemyDef(
+    # The positioning question: individually trivial, but they arrive in numbers
+    # and surround you, so standing still stops being free.
+    id="scarab", name="Husk Scarab", health=16, damage=5, speed=185,
+    attack_range=28, aggro_range=380, attack_cooldown=0.7, attack_windup=0.15,
+    behavior=EnemyBehavior.DART, size=9, xp_reward=8, sprite="scarab",
+    tags=("MELEE", "FAST", "SWARM"), knockback=40,
+    # A swarm pays per swarm, not per body, or a room of them out-earns a boss.
+    loot=LootTable(1, 1, 0.0, 0.02, 0.02, gold_min=0, gold_max=2), role="fast",
+)
+
+WARDEN = EnemyDef(
+    # The guardian at the bottom of the Ashen Deep. Readable mechanic: it is a
+    # tank that keeps hitting the same place, so it is beaten by moving, which
+    # is the lesson the Mirror will later punish you for over-learning.
+    id="warden", name="The Ashen Warden", health=420, damage=30, speed=96,
+    attack_range=84, aggro_range=900, attack_cooldown=2.0, attack_windup=0.85,
+    behavior=EnemyBehavior.TANK, size=26, xp_reward=260, sprite="warden",
+    tags=("MELEE", "HEAVY", "GUARDIAN"), knockback=340, knockback_resist=0.85,
+    loot=LootTable(10, 16, 1.0, 0.4, 0.4, weapon_chance=0.5, relic_chance=0.6),
+    elite=True, role="tank",
+)
+
 ARCHETYPES: dict[str, EnemyDef] = {
     e.id: e
     for e in (
-        SKELETON, ARCHER, HOUND, SLIME,                      # crypt
-        SPROUT, BRUTE, SPITTER,                              # grove
-        SHARDLING, WARDEN, ACOLYTE, SCARAB,                  # ruins
-        MIRROR,
+        SKELETON, ARCHER, HOUND, SLIME, ACOLYTE, BRUTE, SCARAB, WARDEN, MIRROR,
+        SPROUT, SPITTER, SHARDLING,
     )
 }
 
@@ -224,12 +243,29 @@ def elite_of(base: EnemyDef) -> EnemyDef:
     )
 
 
-def get_archetype(name: str) -> EnemyDef:
+def scaled_for_region(base: EnemyDef, difficulty: float) -> EnemyDef:
+    """Region scaling: the same archetype is meaningfully harder deeper in.
+
+    Health and damage only. Speed, range and wind-up are left alone on purpose:
+    those are what the player has learned to read, and scaling them would make
+    a later skeleton a different enemy wearing the same telegraph.
+    """
+    if difficulty == 1.0:
+        return base
+    return replace(
+        base,
+        health=round(base.health * difficulty, 1),
+        damage=round(base.damage * (1.0 + (difficulty - 1.0) * 0.7), 1),
+        xp_reward=int(base.xp_reward * difficulty),
+    )
+
+
+def get_archetype(name: str, difficulty: float = 1.0) -> EnemyDef:
     if name.startswith("elite_"):
-        return elite_of(get_archetype(name[len("elite_"):]))
+        return scaled_for_region(elite_of(get_archetype(name[len("elite_"):])), difficulty)
     if name not in ARCHETYPES:
         raise ValueError(f"Unknown enemy archetype: {name}")
-    return ARCHETYPES[name]
+    return scaled_for_region(ARCHETYPES[name], difficulty)
 
 
 @dataclass

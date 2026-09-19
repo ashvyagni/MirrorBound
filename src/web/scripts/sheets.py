@@ -602,7 +602,38 @@ FLOURISHES = _ui("flourishes", "flourishes.png", (
          names=("death", "victory", "levelUp")),
 ), 0.5)
 
-SCREENS = (SCREEN_FRAME, CONTROLS, MAP_TOKENS, BOSS_BAR, FLOURISHES)
+
+#: Potions, relics and resources -- everything findable. Frame names are main's
+#: item ids verbatim, so a consumable arriving from the server indexes its own
+#: icon with no lookup table between them, and an id with no art fails at build
+#: rather than showing a blank square. The eighth cell is deliberately empty.
+ITEMS = _ui("items", "items.png", (
+    Band("item", 0, 512, 0, 1536, 4, grid_cols=4,
+         names=("health_potion", "mana_potion", "ember_heart", "wolf_fang")),
+    Band("item_b", 512, 1024, 0, 1152, 3, grid_cols=3,
+         names=("mirror_eye", "essence", "shards")),
+), 0.25)
+
+#: Four states of one skill node, then an emblem per category. The categories
+#: are main's: COMBAT, MAGIC, MOBILITY, SURVIVAL.
+SKILL_NODES = _ui("skillNodes", "skill-nodes.png", (
+    Band("node", 0, 512, 0, 1536, 4, grid_cols=4,
+         names=("locked", "available", "unlocked", "maxed")),
+    Band("emblem", 512, 1024, 0, 1536, 4, grid_cols=4,
+         names=("combat", "magic", "mobility", "survival")),
+), 0.5)
+
+#: The pieces the remaining screens need: an xp trough, a toast plate, an
+#: inventory slot in two states, a scrollbar, and a divider.
+BARS_PLATES = _ui("barsPlates", "bars-plates.png", (
+    Band("a", 0, 512, 0, 1536, 4, grid_cols=4,
+         names=("xpTrough", "toast", "slot", "slotSelected")),
+    Band("b", 512, 1024, 0, 1152, 3, grid_cols=3,
+         names=("scrollTrack", "scrollThumb", "divider")),
+), 0.5)
+
+SCREENS = (SCREEN_FRAME, CONTROLS, MAP_TOKENS, BOSS_BAR, FLOURISHES,
+           ITEMS, SKILL_NODES, BARS_PLATES)
 
 SHEETS = (GOAT, BRO, DUMMY, *FACINGS, *WEAPONS, *CASTS, *SHIELDS, *SPELLS,
           ICONS, *UI, *SCREENS, *ENEMIES)

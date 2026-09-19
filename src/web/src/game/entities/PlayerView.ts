@@ -8,18 +8,27 @@
 
 import Phaser from 'phaser';
 
-import { CLIPS, goatAnimationKey, type ClipName } from '../animation/goatClips';
-import { GOAT_ANCHOR, GOAT_FRAME_SIZE, GOAT_TEXTURE_KEY } from '../animation/goatAtlas.generated';
+import {
+  CLIPS, goatAnimationKey, goatViewFor, goatViewKey, GOAT_VIEWS, isVerticalClip,
+  type ClipName, type GoatView,
+} from '../animation/goatClips';
+import { GOAT_BODY_RATIO, GOAT_TEXTURE_KEY } from '../animation/goatAtlas.generated';
 import { NET, PLAYER_DISPLAY_HEIGHT, TILE } from '../constants';
 import type { PlayerSnap, RoomFull, Vec2 } from '../contracts';
 import type { Facing, Intent, PlayerSnapshot, PlayerState } from '../types';
 import { EntityView } from './EntityView';
 
+/**
+ * The sheet has no drinking pose and no sustained channel, so both borrow:
+ * a channel is a cast held open, and a drink stands still.
+ */
 const STATE_CLIP: Record<PlayerSnap['state'], ClipName> = {
-  idle: 'idle', walk: 'walk', run: 'run', attack: 'attack', cast: 'attack', dash: 'run', hurt: 'hurt', dead: 'die',
+  idle: 'idle', walk: 'walk', run: 'run', attack: 'attack', cast: 'attack', channel: 'attack',
+  drink: 'idle', dash: 'run', hurt: 'hurt', dead: 'die',
 };
 const UI_STATE: Record<PlayerSnap['state'], PlayerState> = {
-  idle: 'idle', walk: 'walk', run: 'run', attack: 'attack', cast: 'attack', dash: 'run', hurt: 'hurt', dead: 'die',
+  idle: 'idle', walk: 'walk', run: 'run', attack: 'attack', cast: 'attack', channel: 'attack',
+  drink: 'idle', dash: 'run', hurt: 'hurt', dead: 'die',
 };
 
 export class PlayerView extends EntityView {
@@ -27,6 +36,7 @@ export class PlayerView extends EntityView {
   #facing: Facing = 1;
   facingVec: Vec2 = { x: 1, y: 0 };
   #clip: ClipName = 'idle';
+  #view: GoatView = 'side';
   snap: PlayerSnap | null = null;
   #speed = 175;
   #room: RoomFull | null = null;
@@ -36,8 +46,7 @@ export class PlayerView extends EntityView {
   constructor(scene: Phaser.Scene, pos: Vec2) {
     super(scene, 'player_1', pos, 0.9);
     this.sprite = scene.add.sprite(pos.x, pos.y, GOAT_TEXTURE_KEY, CLIPS.idle.frames[0]);
-    this.sprite.setOrigin(GOAT_ANCHOR.x, GOAT_ANCHOR.y);
-    this.sprite.setScale(PLAYER_DISPLAY_HEIGHT / GOAT_FRAME_SIZE.height);
+    this.#useView('side', true);
     this.sprite.play(goatAnimationKey('idle'));
     this.sprite.on(Phaser.Animations.Events.ANIMATION_COMPLETE, (anim: Phaser.Animations.Animation) => {
       // One-shot clips fall back to the server-driven locomotion clip.
@@ -79,7 +88,9 @@ export class PlayerView extends EntityView {
     this.facingVec = snap.facing;
     if (Math.abs(snap.facing.x) > 0.2) this.#face(snap.facing.x > 0 ? 1 : -1);
     const clip = STATE_CLIP[snap.state];
-    if (clip !== this.#clip) {
+    // The view can change without the clip changing -- turning from walking
+    // east to walking north is the same clip on a different sheet.
+    if (clip !== this.#clip || this.#viewFor(clip) !== this.#view) {
       // Keep an in-flight attack clip playing to completion.
       const attacking = this.#clip === 'attack' && this.sprite.anims.isPlaying && (snap.state === 'idle' || snap.state === 'walk' || snap.state === 'run');
       if (!attacking) this.#play(clip);
@@ -143,12 +154,42 @@ export class PlayerView extends EntityView {
   #face(facing: Facing): void {
     if (this.#facing === facing) return;
     this.#facing = facing;
-    this.sprite.setFlipX(facing === -1);
+    if (GOAT_VIEWS[this.#view].mirrors) this.sprite.setFlipX(facing === -1);
+  }
+
+  /**
+   * Which sheet a clip plays on.
+   *
+   * Only walking and running were drawn from the front and back, so everything
+   * else -- idle, attack, hurt, death -- stays on the side sheet rather than
+   * being faked from a walk pose.
+   */
+  #viewFor(clip: ClipName): GoatView {
+    return isVerticalClip(clip) ? goatViewFor(this.facingVec) : 'side';
+  }
+
+  /**
+   * Point the sprite at one of the three sheets.
+   *
+   * Origin and scale are per sheet, because the three are cropped differently.
+   * The scale is solved from the sheet's own body ratio rather than its frame
+   * height, so the goat is the same size from every angle -- sizing by frame
+   * height would shrink it by about a quarter the moment it turned upward.
+   */
+  #useView(view: GoatView, force = false): void {
+    if (!force && this.#view === view) return;
+    this.#view = view;
+    const def = GOAT_VIEWS[view];
+    this.sprite.setOrigin(def.anchor.x, def.anchor.y);
+    const body = PLAYER_DISPLAY_HEIGHT * GOAT_BODY_RATIO;
+    this.sprite.setScale(body / (def.frameSize.height * def.bodyRatio));
+    this.sprite.setFlipX(def.mirrors && this.#facing === -1);
   }
 
   #play(clip: ClipName): void {
     this.#clip = clip;
-    this.sprite.play(goatAnimationKey(clip), true);
+    this.#useView(this.#viewFor(clip));
+    this.sprite.play(goatViewKey(this.#view, clip), true);
   }
 
   snapshot(): PlayerSnapshot {

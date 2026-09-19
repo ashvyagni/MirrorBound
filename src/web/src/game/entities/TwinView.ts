@@ -12,6 +12,7 @@ import Phaser from 'phaser';
 import { BRO_ANCHOR, BRO_FRAME_SIZE } from '../animation/broAtlas.generated';
 import { GOAT_FRAME_SIZE } from '../animation/goatAtlas.generated';
 import { BRO_CLIPS, BRO_TEXTURE, broAnimationKey, type BroClipName } from '../animation/broClips';
+import { viewForDirection } from '../animation/clips';
 import { FX_TEXTURE, fxAnimationKey } from '../animation/fx';
 import { DEPTH, TWIN_DISPLAY_HEIGHT } from '../constants';
 import type { TwinSnap, Vec2 } from '../contracts';
@@ -117,12 +118,24 @@ export class TwinView extends EntityView {
     if (!this.#emote) this.#play(this.#travelClip());
   }
 
+  /**
+   * Which way the companion is drawn travelling.
+   *
+   * Its sheet has all four directions drawn, so it gets the same treatment as
+   * the player: the side rows are the only ones with a profile, so a diagonal
+   * stays on them and only a near-vertical heading uses up or down. Unlike the
+   * player it is never mirrored -- the sheet draws left and right separately
+   * because mirroring would put its bow on the wrong side.
+   */
   #travelClip(): BroClipName {
     if (this.snap?.state === 'downed') return 'surprised';
     const { x: vx, y: vy } = this.velocity;
-    if (Math.abs(vx) > 40) return vx > 0 ? 'moveRight' : 'moveLeft';
-    if (Math.abs(vy) > 60) return vy < 0 ? 'moveUp' : 'moveDown';
-    return Math.hypot(vx, vy) < 12 ? 'idle' : 'hover';
+    const speed = Math.hypot(vx, vy);
+    if (speed < 12) return 'idle';
+    if (speed < 40) return 'hover';
+    return viewForDirection({ x: vx, y: vy }) === 'side'
+      ? (vx >= 0 ? 'moveRight' : 'moveLeft')
+      : (vy < 0 ? 'moveUp' : 'moveDown');
   }
 
   #perform(clip: BroClipName): void {

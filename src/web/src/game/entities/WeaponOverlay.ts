@@ -10,7 +10,7 @@
 import Phaser from 'phaser';
 
 import { GOAT_BODY_RATIO } from '../animation/goatAtlas.generated';
-import { swingKey, WEAPONS, type SwingDef, type WeaponDef, type WeaponId } from '../animation/weaponClips';
+import { ABILITY_CASTS, swingKey, WEAPONS, type SwingDef, type WeaponDef, type WeaponId } from '../animation/weaponClips';
 import { DEPTH, PLAYER_DISPLAY_HEIGHT } from '../constants';
 import type { Vec2 } from '../contracts';
 
@@ -37,20 +37,52 @@ export class WeaponOverlay extends Phaser.GameObjects.Sprite {
     this.setVisible(false).setActive(false);
   }
 
-  /** Play the swing for `comboStep` (1-based) at the host. */
-  strike(comboStep: number, host: Vec2, facing: Vec2): void {
+  /**
+   * Play the attack motion for `comboStep` (1-based) at the host.
+   *
+   * A weapon that throws something plays its cast sheet instead of its bash:
+   * the bow's melee swing next to an arrow leaving it reads as the arrow having
+   * come from somewhere else.
+   */
+  strike(comboStep: number, host: Vec2, facing: Vec2, thrown = false): void {
     const weapon = this.#weapon;
     if (!weapon) return;
+    if (thrown && weapon.cast) {
+      this.#playSheet(weapon.cast, host, facing);
+      return;
+    }
     const index = Math.max(0, (comboStep - 1) % weapon.swings.length);
-    const def = weapon.swings[index] ?? weapon.swings[0]!;
+    this.#playSheet(weapon.swings[index] ?? weapon.swings[0]!, host, facing);
+  }
+
+  /**
+   * Play the motion for a named ability, if one was drawn for it.
+   *
+   * Returns false when nothing is drawn, so the caller can leave the weapon
+   * idling rather than borrowing a sheet that says the wrong element.
+   */
+  castAbility(abilityId: string, host: Vec2, facing: Vec2): boolean {
+    if (!this.#weapon) return false;
+    const def = ABILITY_CASTS[abilityId];
+    if (!def) return false;
+    this.#playSheet(def, host, facing);
+    return true;
+  }
+
+  #playSheet(def: SwingDef, host: Vec2, facing: Vec2): void {
+    const weapon = this.#weapon;
+    if (!weapon) return;
     this.#active = def;
     this.setTexture(def.texture, def.frames[0]);
     this.setOrigin(def.anchor.x, def.anchor.y);
     const body = PLAYER_DISPLAY_HEIGHT * GOAT_BODY_RATIO;
     const ratio = def.lengthRatio ?? weapon.lengthRatio;
+    // Solved against the sheet's own body ratio, never `setDisplaySize`: that
+    // measures the untrimmed source box, and these sheets are padded by their
+    // trails by wildly different amounts.
     this.setScale((body * ratio) / (def.frameSize.height * def.bodyRatio));
-    this.place(host, facing);
     this.setVisible(true).setActive(true);
+    this.place(host, facing);
     this.play(swingKey(def.texture), true);
   }
 

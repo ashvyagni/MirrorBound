@@ -7,13 +7,13 @@ export const SWORDA_TEXTURE_KEY = "swordA" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const SWORDA_BODY_RATIO = 0.84091 as const;
+export const SWORDA_BODY_RATIO = 0.55667 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const SWORDA_FRAME_SIZE = { width: 421, height: 352 } as const;
+export const SWORDA_FRAME_SIZE = { width: 388, height: 450 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const SWORDA_ANCHOR = { x: 0.54632, y: 0.62784 } as const;
+export const SWORDA_ANCHOR = { x: 0.40464, y: 0.59333 } as const;
 
 export const SWORDA_FRAMES = {
   swing: ["swing-00", "swing-01", "swing-02", "swing-03"],

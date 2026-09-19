@@ -1,7 +1,6 @@
 import Phaser from 'phaser';
 
 import { PALETTE, RENDER_SCALE, VIEW } from './constants';
-import { HudScene } from './scenes/HudScene';
 import { PlayScene } from './scenes/PlayScene';
 import { PreloadScene } from './scenes/PreloadScene';
 
@@ -25,27 +24,18 @@ export function createGame(parent: HTMLElement, fullscreenTarget?: HTMLElement):
     scale: {
       mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH,
-      // Fullscreen the whole stage rather than the canvas alone, so the exit
-      // button -- a sibling of the canvas -- stays on screen.
       ...(fullscreenTarget ? { fullscreenTarget } : {}),
     },
-    // No client-side physics: the server owns movement and collisions. The
-    // sandbox ran Arcade because it simulated locally; here every position in
-    // the world comes off a snapshot, so a second physics world could only
-    // ever disagree with the authoritative one.
-    // HudScene is listed but inactive; PlayScene launches it once the world
-    // exists, so the bar can never paint against a weapon that is not there.
-    scene: [PreloadScene, PlayScene, HudScene],
+    // No client-side physics: the server owns movement and collisions.
+    scene: [PreloadScene, PlayScene],
     // In development the loop runs on timers instead of requestAnimationFrame so
     // the game keeps stepping while the window is occluded (automated QA drives
     // it from a hidden browser pane). Production keeps vsync-locked RAF.
     fps: { target: 60, forceSetTimeOut: import.meta.env.DEV },
   });
 
-  // Dev-only handle, for poking at scenes and input from the console.
   if (import.meta.env.DEV) {
     (window as unknown as { game?: Phaser.Game }).game = game;
   }
-
   return game;
 }

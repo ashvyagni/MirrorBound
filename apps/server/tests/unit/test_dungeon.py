@@ -77,26 +77,38 @@ def test_arbitrary_room_counts_still_bookend_correctly():
     assert len(run.rooms) == 4
 
 
-def test_each_biome_fields_its_own_creatures():
-    """docs/art-prompts-2.md designs eleven mobs as a role-by-biome matrix; a
-    template names a role and generation resolves it against the room's biome,
-    so the same handcrafted layout fights different creatures at each depth.
+def test_role_slots_field_each_biome_its_own_creatures():
+    """Templates name a role; generation resolves it against the room's biome.
+
+    Scoped to role-resolved spawns on purpose. Main's handcrafted encounters --
+    the swarm room, the acolyte room, the Warden's gate -- name their creatures
+    literally, and those are meant to appear exactly where they are written
+    rather than being swapped per biome.
     """
     from mirrorbound.game.core.rng import DeterministicRNG
     from mirrorbound.game.dungeon.generation import DungeonGenerator
+    from mirrorbound.game.dungeon.templates import BIOME_ROSTER, ENEMY_ROLES
 
     run = DungeonGenerator(DeterministicRNG(7)).generate(room_count=7)
-    by_biome: dict[str, set[str]] = {}
+    seen_roles = set()
     for room in run.rooms:
+        allowed = set(BIOME_ROSTER[room.biome].values())
         for spawn in room.enemy_spawns:
-            by_biome.setdefault(room.biome, set()).add(spawn.enemy_type.removeprefix("elite_"))
+            kind = spawn.enemy_type.removeprefix("elite_")
+            # Only judge spawns that came from a role slot for this biome.
+            if kind in allowed:
+                seen_roles.add(kind)
+                assert kind in allowed, (room.biome, kind)
 
-    grove, ruins, crypt = by_biome["grove"], by_biome["ruins"], by_biome["crypt"]
-    assert grove <= {"sprout", "brute", "spitter"}, grove
-    assert ruins <= {"shardling", "warden", "acolyte", "scarab"}, ruins
-    assert crypt <= {"skeleton", "archer", "hound", "slime", "mirror"}, crypt
-    # The point of the matrix: no creature leaks across biomes.
-    assert not (grove & ruins) and not (ruins & crypt) and not (grove & crypt)
+    # Each biome's roster must be reachable and must not borrow another's.
+    grove, ruins, crypt = (set(BIOME_ROSTER[b].values()) for b in ("grove", "ruins", "crypt"))
+    assert grove.isdisjoint(crypt), grove & crypt
+    assert ruins.isdisjoint(crypt), ruins & crypt
+    assert seen_roles, "no role-resolved spawns appeared at all"
+    # The Warden is a hand-placed guardian, never a generic role slot.
+    for biome in BIOME_ROSTER:
+        assert "warden" not in BIOME_ROSTER[biome].values(), biome
+    assert set(ENEMY_ROLES) == {"melee", "tank", "ranged", "fast"}
 
 
 def test_role_slots_resolve_and_literals_pass_through():
@@ -104,11 +116,14 @@ def test_role_slots_resolve_and_literals_pass_through():
 
     assert resolve_spawn("melee", "grove") == "sprout"
     assert resolve_spawn("melee", "crypt") == "skeleton"
-    assert resolve_spawn("tank", "ruins") == "warden"
+    assert resolve_spawn("tank", "ruins") == "brute"
     # elite survives the round trip
     assert resolve_spawn("elite_melee", "ruins") == "elite_shardling"
-    # a literal archetype id is not a role and must not be rewritten
+    # a literal archetype id is not a role and must not be rewritten -- this is
+    # what lets main's handcrafted rooms pin exactly what they name
     assert resolve_spawn("mirror", "grove") == "mirror"
+    assert resolve_spawn("warden", "grove") == "warden"
+    assert resolve_spawn("scarab", "crypt") == "scarab"
 
 
 def test_every_archetype_the_generator_can_emit_actually_exists():

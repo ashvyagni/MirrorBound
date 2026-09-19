@@ -27,6 +27,10 @@ class DeterministicRNG:
         """Random int in [low, high], inclusive on both ends."""
         return self._random.randint(low, high)
 
+    def uniform(self, low: float, high: float) -> float:
+        """Uniform float in [low, high]."""
+        return self._random.uniform(low, high)
+
     def choice(self, options: Sequence[T]) -> T:
         return self._random.choice(options)
 

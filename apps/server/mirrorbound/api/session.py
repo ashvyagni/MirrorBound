@@ -26,7 +26,7 @@ from mirrorbound.game.core.clock import SIM_HZ, SNAPSHOT_HZ
 from mirrorbound.game.core.events import Event
 from mirrorbound.game.core.rng import DeterministicRNG
 from mirrorbound.game.dungeon.generation import DungeonGenerator, DungeonRun
-from mirrorbound.game.dungeon.room import Room
+from mirrorbound.game.dungeon.room import Portal, Room
 from mirrorbound.game.enemy_ai.controller import BasicEnemyController
 from mirrorbound.game.enemy_ai.mirror import MirrorController
 from mirrorbound.game.entities.entity import Vec2
@@ -36,6 +36,16 @@ from mirrorbound.game.movement.collision import CollisionSystem
 from mirrorbound.game.movement.movement import MovementSystem
 from mirrorbound.game.state import GameState
 from mirrorbound.game.twin_executor import TwinExecutor
+from mirrorbound.game.world import save as save_system
+from mirrorbound.game.world.campaign import (
+    AREAS,
+    HOME_VILLAGE,
+    START_AREA,
+    CampaignState,
+    sanitise_name,
+)
+from mirrorbound.game.world.npc import TALK_RADIUS
+from mirrorbound.game.world.village import build_village
 from mirrorbound.replay.recorder import ReplayRecorder
 
 log = logging.getLogger("mirrorbound.session")
@@ -49,7 +59,9 @@ CLIENT_EVENT_TYPES = {
     "TWIN_ACTION", "TWIN_OUTCOME", "TWIN_ATTACKED", "TWIN_DAMAGED", "TWIN_DOWNED", "TWIN_REVIVED",
     "ENEMY_ATTACKED", "ENEMY_SPAWNED", "PROJECTILE_HIT", "PROJECTILE_EXPIRED", "BOSS_COUNTER",
     "BOSS_NOVA_CHARGE", "BOSS_NOVA", "BOSS_DEFEATED", "RUN_COMPLETE", "ACTION_REJECTED", "PLAYER_HEALED",
-    "TARGET_CHANGE",
+    "TARGET_CHANGE", "ITEM_USE_STARTED", "ABILITY_INTERRUPTED", "TWIN_WEAPON_SWITCH", "GOLD_GAINED",
+    "SHOP_PURCHASE", "NPC_TALK", "QUEST_UPDATED", "CHECKPOINT_SAVED", "AREA_ENTER", "ABILITY_SLOT_CHANGED",
+    "TWIN_ITEM_GIVEN",
 }
 
 # Spatial heatmap cell size in world units. Rooms are 1280-1600 wide, so 64 gives
@@ -65,12 +77,15 @@ def seed_from_session(session_id: str) -> int:
 class GameSession:
     """Manages a single game session."""
 
-    def __init__(self, session_id: str, seed: int | None = None, record: bool = True, room_count: int = 7):
+    def __init__(self, session_id: str, seed: int | None = None, record: bool = True, room_count: int = 7,
+                 load_save: bool = False, start_area: str | None = None):
         self.session_id = session_id
         self.running = True
         self.seed = seed if seed is not None else seed_from_session(session_id)
         self.room_count = room_count
         self.record = record
+        self.load_save = load_save
+        self.start_area = start_area or START_AREA
         self.recorder = ReplayRecorder(session_id, self.seed, enabled=record)
         self.pending_input: PlayerInput | None = None
         self.pending_commands: list[CommandMessage] = []
@@ -85,9 +100,8 @@ class GameSession:
 
     def _build_world(self) -> None:
         self.state = GameState(seed=self.seed)
-        rng = DeterministicRNG(self.seed)
-        self.dungeon: DungeonRun = DungeonGenerator(rng).generate(room_count=self.room_count)
-        self.state.dungeon = self.dungeon
+        self.campaign = CampaignState()
+        self.dungeon: DungeonRun | None = None
 
         self.movement = MovementSystem(self.state.bus)
         self.combat = CombatSystem(self.state.bus, self.state.rng)
@@ -111,13 +125,117 @@ class GameSession:
         # Inventory / skill / weapon blocks are only re-sent after something changed them.
         self.detail_dirty = True
         for kind in ("ITEM_PICKUP", "WEAPON_CHANGED", "SKILL_UNLOCKED", "LEVEL_UP", "ITEM_USED",
-                     "ABILITY_SLOT_CHANGED", "PLAYER_RESPAWNED", "ROOM_ENTER"):
+                     "ABILITY_SLOT_CHANGED", "PLAYER_RESPAWNED", "ROOM_ENTER", "GOLD_GAINED",
+                     "SHOP_PURCHASE", "NPC_TALK", "QUEST_UPDATED", "AREA_ENTER", "TWIN_ITEM_GIVEN"):
             self.state.bus.subscribe(kind, self._mark_detail_dirty)
 
-        self._enter_room(self.dungeon.rooms[0], from_side=None)
+        # A loaded checkpoint decides where the run resumes; otherwise the run
+        # opens wherever it was told to, which is the first village unless a
+        # caller (a test, a debug link) asked for somewhere specific.
+        opening_area = self.start_area
+        if self.load_save:
+            saved = save_system.read_save(self.session_id)
+            if saved is not None:
+                self.campaign = CampaignState.from_save(saved.get("campaign", {}))
+                save_system.apply_save(saved, self.state.player, self.state.twin)
+                if self.campaign.twin_rescued:
+                    self.state.twin.dormant = False
+                    self.state.twin.name = self.campaign.twin_name
+                opening_area = self.campaign.current_area
+        self.state.campaign = self.campaign
+        self._enter_area(opening_area, announce=False)
+
+    # ------------------------------------------------------------------- areas
+
+    def _enter_area(self, area_id: str, announce: bool = True) -> None:
+        """Move the run to another area: a village (one authored safe room) or a
+        dungeon (a seeded run of rooms). The player and twin keep everything --
+        level, inventory, learned model -- because only the world changes."""
+        area = AREAS.get(area_id)
+        if area is None:
+            return
+        state = self.state
+        self.campaign.current_area = area_id
+        self.campaign.discover(area_id)
+        state.difficulty = area.difficulty
+        # Each area gets its own RNG stream off the run seed, so a given seed
+        # always produces the same Ashen Deep whether or not you detoured.
+        rng = DeterministicRNG(self.seed).spawn(f"area:{area_id}")
+
+        if area.kind == "village":
+            self.dungeon = None
+            state.dungeon = None
+            room = build_village(area_id, rng)
+            self._enter_room(room, from_side=None)
+            self._checkpoint()
+        else:
+            self.dungeon = DungeonGenerator(rng).generate(
+                room_count=len(area.sequence) or self.room_count,
+                sequence=area.sequence or None,
+                biome=area.biome,
+            )
+            for room in self.dungeon.rooms:
+                room.area_id = area_id
+                # A room whose treasure was taken in an earlier visit stays empty.
+                if room.id in self.campaign.looted_rooms:
+                    room.looted = True
+            state.dungeon = self.dungeon
+            self._enter_room(self.dungeon.rooms[0], from_side=None)
+
+        if announce:
+            state.emit("AREA_ENTER", area=area_id, name=area.name, kind=area.kind,
+                       subtitle=area.subtitle, difficulty=area.difficulty)
+
+    def _leave_area(self, portal_target: str) -> None:
+        ok, reason = self.campaign.is_open(portal_target)
+        if not ok:
+            self.state.emit("ACTION_REJECTED", actor=self.state.player.id, action="TRAVEL",
+                            area=portal_target, reason=reason)
+            return
+        self._enter_area(portal_target)
+
+    def _complete_area(self) -> None:
+        """A dungeon's last room is cleared. Rewards land exactly once."""
+        area_id = self.campaign.current_area
+        area = AREAS.get(area_id)
+        if area is None:
+            return
+        first_time = self.campaign.complete(area_id)
+        if first_time and area.completion_gold:
+            self.state.player.inventory.add_gold(area.completion_gold)
+        self.state.emit("QUEST_UPDATED", area=area_id, name=area.name, first=first_time,
+                        gold=area.completion_gold if first_time else 0,
+                        seal=area.completion_seal if first_time else "",
+                        seals=list(self.campaign.seals))
+        self._checkpoint()
+
+    def _checkpoint(self) -> None:
+        data = save_system.build_save(self.session_id, self.campaign, self.state.player, self.state.twin)
+        if save_system.write_save(self.session_id, data):
+            self.state.emit("CHECKPOINT_SAVED", area=self.campaign.current_area)
 
     def _mark_detail_dirty(self, _event: Event) -> None:
         self.detail_dirty = True
+
+    # The room, one in from the crypt's entrance, where the twin is found. The
+    # player has had two rooms to learn moving and swinging before it shows up,
+    # which is the order the tutorial is meant to teach them in.
+    TWIN_RESCUE_AREA = "wakewood_crypt"
+    TWIN_RESCUE_ROOM_INDEX = 2
+
+    def _maybe_rescue_twin(self, room, first_visit: bool) -> None:
+        state = self.state
+        if not state.twin.dormant:
+            return
+        reached = room.area_id == self.TWIN_RESCUE_AREA and room.index >= self.TWIN_RESCUE_ROOM_INDEX
+        if not (reached and first_visit):
+            return
+        state.twin.awaken(state.player.position, self.campaign.twin_name)
+        self.campaign.rescue_twin()
+        state.emit("TWIN_REVIVED", position=state.twin.position.to_dict(), rescued=True,
+                   name=self.campaign.twin_name)
+        state.emit("QUEST_UPDATED", area=room.area_id, name="The Twin", first=True,
+                   rescued=True, seals=list(self.campaign.seals))
 
     def _track_player_action(self, event: Event) -> None:
         if event.type == "PLAYER_ATTACKED":
@@ -136,7 +254,8 @@ class GameSession:
         state.enemies = []
         state.projectiles = []
         state.pickups = []
-        self.dungeon.current_room_index = room.index
+        if self.dungeon is not None:
+            self.dungeon.current_room_index = room.index
         spawn = room.entry_point_from(from_side) if from_side else room.player_spawn
         spawn = room.clamp(spawn, state.player.radius)
         state.player.position = spawn.copy()
@@ -144,11 +263,21 @@ class GameSession:
         state.player.knockback = Vec2()
         state.twin.position = room.clamp(spawn + Vec2(-40, 22), state.twin.radius)
         state.twin.velocity = Vec2()
+        # A twin that went down in the last room is back on its feet in the
+        # next one: a room transition is not a punishment window.
+        if state.twin.downed and not state.twin.dormant:
+            state.twin.revive(state.player.position)
         first_visit = not room.visited
         room.visited = True
         if first_visit:
             state.spawn_enemies_for_room(room)
-            state.spawn_room_treasure(room)
+            if not room.looted:
+                state.spawn_room_treasure(room)
+                # Treasure is handed out once per room, ever. Marking it here
+                # rather than on pickup means walking away from loot does not
+                # make the room farmable by coming back for it.
+                room.looted = True
+                self.campaign.looted_rooms.add(room.id)
             if not room.enemy_spawns:
                 room.cleared = True
                 room.unlock_doors()
@@ -158,7 +287,8 @@ class GameSession:
         self.room_dirty = True
         state.emit("ROOM_ENTER", room_id=room.id, room_index=room.index, room_type=room.room_type,
                    name=room.name, biome=room.biome, position=spawn.to_dict(), enemies=len(state.enemies),
-                   first_visit=first_visit)
+                   first_visit=first_visit, area=room.area_id, safe=room.room_type == "village")
+        self._maybe_rescue_twin(room, first_visit)
 
     # ---------------------------------------------------------------- messages
 
@@ -223,14 +353,170 @@ class GameSession:
             elif action == "SET_ABILITY_SLOT" and cmd.slot and cmd.abilityId:
                 if player.inventory.set_slot(cmd.slot, cmd.abilityId):
                     state.emit("ABILITY_SLOT_CHANGED", slot=cmd.slot, ability=cmd.abilityId)
+            elif action == "SWAP_WEAPON":
+                if player.inventory.swap_weapons():
+                    player.combo_step = 0
+                    state.emit("WEAPON_CHANGED", actor=player.id, weapon=player.inventory.equipped_weapon,
+                               offhand=player.inventory.offhand_weapon, position=player.position.to_dict())
+                else:
+                    state.emit("ACTION_REJECTED", actor=player.id, action=action, reason="nothing to swap to")
+            elif action == "SET_OFFHAND" and cmd.weaponId:
+                if player.inventory.equip_offhand(cmd.weaponId):
+                    state.emit("WEAPON_CHANGED", actor=player.id, weapon=player.inventory.equipped_weapon,
+                               offhand=cmd.weaponId, position=player.position.to_dict())
+                else:
+                    state.emit("ACTION_REJECTED", actor=player.id, action=action, reason="not owned")
+            elif action == "TRAVEL" and cmd.areaId:
+                self._travel(cmd.areaId)
+            elif action == "TALK" and cmd.npcId:
+                self._talk(cmd.npcId)
+            elif action == "BUY_ITEM" and cmd.npcId and cmd.itemId:
+                self._buy(cmd.npcId, cmd.itemId)
+            elif action == "SET_NAME":
+                self._set_names(cmd.playerName, cmd.twinName)
+            elif action == "TWIN_REQUEST" and cmd.weaponId:
+                self._request_from_twin(cmd.weaponId)
+            elif action == "SAVE":
+                self._checkpoint()
         self.pending_commands.clear()
 
-    def _use_item(self, item_id: str) -> None:
+    # ----------------------------------------------------------- world commands
+
+    def _travel(self, area_id: str) -> None:
+        """Travel from a village. Only ever from a village: leaving a dungeon
+        means walking out of it, which is what makes going in a decision."""
+        state = self.state
+        if state.room.room_type != "village":
+            state.emit("ACTION_REJECTED", actor=state.player.id, action="TRAVEL", area=area_id,
+                       reason="only from a village")
+            return
+        self._leave_area(area_id)
+
+    def _npc_at(self, npc_id: str):
+        for npc in self.state.room.npcs:
+            if npc.id == npc_id:
+                return npc
+        return None
+
+    def _talk(self, npc_id: str) -> None:
         state, player = self.state, self.state.player
-        if item_id not in CONSUMABLES or not player.inventory.take_consumable(item_id):
+        npc = self._npc_at(npc_id)
+        if npc is None:
+            state.emit("ACTION_REJECTED", actor=player.id, action="TALK", npc=npc_id, reason="not here")
+            return
+        if (Vec2(npc.x, npc.y) - player.position).length() > TALK_RADIUS + player.radius:
+            state.emit("ACTION_REJECTED", actor=player.id, action="TALK", npc=npc_id, reason="too far")
+            return
+        lines = npc.definition.dialogue_for(self.campaign.flags, self.campaign.player_name,
+                                            self.campaign.twin_name)
+        # Resting at the hearth is the village's one mechanical service.
+        if npc.definition.role == "hearth":
+            player.health = player.max_health
+            player.mana = player.max_mana
+            player.status_effects.clear()
+            player.slow_factor = 1.0
+            if not state.twin.dormant:
+                state.twin.health = state.twin.max_health
+                state.twin.mana = state.twin.max_mana
+            self._checkpoint()
+        state.emit("NPC_TALK", npc=npc_id, name=npc.definition.name, role=npc.definition.role,
+                   lines=list(lines), stock=[e.to_dict() for e in npc.definition.stock],
+                   position=player.position.to_dict())
+
+    def _buy(self, npc_id: str, item_id: str) -> None:
+        state, player = self.state, self.state.player
+        npc = self._npc_at(npc_id)
+        if npc is None:
+            state.emit("ACTION_REJECTED", actor=player.id, action="BUY_ITEM", reason="not here")
+            return
+        entry = next((e for e in npc.definition.stock if e.item_id == item_id), None)
+        if entry is None:
+            state.emit("ACTION_REJECTED", actor=player.id, action="BUY_ITEM", item=item_id, reason="not stocked")
+            return
+        inv = player.inventory
+        # Refuse before taking the gold, never after.
+        if entry.kind == "weapon" and item_id in inv.weapons:
+            state.emit("ACTION_REJECTED", actor=player.id, action="BUY_ITEM", item=item_id, reason="already owned")
+            return
+        if entry.kind == "relic" and item_id in inv.relics:
+            state.emit("ACTION_REJECTED", actor=player.id, action="BUY_ITEM", item=item_id, reason="already owned")
+            return
+        if not inv.spend_gold(entry.price):
+            state.emit("ACTION_REJECTED", actor=player.id, action="BUY_ITEM", item=item_id, reason="not enough gold")
+            return
+        if entry.kind == "weapon":
+            inv.add_weapon(item_id)
+        elif entry.kind == "consumable":
+            inv.add_consumable(item_id)
+        else:
+            inv.add_relic(item_id)
+        state.emit("SHOP_PURCHASE", npc=npc_id, item=item_id, kind=entry.kind, price=entry.price,
+                   gold=inv.gold, position=player.position.to_dict())
+
+    def _set_names(self, player_name: str | None, twin_name: str | None) -> None:
+        state = self.state
+        changed = False
+        if player_name:
+            self.campaign.player_name = sanitise_name(player_name, self.campaign.player_name)
+            changed = True
+        if twin_name and not state.twin.dormant:
+            self.campaign.twin_name = sanitise_name(twin_name, self.campaign.twin_name)
+            self.campaign.twin_named = True
+            state.twin.name = self.campaign.twin_name
+            changed = True
+        if changed:
+            state.emit("QUEST_UPDATED", area=self.campaign.current_area, name="names",
+                       playerName=self.campaign.player_name, twinName=self.campaign.twin_name,
+                       seals=list(self.campaign.seals))
+            self._checkpoint()
+
+    def _request_from_twin(self, weapon_id: str) -> None:
+        """Ask the twin to hand a weapon over. Authoritative move, not a copy:
+        the weapon leaves the twin's inventory as it enters the player's, so a
+        request can never mint a second one."""
+        state, player = self.state, self.state.player
+        twin = state.twin
+        if twin.dormant or weapon_id not in twin.inventory.weapons:
+            state.emit("ACTION_REJECTED", actor=player.id, action="TWIN_REQUEST", weapon=weapon_id,
+                       reason="twin does not carry it")
+            return
+        if weapon_id in player.inventory.weapons:
+            state.emit("ACTION_REJECTED", actor=player.id, action="TWIN_REQUEST", weapon=weapon_id,
+                       reason="already owned")
+            return
+        twin.inventory.weapons.remove(weapon_id)
+        if twin.inventory.equipped_weapon == weapon_id:
+            twin.inventory.equipped_weapon = twin.inventory.weapons[0] if twin.inventory.weapons else ""
+        if twin.inventory.offhand_weapon == weapon_id:
+            twin.inventory.offhand_weapon = ""
+        player.inventory.add_weapon(weapon_id)
+        state.emit("TWIN_ITEM_GIVEN", weapon=weapon_id, to=player.id,
+                   twinWeapon=twin.inventory.equipped_weapon, position=twin.position.to_dict())
+
+    def _use_item(self, item_id: str) -> None:
+        """Begin drinking. Nothing is consumed and nothing is restored yet --
+        that happens in `_finish_drink` when the timer runs out, so a drink cut
+        short by death costs the player nothing."""
+        state, player = self.state, self.state.player
+        if item_id not in CONSUMABLES:
+            state.emit("ACTION_REJECTED", actor=player.id, action="USE_ITEM", item=item_id, reason="unknown item")
+            return
+        ok, reason = player.can_drink(item_id, CONSUMABLES[item_id])
+        if not ok:
+            state.emit("ACTION_REJECTED", actor=player.id, action="USE_ITEM", item=item_id, reason=reason)
+            return
+        player.begin_drink(item_id)
+        state.emit("ITEM_USE_STARTED", actor=player.id, item=item_id, duration=player.drink_timer,
+                   position=player.position.to_dict())
+
+    def _finish_drink(self, item_id: str) -> None:
+        state, player = self.state, self.state.player
+        spec = CONSUMABLES.get(item_id)
+        # The stock check happened when the drink started; re-check here because
+        # a whole 0.4s of simulation has happened since.
+        if spec is None or not player.inventory.take_consumable(item_id):
             state.emit("ACTION_REJECTED", actor=player.id, action="USE_ITEM", item=item_id, reason="none left")
             return
-        spec = CONSUMABLES[item_id]
         healed = player.heal(float(spec.get("heal", 0))) if spec.get("heal") else 0.0
         mana = 0.0
         if spec.get("mana"):
@@ -238,6 +524,15 @@ class GameSession:
             player.mana = min(player.max_mana, player.mana + float(spec["mana"]))
             mana = player.mana - before
         state.emit("ITEM_USED", actor=player.id, item=item_id, healed=round(healed, 1), mana=round(mana, 1),
+                   position=player.position.to_dict())
+
+    def _finish_channel(self, ability_id: str) -> None:
+        from mirrorbound.game.combat.abilities import get_ability
+
+        state, player = self.state, self.state.player
+        ability = get_ability(ability_id)
+        healed = player.heal(ability.effect_value)
+        state.emit("PLAYER_HEALED", amount=round(healed, 1), remaining=round(player.health, 1), source=ability_id,
                    position=player.position.to_dict())
 
     def restart(self, seed: int | None = None) -> None:
@@ -307,6 +602,10 @@ class GameSession:
 
         # 1. player intent
         player.update(dt)
+        if player.finished_drink:
+            self._finish_drink(player.finished_drink)
+        if player.finished_channel:
+            self._finish_channel(player.finished_channel)
         player.apply_input(dt, inp)
         if inp.attack:
             self.combat.process_player_attack(state)
@@ -340,6 +639,8 @@ class GameSession:
     def _update_twin(self, dt: float) -> None:
         state = self.state
         twin = state.twin
+        if twin.dormant:
+            return
         twin.update(dt)
         if twin.downed:
             if twin.downed_timer <= 0:
@@ -377,16 +678,39 @@ class GameSession:
             state.emit("ROOM_CLEARED", room_id=room.id, room_type=room.room_type, room_index=room.index,
                        position=state.player.position.to_dict(), healed=heal)
             if room.room_type == "boss" and not state.boss_alive():
+                self._complete_area()
                 state.phase = "victory"
                 state.emit("RUN_COMPLETE", stats=state.stats.to_dict(), seed=self.seed)
                 return
+            # Clearing the last room of a dungeon finishes the area and opens
+            # the way home; the player still walks out under their own power.
+            if self.dungeon is not None and room.index == len(self.dungeon.rooms) - 1:
+                self._complete_area()
+                self._open_exit_portal(room)
             self.room_dirty = True
         # Door transitions.
-        if state.transition_timer <= 0 and room.cleared:
+        if state.transition_timer <= 0 and room.cleared and self.dungeon is not None:
             door = room.door_at(state.player.position, state.player.radius)
             if door is not None and not door.locked and door.target_index is not None:
                 opposite = {"north": "south", "south": "north", "east": "west", "west": "east"}[door.side]
                 self._enter_room(self.dungeon.rooms[door.target_index], from_side=opposite)
+                return
+        # Portals out of the area.
+        if state.transition_timer <= 0:
+            portal = room.portal_at(state.player.position, state.player.radius)
+            if portal is not None and not portal.locked:
+                self._leave_area(portal.target_area)
+
+    def _open_exit_portal(self, room) -> None:
+        """The way back to the village, opened in place once a dungeon is done."""
+        home = HOME_VILLAGE.get(self.campaign.current_area, START_AREA)
+        if any(p.target_area == home for p in room.portals):
+            return
+        room.portals.append(Portal(
+            id=f"{room.id}_home", x=room.width / 2, y=room.height / 2,
+            target_area=home, label=AREAS[home].name, kind="road",
+        ))
+        self.room_dirty = True
 
     def _respawn(self) -> None:
         state = self.state

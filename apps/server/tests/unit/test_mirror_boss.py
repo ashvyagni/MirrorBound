@@ -1,10 +1,10 @@
-from mirrorbound.api.session import GameSession
+﻿from mirrorbound.api.session import GameSession
 from mirrorbound.game.entities.entity import Vec2
-from tests.conftest import DT, events_of
+from tests.conftest import combat_session, DT, events_of
 
 
 def boss_session():
-    s = GameSession("boss", seed=42, record=False)
+    s = combat_session("boss", seed=42, record=False)
     s.state.enemies = []
     boss = s.state.spawn_enemy("mirror", s.state.player.position + Vec2(150, 0))
     s.state.pending_events.clear()
@@ -104,7 +104,8 @@ def test_phase_two_denies_the_players_favourite_combat_cell():
 
 
 def test_boss_kill_completes_the_run():
-    s = GameSession("bossrun", seed=42, record=False)
+    # The Mirror is only in its own area; the first dungeon ends at an elite.
+    s = combat_session("bossrun", seed=42, start_area="mirror_sanctum")
     boss_room = s.dungeon.rooms[-1]
     s._enter_room(boss_room, from_side="south")
     boss = next(e for e in s.state.enemies if e.enemy_def.boss)

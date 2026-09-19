@@ -21,18 +21,20 @@ import { ProjectileView } from '../entities/ProjectileView';
 import { TwinView } from '../entities/TwinView';
 import { WeaponOverlay } from '../entities/WeaponOverlay';
 import { eventBus } from '../EventBus';
-import { DeviceIntentSource } from '../input/DeviceIntentSource';
-import { bridgeSnapshotToHud } from '../hud/bridge';
+import { KeyboardIntentSource } from '../input/KeyboardIntentSource';
 import { WebSocketClient } from '../network/WebSocketClient';
-import { HudScene } from './HudScene';
-import type { Intent, PlayerSnapshot } from '../types';
+import type { PlayerSnapshot } from '../types';
 import { Ambient } from '../world/Ambient';
 import { TextureFactory } from '../world/TextureFactory';
 import { WorldRenderer } from '../world/WorldRenderer';
 import { getSettings, type Settings } from '../../ui/settings';
 
+/** Death-burst colour per sprite. The seven the server does not send yet are
+ *  here so adding them costs no client change. */
 const ENEMY_COLOUR: Record<string, number> = {
   skeleton: 0xdcd4c4, archer: 0xffd27a, hound: 0x6a5a8a, slime: 0x63c26d, mirror: 0xd62e6c,
+  acolyte: 0xb48cff, brute: 0xc07a4a, scarab: 0x8fb36a, shardling: 0x9fe3ff,
+  spitter: 0x9ad06a, sprout: 0x7fbf5a, warden: 0xf0c060,
 };
 
 export class PlayScene extends Phaser.Scene {
@@ -43,7 +45,7 @@ export class PlayScene extends Phaser.Scene {
   #world!: WorldRenderer;
   #ambient!: Ambient;
   #vfx!: Vfx;
-  #source!: DeviceIntentSource;
+  #source!: KeyboardIntentSource;
   #weapon!: WeaponOverlay;
   #player: PlayerView | null = null;
   #twin: TwinView | null = null;
@@ -55,9 +57,12 @@ export class PlayScene extends Phaser.Scene {
   #settings: Settings = getSettings();
   #modalOpen = false;
   #debug!: Phaser.GameObjects.Graphics;
+  #vignette!: Phaser.GameObjects.Image;
   #teardown: Array<() => void> = [];
   #lastUiSnapshot: PlayerSnapshot | null = null;
   #cameraBound = false;
+  /** Highest event tick already turned into feedback; see `#onEvents`. */
+  #lastEventTick = -1;
 
   constructor() {
     super(PlayScene.KEY);
@@ -72,8 +77,9 @@ export class PlayScene extends Phaser.Scene {
     this.#vfx = new Vfx(this, this.#settings);
     this.#weapon = new WeaponOverlay(this);
     this.#debug = this.add.graphics().setDepth(DEPTH.debug);
+    this.#vignette = this.add.image(0, 0, 'fx:vignette').setDepth(DEPTH.vignette).setAlpha(0.8);
 
-    this.#source = new DeviceIntentSource(this.input.keyboard!, this.input);
+    this.#source = new KeyboardIntentSource(this.input.keyboard!);
     this.cameras.main.setBackgroundColor(PALETTE.night);
     this.cameras.main.setZoom(RENDER_SCALE * this.#settings.zoom);
 
@@ -103,11 +109,6 @@ export class PlayScene extends Phaser.Scene {
     for (const event of [Phaser.Scale.Events.ENTER_FULLSCREEN, Phaser.Scale.Events.LEAVE_FULLSCREEN]) {
       this.scale.on(event, () => eventBus.emit('game:fullscreen', { active: this.scale.isFullscreen }));
     }
-    // Logesh's art HUD runs as its own scene so it is not under this camera's
-    // RENDER_SCALE zoom, and is fed from the snapshot by the bridge.
-    this.#teardown.push(bridgeSnapshotToHud());
-    this.scene.launch(HudScene.KEY);
-
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.#dispose());
     eventBus.emit('game:ready', { scene: PlayScene.KEY });
   }
@@ -130,15 +131,7 @@ export class PlayScene extends Phaser.Scene {
         eventBus.emit('player:changed', ui);
       }
     }
-    // Only the five movement/combat fields cross as an InputMessage; the rest of
-    // the Intent is HUD-level and becomes discrete commands below.
-    this.#ws.sendInput(
-      playing
-        ? { moveX: intent.moveX, moveY: intent.moveY, attack: intent.attack, run: intent.run, ability: intent.ability }
-        : { moveX: 0, moveY: 0, attack: false, run: false, ability: null },
-      time,
-    );
-    if (playing) this.#hudIntents(intent);
+    this.#ws.sendInput(playing ? intent : { moveX: 0, moveY: 0, attack: false, run: false, ability: null }, time);
 
     this.#twin?.update(dt);
     for (const e of this.#enemies.values()) e.update(dt);
@@ -146,39 +139,10 @@ export class PlayScene extends Phaser.Scene {
     for (const p of this.#pickups.values()) p.update(dt);
     this.#ambient.update(dt, this.#player ? { x: this.#player.x, y: this.#player.y } : null);
 
+    const cam = this.cameras.main;
+    this.#vignette.setPosition(cam.midPoint.x, cam.midPoint.y);
+    this.#vignette.setScale((cam.displayWidth / this.#vignette.width) * 1.02, (cam.displayHeight / this.#vignette.height) * 1.02);
     this.#drawDebug();
-  }
-
-
-  /**
-   * Turn the HUD-level parts of an intent into server commands.
-   *
-   * These are edge-triggered and rare, so they go as discrete `COMMAND`s rather
-   * than riding every input frame. The server validates each one -- swapping to
-   * a weapon you do not own comes back as `ACTION_REJECTED`, it does not happen
-   * locally and then get corrected.
-   */
-  #hudIntents(intent: Intent): void {
-    const snap = this.#snapshot;
-    if (!snap) return;
-
-    if (intent.weaponSlot !== null) {
-      // Hand 1 is "the other weapon you own" (see hud/bridge.ts): the server has
-      // one equipped weapon, not two hands, so this equips rather than swaps.
-      const owned = snap.player.inventory?.weapons.map((w) => w.id) ?? [];
-      const equipped = snap.player.currentWeapon;
-      const wanted = intent.weaponSlot === 0 ? equipped : owned.find((id) => id !== equipped);
-      if (wanted && wanted !== equipped) {
-        eventBus.emit('ui:command', { type: 'COMMAND', action: 'EQUIP_WEAPON', weaponId: wanted });
-      }
-    }
-
-    if (intent.potionUse) {
-      const potion = snap.player.inventory?.consumables.find((c) => c.count > 0);
-      if (potion) eventBus.emit('ui:command', { type: 'COMMAND', action: 'USE_ITEM', itemId: potion.id });
-    }
-
-    if (intent.mapToggle) eventBus.emit('map:toggle', {});
   }
 
   // --- snapshots ------------------------------------------------------------------------
@@ -307,8 +271,26 @@ export class PlayScene extends Phaser.Scene {
 
   // --- events ---------------------------------------------------------------------------
 
+  /**
+   * Turn a batch of server events into feedback, exactly once each.
+   *
+   * Snapshots arrive twenty times a second and every one carries a tick, so an
+   * event that turned up in two batches -- a resend, or a reconnect replaying
+   * the tail -- would spawn its effect twice. Only ticks past the highest one
+   * already handled are acted on; a batch that goes backwards means the server
+   * restarted and the watermark is reset.
+   */
   #onEvents(events: ServerEvent[]): void {
-    for (const e of events) this.#onEvent(e);
+    if (events.length === 0) return;
+    let batchHigh = events[0]!.tick;
+    for (const e of events) batchHigh = Math.max(batchHigh, e.tick);
+    // A batch entirely behind the watermark is the server having restarted.
+    if (batchHigh < this.#lastEventTick) this.#lastEventTick = -1;
+    for (const e of events) {
+      if (e.tick <= this.#lastEventTick) continue;
+      this.#onEvent(e);
+    }
+    this.#lastEventTick = Math.max(this.#lastEventTick, batchHigh);
   }
 
   #pos(e: ServerEvent, key = 'position'): Vec2 {
@@ -324,7 +306,11 @@ export class PlayScene extends Phaser.Scene {
         const facing = (e.data.facing as Vec2) ?? player.facingVec;
         const weapon = String(e.data.weapon ?? '');
         const finisher = String(e.data.action_token ?? '').endsWith('FINISHER');
-        this.#weapon.strike(Number(e.data.comboStep ?? 1), { x: player.x, y: player.y }, facing);
+        // A weapon that throws something plays the motion Logesh drew for the
+        // shot rather than its melee bash. Read off what is equipped rather
+        // than off `player.weapon`, which only rides on detail snapshots.
+        const thrown = this.#weapon.equipped !== null && this.#weapon.equipped !== 'sword';
+        this.#weapon.strike(Number(e.data.comboStep ?? 1), { x: player.x, y: player.y }, facing, thrown);
         if (weapon.includes('sword')) {
           this.#vfx.slash({ x: player.x, y: player.y }, facing, finisher ? PALETTE.pink : 0xffffff, finisher ? 1.35 : 1);
           audio.play(finisher ? 'slash_heavy' : 'slash', { pitch: 0.95 + Number(e.data.comboStep ?? 1) * 0.06 });
@@ -337,8 +323,12 @@ export class PlayScene extends Phaser.Scene {
         if (!player) break;
         const facing = (e.data.facing as Vec2) ?? player.facingVec;
         const pos = { x: player.x, y: player.y };
-        switch (String(e.data.ability_id)) {
-          case 'arcane_bolt': this.#vfx.arcaneCast(pos); audio.play('arcane'); break;
+        const abilityId = String(e.data.ability_id);
+        // The weapon's own motion while the spell fires. Without one the staff
+        // idles through the cast and the spell reads as arriving from nowhere.
+        this.#weapon.castAbility(abilityId, pos, facing);
+        switch (abilityId) {
+          case 'arcane_bolt': this.#vfx.arcaneCast(pos, facing); audio.play('arcane'); break;
           case 'flame_burst': this.#vfx.flameCone(pos, facing); audio.play('fire'); break;
           case 'shadow_dash': this.#vfx.dash(pos, (e.data.direction as Vec2) ?? facing); audio.play('dash'); break;
           case 'binding_nova': this.#vfx.nova(pos, 150); audio.play('nova'); break;
@@ -533,6 +523,5 @@ export class PlayScene extends Phaser.Scene {
     this.#ws.disconnect();
     this.#world.destroy();
     this.#ambient.destroy();
-    this.scene.stop(HudScene.KEY);
   }
 }

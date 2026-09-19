@@ -99,7 +99,11 @@ export interface PlayerStats {
   manaRegen: number;
 }
 
-export type PlayerState = 'idle' | 'walk' | 'run' | 'attack' | 'cast' | 'dash' | 'hurt' | 'dead';
+/** Mirrors `PLAYER_STATES` in game/entities/player.py. `channel` and `drink`
+ *  arrived with the cast-time and potion work and were never added here, which
+ *  left PlayerView's exhaustive state maps failing to compile. */
+export type PlayerState =
+  | 'idle' | 'walk' | 'run' | 'attack' | 'cast' | 'channel' | 'drink' | 'dash' | 'hurt' | 'dead';
 
 export interface PlayerSnap extends EntityBase {
   type: 'player';

@@ -68,6 +68,10 @@ def test_the_twin_fighting_does_not_move_the_players_traits():
     """
     s = GameSession("twin-noise", seed=31, record=False)
     st = s.state
+    # The twin starts dormant now (it is the thing you are looking for), and a
+    # dormant twin never decides or fires -- which is exactly the noise this
+    # test needs present.
+    st.twin.awaken(st.player.position, "the Twin")
     st.enemies = []
     bag = st.spawn_enemy("slime", st.player.position + Vec2(70, 0))
     bag.max_health = bag.health = 10**9
