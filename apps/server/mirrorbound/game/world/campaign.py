@@ -41,6 +41,10 @@ class AreaDef:
     # Gold and a quest seal handed out the first time the area is completed.
     completion_gold: int = 0
     completion_seal: str = ""
+    # The dungeon the game teaches fighting in. Its first combat room is the
+    # authored teaching one rather than a roll, because that fight is taken
+    # alone, at level one, before the twin has been found.
+    tutorial: bool = False
 
 
 HOLLOW_REACH = AreaDef(
@@ -54,7 +58,7 @@ WAKEWOOD_CRYPT = AreaDef(
     subtitle="Something under the wakewood is breathing again.",
     sequence=(RoomType.ENTRANCE, RoomType.COMBAT, RoomType.EXPLORATION, RoomType.TREASURE, RoomType.ELITE),
     requires="", map_x=0.38, map_y=0.54, difficulty=1.0,
-    completion_gold=120, completion_seal="seal_of_waking",
+    completion_gold=120, completion_seal="seal_of_waking", tutorial=True,
 )
 
 EMBERFALL = AreaDef(
@@ -119,8 +123,11 @@ class CampaignState:
     discovered_areas: set[str] = field(default_factory=lambda: {START_AREA})
     # Rooms already looted, by room id, so a treasure room re-entered is empty.
     looted_rooms: set[str] = field(default_factory=set)
-    # Quest flags drive dialogue and nothing else.
-    flags: set[str] = field(default_factory=lambda: {"quest_active"})
+    # Quest flags drive dialogue and nothing else. Empty at the start, so the
+    # village opens on its `intro` lines -- which are the only place the name
+    # the player chose is ever spoken back to them. `quest_active` is set by
+    # the elder telling you about the crypt, which is what the words mean.
+    flags: set[str] = field(default_factory=set)
     seals: list[str] = field(default_factory=list)
     twin_rescued: bool = False
     twin_named: bool = False
@@ -141,6 +148,22 @@ class CampaignState:
             return False
         self.discovered_areas.add(area_id)
         return True
+
+    def reveal_open(self) -> list[str]:
+        """Discover every area you could set out for right now.
+
+        A village is where you choose where to go, so standing in one is what
+        puts the roads out of it on the map. Only *open* areas: anything still
+        gated by an area you have not finished stays an unknown marker, so the
+        map fills in as the campaign does rather than all at once.
+
+        Without this the opening is a dead end -- the elder tells you about the
+        Wakewood Crypt and the map has never heard of it.
+        """
+        found = [a.id for a in AREAS.values()
+                 if a.id not in self.discovered_areas and self.is_open(a.id)[0]]
+        self.discovered_areas.update(found)
+        return found
 
     def complete(self, area_id: str) -> bool:
         """Mark an area finished. False when it was already finished, so the
@@ -216,7 +239,9 @@ class CampaignState:
         state.completed_areas = {a for a in data.get("completedAreas", []) if a in AREAS}
         state.discovered_areas = {a for a in data.get("discoveredAreas", []) if a in AREAS} or {START_AREA}
         state.looted_rooms = set(data.get("lootedRooms", []))
-        state.flags = set(data.get("flags", [])) or {"quest_active"}
+        # No `or {...}` fallback: a save taken before the elder was spoken to
+        # legitimately has no flags, and defaulting would skip her opening.
+        state.flags = set(data.get("flags", []))
         state.seals = list(data.get("seals", []))
         state.twin_rescued = bool(data.get("twinRescued", False))
         state.twin_named = bool(data.get("twinNamed", False))

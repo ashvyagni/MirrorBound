@@ -61,7 +61,7 @@ CLIENT_EVENT_TYPES = {
     "BOSS_NOVA_CHARGE", "BOSS_NOVA", "BOSS_DEFEATED", "RUN_COMPLETE", "ACTION_REJECTED", "PLAYER_HEALED",
     "TARGET_CHANGE", "ITEM_USE_STARTED", "ABILITY_INTERRUPTED", "TWIN_WEAPON_SWITCH", "GOLD_GAINED",
     "SHOP_PURCHASE", "NPC_TALK", "QUEST_UPDATED", "CHECKPOINT_SAVED", "AREA_ENTER", "ABILITY_SLOT_CHANGED",
-    "TWIN_ITEM_GIVEN",
+    "TWIN_ITEM_GIVEN", "AREA_DISCOVERED",
 }
 
 # Spatial heatmap cell size in world units. Rooms are 1280-1600 wide, so 64 gives
@@ -163,6 +163,11 @@ class GameSession:
         rng = DeterministicRNG(self.seed).spawn(f"area:{area_id}")
 
         if area.kind == "village":
+            # Standing in a village is what puts the roads out of it on the
+            # map. Gated areas stay unknown, so the map fills in as you do.
+            for found in self.campaign.reveal_open():
+                state.emit("AREA_DISCOVERED", area=found, name=AREAS[found].name,
+                           subtitle=AREAS[found].subtitle)
             self.dungeon = None
             state.dungeon = None
             room = build_village(area_id, rng)
@@ -173,6 +178,7 @@ class GameSession:
                 room_count=len(area.sequence) or self.room_count,
                 sequence=area.sequence or None,
                 biome=area.biome,
+                tutorial=area.tutorial,
             )
             for room in self.dungeon.rooms:
                 room.area_id = area_id
@@ -212,7 +218,12 @@ class GameSession:
     def _checkpoint(self) -> None:
         data = save_system.build_save(self.session_id, self.campaign, self.state.player, self.state.twin)
         if save_system.write_save(self.session_id, data):
-            self.state.emit("CHECKPOINT_SAVED", area=self.campaign.current_area)
+            # `safe` says whether this was the village kind of checkpoint or
+            # one taken because something happened; the client says different
+            # things about them, and "the village remembers" in a crypt reads
+            # as a bug.
+            self.state.emit("CHECKPOINT_SAVED", area=self.campaign.current_area,
+                            safe=self.state.room.room_type == "village")
 
     def _mark_detail_dirty(self, _event: Event) -> None:
         self.detail_dirty = True
@@ -348,6 +359,8 @@ class GameSession:
                                position=player.position.to_dict())
                 else:
                     state.emit("ACTION_REJECTED", actor=player.id, action=action, skill=cmd.skillId, reason=reason)
+            elif action == "RESPEC":
+                self._respec()
             elif action == "USE_ITEM" and cmd.itemId:
                 self._use_item(cmd.itemId)
             elif action == "SET_ABILITY_SLOT" and cmd.slot and cmd.abilityId:
@@ -409,6 +422,13 @@ class GameSession:
             return
         lines = npc.definition.dialogue_for(self.campaign.flags, self.campaign.player_name,
                                             self.campaign.twin_name)
+        # The elder telling you where to go is what starts the quest. Read
+        # *after* the lines above, so this first talk still gets her opening
+        # and every talk after it gets the reminder.
+        if npc.definition.role == "elder" and "quest_active" not in self.campaign.flags:
+            self.campaign.flags.add("quest_active")
+            state.emit("QUEST_UPDATED", quest="wakewood_crypt", started=True,
+                       name=npc.definition.name)
         # Resting at the hearth is the village's one mechanical service.
         if npc.definition.role == "hearth":
             player.health = player.max_health
@@ -422,6 +442,30 @@ class GameSession:
         state.emit("NPC_TALK", npc=npc_id, name=npc.definition.name, role=npc.definition.role,
                    lines=list(lines), stock=[e.to_dict() for e in npc.definition.stock],
                    position=player.position.to_dict())
+
+    def _respec(self) -> None:
+        """Unlearn the whole tree and take the points back.
+
+        Only in a village, and only out of combat. A respec mid-fight would let
+        the player re-solve an encounter from inside it, which is a different
+        game than the one the skill choices are meant to be part of; a village
+        is where the campaign already lets you change your mind.
+        """
+        state, player = self.state, self.state.player
+        if state.room.room_type != "village":
+            state.emit("ACTION_REJECTED", actor=player.id, action="RESPEC",
+                       reason="only in a village")
+            return
+        if state.get_active_enemies():
+            state.emit("ACTION_REJECTED", actor=player.id, action="RESPEC", reason="not in a fight")
+            return
+        if not player.unlocked_skills:
+            state.emit("ACTION_REJECTED", actor=player.id, action="RESPEC", reason="nothing learned")
+            return
+        refunded = player.respec()
+        state.emit("SKILL_UNLOCKED", skill="", respec=True, refunded=refunded,
+                   skillPoints=player.skill_points, position=player.position.to_dict())
+        self._checkpoint()
 
     def _buy(self, npc_id: str, item_id: str) -> None:
         state, player = self.state, self.state.player

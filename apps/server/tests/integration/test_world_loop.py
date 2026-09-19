@@ -142,6 +142,59 @@ def test_talking_from_across_the_village_is_refused():
                for e in s.state.pending_events if e.type == "ACTION_REJECTED")
 
 
+def test_the_elder_opens_on_her_intro_and_only_then_starts_the_quest():
+    """The intro lines are the only place the player's chosen name is spoken.
+
+    They are reachable only while no quest flag is set, so a campaign that
+    started with `quest_active` already on made every `intro` in the game dead
+    content and swallowed the naming payoff.
+    """
+    s = fresh_village("intro")
+    s.campaign.player_name = sanitise_name("Wren", "Wanderer")
+    assert s.campaign.flags == set(), "a fresh campaign has been told nothing yet"
+
+    elder = stand_by(s, "elder")
+    s.handle_input({"type": "COMMAND", "action": "TALK", "npcId": elder.id})
+    s.step(DT)
+    talk = next(e for e in s.state.pending_events if e.type == "NPC_TALK")
+    assert any("Wren" in line for line in talk.data["lines"]), "the intro says your name"
+    assert "quest_active" in s.campaign.flags, "being told is what starts it"
+
+    # Told twice is not told twice: the second talk is the reminder, and it
+    # does not re-emit the quest as newly started.
+    s.state.pending_events.clear()
+    s.handle_input({"type": "COMMAND", "action": "TALK", "npcId": elder.id})
+    s.step(DT)
+    again = next(e for e in s.state.pending_events if e.type == "NPC_TALK")
+    assert again.data["lines"] != talk.data["lines"]
+    assert not [e for e in s.state.pending_events
+                if e.type == "QUEST_UPDATED" and e.data.get("started")]
+
+
+def test_a_save_with_no_flags_restores_with_no_flags():
+    """Restoring must not invent `quest_active` for a run that never earned it."""
+    restored = CampaignState.from_save({"flags": []})
+    assert restored.flags == set()
+
+
+def test_a_village_puts_the_roads_out_of_it_on_the_map():
+    """The opening is otherwise a dead end: the elder names the crypt and the
+    map has never heard of it, so there is nothing to travel to."""
+    s = fresh_village("reveal")
+    discovered = set(s.campaign.discovered_areas)
+    assert "wakewood_crypt" in discovered, "the one open road out is on the map"
+    assert "emberfall" not in discovered, "still behind the crypt, so still unknown"
+    assert "mirror_sanctum" not in discovered
+
+
+def test_revealing_is_idempotent_and_reveals_nothing_twice():
+    s = fresh_village("reveal2")
+    assert s.campaign.reveal_open() == [], "already revealed on arrival"
+    before = set(s.campaign.discovered_areas)
+    s.campaign.reveal_open()
+    assert s.campaign.discovered_areas == before
+
+
 def test_the_hearth_restores_and_saves():
     s = fresh_village("rest")
     hearth = stand_by(s, "hearth")
@@ -152,6 +205,60 @@ def test_the_hearth_restores_and_saves():
     assert s.state.player.health == s.state.player.max_health
     assert s.state.player.mana == s.state.player.max_mana
     assert save_system.read_save("rest") is not None
+
+
+# --- respec ---------------------------------------------------------------------
+
+
+def learn_two(session):
+    p = session.state.player
+    p.skill_points = 4
+    p.unlock_skill("keen_edge")
+    p.unlock_skill("heavy_hands")
+    return p
+
+
+def test_respec_in_a_village_refunds_everything_and_is_deterministic():
+    s = fresh_village("respec")
+    p = learn_two(s)
+    spent_down_to = p.skill_points
+    max_health_with = p.max_health
+
+    s.handle_input({"type": "COMMAND", "action": "RESPEC"})
+    s.step(DT)
+
+    assert p.unlocked_skills == set(), "the whole tree, so no node outlives its prerequisite"
+    assert p.skill_points == spent_down_to + 2
+    # Relearning the same nodes must land back exactly where it started.
+    p.unlock_skill("keen_edge")
+    p.unlock_skill("heavy_hands")
+    assert p.max_health == max_health_with
+    assert p.skill_points == spent_down_to
+
+
+def test_respec_never_heals_and_never_leaves_you_over_your_maximum():
+    """Resilience raises max health, so refunding it lowers the ceiling."""
+    s = fresh_village("respec-hp")
+    p = s.state.player
+    p.skill_points = 4
+    p.unlock_skill("vitality")
+    p.health = p.max_health
+    raised = p.max_health
+
+    s.handle_input({"type": "COMMAND", "action": "RESPEC"})
+    s.step(DT)
+    assert p.max_health < raised, "the bonus is gone"
+    assert p.health == p.max_health, "clamped down, not refilled and not left over the cap"
+
+
+def test_respec_is_refused_outside_a_village():
+    s = combat_session("respec-fight")
+    learn_two(s)
+    s.handle_input({"type": "COMMAND", "action": "RESPEC"})
+    s.step(DT)
+    assert s.state.player.unlocked_skills, "nothing was unlearned"
+    assert any(e.data.get("action") == "RESPEC" for e in s.state.pending_events
+               if e.type == "ACTION_REJECTED")
 
 
 # --- rewards happen once -------------------------------------------------------

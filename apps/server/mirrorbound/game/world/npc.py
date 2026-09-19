@@ -69,7 +69,7 @@ class NpcDef:
 
 
 ELDER_MARA = NpcDef(
-    id="elder_mara", name="Elder Mara", role="elder", fx=0.50, fy=0.36,
+    id="elder_mara", name="Elder Mara", role="elder", fx=0.50, fy=0.36, sprite="npc_elder",
     lines={
         "intro": (
             "You have your mother's stubborn walk, {player}.",
@@ -92,7 +92,7 @@ ELDER_MARA = NpcDef(
 )
 
 SMITH_OREN = NpcDef(
-    id="smith_oren", name="Oren the Smith", role="weaponsmith", fx=0.26, fy=0.52,
+    id="smith_oren", name="Oren the Smith", role="weaponsmith", fx=0.26, fy=0.52, sprite="npc_smith",
     stock=(
         ShopEntry("weapon", "hunter_bow", 140),
         ShopEntry("weapon", "ember_staff", 190),
@@ -112,7 +112,7 @@ SMITH_OREN = NpcDef(
 )
 
 APOTHECARY_SIV = NpcDef(
-    id="apothecary_siv", name="Siv the Apothecary", role="apothecary", fx=0.74, fy=0.52,
+    id="apothecary_siv", name="Siv the Apothecary", role="apothecary", fx=0.74, fy=0.52, sprite="npc_apothecary",
     stock=(
         ShopEntry("consumable", "health_potion", 35),
         ShopEntry("consumable", "mana_potion", 30),

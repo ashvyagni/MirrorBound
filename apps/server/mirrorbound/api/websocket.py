@@ -50,7 +50,14 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
     await manager.connect(websocket, session_id)
     seed_param = websocket.query_params.get("seed")
     seed = int(seed_param) if seed_param and seed_param.lstrip("-").isdigit() else None
-    session = GameSession(session_id, seed=seed)
+    # A real connection resumes from its checkpoint. Tests build sessions
+    # directly and leave `load_save` off, which is why it is not the default,
+    # but without this here every hearth and every village wrote a save that
+    # nothing ever read and closing the tab lost the run.
+    #
+    # `?seed=` means "start this run over from a known seed", so it also means
+    # do not resume -- otherwise the seed would be ignored by the save.
+    session = GameSession(session_id, seed=seed, load_save=seed is None)
     game_task = asyncio.create_task(session.run_game_loop(manager))
     log.info("session %s started (seed %s)", session_id, session.seed)
 

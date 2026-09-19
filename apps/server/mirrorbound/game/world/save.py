@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from pathlib import Path
 from typing import Any
 
@@ -60,6 +61,18 @@ def build_save(session_id: str, campaign, player, twin) -> dict[str, Any]:
     }
 
 
+#: How many times to retry the atomic rename, and how long to wait between.
+#:
+#: On Windows a file sync client, an indexer or a virus scanner can hold a
+#: handle to the save for a few milliseconds after it is written, and
+#: `os.replace` onto a held file fails outright. This repository lives in a
+#: OneDrive folder, so that is not a hypothetical: without the retry a
+#: checkpoint is lost roughly one time in three and the only trace is a line in
+#: the server log.
+REPLACE_ATTEMPTS = 5
+REPLACE_BACKOFF = 0.04
+
+
 def write_save(session_id: str, data: dict[str, Any]) -> bool:
     try:
         SAVE_DIR.mkdir(parents=True, exist_ok=True)
@@ -68,8 +81,18 @@ def write_save(session_id: str, data: dict[str, Any]) -> bool:
         # half-written save where a valid one used to be.
         tmp = path.with_suffix(".tmp")
         tmp.write_text(json.dumps(data, indent=1), encoding="utf-8")
-        tmp.replace(path)
-        return True
+        for attempt in range(REPLACE_ATTEMPTS):
+            try:
+                tmp.replace(path)
+                return True
+            except PermissionError:
+                # Held by something else, for now. Anything but the last
+                # attempt waits and tries again; the last one falls through to
+                # the handler below and is reported.
+                if attempt == REPLACE_ATTEMPTS - 1:
+                    raise
+                time.sleep(REPLACE_BACKOFF * (attempt + 1))
+        return False
     except OSError:
         log.exception("could not write checkpoint for %s", session_id)
         return False

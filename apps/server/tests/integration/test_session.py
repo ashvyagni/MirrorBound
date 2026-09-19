@@ -156,3 +156,47 @@ def test_seed_from_session_id_is_stable():
     from mirrorbound.api.session import seed_from_session
     assert seed_from_session("default") == seed_from_session("default")
     assert seed_from_session("a") != seed_from_session("b")
+
+
+# --- the connection actually resumes -------------------------------------------
+
+
+def test_a_websocket_connection_resumes_from_its_checkpoint():
+    """The checkpoint system was write-only from the browser's point of view.
+
+    Every hearth and every village wrote a save, and the WebSocket built its
+    session without `load_save`, so nothing ever read one back: closing the tab
+    lost the run. This asserts the wiring rather than the save format, which
+    `test_world_loop` already covers.
+    """
+    import inspect
+
+    from mirrorbound.api import websocket as ws_module
+    from mirrorbound.game.world import save as save_system
+
+    source = inspect.getsource(ws_module.websocket_endpoint)
+    assert "load_save=" in source, "the endpoint must decide about resuming, explicitly"
+
+    # And the round trip itself: a session that saved progress, reconnecting.
+    save_system.delete_save("resume")
+    first = GameSession("resume", seed=5, record=False)
+    first.campaign.player_name = "Wren"
+    first.campaign.discovered_areas.add("wakewood_crypt")
+    first.campaign.complete("wakewood_crypt")
+    first._checkpoint()
+
+    again = GameSession("resume", seed=5, record=False, load_save=True)
+    assert again.campaign.player_name == "Wren"
+    assert "wakewood_crypt" in again.campaign.completed_areas
+    save_system.delete_save("resume")
+
+
+def test_a_seeded_connection_starts_over_rather_than_resuming():
+    """`?seed=` means "run this seed", which a resumed save would silently
+    ignore. The two must not both apply."""
+    import inspect
+
+    from mirrorbound.api import websocket as ws_module
+
+    source = inspect.getsource(ws_module.websocket_endpoint)
+    assert "load_save=seed is None" in source
