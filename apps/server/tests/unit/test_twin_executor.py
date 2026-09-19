@@ -1,11 +1,11 @@
-from mirrorbound.api.session import GameSession
+﻿from mirrorbound.api.session import GameSession
 from mirrorbound.game.entities.entity import Vec2
 from mirrorbound.game.entities.twin import TwinIntent
-from tests.conftest import DT, events_of
+from tests.conftest import combat_session, DT, events_of
 
 
 def fresh():
-    s = GameSession("exec", seed=3, record=False)
+    s = combat_session("exec", seed=3, record=False)
     s.state.enemies = []
     s.state.pending_events.clear()
     return s

@@ -1,4 +1,4 @@
-"""Whole-simulation tests: scripted inputs through the real GameSession.
+﻿"""Whole-simulation tests: scripted inputs through the real GameSession.
 
 These are the replay contract for the full game (not the toy in
 test_determinism.py): same seed + same tick-stamped inputs -> same event log
@@ -12,7 +12,7 @@ import json
 from mirrorbound.api.session import GameSession
 from mirrorbound.game.entities.entity import Vec2
 from mirrorbound.game.entities.player import PlayerInput
-from tests.conftest import DT
+from tests.conftest import combat_session, DT
 
 # A scripted "player": walk north to the gate, into the combat room, fight.
 def scripted_input(tick: int) -> PlayerInput:
@@ -28,7 +28,7 @@ def scripted_input(tick: int) -> PlayerInput:
 
 
 def run_session(seed: int, ticks: int) -> tuple[GameSession, list[dict]]:
-    s = GameSession("sim", seed=seed, record=False)
+    s = combat_session("sim", seed=seed)
     log: list[dict] = []
     for t in range(ticks):
         s.pending_input = scripted_input(t)
@@ -73,7 +73,7 @@ def test_scripted_run_reaches_combat_fights_and_the_twin_acts():
 
 
 def test_snapshot_shape_has_every_hud_field():
-    s = GameSession("snap", seed=9, record=False)
+    s = combat_session("snap", seed=9, record=False)
     s.step(DT)
     snap = s.snapshot()
     assert snap["type"] == "SNAPSHOT" and snap["roomFull"] is True
@@ -94,7 +94,7 @@ def test_snapshot_shape_has_every_hud_field():
 
 
 def test_room_transition_through_an_unlocked_door():
-    s = GameSession("doors", seed=5, record=False)
+    s = combat_session("doors", seed=5, record=False)
     room0 = s.state.room
     door = room0.door_to(1)
     assert door is not None and not door.locked
@@ -107,7 +107,7 @@ def test_room_transition_through_an_unlocked_door():
 
 
 def test_clearing_a_room_unlocks_it_and_pause_freezes_the_sim():
-    s = GameSession("clear", seed=5, record=False)
+    s = combat_session("clear", seed=5, record=False)
     s._enter_room(s.dungeon.rooms[1], from_side="south")
     for e in s.state.enemies:
         e.take_hit(10_000, s.state.player.id)
@@ -125,7 +125,7 @@ def test_clearing_a_room_unlocks_it_and_pause_freezes_the_sim():
 
 
 def test_commands_equip_unlock_and_use_items():
-    s = GameSession("cmds", seed=5, record=False)
+    s = combat_session("cmds", seed=5, record=False)
     p = s.state.player
     p.inventory.add_weapon("hunter_bow")
     s.handle_input({"type": "COMMAND", "action": "EQUIP_WEAPON", "weaponId": "hunter_bow"})
@@ -139,7 +139,11 @@ def test_commands_equip_unlock_and_use_items():
     p.inventory.add_consumable("health_potion")
     s.handle_input({"type": "COMMAND", "action": "USE_ITEM", "itemId": "health_potion"})
     s.step(DT)
-    assert p.health == 95 and not p.inventory.consumables
+    # Drinking takes 0.4s: nothing is restored and nothing is consumed yet.
+    assert p.state == "drink" and p.health == 50 and p.inventory.consumables["health_potion"] == 1
+    for _ in range(int(0.4 / DT) + 2):
+        s.step(DT)
+    assert p.health == 90 and not p.inventory.consumables
     s.handle_input({"type": "COMMAND", "action": "TWIN_EQUIP", "weaponId": "hunter_bow"})
     s.step(DT)
     assert s.state.twin.weapon.id == "hunter_bow"

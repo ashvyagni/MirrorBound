@@ -1,4 +1,4 @@
-"""Scenario test: the full weapon-autonomy loop through the real per-tick
+﻿"""Scenario test: the full weapon-autonomy loop through the real per-tick
 session, not hand-wired pieces -- loot -> the twin's own inventory ->
 AgentObservation -> TwinV0Controller.decide() -> TwinExecutor -> actually
 equipped. Each stage has its own unit tests (test_loot.py,
@@ -8,11 +8,11 @@ test_twin_controller.py, test_twin_executor.py); this proves they compose.
 from __future__ import annotations
 
 from mirrorbound.api.session import GameSession
-from tests.conftest import DT
+from tests.conftest import combat_session, DT
 
 
 def test_twin_autonomously_equips_a_looted_weapon_matching_its_learned_style():
-    s = GameSession("weapon-autonomy", seed=11, record=False)
+    s = combat_session("weapon-autonomy", seed=11, record=False)
     s.state.enemies = []
 
     # frost_staff (the twin's starting weapon) is RANGED and SPELL-tagged;

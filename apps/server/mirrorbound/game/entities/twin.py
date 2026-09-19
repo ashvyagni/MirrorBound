@@ -75,6 +75,11 @@ class Twin(Entity):
     damage_dealt: float = 0.0
     damage_taken: float = 0.0
     revives: int = 0
+    # True before the twin has been found. A dormant twin is not in the world at
+    # all: it does not decide, move, fight, take damage or pick things up. The
+    # entity still exists so nothing downstream has to cope with it being None.
+    dormant: bool = True
+    name: str = "the Twin"
     # Ticks between controller decisions. 6 ticks = 10 decisions/second, which
     # is plenty for an ally and keeps the controller cheap.
     decision_interval: int = 6
@@ -138,8 +143,18 @@ class Twin(Entity):
         self.attack_cooldown = self.weapon.cooldown * 1.1
         self.set_state("attack" if self.weapon.is_melee else "cast")
 
+    def awaken(self, near: Vec2, name: str) -> None:
+        """Found. From here on it is a participant, not scenery."""
+        self.dormant = False
+        self.name = name
+        self.position = near + Vec2(-46, 26)
+        self.health = self.max_health
+        self.mana = self.max_mana
+        self.invulnerable_for = 2.0
+        self.set_state("idle")
+
     def take_hit(self, amount: float) -> float:
-        if self.state == "downed":
+        if self.state == "downed" or self.dormant:
             return 0.0
         actual = self.take_damage(amount)
         self.damage_taken += actual
@@ -166,6 +181,8 @@ class Twin(Entity):
         base.update({
             "type": "twin",
             "state": self.state,
+            "dormant": self.dormant,
+            "name": self.name,
             "mana": round(self.mana, 1),
             "maxMana": round(self.max_mana, 1),
             "currentWeapon": self.weapon.id,

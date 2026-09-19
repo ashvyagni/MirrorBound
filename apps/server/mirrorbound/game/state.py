@@ -62,6 +62,9 @@ class GameState:
     pickups: list[Pickup] = field(default_factory=list)
     room: Room = field(default_factory=Room)
     dungeon: Any = None            # DungeonRun; typed loosely to avoid an import cycle
+    campaign: Any = None           # CampaignState, owned by the session
+    # Region scaling for the area currently being played; applied at spawn.
+    difficulty: float = 1.0
     phase: str = "playing"
     paused: bool = False
     transition_timer: float = 0.0  # > 0 while fading between rooms
@@ -97,7 +100,7 @@ class GameState:
     # --- spawning ------------------------------------------------------------------
 
     def spawn_enemy(self, enemy_type: str, position: Vec2) -> Enemy:
-        enemy_def = get_archetype(enemy_type)
+        enemy_def = get_archetype(enemy_type, self.difficulty)
         kind = "boss" if enemy_def.boss else "enemy"
         enemy = Enemy(id=self.ids.next(kind), position=position.copy(), enemy_def=enemy_def)
         enemy.home = position.copy()
@@ -183,6 +186,13 @@ class GameState:
             "stats": self.stats.to_dict(),
             "dungeon": self.dungeon.to_dict() if self.dungeon is not None else None,
         }
+        if self.campaign is not None:
+            d["campaign"] = self.campaign.to_dict()
+            if detail:
+                d["npcs"] = [
+                    n.to_dict(self.campaign.flags, self.campaign.player_name, self.campaign.twin_name)
+                    for n in self.room.npcs
+                ]
         if include_room:
             d["room"] = self.room.to_dict()
         else:

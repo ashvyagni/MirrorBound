@@ -1,4 +1,4 @@
-"""Loot acquisition: a weapon pickup goes to whoever actually walked over it
+﻿"""Loot acquisition: a weapon pickup goes to whoever actually walked over it
 (player or twin); everything else stays on the player regardless.
 """
 
@@ -6,11 +6,11 @@ from __future__ import annotations
 
 from mirrorbound.api.session import GameSession
 from mirrorbound.game.entities.entity import Vec2
-from tests.conftest import DT
+from tests.conftest import combat_session, DT
 
 
 def session_with_twin_and_player_apart(gap: float = 400.0) -> GameSession:
-    s = GameSession("loot-test", seed=7, record=False)
+    s = combat_session("loot-test", seed=7, record=False)
     s.state.twin.position = s.state.player.position + Vec2(gap, 0)
     return s
 

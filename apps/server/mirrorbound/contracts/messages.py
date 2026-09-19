@@ -21,6 +21,9 @@ class InputMessage(BaseModel):
 CommandAction = Literal[
     "EQUIP_WEAPON", "TWIN_EQUIP", "UNLOCK_SKILL", "USE_ITEM", "SET_ABILITY_SLOT",
     "PAUSE", "RESUME", "RESTART", "REQUEST_ROOM", "SET_TWIN_STANCE",
+    # World and progression.
+    "SWAP_WEAPON", "SET_OFFHAND", "TRAVEL", "TALK", "BUY_ITEM", "SET_NAME",
+    "TWIN_REQUEST", "SAVE",
 ]
 
 
@@ -35,6 +38,12 @@ class CommandMessage(BaseModel):
     slot: int | None = Field(None, ge=1, le=4)
     stance: str | None = None
     seed: int | None = None
+    areaId: str | None = None
+    npcId: str | None = None
+    # Length-capped here as well as sanitised server-side: the contract is the
+    # first place a hostile client meets, and it should not accept a megabyte.
+    playerName: str | None = Field(None, max_length=64)
+    twinName: str | None = Field(None, max_length=64)
 
 
 ClientMessage = InputMessage | CommandMessage
