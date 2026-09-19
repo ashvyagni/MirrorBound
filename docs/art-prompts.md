@@ -387,3 +387,200 @@ The nodes themselves reuse piece 54's button pair and piece 55's tokens.
 drifting apart, the sunburst turning and the chevrons rising are all transforms
 the game applies to a static image — which is cheaper, smoother, and cannot go
 out of sync with the moment that triggered it.
+
+---
+
+## Part 10 — Potions and relics
+
+Everything the game lets you find and carry, and none of it invented:
+`CONSUMABLES`, `RELICS` and `RESOURCES` in `inventory.py` on `main` name seven
+things between them, with effects and rarities already set.
+
+| id | name | what it does | rarity |
+| --- | --- | --- | --- |
+| `health_potion` | Health Potion | restores 45 health | common |
+| `mana_potion` | Mana Potion | restores 40 mana | common |
+| `ember_heart` | Ember Heart | +10% spell damage | rare |
+| `wolf_fang` | Wolf Fang | +10% weapon damage | rare |
+| `mirror_eye` | Mirror Eye | the twin learns 25% faster | rare |
+| `essence` | Essence | dropped by every enemy | common |
+| `shards` | Mirror Shards | from elites and chests | uncommon |
+
+**One sheet, not seven.** These are all small objects drawn flat-on, they are
+all displayed at about the same size, and `assets/ui/icons.png` already proves
+eight of them fit one grid comfortably. Seven sheets of one object each would
+be seven chances for the set to stop matching.
+
+**The two potions are not free to colour.** The health potion sits in the
+hotbar dial above a magenta health bar and the mana potion above a cyan one. If
+the bottle does not carry the colour of the bar it fills, the dial stops being
+readable at a glance and becomes something you have to stop and parse.
+
+**Rarity is not drawn.** `main` already carries a rarity per item and the
+interface frames it; an icon that also encodes rarity would say it twice and
+disagree the first time an item is retuned.
+
+Where they end up: the potions replace the stand-ins in `Hotbar.ts`, which
+currently borrows the fireball and frost-nova icons because no potion art
+existed. The relics and resources are for the inventory screen and for pickups
+lying on the ground -- the same flat-on drawing serves all three.
+
+### Block 0-ITEM — the object style
+
+Paste this on its own, once per chat. Neither of the other blocks fits: Block
+0-UI's palette is violet interface chrome and these are not chrome, and
+Block 0-MOB is for creatures standing on a ground line.
+
+```
+STYLE BRIEF. Read this once and apply it to everything I ask for in this chat.
+
+I am making item icons for a 2D game. Small objects, drawn alone.
+
+THE LOOK
+Flat, bold, storybook game art. A clean children's-book illustration turned
+into a game sprite, NOT a painted fantasy render, and NOT pixel art.
+
+- A thick, dark, slightly soft outline around every object and every major
+  internal shape. One consistent line weight throughout, around 6 pixels at
+  this resolution.
+- Two or three flat tones per material: a base colour, one shadow, one
+  highlight. No gradients, no airbrushing, no soft blending, no ambient
+  occlusion, no rim lighting, no glow.
+- Bold, simple silhouettes. Each object is read by its shape before its
+  colour. Ornament reduced to two or three clear shapes: no filigree, no
+  engraved runes, no scrollwork, no micro-detail of any kind.
+- Glass and gems are simple faceted shapes: a flat base colour, one shadow
+  face, one bright highlight, and that is all. Not refractive, not glassy,
+  not photoreal.
+- Confident linework with a slightly loose, hand-drawn quality. Relaxed
+  rather than mechanically precise.
+
+These are drawn at about 380 pixels and displayed at about 40. If it would
+not read clearly at a tenth of its size, it is too detailed.
+
+THE CAMERA
+Flat-on, straight at the object, as an inventory icon. Orthographic. No
+perspective, no vanishing point, no foreshortening, no three-quarter view, no
+top-down angle. An object that stands up is drawn standing up, seen from the
+side.
+
+THE SHEET FORMAT
+A single 1536 x 1024 pixel image in a strict 4 x 2 grid: 4 columns, 2 rows,
+each cell exactly 384 x 512 pixels. Reading order is left to right across the
+top row, then left to right across the bottom row. The objects are unrelated
+to each other -- this is not an animation.
+
+FRAMING
+Each object is centred in its own cell and fills about two thirds of the
+cell's height. Objects never cross from one cell into the next, and each has
+at least 24 pixels of clear background on every side. Draw them at a
+consistent visual weight: a fang and a bottle should look like they belong in
+the same set, not like one was drawn at twice the scale.
+
+BACKGROUND
+Flat pure bright green (#00FF00), edge to edge, perfectly uniform. Nothing
+else on it at all: no grid lines, no cell borders, no frame numbers, no
+labels, no captions, no watermark, no shadow cast onto the background.
+
+NEVER INCLUDE
+No text, no numbers, no rarity stars, no borders or frames around an object,
+no ground, no floor, no surface for anything to rest on, no hand, no
+character, no sparkles, no motion lines, no drop shadows.
+
+Reply "ready" and wait for my sheet.
+```
+
+### 58. Items — `assets/ui/items.png`
+
+```
+Sheet 58: SEVEN ITEMS, one per cell, on a 1536 x 1024 canvas in a strict 4 x 2
+grid of 384 x 512 cells. Use the first seven cells; leave the eighth cell
+completely empty pure green.
+
+TOP ROW, left to right:
+
+1. HEALTH POTION. A squat rounded glass bottle with a short neck and a dark
+   cork stopper. The liquid inside is a strong warm magenta (#d62e6c), filling
+   about three quarters of the bottle, with a flat horizontal surface and one
+   pale highlight crescent on the upper left of the glass. A simple band of
+   dark cloth tied around the neck. Three shapes and a stopper -- no label, no
+   bubbles, no embossing.
+
+2. MANA POTION. The SAME bottle at the SAME size and the SAME angle, so the
+   two read as a pair -- only the contents change. The liquid is a cold cyan
+   (#6fd8e8), same fill level, same highlight, same cork, same neck band.
+   Drawing this one a different shape is the single easiest way to get this
+   sheet wrong.
+
+3. EMBER HEART. A fist-sized heart carved from dull dark stone, cracked open
+   down its middle, with hot orange light in the crack and one small
+   white-hot core deep inside. The heart is a simple bold heart shape, not
+   anatomical. Two or three flat facets on the stone, nothing more.
+
+4. WOLF FANG. A single curved tooth, broad at the root and tapering to a sharp
+   point, in flat bone white with one grey shadow along its inner curve. Wound
+   around the root is a short length of dark leather cord with a loose end
+   hanging. It sits point-down, the way it would hang from a necklace.
+
+BOTTOM ROW, left to right:
+
+5. MIRROR EYE. An upright oval of polished mirror held in a thin dark metal
+   surround, shaped like an eye: pointed at both ends, widest in the middle.
+   The mirror face is flat pale violet with one hard diagonal highlight band
+   across it, and at its centre a soft pink (#f5a4c0) slit pupil. Flat --
+   the mirror must NOT reflect anything or show a scene.
+
+6. ESSENCE. A loose cluster of five or six small teardrop motes of pale
+   green-white light, floating in a rough vertical drift, the largest at the
+   bottom and the smallest at the top. Each mote is a simple flat shape with
+   its own dark outline -- they are objects, not a glow. No container, no wisp,
+   no trail joining them.
+
+7. MIRROR SHARDS. Three angular fragments of mirrored glass of different
+   sizes, overlapping slightly, arranged in a loose fan. Each shard is a flat
+   pale violet with one lighter facet and a thin soft-pink edge along its
+   sharpest side. Straight edges and sharp points throughout -- nothing
+   rounded, nothing curved.
+
+8. EMPTY. Nothing at all: flat pure green.
+
+The two bottles in cells 1 and 2 must be identical in outline, size and
+position -- they are the same bottle holding different liquid. Cells 3 to 7
+should each look like they were drawn by the same hand on the same afternoon:
+the same line weight, the same number of tones, the same visual weight in
+their cell.
+```
+
+### Wiring it in
+
+One spec in `scripts/sheets.py`, the same shape as `ICONS` -- static
+single-frame icons on a 4 x 2 grid, heavily downscaled because nothing draws
+them above about 40 pixels:
+
+```python
+ITEMS = SheetSpec(
+    name="items",
+    source=ASSETS / "ui" / "items.png",
+    body=_icon_body,
+    anchor="center",
+    key="green",
+    body_min_area=200,
+    downscale=0.25,
+    bands=(
+        Band("item", 0, 512, 0, 1536, 4, grid_cols=4,
+             names=("health_potion", "mana_potion", "ember_heart", "wolf_fang")),
+        Band("item_b", 512, 1024, 0, 1152, 3, grid_cols=3,
+             names=("mirror_eye", "essence", "shards")),
+    ),
+)
+```
+
+The frame names are `main`'s item ids verbatim, so a consumable or relic
+arriving from the server indexes its own icon with no lookup table in between
+-- and an id that has no art becomes a missing-frame error at build rather than
+a blank square in an inventory.
+
+The second band stops at x 1152 because the eighth cell is deliberately empty,
+and `Band` is told three frames rather than four so the pipeline holds you to
+it. Leaving that cell means the next item is a redraw of one cell rather than a
+new sheet.
