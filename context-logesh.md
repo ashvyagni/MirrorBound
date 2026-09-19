@@ -158,7 +158,8 @@ the same question.
 
 ## 6. The art, and what is left
 
-**94 sheets drawn and built.** Characters, weapons, casts, spells, the seven
+**94 sheets drawn, 120 atlases built** — the extra 26 are the corrupted
+arsenal, generated rather than drawn. Characters, weapons, casts, spells, the seven
 HUD pieces, the five screen pieces, items, skill nodes, and all 47 enemy
 sheets.
 
@@ -177,6 +178,26 @@ git show da61c32:docs/art-prompts.md
 
 Pull an original out of there before regenerating any shipped sheet. A fresh
 description of the same object is how a set quietly stops matching.
+
+### The boss
+
+`main`'s boss is `mirror` — "The Mirror", 520 health, tagged `MELEE`, `RANGED`
+and `SPELL`. It is the twin, corrupted, and it fights with everything the
+player has.
+
+**Its arsenal needed no art.** Weapon and effect sheets carry no character, so
+the boss holds the player's own; `SheetSpec.hue_target` measures a sheet's
+dominant hue and rotates it to `CORRUPT_HUE`, 270 degrees. That generated **26
+corrupted atlases** from the existing source art, and they cannot drift from
+the originals because there is only one drawing behind each pair.
+
+One fixed rotation could not have done it — the sword's effects sit at 348
+degrees, fire at 25, ice at 189 — which is why each sheet solves its own. And
+the target is 270 rather than the companion's present 224: 224 is a blue, the
+creature *before* it turns.
+
+Ten sheets still want drawing: six for the body, two for the hatching cutscene,
+two for its own abilities. Prompted as Part D of `docs/art-prompts-2.md`.
 
 ### Still to build
 
