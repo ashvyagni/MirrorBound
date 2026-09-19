@@ -13,6 +13,7 @@ import { SettingsScreen } from '../hud/SettingsScreen';
 import { Console } from '../hud/Console';
 import { InteractPrompt } from '../hud/InteractPrompt';
 import { PauseScreen } from '../hud/PauseScreen';
+import { Toast } from '../hud/Toast';
 import { complete, run, type CommandHost } from '../state/Commands';
 import { FX } from '../world/textures';
 import { PlayScene } from './PlayScene';
@@ -45,6 +46,7 @@ export class HudScene extends Phaser.Scene {
   readonly #settingsScreen = new SettingsScreen(this);
   readonly #pause = new PauseScreen(this);
   readonly #prompt = new InteractPrompt(this);
+  readonly #toast = new Toast(this);
   /** Built in `create`, because it needs the play scene to talk to. */
   #console!: Console;
   #teardown: Array<() => void> = [];
@@ -75,11 +77,14 @@ export class HudScene extends Phaser.Scene {
     this.#settingsScreen.build();
     this.#pause.build();
     this.#prompt.build();
+    this.#toast.build();
 
     // The console runs its commands against the play scene, which is the only
     // thing that can actually put something in the room.
     const host = this.scene.get(PlayScene.KEY) as unknown as CommandHost;
-    this.#console = new Console(this, complete, (line) => run(line, host));
+    // The console closes on Enter, so what a command did is said by the toast
+    // rather than by a panel that is no longer on screen.
+    this.#console = new Console(this, complete, (line) => this.#toast.show(run(line, host)));
     this.#console.build();
 
     this.#loadFont();
@@ -109,7 +114,7 @@ export class HudScene extends Phaser.Scene {
           ...this.#hotbar.texts, ...this.#rail.texts,
           ...this.#settings.texts, ...this.#map.texts,
           ...this.#settingsScreen.texts, ...this.#pause.texts,
-          ...this.#prompt.texts, ...this.#console.texts,
+          ...this.#prompt.texts, ...this.#console.texts, ...this.#toast.texts,
         ]) {
           text.updateText();
         }
@@ -180,6 +185,7 @@ export class HudScene extends Phaser.Scene {
     this.#settingsScreen.destroy();
     this.#pause.destroy();
     this.#prompt.destroy();
+    this.#toast.destroy();
     this.#console.destroy();
     this.#flourish.destroy();
   }

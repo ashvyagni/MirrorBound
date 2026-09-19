@@ -7,22 +7,38 @@ import { Panel } from './Panel';
 /**
  * The command line, on `\`.
  *
- * A thin frame across the middle of the screen with one line in it. It exists
- * to put things in the room without a menu for each -- spawning eleven
- * creatures, a boss and seven items from a settings screen would be twenty
- * buttons nobody wants to maintain.
+ * One framed line across the upper third of the screen. It exists to put
+ * things in the room without a menu for each -- spawning eleven creatures, a
+ * boss and seven items from a settings screen would be twenty buttons nobody
+ * wants to maintain.
  *
- * Completion is a ghost: the rest of the best match is drawn behind the cursor
- * at low opacity, and Tab or the right arrow takes it. Nothing is ever typed
- * for you -- the suggestion is behind what you wrote, so a wrong guess costs
- * you nothing and you can always see exactly what you have actually entered.
+ * Completion is a ghost: the *rest* of the best match is drawn dim immediately
+ * after the cursor, and Tab or the right arrow takes it. It is the tail and not
+ * the whole suggestion laid under the typed text, which is what the first
+ * version did -- that only lines up while the two agree character for
+ * character, and typing `SPAWN` against a suggestion of `spawn ` put two
+ * different-width strings on the same origin and drew the line twice, offset.
+ * A tail cannot misalign, because there is nothing behind it.
+ *
+ * Running a command closes the frame. What it did is said by the toast instead:
+ * the useful thing after `spawn brute` is the brute, and a panel still sitting
+ * over the middle of the screen is in the way of looking at it.
  *
  * The keyboard is read from the window rather than through Phaser, because
  * Phaser only reports keys it has been asked for and a text field has to take
  * every one of them.
  */
 const WIDTH = 1180;
-const HEIGHT = 108;
+/**
+ * Tall enough for the frame to exist.
+ *
+ * `Panel` builds its rectangle from a 96px drawn corner, so anything under
+ * 192px has no room between its own corners: the side edges are skipped and the
+ * top and bottom corners are drawn over one another. This was 108, and rendered
+ * as a crushed sandwich with no sides. `PANEL_MIN` now clamps it as well, but
+ * asking for a legal size is better than being clamped to one.
+ */
+const HEIGHT = 236;
 
 export interface Suggestion {
   /** The full command this completes to. */
@@ -37,13 +53,12 @@ export class Console {
   #ghost!: Phaser.GameObjects.Text;
   #caret!: Phaser.GameObjects.Rectangle;
   #hint!: Phaser.GameObjects.Text;
-  #result!: Phaser.GameObjects.Text;
   #texts: Phaser.GameObjects.Text[] = [];
 
   #line = '';
   #onKey: ((event: KeyboardEvent) => void) | null = null;
   #caretBlink = 0;
-  /** Everything the console can complete to, newest first in the history. */
+  /** Lines already run, newest first. */
   #history: string[] = [];
   #historyAt = -1;
 
@@ -51,8 +66,8 @@ export class Console {
     private readonly scene: Phaser.Scene,
     /** Supplies completions. Owned by the scene, which knows what exists. */
     private readonly complete: (line: string) => Suggestion | null,
-    /** Runs a command and reports what happened. */
-    private readonly run: (line: string) => string,
+    /** Runs a command. Reporting what happened is the caller's business. */
+    private readonly run: (line: string) => void,
   ) {}
 
   get texts(): readonly Phaser.GameObjects.Text[] {
@@ -68,22 +83,20 @@ export class Console {
     const left = -WIDTH / 2 + this.#panel.inset + 20;
 
     // Placed and then left alone; nothing ever changes it.
-    this.#text(left, 0, '>', HUD.labelSize, HUD.activeInk);
-    this.#typed = this.#text(left + 30, 0, '', HUD.labelSize, HUD.ink);
-    // Drawn at the same size and from the same left edge as the typed text, so
-    // the two line up character for character however long either gets.
-    this.#ghost = this.#text(left + 30, 0, '', HUD.labelSize, HUD.dimInk);
+    this.#text(left, -14, '>', HUD.labelSize, HUD.activeInk);
+    this.#typed = this.#text(left + 30, -14, '', HUD.labelSize, HUD.ink);
+    this.#ghost = this.#text(left + 30, -14, '', HUD.labelSize, HUD.dimInk);
     this.#ghost.setAlpha(0.45);
 
-    this.#caret = this.scene.add.rectangle(left + 30, 0, 3, HUD.labelSize + 6, 0xf5a4c0);
+    this.#caret = this.scene.add.rectangle(left + 30, -14, 3, HUD.labelSize + 6, 0xf5a4c0);
     this.#panel.body.add(this.#caret);
 
-    this.#hint = this.#text(WIDTH / 2 - this.#panel.inset - 20, 0, '', HUD.hintSize - 2, HUD.dimInk, 1);
-    this.#result = this.#text(left, HEIGHT / 2 + 18, '', HUD.hintSize - 2, HUD.dimInk);
+    // Inside the frame rather than under it: what the line means belongs with
+    // the line, and text floating outside a panel reads as a bug.
+    this.#hint = this.#text(left, 30, '', HUD.hintSize - 1, HUD.dimInk);
+    this.#text(WIDTH / 2 - this.#panel.inset - 20, 30,
+      'TAB COMPLETES  ·  ENTER RUNS  ·  ESC CLOSES', HUD.hintSize - 2, HUD.dimInk, 1);
 
-    // The ghost goes under the typed text, so a descender never sits on top of
-    // a real character.
-    this.#panel.body.sendToBack(this.#ghost);
     this.#panel.setVisible(false);
   }
 
@@ -107,7 +120,6 @@ export class Console {
   #open(): void {
     this.#line = '';
     this.#historyAt = -1;
-    this.#result.setText('');
     this.#panel.setVisible(true);
     this.#redraw();
 
@@ -141,13 +153,16 @@ export class Console {
     }
     if (key === 'Enter') {
       const line = this.#line.trim();
-      if (line) {
-        this.#history.unshift(line);
-        this.#result.setText(this.run(line));
-      }
       this.#line = '';
       this.#historyAt = -1;
-      this.#redraw();
+      // Closed before running, so that anything the command puts on screen --
+      // a toast, a boss hatching -- is not drawn behind a panel that is on its
+      // way out.
+      this.close();
+      if (line) {
+        this.#history.unshift(line);
+        this.run(line);
+      }
       return;
     }
     if (key === 'Backspace') {
@@ -182,12 +197,21 @@ export class Console {
     this.#typed.setText(this.#line);
 
     const suggestion = this.complete(this.#line);
-    // The ghost holds the whole completion, not just its tail, so it sits
-    // exactly under the typed text and the visible part is the difference.
-    this.#ghost.setText(suggestion && suggestion.value !== this.#line ? suggestion.value : '');
-    this.#hint.setText(suggestion?.hint ?? '');
+    // The tail only, and only when the suggestion really does extend what was
+    // typed. `complete` matches case-insensitively, so a suggestion that does
+    // not share the typed prefix verbatim would splice two spellings of the
+    // same word together on screen.
+    const extends_ = suggestion
+      && suggestion.value.length > this.#line.length
+      && suggestion.value.toLowerCase().startsWith(this.#line.toLowerCase());
+    this.#ghost.setText(extends_ ? suggestion.value.slice(this.#line.length) : '');
+    this.#hint.setText(suggestion?.hint.toUpperCase() ?? '');
 
-    this.#caret.setX(this.#typed.x + this.#typed.width + 2);
+    // Measured, not assumed: the caret sits at the end of what you wrote and
+    // the ghost picks up just past it.
+    const end = this.#typed.x + this.#typed.width;
+    this.#caret.setX(end + 2);
+    this.#ghost.setX(end + 8);
   }
 
   /** Blink the caret. Called from the scene's update. */

@@ -44,6 +44,18 @@ const BORDER = 72;
 const BAR_SAMPLE = 200;
 
 /**
+ * The smallest frame this art can make.
+ *
+ * Below two corners there is no room for the corners, let alone the edges
+ * between them: `spanY` goes negative, both side edges are skipped, and the top
+ * and bottom corners are drawn over each other. That renders as a squashed
+ * sandwich with no sides, which is what a 108px-tall console panel looked like.
+ * Clamping here rather than asserting means a caller that asks for less gets
+ * the smallest frame that can actually be built.
+ */
+export const PANEL_MIN = CORNER * 2;
+
+/**
  * Compose a closed frame at exactly the size asked for.
  *
  * Built once per size into its own canvas texture and drawn as one image:
@@ -117,6 +129,9 @@ export class Panel {
     // The border the art actually has, not the one the brief asked for.
     this.inset = BORDER;
 
+    const width = Math.max(opts.width, PANEL_MIN);
+    const height = Math.max(opts.height, PANEL_MIN);
+
     this.container = scene.add.container(x, y);
 
     if (opts.scrim) {
@@ -132,19 +147,19 @@ export class Panel {
     // Inset by the full border, so the fill stops under the frame rather than
     // showing a lip of flat colour outside it.
     const fill = scene.add
-      .rectangle(0, 0, opts.width - this.inset * 2, opts.height - this.inset * 2,
+      .rectangle(0, 0, width - this.inset * 2, height - this.inset * 2,
         PALETTE.night, 0.97)
       .setOrigin(0.5);
     this.container.add(fill);
 
     const frame = scene.add
-      .image(0, 0, buildFrame(scene, opts.width, opts.height))
+      .image(0, 0, buildFrame(scene, width, height))
       .setOrigin(0.5, 0.5);
     this.container.add(frame);
 
     if (opts.title) {
       const title = scene.add
-        .text(0, -opts.height / 2 + this.inset * 0.5, opts.title.toUpperCase(), {
+        .text(0, -height / 2 + this.inset * 0.5, opts.title.toUpperCase(), {
           fontFamily: PIXEL_FONT.stack,
           fontSize: `${HUD.labelSize + 6}px`,
           color: HUD.ink,

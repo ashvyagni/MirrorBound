@@ -4,7 +4,8 @@ import { COOLDOWNRAIL_TEXTURE_KEY } from '../animation/cooldownRailAtlas.generat
 import { ICONS_TEXTURE_KEY } from '../animation/iconsAtlas.generated';
 import { slotInfo, type SlotId } from '../animation/weaponClips';
 import { HUD, HUD_ART, PALETTE, PIXEL_FONT, RENDER_SCALE, VIEW } from '../constants';
-import { artHeight, fitInside, fitWidth } from './fit';
+import { fitInside, fitWidth } from './fit';
+import { controlArt } from './controlArt';
 
 /** One socket on the rail. Built once, shown only while something needs it. */
 interface Socket {
@@ -51,15 +52,12 @@ export class CooldownRail {
     // between the rail's two walls, measured off the art, and a rail sized
     // without reference to it is a rail whose sockets grow through its walls.
     const width = rail.socket / rail.socketFill / rail.channelRatio;
-    const art = this.scene.add.image(rail.x, 0, COOLDOWNRAIL_TEXTURE_KEY, 'rail');
-    fitWidth(art, width);
-
-    // Pinned to the bottom of the canvas rather than centred on a `y`: the
-    // height follows from the width, so the only placement worth stating is
-    // the gap underneath it.
+    // Size the rail to the sockets it actually carries. Preserve both caps
+    // instead of vertically squashing the whole texture; keep its bottom fixed.
+    const railHeight = Math.ceil(rail.socket * ((rail.capacity - 1) * rail.pitchRatio + 1.8));
     const canvasHeight = VIEW.height * RENDER_SCALE;
-    const railHeight = artHeight(art);
-    art.setY(canvasHeight - rail.bottom - railHeight / 2);
+    const art = this.scene.add.image(rail.x, canvasHeight - rail.bottom - railHeight / 2,
+      controlArt(this.scene, COOLDOWNRAIL_TEXTURE_KEY, 'rail', Math.round(width), railHeight, 32));
     this.#objects.push(art);
 
     // Stacked upward from the bottom of the rail, so a new cooldown pushes in

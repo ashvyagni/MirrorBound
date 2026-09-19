@@ -11,6 +11,7 @@ import {
 } from '../constants';
 import { Bro } from '../entities/Bro';
 import { Dummy } from '../entities/Dummy';
+import { Hatch } from '../entities/Hatch';
 import { Mirror } from '../entities/Mirror';
 import { Mob, MOBS, type MobId } from '../entities/Mob';
 import { Pickup } from '../entities/Pickup';
@@ -32,6 +33,7 @@ import { buildRun } from '../world/Run';
 import { TextureFactory } from '../world/TextureFactory';
 import { WorldRenderer } from '../world/WorldRenderer';
 import { Ambient } from '../world/Ambient';
+import { HatchCamera } from '../world/HatchCamera';
 import { getSettings } from '../../ui/settings';
 import { buildWorldTextures } from '../world/textures';
 
@@ -61,6 +63,9 @@ export class PlayScene extends Phaser.Scene {
   #dummies: Dummy[] = [];
   /** The boss, once summoned. There is only ever one. */
   #mirror: Mirror | null = null;
+  /** The cutscene, while it is running. Nothing else may start one. */
+  #hatch: Hatch | null = null;
+  #hatchCamera!: HatchCamera;
   #mobs: Mob[] = [];
   #pickups: Pickup[] = [];
   #paused = false;
@@ -123,6 +128,7 @@ export class PlayScene extends Phaser.Scene {
     this.#source = new DeviceIntentSource(this.input.keyboard!, this.input);
 
     this.#setUpCamera();
+    this.#hatchCamera = new HatchCamera(this.cameras.main, this.#goat);
     this.#wireCommands();
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.#dispose());
 
@@ -167,6 +173,7 @@ export class PlayScene extends Phaser.Scene {
 
     // Paused stops the world, not the interface: the HUD scene keeps running
     // so the pause panel is drawn and its buttons still take clicks.
+    this.#hatchCamera.step(dt);
     if (this.#paused) return;
     this.#elapsed += dt;
     this.#cooldowns.step(dt);
@@ -403,17 +410,36 @@ export class PlayScene extends Phaser.Scene {
    * Summoned rather than placed by the generator: the grove is the *first*
    * room and this belongs in the last one. It is here to be looked at until
    * there is a room to put it in.
+   *
+   * It arrives the way it is meant to -- as the companion, cracking. The
+   * sixteen frames of `Hatch` run first and the boss is built on the last one,
+   * so what you see is the small creature becoming the large one rather than
+   * the large one appearing where the small one was.
    */
   #spawnMirror(): void {
+    // A second summons during the cutscene does nothing rather than stacking
+    // two of them, which would hand two bosses to a field that holds one.
+    if (this.#hatch) return;
+
     if (this.#mirror) {
       this.#mirror.destroy();
       this.#mirror = null;
       return;
     }
-    const { room } = this.#grove;
-    // Up the room from the player's spawn, far enough that the whole of it is
-    // on screen at once -- it is two and a half goats tall.
-    this.#mirror = new Mirror(this, room.width / 2, room.height * 0.34);
+
+    // In front of the goat, like everything else the console spawns, and for a
+    // sharper reason now that arriving takes sixteen frames: the room's centre
+    // is 480 world units from its edge and the camera shows 480 either side of
+    // the goat, so summoning it there put the whole cutscene exactly off the
+    // edge of the screen whenever the goat was not standing in the middle.
+    const { x, y } = this.#spawnPoint(220);
+
+    this.#hatchCamera.focus({ x, y });
+    this.#hatch = new Hatch(this, x, y, () => {
+      this.#hatch = null;
+      this.#mirror = new Mirror(this, x, y);
+      this.#hatchCamera.returnToPlayer();
+    });
   }
 
   // --- pause ------------------------------------------------------------------
@@ -474,13 +500,16 @@ export class PlayScene extends Phaser.Scene {
   }
 
   spawnBoss(): string {
+    const had = this.#mirror !== null;
+    if (this.#hatch) return 'It is already hatching.';
     this.#spawnMirror();
-    return this.#mirror ? 'The Mirror is here.' : 'The Mirror is gone.';
+    return had ? 'The Mirror is gone.' : 'Something is cracking...';
   }
 
   /** Take everything spawned back out. */
   clearSpawned(): string {
-    const count = this.#mobs.length + this.#pickups.length + (this.#mirror ? 1 : 0);
+    const count = this.#mobs.length + this.#pickups.length
+      + (this.#mirror ? 1 : 0) + (this.#hatch ? 1 : 0);
     for (const mob of this.#mobs) mob.destroy();
     for (const pickup of this.#pickups) pickup.destroy();
     this.#mobs = [];
@@ -489,7 +518,12 @@ export class PlayScene extends Phaser.Scene {
     eventBus.emit('interact:target', null);
     this.#mirror?.destroy();
     this.#mirror = null;
-    return `Cleared ${count}.`;
+    // A cutscene in flight is cleared too, or `clear` would leave a boss on
+    // its way in that nothing had counted.
+    this.#hatch?.destroy();
+    this.#hatch = null;
+    this.#hatchCamera.returnToPlayer();
+    return count === 1 ? 'Cleared 1.' : `Cleared ${count}.`;
   }
 
   /**
@@ -728,6 +762,8 @@ export class PlayScene extends Phaser.Scene {
   }
 
   #dispose(): void {
+    this.#hatch?.destroy();
+    this.#hatch = null;
     for (const off of this.#teardown) off();
     this.#teardown = [];
     this.#source?.destroy?.();

@@ -1,9 +1,9 @@
 import type Phaser from 'phaser';
 
-import { CONTROLS_TEXTURE_KEY } from '../animation/controlsAtlas.generated';
+import { DIALOGUE_TEXTURE_KEY } from '../animation/dialogueAtlas.generated';
 import { HUD, PIXEL_FONT, RENDER_SCALE, VIEW } from '../constants';
 import { keybinds, keyName } from '../state/Keybinds';
-import { fitWidth } from './fit';
+import { artHeight, fitWidth } from './fit';
 
 /**
  * "Space — health potion", floating over whatever you are standing next to.
@@ -21,6 +21,12 @@ import { fitWidth } from './fit';
  * the prompt with it. A prompt that says a key the game no longer listens to
  * is worse than no prompt.
  */
+/** How much of the bubble's drawn height is the tail under its body. */
+const TAIL = 0.22;
+
+/** How far above the target the bubble floats, in HUD pixels. */
+const LIFT = 46;
+
 export class InteractPrompt {
   #plate!: Phaser.GameObjects.Image;
   #cap!: Phaser.GameObjects.Text;
@@ -38,7 +44,10 @@ export class InteractPrompt {
   build(): void {
     this.#group = this.scene.add.container(0, 0).setVisible(false);
 
-    this.#plate = this.scene.add.image(0, 0, CONTROLS_TEXTURE_KEY, 'button');
+    // The bubble, not a plain button: it has a tail, so it reads as a thing
+    // said by whatever is under it rather than a label that happens to be
+    // nearby. `#lift` raises it by enough that the tail lands on the target.
+    this.#plate = this.scene.add.image(0, 0, DIALOGUE_TEXTURE_KEY, 'prompt');
     this.#group.add(this.#plate);
 
     this.#cap = this.#text(0, 0, '', HUD.hintSize - 1, HUD.activeInk);
@@ -69,11 +78,15 @@ export class InteractPrompt {
     // Laid out from the two texts' measured widths, so a short key and a long
     // item name both come out centred in a plate that fits them.
     const gap = 14;
-    const pad = 26;
+    const pad = 30;
     const inner = this.#cap.width + gap + this.#label.width;
     fitWidth(this.#plate, inner + pad * 2);
-    this.#cap.setX(-inner / 2);
-    this.#label.setX(-inner / 2 + this.#cap.width + gap);
+
+    // The words sit in the bubble's body, which is the frame minus its tail.
+    // Centring them on the whole frame would push them down into the point.
+    const body = -artHeight(this.#plate) * TAIL * 0.5;
+    this.#cap.setPosition(-inner / 2, body);
+    this.#label.setPosition(-inner / 2 + this.#cap.width + gap, body);
 
     this.#group.setVisible(true);
   }
@@ -82,7 +95,7 @@ export class InteractPrompt {
   step(): void {
     if (!this.#target) return;
     const p = this.#toScreen(this.#target.x, this.#target.y);
-    this.#group.setPosition(p.x, p.y);
+    this.#group.setPosition(p.x, p.y - LIFT);
     // Hidden rather than clamped when it leaves the view: a prompt pinned to
     // the edge points at something you cannot see.
     this.#group.setVisible(

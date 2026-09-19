@@ -1,5 +1,7 @@
 import { BARSPLATES_TEXTURE_KEY } from '../animation/barsPlatesAtlas.generated';
 import { BOSSBAR_TEXTURE_KEY } from '../animation/bossBarAtlas.generated';
+import { DIALOGUE_TEXTURE_KEY } from '../animation/dialogueAtlas.generated';
+import { GLYPHS_TEXTURE_KEY } from '../animation/glyphsAtlas.generated';
 import { ITEMS_TEXTURE_KEY } from '../animation/itemsAtlas.generated';
 import { SKILLNODES_TEXTURE_KEY } from '../animation/skillNodesAtlas.generated';
 import { CONTROLS_TEXTURE_KEY } from '../animation/controlsAtlas.generated';
@@ -41,4 +43,7 @@ export const HUD_TEXTURES: readonly string[] = [
   ITEMS_TEXTURE_KEY,
   SKILLNODES_TEXTURE_KEY,
   BARSPLATES_TEXTURE_KEY,
+  // The eight shared glyphs, and the bubbles and plates that carry words.
+  GLYPHS_TEXTURE_KEY,
+  DIALOGUE_TEXTURE_KEY,
 ];

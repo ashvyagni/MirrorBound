@@ -108,7 +108,7 @@ const NAMES: Record<number, string> = (() => {
     [K.ONE]: '1', [K.TWO]: '2', [K.THREE]: '3', [K.FOUR]: '4',
     [K.FIVE]: '5', [K.SIX]: '6', [K.SEVEN]: '7', [K.EIGHT]: '8',
     [K.NINE]: '9', [K.ZERO]: '0',
-    [K.BACKSPACE]: 'Bksp', [K.ENTER]: 'Enter', [K.COMMA]: ',', [K.PERIOD]: '.',
+    [K.BACK_SLASH]: '\\', [K.BACKSPACE]: 'Bksp', [K.ENTER]: 'Enter', [K.COMMA]: ',', [K.PERIOD]: '.',
   };
 })();
 

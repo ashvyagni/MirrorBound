@@ -177,9 +177,9 @@ export const MIRROR = {
   /** Seconds to close most of the gap to its target. Slower than the
    *  companion's: it is enormous, and enormous things turn late. */
   responseTime: 0.42,
-  /** Fraction of the remaining gap it actually closes, so it drifts in rather
-   *  than homing. */
-  followScale: 0.55,
+  /** Limit chase speed and ease acceleration and braking. */
+  maxSpeed: 125,
+  accelTime: 0.24,
   /** It stops this far out. `main` gives it an attack range of 70 and both
    *  ranged and spell tags, so it has no reason to close all the way. */
   keepDistance: 190,

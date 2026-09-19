@@ -1,3 +1,4 @@
+import { AnimatedCursor } from './ui/AnimatedCursor';
 import { AnimatedMark } from './ui/AnimatedMark';
 import { CompanionPanel } from './ui/CompanionPanel';
 import { ControlsPanel } from './ui/ControlsPanel';
@@ -11,6 +12,7 @@ export default function App() {
 
   return (
     <div className="page">
+      <AnimatedCursor />
       <header className="masthead">
         <div className="masthead__brand">
           <AnimatedMark />

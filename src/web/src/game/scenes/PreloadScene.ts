@@ -13,6 +13,7 @@ import { SHIELDBLOCK_TEXTURE_KEY } from '../animation/shieldBlockAtlas.generated
 import { SHIELDPARRY_TEXTURE_KEY } from '../animation/shieldParryAtlas.generated';
 import { HUD_TEXTURES } from '../hud/textures';
 import { Dummy } from '../entities/Dummy';
+import { HATCH_TEXTURES, registerHatchAnimations } from '../entities/Hatch';
 import { MIRROR_TEXTURES, registerMirrorAnimations } from '../entities/Mirror';
 import { MOB_TEXTURES, registerMobAnimations } from '../entities/Mob';
 import { ITEMS_TEXTURE_KEY } from '../animation/itemsAtlas.generated';
@@ -58,7 +59,8 @@ export class PreloadScene extends Phaser.Scene {
       ...GOAT_TEXTURES, BRO_TEXTURE, ...WEAPON_TEXTURES, ...ABILITY_TEXTURES,
       DUMMY_TEXTURE_KEY, ICONS_TEXTURE_KEY,
       SHIELDBLOCK_TEXTURE_KEY, SHIELDPARRY_TEXTURE_KEY,
-      ...HUD_TEXTURES, ...MIRROR_TEXTURES, ...MOB_TEXTURES, ITEMS_TEXTURE_KEY,
+      ...HUD_TEXTURES, ...MIRROR_TEXTURES, ...HATCH_TEXTURES, ...MOB_TEXTURES,
+      ITEMS_TEXTURE_KEY,
     ]) {
       this.load.setPath(`game/${texture}`);
       this.load.atlas(texture, `${texture}.png`, `${texture}.json`);
@@ -75,6 +77,7 @@ export class PreloadScene extends Phaser.Scene {
     Shield.register(this.anims);
     registerFxAnimations(this.anims);
     registerMirrorAnimations(this.anims);
+    registerHatchAnimations(this.anims);
     registerMobAnimations(this.anims);
     this.scene.start('play');
   }

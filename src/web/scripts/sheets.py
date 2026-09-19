@@ -634,8 +634,30 @@ BARS_PLATES = _ui("barsPlates", "bars-plates.png", (
          names=("scrollTrack", "scrollThumb", "divider")),
 ), 0.5)
 
+#: Eight interface glyphs, drawn once and tinted per use. `close` is the real
+#: close button every panel had been faking with a text "x"; `locked`, `warning`
+#: and `info` are there for the screens that do not exist yet, which is cheaper
+#: than drawing a second sheet later.
+GLYPHS = _ui("glyphs", "glyphs.png", (
+    Band("a", 0, 512, 0, 1536, 4, grid_cols=4,
+         names=("close", "back", "confirm", "plus")),
+    Band("b", 512, 1024, 0, 1536, 4, grid_cols=4,
+         names=("minus", "locked", "warning", "info")),
+), 0.25)
+
+#: Talking and touching. The two `prompt` frames are one bubble resting and
+#: pressed -- the tail makes it a thing said by the object under it rather than
+#: a label floating nearby. `plate` is the dialogue box proper, with a portrait
+#: window cut into its left end, and `nameTab` sits on its top edge.
+DIALOGUE = _ui("dialogue", "dialogue.png", (
+    Band("a", 0, 512, 0, 1536, 4, grid_cols=4,
+         names=("prompt", "promptPressed", "plate", "nameTab")),
+    Band("b", 512, 1024, 0, 1536, 4, grid_cols=4,
+         names=("chevron", "ringBroken", "ringSolid", "speakerFrame")),
+), 0.5)
+
 SCREENS = (SCREEN_FRAME, CONTROLS, MAP_TOKENS, BOSS_BAR, FLOURISHES,
-           ITEMS, SKILL_NODES, BARS_PLATES)
+           ITEMS, SKILL_NODES, BARS_PLATES, GLYPHS, DIALOGUE)
 
 
 # --- the corrupted twin's arsenal -------------------------------------------

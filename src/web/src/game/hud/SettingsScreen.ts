@@ -1,17 +1,18 @@
 import Phaser from 'phaser';
 
-import { BARSPLATES_TEXTURE_KEY } from '../animation/barsPlatesAtlas.generated';
 import { CONTROLS_TEXTURE_KEY } from '../animation/controlsAtlas.generated';
+import { GLYPHS_TEXTURE_KEY } from '../animation/glyphsAtlas.generated';
 import { HUD, PIXEL_FONT, RENDER_SCALE, VIEW } from '../constants';
 import { eventBus } from '../EventBus';
 import {
   ACTIONS, keybinds, keyName, Keybinds, type Action, type ActionInfo,
 } from '../state/Keybinds';
 import {
-  getSettings, QUALITIES, SETTINGS_AVAILABLE, SETTINGS_KEYS, updateSettings,
-  type Quality, type Settings,
+  getSettings, QUALITIES, updateSettings,
+  type Quality,
 } from '../../ui/settings';
-import { fitWidth } from './fit';
+import { fitInside, fitWidth } from './fit';
+import { controlArt } from './controlArt';
 import { Panel } from './Panel';
 
 /**
@@ -29,38 +30,19 @@ import { Panel } from './Panel';
  * version placed each control by eye, which stranded labels at one edge with
  * their controls at the other and a hand's width of nothing between them.
  */
-const WIDTH = 1240;
-const HEIGHT = 820;
-
-/** The layout grid. Every position on this screen comes from here. */
+const WIDTH = 1640;
+const HEIGHT = 960;
 const L = {
-  /** Space between the frame's inner edge and the content. */
-  pad: 46,
-  /** Width of the right-hand column every control is placed in. */
-  controlW: 420,
-  /** Height of one setting row. */
-  row: 66,
-  /** Height of one keybind row, which is denser. */
-  bindRow: 52,
-  /** Space above a section heading, and below its rule. */
-  sectionTop: 38,
-  sectionGap: 26,
-  /** Top of the content, below the tabs. */
-  contentTop: 176,
+  pad: 40,
+  controlW: 580,
+  row: 84,
+  bindRow: 46,
+  contentTop: -244,
+  footer: 354,
 } as const;
 
 type Tab = 'Display' | 'Controls';
 const TABS: readonly Tab[] = ['Display', 'Controls'];
-
-/** Readable names for the settings this branch cannot honour yet. */
-const SETTING_LABELS: Partial<Record<keyof Settings, string>> = {
-  masterVolume: 'Master volume',
-  musicVolume: 'Music',
-  sfxVolume: 'Effects',
-  screenShake: 'Screen shake',
-  damageNumbers: 'Damage numbers',
-  showTwinThoughts: 'Twin thoughts',
-};
 
 export class SettingsScreen {
   #panel!: Panel;
@@ -74,6 +56,8 @@ export class SettingsScreen {
   #notice!: Phaser.GameObjects.Text;
   #onKey: ((event: KeyboardEvent) => void) | null = null;
   #escape: ((event: KeyboardEvent) => void) | null = null;
+  #dragZoom: ((pointer: Phaser.Input.Pointer) => void) | null = null;
+  #offSettings: (() => void) | null = null;
 
   constructor(private readonly scene: Phaser.Scene) {}
 
@@ -96,14 +80,29 @@ export class SettingsScreen {
     });
     this.#texts.push(...this.#panel.texts);
 
+    // A modal owns every click, including blank space outside the frame.
+    const blocker = this.scene.add.zone(0, 0, VIEW.width * RENDER_SCALE, VIEW.height * RENDER_SCALE)
+      .setInteractive().on('pointerdown', () => eventBus.emit('hud:pointer-used', {}));
+    this.#panel.container.addAt(blocker, 0);
     this.#buildTabs();
     this.#buildClose();
 
-    this.#notice = this.#text(0, HEIGHT / 2 - this.#panel.inset - 26, '', HUD.hintSize, HUD.dimInk);
+    this.#notice = this.#text(0, 392, '', 20, HUD.dimInk);
     this.#panel.body.add(this.#notice);
 
     this.#panel.setVisible(false);
     this.#render();
+    this.#offSettings = eventBus.on('game:fullscreen', () => {
+      if (this.open && this.#tab === 'Display') this.#render();
+    });
+    this.scene.input.on('pointermove', this.#moveSlider, this);
+    this.scene.input.on('pointerup', this.#releaseSlider, this);
+    this.scene.input.on('gameout', this.#releaseSlider, this);
+  }
+
+  #plate(x: number, y: number, frame: string, width: number, height: number) {
+    return this.scene.add.image(x, y,
+      controlArt(this.scene, CONTROLS_TEXTURE_KEY, frame, width, height));
   }
 
   #text(x: number, y: number, value: string, size: number, colour: string, originX = 0.5) {
@@ -116,17 +115,18 @@ export class SettingsScreen {
 
   #buildTabs(): void {
     // Below the title, which sits on the frame's top bar.
-    const top = -HEIGHT / 2 + this.#panel.inset + 62;
-    const width = 300;
+    const top = -334;
+    const width = 270;
     TABS.forEach((tab, i) => {
       const x = this.#left + width / 2 + i * (width + 20);
-      const image = this.scene.add.image(x, top, CONTROLS_TEXTURE_KEY, 'tab');
-      fitWidth(image, width);
-      const label = this.#text(x, top - 4, tab.toUpperCase(), HUD.labelSize, HUD.ink);
+      const image = this.#plate(x, top, 'tab', width, 68);
+      const label = this.#text(x, top, tab.toUpperCase(), 28, HUD.ink);
 
       image.setInteractive({ useHandCursor: true })
         .on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => {
           eventBus.emit('hud:pointer-used', {});
+          this.#cancelListening();
+          this.#notice.setText('');
           this.#tab = tab;
           this.#render();
         });
@@ -140,32 +140,40 @@ export class SettingsScreen {
   /**
    * The close button.
    *
-   * A button frame with a cross on it, until `assets/ui/close.png` exists.
-   * Escape closes the screen too, and always will -- a screen you can only
-   * leave by finding a small button is a screen that traps anyone whose mouse
-   * has wandered off the canvas.
+   * The cross is the drawn `close` glyph now, not a text "x" -- a font
+   * character next to hand-drawn chrome is the one thing on a screen of art
+   * that looks like a placeholder, because it is one.
+   *
+   * The whole button takes the pointer, not the glyph: a hit area the size of
+   * the cross is a hit area you have to aim at. Escape closes the screen too,
+   * and always will -- a screen you can only leave by finding a small button is
+   * a screen that traps anyone whose mouse has wandered off the canvas.
    */
   #buildClose(): void {
     const x = this.#right - 34;
-    const y = -HEIGHT / 2 + this.#panel.inset + 62;
-    const button = this.scene.add.image(x, y, CONTROLS_TEXTURE_KEY, 'button');
-    fitWidth(button, 76);
+    const y = -334;
+    const button = this.#plate(x, y, 'button', 68, 68);
     button.setInteractive({ useHandCursor: true })
       .on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => {
         eventBus.emit('hud:pointer-used', {});
         eventBus.emit('settings:toggle', {});
       });
     this.#panel.body.add(button);
-    this.#panel.body.add(this.#text(x, y - 2, '×', HUD.labelSize + 8, HUD.ink));
+
+    const cross = this.scene.add.image(x, y, GLYPHS_TEXTURE_KEY, 'close');
+    fitInside(cross, 32);
+    this.#panel.body.add(cross);
   }
 
   #render(): void {
+    this.#dragZoom = null;
     for (const o of this.#rows) o.destroy();
     this.#rows = [];
+    this.#texts = this.#texts.filter((text) => text.scene);
 
     for (const { image, label, tab } of this.#tabButtons) {
       const on = tab === this.#tab;
-      image.setFrame(on ? 'tabActive' : 'tab');
+      image.setTexture(controlArt(this.scene, CONTROLS_TEXTURE_KEY, on ? 'tabActive' : 'tab', 270, 68));
       label.setColor(on ? HUD.activeInk : HUD.dimInk);
     }
 
@@ -176,108 +184,97 @@ export class SettingsScreen {
   // --- shared row furniture ---------------------------------------------------
 
   /** A heading with a rule under it, so the screen reads as sections. */
-  #section(y: number, title: string): number {
-    this.#add(this.#text(this.#left, y, title.toUpperCase(), HUD.hintSize - 2, HUD.activeInk, 0));
-    const rule = this.scene.add
-      .image(this.#left, y + 20, BARSPLATES_TEXTURE_KEY, 'divider')
-      .setOrigin(0, 0.5)
-      .setAlpha(0.5);
-    fitWidth(rule, this.#right - this.#left);
-    this.#add(rule);
-    return y + L.sectionGap + 18;
+  #section(y: number, title: string, x = this.#left, width = this.#right - this.#left): void {
+    this.#add(this.#text(x, y, title.toUpperCase(), 22, HUD.activeInk, 0));
+    this.#add(this.scene.add.rectangle(x, y + 24, width, 2, 0x53456a).setOrigin(0, 0.5));
   }
 
   #label(y: number, text: string): void {
-    this.#add(this.#text(this.#left, y, text, HUD.hintSize, HUD.ink, 0));
+    this.#add(this.#text(this.#left, y, text, 28, HUD.ink, 0));
   }
-
-  // --- display ----------------------------------------------------------------
 
   #renderDisplay(): void {
     const settings = getSettings();
-    let y = -HEIGHT / 2 + this.#panel.inset + L.contentTop;
-
-    y = this.#section(y, 'Display');
-
+    this.#section(L.contentTop, 'Display');
+    let y = -180;
     this.#label(y, 'Camera zoom');
-    this.#slider(y, settings.zoom, 0.7, 1.6, (v) => {
-      updateSettings({ zoom: Math.round(v * 20) / 20 });
-      this.#render();
-    }, `${settings.zoom.toFixed(2)}x`);
+    this.#slider(y, settings.zoom);
     y += L.row;
-
     this.#label(y, 'Quality');
     this.#chips(y, QUALITIES, settings.quality, (q) => {
       updateSettings({ quality: q as Quality });
       this.#render();
     });
     y += L.row;
-
     this.#label(y, 'Fullscreen');
-    this.#toggle(y, this.scene.scale.isFullscreen, () => {
-      eventBus.emit('game:toggle-fullscreen', {});
-      // The scale manager reports the new state a frame later.
-      this.scene.time.delayedCall(80, () => this.#render());
-    });
-    y += L.row + L.sectionTop;
+    this.#toggle(y, this.scene.scale.isFullscreen, () => eventBus.emit('game:toggle-fullscreen', {}));
 
-    y = this.#section(y, 'Debug');
-
-    this.#label(y, 'Show hitboxes');
-    this.#toggle(y, settings.debugOverlay, (on) => {
+    this.#section(76, 'Sandbox');
+    this.#label(140, 'Show hitboxes');
+    this.#toggle(140, settings.debugOverlay, (on) => {
       updateSettings({ debugOverlay: on });
       eventBus.emit('debug:toggle-bodies', { enabled: on });
       this.#render();
     });
-    y += L.row;
-
-    this.#label(y, 'Spawn the Mirror');
-    this.#button(y, 'SUMMON', 200, () => {
+    this.#label(224, 'The Mirror');
+    this.#button(224, 'SUMMON / DISMISS', 320, () => {
       eventBus.emit('debug:spawn-boss', {});
       eventBus.emit('settings:toggle', {});
     });
-    y += L.row + L.sectionTop;
-
-    // `main` defines nine settings and this branch can honour three. The rest
-    // are named rather than hidden, so they read as coming rather than missing
-    // -- and so nobody wires a slider to nothing to fill the space.
-    y = this.#section(y, 'Not yet wired');
-    const waiting = SETTINGS_KEYS
-      .filter((k) => !SETTINGS_AVAILABLE.has(k))
-      .map((k) => SETTING_LABELS[k] ?? k);
-    this.#add(this.#text(this.#left, y, waiting.join('      '), HUD.hintSize - 2, HUD.dimInk, 0));
-    y += 28;
-    this.#add(this.#text(
-      this.#left, y,
-      'volume needs an audio manager; the rest need the systems behind them',
-      HUD.hintSize - 3, HUD.dimInk, 0,
-    ));
+    this.#button(L.footer, 'RESET ZOOM', 250, () => {
+      updateSettings({ zoom: 1 });
+      this.#render();
+    }, this.#right - 125);
+    this.#add(this.#text(this.#left, L.footer, 'Audio and extra effects are coming later.', 22, HUD.dimInk, 0));
   }
 
-  #slider(y: number, value: number, min: number, max: number,
-          onChange: (value: number) => void, caption: string): void {
-    const width = L.controlW - 110;
-    const x = this.#controlX;
-    const track = this.scene.add.image(x + width / 2, y, CONTROLS_TEXTURE_KEY, 'sliderTrack');
-    fitWidth(track, width);
+  #slider(y: number, value: number): void {
+    const min = 0.7;
+    const max = 1.6;
+    const x = this.#controlX + 60;
+    const width = L.controlW - 260;
+    const track = this.#plate(x + width / 2, y, 'sliderTrack', width, 32);
     this.#add(track);
-
-    const frac = Phaser.Math.Clamp((value - min) / (max - min), 0, 1);
-    const knob = this.scene.add.image(x + frac * width, y, CONTROLS_TEXTURE_KEY, 'sliderKnob');
+    const knob = this.scene.add.image(x, y, CONTROLS_TEXTURE_KEY, 'sliderKnob');
     fitWidth(knob, 24);
     this.#add(knob);
-
-    // The track takes the click, not the knob: dragging a 24-pixel knob is
-    // fiddly, and jumping to where you clicked is what every slider does.
-    track.setInteractive({ useHandCursor: true })
-      .on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, (p: Phaser.Input.Pointer) => {
+    const caption = this.#text(this.#right, y, '', 26, HUD.activeInk, 1);
+    this.#add(caption);
+    let current = value;
+    const paint = () => {
+      knob.setX(x + Phaser.Math.Clamp((current - min) / (max - min), 0, 1) * width);
+      caption.setText(`${current.toFixed(2)}x`);
+    };
+    const change = (next: number) => {
+      current = Math.round(Phaser.Math.Clamp(next, min, max) * 20) / 20;
+      updateSettings({ zoom: current });
+      paint();
+    };
+    const atPointer = (pointer: Phaser.Input.Pointer) => {
+      // Pointer is in HUD camera space; the track lives inside two containers.
+      const world = pointer.positionToCamera(this.scene.cameras.main) as Phaser.Math.Vector2;
+      const local = this.#panel.body.getWorldTransformMatrix().applyInverse(world.x, world.y);
+      change(min + Phaser.Math.Clamp((local.x - x) / width, 0, 1) * (max - min));
+    };
+    const hit = this.scene.add.zone(x + width / 2, y, width + 24, 64)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerdown', (pointer: Phaser.Input.Pointer) => {
         eventBus.emit('hud:pointer-used', {});
-        const local = Phaser.Math.Clamp((p.worldX - (track.x - width / 2)) / width, 0, 1);
-        onChange(min + local * (max - min));
+        this.#dragZoom = atPointer;
+        atPointer(pointer);
       });
-
-    this.#add(this.#text(this.#right, y, caption, HUD.hintSize, HUD.dimInk, 1));
+    this.#add(hit);
+    this.#button(y, '-', 48, () => change(current - 0.05), x - 36);
+    this.#button(y, '+', 48, () => change(current + 0.05), x + width + 40);
+    paint();
   }
+
+  #moveSlider(pointer: Phaser.Input.Pointer): void {
+    if (pointer.isDown) this.#dragZoom?.(pointer);
+    else this.#dragZoom = null;
+  }
+
+  #releaseSlider(): void { this.#dragZoom = null; }
 
   #chips(y: number, options: readonly string[], current: string,
          onPick: (value: string) => void): void {
@@ -286,15 +283,14 @@ export class SettingsScreen {
     options.forEach((option, i) => {
       const x = this.#controlX + width / 2 + i * (width + gap);
       const on = option === current;
-      const chip = this.scene.add.image(x, y, CONTROLS_TEXTURE_KEY, on ? 'buttonPress' : 'button');
-      fitWidth(chip, width);
+      const chip = this.#plate(x, y, on ? 'buttonPress' : 'button', width, 56);
       chip.setInteractive({ useHandCursor: true })
         .on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => {
           eventBus.emit('hud:pointer-used', {});
           onPick(option);
         });
       this.#add(chip);
-      this.#add(this.#text(x, y, option.toUpperCase(), HUD.hintSize - 2,
+      this.#add(this.#text(x, y, option.toUpperCase(), 24,
         on ? HUD.activeInk : HUD.dimInk));
     });
   }
@@ -315,78 +311,55 @@ export class SettingsScreen {
 
   #button(y: number, caption: string, width: number, onPress: () => void,
           x = this.#right - width / 2): void {
-    const image = this.scene.add.image(x, y, CONTROLS_TEXTURE_KEY, 'button');
-    fitWidth(image, width);
+    const image = this.#plate(x, y, 'button', width, 54);
     image.setInteractive({ useHandCursor: true })
       .on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => {
         eventBus.emit('hud:pointer-used', {});
         onPress();
       });
     this.#add(image);
-    this.#add(this.#text(x, y, caption, HUD.hintSize - 2, HUD.ink));
+    this.#add(this.#text(x, y, caption, 23, HUD.ink));
   }
 
   // --- controls ---------------------------------------------------------------
 
   #renderControls(): void {
-    const top = -HEIGHT / 2 + this.#panel.inset + L.contentTop - 40;
-    const colWidth = (this.#right - this.#left) / 2;
-
-    // Grouped, and split across two columns at a group boundary rather than
-    // mid-group: fifteen rows down one side does not fit, and a split landing
-    // inside "Movement" reads as two unrelated lists.
-    const groups = new Map<string, ActionInfo[]>();
-    for (const info of ACTIONS) {
-      const list = groups.get(info.group) ?? [];
-      list.push(info);
-      groups.set(info.group, list);
-    }
-
-    const entries = [...groups.entries()];
-    const half = Math.ceil(entries.length / 2);
-    entries.forEach(([group, actions], index) => {
-      const col = index < half ? 0 : 1;
-      const x = this.#left + col * colWidth;
-      // Each column restarts at the top; groups stack within a column.
-      const before = entries.slice(col === 0 ? 0 : half, index);
-      const offset = before.reduce(
-        (sum, [, list]) => sum + list.length * L.bindRow + L.sectionGap + 30, 0,
-      );
-      let y = top + offset;
-
-      this.#add(this.#text(x, y, group.toUpperCase(), HUD.hintSize - 3, HUD.activeInk, 0));
-      const rule = this.scene.add
-        .image(x, y + 18, BARSPLATES_TEXTURE_KEY, 'divider')
-        .setOrigin(0, 0.5)
-        .setAlpha(0.45);
-      fitWidth(rule, colWidth - 50);
-      this.#add(rule);
-      y += 38;
-
-      for (const info of actions) {
-        this.#bindRow(x, y, colWidth, info);
-        y += L.bindRow;
+    const gap = 48;
+    const colWidth = (this.#right - this.#left - gap) / 2;
+    const groups: readonly (readonly ActionInfo['group'][])[] = [
+      ['Movement', 'Combat'], ['Loadout', 'Interface'],
+    ];
+    groups.forEach((column, index) => {
+      const x = this.#left + index * (colWidth + gap);
+      let y = L.contentTop;
+      for (const group of column) {
+        this.#section(y, group, x, colWidth);
+        y += 44;
+        for (const info of ACTIONS.filter((action) => action.group === group)) {
+          this.#bindRow(x, y, colWidth, info);
+          y += L.bindRow;
+        }
+        y += 22;
       }
     });
-
-    this.#button(HEIGHT / 2 - this.#panel.inset - 74, 'RESET TO DEFAULTS', 300, () => {
+    this.#button(L.footer, 'RESET TO DEFAULTS', 320, () => {
+      this.#cancelListening();
       keybinds.reset();
       this.#notice.setText('Bindings reset to defaults.');
       this.#render();
-    }, 0);
+    }, this.#right - 160);
+    this.#add(this.#text(this.#left, L.footer, 'Select a key to rebind. Escape cancels.', 22, HUD.dimInk, 0));
   }
 
   #bindRow(x: number, y: number, colWidth: number, info: ActionInfo): void {
     const binding = keybinds.get(info.action);
     const armed = this.#listening === info.action;
 
-    this.#add(this.#text(x, y, info.label, HUD.hintSize - 3, HUD.ink, 0));
+    this.#add(this.#text(x, y, info.label, 23, HUD.ink, 0));
 
-    const capWidth = 150;
-    const capX = x + colWidth - 70 - capWidth / 2;
-    const cap = this.scene.add
-      .image(capX, y, CONTROLS_TEXTURE_KEY, armed ? 'buttonPress' : 'button');
-    fitWidth(cap, capWidth);
+    const capWidth = 210;
+    const capX = x + colWidth - capWidth / 2;
+    const cap = this.#plate(capX, y, armed ? 'buttonPress' : 'button', capWidth, 40);
     cap.setInteractive({ useHandCursor: true })
       .on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => {
         eventBus.emit('hud:pointer-used', {});
@@ -398,7 +371,7 @@ export class SettingsScreen {
       : binding.primary < 0 ? '—'
       : keyName(binding.primary)
         + (binding.secondary !== undefined ? ` / ${keyName(binding.secondary)}` : '');
-    this.#add(this.#text(capX, y, caption, HUD.hintSize - 4,
+    this.#add(this.#text(capX, y, caption, 22,
       armed ? HUD.activeInk : binding.primary < 0 ? HUD.dimInk : HUD.ink));
   }
 
@@ -447,7 +420,7 @@ export class SettingsScreen {
     }
     if (this.#listening !== null) {
       this.#listening = null;
-      eventBus.emit('input:suspend', { suspended: false });
+      eventBus.emit('input:suspend', { suspended: this.open });
     }
   }
 
@@ -463,9 +436,12 @@ export class SettingsScreen {
       this.#notice.setText('');
       this.#render();
       this.#watchEscape();
+      eventBus.emit('input:suspend', { suspended: true });
     } else {
       this.#cancelListening();
       this.#unwatchEscape();
+      this.#dragZoom = null;
+      eventBus.emit('input:suspend', { suspended: false });
     }
     return next;
   }
@@ -502,10 +478,18 @@ export class SettingsScreen {
   close(): void {
     this.#cancelListening();
     this.#unwatchEscape();
+    const wasOpen = this.open;
     this.#panel.setVisible(false);
+    this.#dragZoom = null;
+    if (wasOpen) eventBus.emit('input:suspend', { suspended: false });
   }
 
   destroy(): void {
+    this.#offSettings?.();
+    this.scene.input.off('pointermove', this.#moveSlider, this);
+    this.scene.input.off('pointerup', this.#releaseSlider, this);
+    this.scene.input.off('gameout', this.#releaseSlider, this);
+    this.close();
     this.#cancelListening();
     this.#unwatchEscape();
     for (const o of this.#rows) o.destroy();
