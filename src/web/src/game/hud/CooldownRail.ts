@@ -45,6 +45,7 @@ export class CooldownRail {
   build(): void {
     const { rail } = HUD_ART;
     this.#size = rail.socket;
+    this.#innerH = rail.socket * rail.opening.h;
 
     // Wide enough that the socket fills its channel: the channel is the gap
     // between the rail's two walls, measured off the art, and a rail sized
@@ -69,22 +70,33 @@ export class CooldownRail {
       this.#buildSocket(rail.x, bottom - i * this.#size * rail.pitchRatio));
   }
 
+  /** The opening's height, which bounds the sweep. Set once in `build`. */
+  #innerH = 0;
+
   #buildSocket(x: number, y: number): Socket {
     const size = this.#size;
+    const { opening, openingBottom } = HUD_ART.rail;
+    // The hole in the middle of the socket art, which is what everything below
+    // has to stay inside.
+    const innerW = size * opening.w;
+    const innerH = size * opening.h;
+    const innerBottom = y + (openingBottom - 0.5) * size;
 
     // Grows downward as the timer runs out, so a socket empties from the top --
     // the direction that reads as filling back up. Same rule as the old bar.
+    // Bounded by the opening, not the socket: sized to the socket it reaches
+    // past the frame on every side.
     const sweep = this.scene.add
-      .rectangle(x, y + size / 2, size * 0.82, 0, PALETTE.night, 0.72)
+      .rectangle(x, innerBottom, innerW, 0, PALETTE.night, 0.72)
       .setOrigin(0.5, 1);
-    const icon = this.scene.add.sprite(x, y, ICONS_TEXTURE_KEY, 'fireBall');
+    const icon = this.scene.add.sprite(x, y - size * 0.06, ICONS_TEXTURE_KEY, 'fireBall');
     const frame = this.scene.add
       .image(x, y, COOLDOWNRAIL_TEXTURE_KEY, 'socket');
     fitWidth(frame, size);
-    // Inside the socket, along its bottom edge: outside it the countdown
-    // drifts over the rail's wall, and there is no room out there for it.
+    // Low in the opening, under the icon. Any lower and it crosses the frame;
+    // the icon is nudged up by the same amount to keep them apart.
     const label = this.scene.add
-      .text(x, y + size * 0.3, '', {
+      .text(x, y + innerH * 0.30, '', {
         fontFamily: PIXEL_FONT.stack,
         fontSize: `${HUD.hintSize}px`,
         color: HUD.ink,
@@ -129,10 +141,10 @@ export class CooldownRail {
 
       socket.frame.setVisible(true);
       socket.icon.setVisible(true).setTexture(ICONS_TEXTURE_KEY, info.icon);
-      fitInside(socket.icon, this.#size * 0.62);
+      fitInside(socket.icon, this.#size * 0.52);
 
       socket.sweep.setVisible(true);
-      socket.sweep.height = this.#size * Phaser.Math.Clamp(timer.left / timer.total, 0, 1);
+      socket.sweep.height = this.#innerH * Phaser.Math.Clamp(timer.left / timer.total, 0, 1);
 
       socket.label.setVisible(true).setText(Math.max(timer.left, 0).toFixed(1));
     });

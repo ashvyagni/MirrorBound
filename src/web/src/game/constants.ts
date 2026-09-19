@@ -424,7 +424,19 @@ export const HUD_ART = {
      * that left -- a 360-tall rail came out 64 wide and its sockets 32, which
      * is smaller than the countdown that has to fit inside one.
      */
-    socket: 48,
+    socket: 58,
+    /**
+     * The socket's inner opening, as fractions of the drawn socket.
+     *
+     * Measured off `assets/ui/cooldown-rail.png`: 119px of opening in 172px of
+     * socket across, 123 in 173 down, with the opening's bottom edge 85% of
+     * the way down. The recharge sweep and the countdown are bounded by this
+     * rather than by the socket -- a sweep sized to the socket is a black
+     * rectangle hanging out through the frame on every side, which is exactly
+     * what it was doing.
+     */
+    opening: { w: 0.692, h: 0.711 },
+    openingBottom: 0.85,
     /**
      * The gap between the rail's two walls, as a fraction of its drawn width.
      *
