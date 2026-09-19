@@ -9,6 +9,7 @@
 import Phaser from 'phaser';
 
 import { DIALOGUE_TEXTURE_KEY } from '../animation/dialogueAtlas.generated';
+import { DOORS_TEXTURE_KEY } from '../animation/doorsAtlas.generated';
 import { BIOMES, DEPTH, HUD, LIGHT_ANGLE, PIXEL_FONT, TILE, type BiomeName } from '../constants';
 import { isPerson, propArt, propArtSide } from './propArt';
 import type { DecorSnap, DoorSnap, RoomFull } from '../contracts';
@@ -352,9 +353,12 @@ export class WorldRenderer {
     this.#doorSprites.clear();
     this.#doorGlows.clear();
     for (const door of room.doors) {
-      const key = this.#doorTexture(door);
-      const img = this.scene.add.image(door.x, door.y + (door.side === 'north' ? 6 : -4), key)
+      const img = this.scene.add
+        .image(door.x, door.y + (door.side === 'north' ? 6 : -4),
+          DOORS_TEXTURE_KEY, this.#doorFrame(door))
         .setDepth(door.side === 'north' ? DEPTH.floorDecal + 2 : DEPTH.entityBase + door.y * 0.01);
+      // Three tiles wide, which is the opening the generator cuts for it.
+      img.setDisplaySize(TILE * 3, TILE * 3 * (img.frame.height / img.frame.width));
       if (door.side === 'south') img.setFlipY(true);
       this.#objects.push(img);
       this.#doorSprites.set(door.side, img);
@@ -367,10 +371,22 @@ export class WorldRenderer {
     this.updateDoors(room.doors);
   }
 
-  #doorTexture(door: DoorSnap): string {
-    if (door.targetIndex === null) return 'door:sealed';
-    if (door.kind === 'arch') return 'door:arch';
-    return door.locked ? 'door:gate_closed' : 'door:gate_open';
+  /**
+   * Which of the four drawn gateways this door is.
+   *
+   * One sheet, four states of the same gateway, so the posts are identical
+   * across all of them and only what is between them changes -- which is what
+   * makes a door opening read as *that* door opening rather than as one image
+   * being swapped for a different one.
+   *
+   * A door with no room on the other side is sealed. That is the one you came
+   * in through, and drawing it as a closed gate would have you waiting for it
+   * to open.
+   */
+  #doorFrame(door: DoorSnap): string {
+    if (door.targetIndex === null) return 'sealed';
+    if (door.kind === 'arch') return 'arch';
+    return door.locked ? 'gateClosed' : 'gateOpen';
   }
 
   updateDoors(doors: DoorSnap[]): void {
@@ -378,10 +394,11 @@ export class WorldRenderer {
       const img = this.#doorSprites.get(door.side);
       const glowImg = this.#doorGlows.get(door.side);
       if (!img || !glowImg) continue;
-      const key = this.#doorTexture(door);
-      if (img.texture.key !== key) {
-        img.setTexture(key);
-        if (key === 'door:gate_open') {
+      const frame = this.#doorFrame(door);
+      if (img.frame.name !== frame) {
+        img.setFrame(frame);
+        img.setDisplaySize(TILE * 3, TILE * 3 * (img.frame.height / img.frame.width));
+        if (frame === 'gateOpen') {
           this.scene.tweens.add({ targets: glowImg, alpha: { from: 0, to: 0.5 }, duration: 900, ease: 'Sine.easeOut' });
           this.scene.tweens.add({ targets: glowImg, scaleX: { from: 1.6, to: 1.9 }, duration: 1400, yoyo: true, repeat: -1 });
         }
