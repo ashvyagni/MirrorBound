@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from mirrorbound.agent.features.action_features import action_token
 from mirrorbound.agent.patterns.detector import PatternDetector
+from mirrorbound.agent.player_model.profile import RunProfile
 from mirrorbound.agent.player_model.traits import PlayerTraitModel
 from mirrorbound.agent.player_model.updater import apply_event
 from mirrorbound.agent.prediction.predictor import SequencePredictor
@@ -23,12 +24,14 @@ class TelemetryCollector:
         self,
         predictor: SequencePredictor,
         traits: PlayerTraitModel,
+        profile: RunProfile | None = None,
         spatial: SpatialModel | None = None,
         pattern_detector: PatternDetector | None = None,
         buffer_capacity: int = DEFAULT_CAPACITY,
     ) -> None:
         self.predictor = predictor
         self.traits = traits
+        self.profile = profile
         self.spatial = spatial
         self.pattern_detector = pattern_detector
         self.buffer = EventBuffer(capacity=buffer_capacity)
@@ -41,6 +44,8 @@ class TelemetryCollector:
         self.tick = event.tick
         self.buffer.append(event)
         apply_event(self.traits, event)
+        if self.profile is not None:
+            self.profile.observe(event)
         token = action_token(event)
         if token is not None:
             self.predictor.observe(token, tick=event.tick)

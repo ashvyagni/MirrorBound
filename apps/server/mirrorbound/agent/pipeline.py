@@ -16,6 +16,7 @@ from mirrorbound.agent.patterns.detector import (
     DEFAULT_STALENESS_TICKS,
     PatternDetector,
 )
+from mirrorbound.agent.player_model.profile import RunProfile
 from mirrorbound.agent.player_model.traits import PlayerTraitModel
 from mirrorbound.agent.prediction.predictor import PredictionCandidate, SequencePredictor
 from mirrorbound.agent.spatial.zones import SpatialModel
@@ -67,6 +68,7 @@ class PlayerModelPipeline:
     ) -> None:
         self.tick_hz = tick_hz
         self.traits = PlayerTraitModel()
+        self.profile = RunProfile()
         self.predictor = SequencePredictor(
             max_order=max_order, half_life_seconds=half_life_seconds, tick_hz=tick_hz
         )
@@ -88,6 +90,7 @@ class PlayerModelPipeline:
         self.collector = TelemetryCollector(
             predictor=self.predictor,
             traits=self.traits,
+            profile=self.profile,
             spatial=self.spatial,
             pattern_detector=self.pattern_detector,
             buffer_capacity=buffer_capacity,
@@ -102,6 +105,22 @@ class PlayerModelPipeline:
         a full EventBus in the loop.
         """
         self.collector.ingest(event)
+
+    def boss_snapshot(
+        self, top_k: int = 3, spatial_top_n: int = 10, pattern_event_count: int = 10
+    ) -> PlayerModelSnapshot:
+        """The same snapshot, with the run-long profile in place of the
+        reactive traits.
+
+        Only the traits differ. Predictions keep their own real-time decay --
+        a habit you have stopped is genuinely not what you are about to do
+        next -- and the spatial heatmaps are already a picture of the whole
+        run rather than of the last few seconds.
+        """
+        snapshot = self.snapshot(top_k=top_k, spatial_top_n=spatial_top_n,
+                                 pattern_event_count=pattern_event_count)
+        snapshot.traits = self.profile.snapshot()
+        return snapshot
 
     def snapshot(
         self, top_k: int = 3, spatial_top_n: int = 10, pattern_event_count: int = 10

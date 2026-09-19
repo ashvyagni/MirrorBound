@@ -640,7 +640,7 @@ class GameSession:
         # 3. enemies
         for enemy in state.get_active_enemies():
             if enemy.enemy_def.boss:
-                self.mirror_controller.player_model = self._player_model_dict()
+                self.mirror_controller.player_model = self._boss_model_dict()
                 self.mirror_controller.update(dt, enemy, state, self.combat)
             else:
                 self.enemy_controller.update(dt, enemy, state, self.combat)
@@ -683,6 +683,10 @@ class GameSession:
             self.twin_executor.on_intent(state, intent)
             self._ticks_since_decision = 0
         self.twin_executor.apply(dt, state, self.combat)
+
+    def _boss_model_dict(self) -> dict:
+        """What the Mirror reads: the run, not the last few seconds."""
+        return self.pipeline.boss_snapshot(top_k=3, spatial_top_n=6).to_json_dict()
 
     def _player_model_dict(self) -> dict:
         return self.pipeline.snapshot(top_k=3, spatial_top_n=6).to_json_dict()
