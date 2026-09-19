@@ -79,6 +79,9 @@ class PickupSnapshot:
     id: str
     kind: str
     position: Vec2
+    # Which weapon or relic this is. The twin cannot sensibly want a pickup it
+    # already owns, and it cannot tell without this.
+    item_id: str = ""
 
 
 @dataclass

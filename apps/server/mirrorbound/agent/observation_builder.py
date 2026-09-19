@@ -89,7 +89,8 @@ def build_observation(
         cleared=state.room.cleared,
     )
 
-    pickups = [PickupSnapshot(p.id, p.kind, p.position.copy()) for p in state.pickups if p.active]
+    pickups = [PickupSnapshot(p.id, p.kind, p.position.copy(), p.item_id)
+               for p in state.pickups if p.active]
 
     return AgentObservation(
         tick=state.tick,

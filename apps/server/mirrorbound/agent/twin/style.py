@@ -142,8 +142,13 @@ class TwinStyleModel:
                 self._learn("preferred_range", 1.0, rate, t)
                 self._learn("melee_dependency", 0.0, rate, t)
                 self._learn("ranged_dependency", 1.0, rate, t)
-            if "SPELL" in tags:
-                self._learn("spell_preference", 1.0, rate, t)
+            # Two-sided, like preferred_range above it. It used to learn only
+            # 1.0, on a SPELL tag, and never the other way -- so the dimension
+            # could rise from neutral and never fall, and the twin's weapon
+            # choice could never prefer a plain ranged weapon over a magic one
+            # whatever the player did. A weapon swing is a clean binary: this
+            # attack either was a spell or it was not.
+            self._learn("spell_preference", 1.0 if "SPELL" in tags else 0.0, rate, t)
             hf = data.get("healthFraction")
             if hf is not None:
                 # Attacking while hurt is a risk-tolerant habit.

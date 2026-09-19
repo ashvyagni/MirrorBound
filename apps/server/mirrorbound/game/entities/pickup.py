@@ -26,12 +26,24 @@ class Pickup(Entity):
         self.health = 1
         self.max_health = 1
 
-    def update(self, dt: float, player_pos: Vec2) -> None:
+    def update(self, dt: float, *collectors: Vec2) -> None:
+        """Drift toward whichever collector is nearest.
+
+        It used to magnetise to the player alone, which meant the twin could
+        never actually reach a weapon it had decided to go and fetch -- the
+        drop flew to the player on the way past. Everything still ends up in
+        the player's inventory except weapons (see loot.py), so serving the
+        nearer of the two costs the player nothing and is the difference
+        between the twin's weapon choice working and not.
+        """
         self.age += dt
         if self.age >= self.ttl:
             self.active = False
             return
-        to_player = player_pos - self.position
+        if not collectors:
+            return
+        nearest = min(collectors, key=lambda c: (c - self.position).length())
+        to_player = nearest - self.position
         dist = to_player.length()
         if dist < self.magnet_radius and dist > 0:
             pull = to_player.normalized() * (self.magnet_speed * (1.0 - dist / self.magnet_radius) + 60)

@@ -109,6 +109,11 @@ class LootSystem:
     def update(self, dt: float, state: GameState) -> None:
         for pickup in state.pickups:
             if pickup.active:
-                pickup.update(dt, state.player.position)
+                # The twin only counts as a collector while it is actually in
+                # the world and able to pick things up.
+                if state.twin.dormant or state.twin.downed:
+                    pickup.update(dt, state.player.position)
+                else:
+                    pickup.update(dt, state.player.position, state.twin.position)
         self.collect(state)
         state.pickups = [p for p in state.pickups if p.active]

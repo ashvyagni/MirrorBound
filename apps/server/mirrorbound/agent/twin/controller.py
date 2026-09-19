@@ -93,6 +93,25 @@ FLANK_FOCUS_WEIGHT = 0.30
 # What ATTACK gives up by picking a different target while that fight is on.
 SPLIT_PENALTY = 0.30
 
+# Breaking off to pick up a weapon it does not own yet.
+#
+# The twin's autonomous weapon choice could never fire in practice: it only
+# ever owned the frost staff it starts with, because the one intent that walks
+# to a pickup (EXPLORE) required the room to be empty first, and weapons drop
+# during fights and get collected by the player on the way past. Measured over
+# a 4000-tick run: zero switches, one weapon owned throughout.
+#
+# So it will now break off mid-fight for a weapon -- but only one it does not
+# have, only if it is close, and only while the player is not in trouble.
+# Full strength anywhere inside the radius bar the outer edge, rather than a
+# gradient over the whole distance. A gradient is self-defeating here: it is
+# only attractive once the twin is close, and nothing brings it close, so the
+# score sat at 0.39 against ATTACK's 0.9 and the twin stood and watched the
+# weapon from 200 units away for the whole fight.
+FETCH_RADIUS = 380.0
+FETCH_TAPER = 0.35        # the outer third is where it starts to lose interest
+FETCH_WEIGHT = 0.95
+
 
 def clamp01(x: float) -> float:
     return 0.0 if x < 0 else 1.0 if x > 1 else x
@@ -369,8 +388,23 @@ class TwinV0Controller:
         else:
             candidates.append(Candidate("REPOSITION", 0.0, None, None, "close to player"))
 
-        # --- EXPLORE: nothing to fight, loot to grab -----------------------------------------
-        if not enemies and obs.pickups:
+        # --- EXPLORE: loot worth walking to -----------------------------------------
+        # A weapon it does not own is worth breaking off a fight for; anything
+        # else waits until the room is clear.
+        unowned = [
+            p for p in obs.pickups
+            if p.kind == "weapon" and p.item_id and p.item_id not in obs.twin_owned_weapons
+        ]
+        # Not while the player is about to be hit or already hurt -- fetching a
+        # bow while its twin is being killed is exactly the wrong instinct.
+        safe_to_fetch = not winding_at_player and player_hp > 0.5
+        if unowned and safe_to_fetch:
+            want = min(unowned, key=lambda p: (p.position - twin.position).length())
+            gap = (want.position - twin.position).length()
+            u = FETCH_WEIGHT * clamp01((FETCH_RADIUS - gap) / (FETCH_RADIUS * FETCH_TAPER))
+            candidates.append(Candidate("EXPLORE", u, None, want.position,
+                                        f"fetching {want.item_id.replace('_', ' ')}"))
+        elif not enemies and obs.pickups:
             nearest_pickup = min(obs.pickups, key=lambda p: (p.position - twin.position).length())
             # With nothing to fight, gathering loot beats trailing the player.
             u = 0.52 + 0.1 * mobility
