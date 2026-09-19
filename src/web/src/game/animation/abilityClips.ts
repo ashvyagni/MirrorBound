@@ -1,0 +1,147 @@
+/**
+ * Spell and projectile art: Logesh's effect sheets, adapted for main.
+ *
+ * His version of this file carried the gameplay numbers too -- speed, lifetime,
+ * cooldown, mana cost -- because on his branch the client simulated the spell.
+ * Here the server owns all four, so they are gone and only the art survives:
+ * which sheet, how big, which way up, and where it leaves the caster.
+ *
+ * Every sheet is drawn 4 across and 2 down (the beam is 2 across and 4 down),
+ * and the generator splits each into bands; they join back into one clip here.
+ */
+
+import type Phaser from 'phaser';
+
+import { ARROW_ANCHOR, ARROW_BODY_RATIO, ARROW_FRAMES, ARROW_FRAME_SIZE, ARROW_TEXTURE_KEY } from './arrowAtlas.generated';
+import { animationKey, registerClips, type ClipDef } from './clips';
+import { COAL_ANCHOR, COAL_BODY_RATIO, COAL_FRAMES, COAL_FRAME_SIZE, COAL_TEXTURE_KEY } from './coalAtlas.generated';
+import { FIREBALL_ANCHOR, FIREBALL_BODY_RATIO, FIREBALL_FRAMES, FIREBALL_FRAME_SIZE, FIREBALL_TEXTURE_KEY } from './fireBallAtlas.generated';
+import { FIREPILLAR_ANCHOR, FIREPILLAR_BODY_RATIO, FIREPILLAR_FRAMES, FIREPILLAR_FRAME_SIZE, FIREPILLAR_TEXTURE_KEY } from './firePillarAtlas.generated';
+import { FIREWAVE_ANCHOR, FIREWAVE_BODY_RATIO, FIREWAVE_FRAMES, FIREWAVE_FRAME_SIZE, FIREWAVE_TEXTURE_KEY } from './fireWaveAtlas.generated';
+import { ICEBEAM_ANCHOR, ICEBEAM_BODY_RATIO, ICEBEAM_FRAMES, ICEBEAM_FRAME_SIZE, ICEBEAM_TEXTURE_KEY } from './iceBeamAtlas.generated';
+import { ICENOVA_ANCHOR, ICENOVA_BODY_RATIO, ICENOVA_FRAMES, ICENOVA_FRAME_SIZE, ICENOVA_TEXTURE_KEY } from './iceNovaAtlas.generated';
+import { ICESHARDS_ANCHOR, ICESHARDS_BODY_RATIO, ICESHARDS_FRAMES, ICESHARDS_FRAME_SIZE, ICESHARDS_TEXTURE_KEY } from './iceShardsAtlas.generated';
+import { THORN_ANCHOR, THORN_BODY_RATIO, THORN_FRAMES, THORN_FRAME_SIZE, THORN_TEXTURE_KEY } from './thornAtlas.generated';
+
+/** How long an effect lasts. */
+export type EffectKind =
+  /** In flight for as long as the server keeps it alive: the clip loops. */
+  | 'thrown'
+  /** Plays through once and is done. */
+  | 'burst';
+
+export interface EffectDef {
+  id: string;
+  kind: EffectKind;
+  /**
+   * Stand it on the floor and never turn it.
+   *
+   * One flag for both, because they are the same question. A flame pillar
+   * tipped forty degrees is a pillar falling over, and a wave that rolls along
+   * the ground rolls along it at every angle.
+   */
+  ground?: boolean;
+  texture: string;
+  frames: readonly string[];
+  anchor: { readonly x: number; readonly y: number };
+  frameSize: { readonly width: number; readonly height: number };
+  bodyRatio: number;
+  frameRate: number;
+  /**
+   * Drawn *height* as a fraction of the player's body height. Width follows
+   * from the frame's own aspect, so for a long horizontal effect this sets the
+   * thickness and the length comes out of it.
+   */
+  sizeRatio: number;
+  /**
+   * Where along the frame box the effect emanates from, 0..1. Defaults to the
+   * sheet's own anchor. An effect that hangs off the staff wants its *source*
+   * pinned instead, so lengthening it reaches further out rather than growing
+   * backwards through the caster.
+   */
+  anchorX?: number;
+}
+
+type Bands = Readonly<Record<string, readonly string[]>>;
+
+function effect(
+  id: string,
+  kind: EffectKind,
+  texture: string,
+  bands: Bands,
+  anchor: EffectDef['anchor'],
+  frameSize: EffectDef['frameSize'],
+  bodyRatio: number,
+  frameRate: number,
+  sizeRatio: number,
+  extra: Partial<Pick<EffectDef, 'ground' | 'anchorX'>> = {},
+): EffectDef {
+  return {
+    id, kind, texture, frames: Object.values(bands).flat(),
+    anchor, frameSize, bodyRatio, frameRate, sizeRatio, ...extra,
+  };
+}
+
+/** Every effect sheet, by its own name. */
+export const EFFECTS = {
+  // The sheet draws the arrow across a wide frame, so a ratio that sounds
+  // modest as a *height* comes out longer than the player is tall. Logesh's
+  // 0.16 lands it at roughly half the body, which is what an arrow looks like.
+  arrow: effect('arrow', 'thrown', ARROW_TEXTURE_KEY, ARROW_FRAMES, ARROW_ANCHOR, ARROW_FRAME_SIZE, ARROW_BODY_RATIO, 18, 0.16),
+  thorn: effect('thorn', 'thrown', THORN_TEXTURE_KEY, THORN_FRAMES, THORN_ANCHOR, THORN_FRAME_SIZE, THORN_BODY_RATIO, 18, 0.2),
+  coal: effect('coal', 'thrown', COAL_TEXTURE_KEY, COAL_FRAMES, COAL_ANCHOR, COAL_FRAME_SIZE, COAL_BODY_RATIO, 16, 0.32),
+  fireBall: effect('fireBall', 'thrown', FIREBALL_TEXTURE_KEY, FIREBALL_FRAMES, FIREBALL_ANCHOR, FIREBALL_FRAME_SIZE, FIREBALL_BODY_RATIO, 16, 0.52),
+  iceShards: effect('iceShards', 'thrown', ICESHARDS_TEXTURE_KEY, ICESHARDS_FRAMES, ICESHARDS_ANCHOR, ICESHARDS_FRAME_SIZE, ICESHARDS_BODY_RATIO, 17, 0.55),
+  // Stands on the floor. Its base belongs on the floor line rather than a third
+  // of the pillar below it -- see `Vfx.#standOnFloor`.
+  firePillar: effect('firePillar', 'burst', FIREPILLAR_TEXTURE_KEY, FIREPILLAR_FRAMES, FIREPILLAR_ANCHOR, FIREPILLAR_FRAME_SIZE, FIREPILLAR_BODY_RATIO, 15, 1.5, { ground: true }),
+  fireWave: effect('fireWave', 'burst', FIREWAVE_TEXTURE_KEY, FIREWAVE_FRAMES, FIREWAVE_ANCHOR, FIREWAVE_FRAME_SIZE, FIREWAVE_BODY_RATIO, 14, 0.78, { ground: true }),
+  iceNova: effect('iceNova', 'burst', ICENOVA_TEXTURE_KEY, ICENOVA_FRAMES, ICENOVA_ANCHOR, ICENOVA_FRAME_SIZE, ICENOVA_BODY_RATIO, 15, 1.05, { ground: true }),
+  // Turns with the aim and is anchored at its bright source rather than its
+  // middle, so it grows forwards out of the staff instead of backwards over
+  // the caster's head. Not a `ground` effect: it is thrown, it just stays put.
+  iceBeam: effect('iceBeam', 'burst', ICEBEAM_TEXTURE_KEY, ICEBEAM_FRAMES, ICEBEAM_ANCHOR, ICEBEAM_FRAME_SIZE, ICEBEAM_BODY_RATIO, 16, 0.5, { anchorX: 0.03 }),
+} as const satisfies Record<string, EffectDef>;
+
+export type EffectId = keyof typeof EFFECTS;
+
+/**
+ * The server's projectile `kind` to the sheet that draws it.
+ *
+ * These are the ids `mirrorbound.game.combat.weapons` and `enemy.py` already
+ * put on the wire; a kind that is not here keeps the painted `proj:` texture.
+ */
+export const PROJECTILE_ART: Readonly<Record<string, EffectId>> = {
+  arrow: 'arrow',
+  bone_arrow: 'arrow',
+  fire_bolt: 'fireBall',
+  ice_bolt: 'iceShards',
+  arcane_bolt: 'thorn',
+  mirror_bolt: 'coal',
+};
+
+/** Extra tint for a sheet standing in for a kind it was not drawn as. */
+export const PROJECTILE_TINT: Readonly<Record<string, number>> = {
+  bone_arrow: 0xd8d2c2,
+  arcane_bolt: 0xb48cff,
+  mirror_bolt: 0xd62e6c,
+};
+
+export function effectKey(def: EffectDef): string {
+  return animationKey(def.texture, 'cast');
+}
+
+export const EFFECT_TEXTURES: readonly string[] = Object.values(EFFECTS).map((e) => e.texture);
+
+export function registerEffectAnimations(anims: Phaser.Animations.AnimationManager): void {
+  for (const def of Object.values(EFFECTS)) {
+    const clip: ClipDef = {
+      frames: def.frames,
+      frameRate: def.frameRate,
+      // A travelling effect loops for as long as the server keeps it alive; a
+      // burst plays through once and is done.
+      repeat: def.kind === 'thrown' ? -1 : 0,
+    };
+    registerClips(anims, def.texture, { cast: clip });
+  }
+}

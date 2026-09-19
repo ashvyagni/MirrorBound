@@ -1,8 +1,14 @@
+import { SKILLNODES_TEXTURE_KEY } from '@/game/animation/skillNodesAtlas.generated';
 import type { SkillNode } from '@/game/contracts';
 import { eventBus } from '@/game/EventBus';
 
+import { Portrait } from './Portrait';
 import { openScreen, useUi } from './store';
 
+/**
+ * `emblem` is the frame name on Logesh's `skillNodes` sheet, which draws one
+ * per branch under exactly these four names in lower case.
+ */
 const CATEGORIES: Array<{ id: SkillNode['category']; label: string; blurb: string }> = [
   { id: 'MOBILITY', label: 'Mobility', blurb: 'Move faster, dash more.' },
   { id: 'COMBAT', label: 'Combat', blurb: 'Hit harder with weapons.' },
@@ -30,7 +36,10 @@ export function SkillTreeScreen() {
         <div className="tree">
           {CATEGORIES.map((cat) => (
             <section key={cat.id} className="tree__branch" data-category={cat.id}>
-              <h3 className="tree__title">{cat.label}<small>{cat.blurb}</small></h3>
+              <h3 className="tree__title">
+                <Portrait atlas={SKILLNODES_TEXTURE_KEY} frame={cat.id.toLowerCase()} size={22} />
+                {cat.label}<small>{cat.blurb}</small>
+              </h3>
               {tree.filter((n) => n.category === cat.id).sort((a, b) => a.tier - b.tier).map((node, i) => (
                 <div key={node.id} className="node-wrap">
                   {i > 0 && <span className="node__link" data-on={node.unlocked || node.available} />}

@@ -1,6 +1,19 @@
-/** Inline SVG icons for abilities, weapons and resources. Drawn, not downloaded. */
+/**
+ * Icons for abilities, weapons, items and resources.
+ *
+ * Logesh's `items` sheet names its frames with `main`'s own ids -- the point of
+ * which was that nothing needs a lookup table -- so anything he drew shows as
+ * real art and everything else keeps the inline SVG below. Abilities are all
+ * still drawn: his icon sheet names its eight frames after the spells his own
+ * branch had, none of which are ids this server sends.
+ */
 
 import type { JSX } from 'react';
+
+import { isItemName } from '@/game/animation/items';
+import { ITEMS_TEXTURE_KEY } from '@/game/animation/itemsAtlas.generated';
+
+import { AtlasIcon } from './Portrait';
 
 const ICONS: Record<string, JSX.Element> = {
   arcane_bolt: (
@@ -95,9 +108,18 @@ const ICONS: Record<string, JSX.Element> = {
   ),
 };
 
+/** Whether Logesh drew this id, so a caller can choose a better generic icon. */
+export function hasItemArt(id: string): boolean {
+  return isItemName(id);
+}
+
 export function Icon({ name, className }: { name: string; className?: string }) {
   const svg = ICONS[name] ?? ICONS.essence;
-  return <span className={`icon ${className ?? ''}`}>{svg}</span>;
+  const drawn = <span className={`icon ${className ?? ''}`}>{svg}</span>;
+  if (!isItemName(name)) return drawn;
+  // Falls back to the drawn icon while the sheet is loading, so nothing pops
+  // in as an empty box.
+  return <AtlasIcon atlas={ITEMS_TEXTURE_KEY} frame={name} className={className} fallback={drawn} />;
 }
 
 export function weaponIcon(family: string): string {

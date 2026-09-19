@@ -3,7 +3,7 @@ import { useState } from 'react';
 import type { WeaponInfo } from '@/game/contracts';
 import { eventBus } from '@/game/EventBus';
 
-import { Icon, weaponIcon } from './icons';
+import { hasItemArt, Icon, weaponIcon } from './icons';
 import { Portrait } from './Portrait';
 import { openScreen, useUi } from './store';
 
@@ -105,7 +105,9 @@ export function InventoryScreen() {
                 {inv.relics.length === 0 && <p className="empty">Relics are rare drops from elites and the vault.</p>}
                 {inv.relics.map((r) => (
                   <div key={r.id} className="item item--row" data-rarity={r.rarity}>
-                    <Icon name="relic" className="item__icon" />
+                    {/* The three relics Logesh drew are named by their own ids;
+                        anything else falls back to the generic ring. */}
+                    <Icon name={hasItemArt(r.id) ? r.id : 'relic'} className="item__icon" />
                     <div className="item__body"><span className="item__name">{r.name}</span><p className="item__desc">{r.description}</p></div>
                   </div>
                 ))}

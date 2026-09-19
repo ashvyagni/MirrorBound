@@ -173,6 +173,10 @@ small { color: var(--ink-faint); font-weight: 400; }
 .ability__icon { width: 36px; height: 36px; }
 .icon { display: inline-block; width: 16px; height: 16px; vertical-align: -3px; }
 .icon svg { display: block; width: 100%; height: 100%; }
+/* An icon that is a frame of a shipped atlas rather than a drawn SVG. It keeps
+   whatever box the screen already gave the icon and centres the art in it. */
+.icon--art { display: inline-grid; place-items: center; }
+.icon--art > span { image-rendering: auto; }
 .ability__cooldown { position: absolute; inset: 0; border-radius: 13px; }
 .ability__timer { position: absolute; inset: 0; display: grid; place-items: center; font: 700 16px/1 var(--sans); color: #fff; text-shadow: 0 1px 3px #000; }
 .ability__key { position: absolute; top: -8px; left: -6px; }

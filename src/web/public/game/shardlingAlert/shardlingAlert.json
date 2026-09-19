@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "f-00": {
+   "frame": {
+    "x": 356,
+    "y": 311,
+    "w": 311,
+    "h": 246
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 51,
+    "y": 58,
+    "w": 311,
+    "h": 246
+   },
+   "sourceSize": {
+    "w": 388,
+    "h": 311
+   }
+  },
+  "f-01": {
+   "frame": {
+    "x": 2,
+    "y": 311,
+    "w": 352,
+    "h": 253
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 36,
+    "y": 56,
+    "w": 352,
+    "h": 253
+   },
+   "sourceSize": {
+    "w": 388,
+    "h": 311
+   }
+  },
+  "f-02": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 388,
+    "h": 307
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 388,
+    "h": 307
+   },
+   "sourceSize": {
+    "w": 388,
+    "h": 311
+   }
+  },
+  "f-03": {
+   "frame": {
+    "x": 392,
+    "y": 2,
+    "w": 366,
+    "h": 298
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 13,
+    "w": 366,
+    "h": 298
+   },
+   "sourceSize": {
+    "w": 388,
+    "h": 311
+   }
+  },
+  "f-04": {
+   "frame": {
+    "x": 359,
+    "y": 566,
+    "w": 336,
+    "h": 221
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 38,
+    "y": 79,
+    "w": 336,
+    "h": 221
+   },
+   "sourceSize": {
+    "w": 388,
+    "h": 311
+   }
+  },
+  "f-05": {
+   "frame": {
+    "x": 2,
+    "y": 806,
+    "w": 332,
+    "h": 221
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 38,
+    "y": 84,
+    "w": 332,
+    "h": 221
+   },
+   "sourceSize": {
+    "w": 388,
+    "h": 311
+   }
+  },
+  "f-06": {
+   "frame": {
+    "x": 669,
+    "y": 311,
+    "w": 348,
+    "h": 245
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 14,
+    "y": 64,
+    "w": 348,
+    "h": 245
+   },
+   "sourceSize": {
+    "w": 388,
+    "h": 311
+   }
+  },
+  "f-07": {
+   "frame": {
+    "x": 2,
+    "y": 566,
+    "w": 355,
+    "h": 238
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 14,
+    "y": 73,
+    "w": 355,
+    "h": 238
+   },
+   "sourceSize": {
+    "w": 388,
+    "h": 311
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "shardlingAlert.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 1024,
+   "h": 1029
+  },
+  "scale": "1"
+ }
+}

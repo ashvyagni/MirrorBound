@@ -1,9 +1,27 @@
 import type Phaser from 'phaser';
 
 import {
+  ARROWCAST_ANCHOR, ARROWCAST_BODY_RATIO, ARROWCAST_FRAMES, ARROWCAST_FRAME_SIZE, ARROWCAST_TEXTURE_KEY,
+} from './arrowCastAtlas.generated';
+import {
   BOW_ANCHOR, BOW_BODY_RATIO, BOW_FRAMES, BOW_FRAME_SIZE, BOW_TEXTURE_KEY,
 } from './bowAtlas.generated';
 import { animationKey, registerClips, type ClipDef } from './clips';
+import {
+  FIREBALLCAST_ANCHOR, FIREBALLCAST_BODY_RATIO, FIREBALLCAST_FRAMES, FIREBALLCAST_FRAME_SIZE, FIREBALLCAST_TEXTURE_KEY,
+} from './fireBallCastAtlas.generated';
+import {
+  FIREWAVECAST_ANCHOR, FIREWAVECAST_BODY_RATIO, FIREWAVECAST_FRAMES, FIREWAVECAST_FRAME_SIZE, FIREWAVECAST_TEXTURE_KEY,
+} from './fireWaveCastAtlas.generated';
+import {
+  ICEBEAMCAST_ANCHOR, ICEBEAMCAST_BODY_RATIO, ICEBEAMCAST_FRAMES, ICEBEAMCAST_FRAME_SIZE, ICEBEAMCAST_TEXTURE_KEY,
+} from './iceBeamCastAtlas.generated';
+import {
+  ICENOVACAST_ANCHOR, ICENOVACAST_BODY_RATIO, ICENOVACAST_FRAMES, ICENOVACAST_FRAME_SIZE, ICENOVACAST_TEXTURE_KEY,
+} from './iceNovaCastAtlas.generated';
+import {
+  ICESHARDSCAST_ANCHOR, ICESHARDSCAST_BODY_RATIO, ICESHARDSCAST_FRAMES, ICESHARDSCAST_FRAME_SIZE, ICESHARDSCAST_TEXTURE_KEY,
+} from './iceShardsCastAtlas.generated';
 import {
   FIRESTAFF_ANCHOR, FIRESTAFF_BODY_RATIO, FIRESTAFF_FRAMES, FIRESTAFF_FRAME_SIZE, FIRESTAFF_TEXTURE_KEY,
 } from './fireStaffAtlas.generated';
@@ -35,6 +53,8 @@ export interface SwingDef {
   lengthRatio?: number;
   /** Overrides where the grip sits, for a swing that has to reach somewhere. */
   offset?: { x: number; y: number };
+  /** Play the sheet's frames in this order instead of the drawn one. */
+  order?: readonly number[];
 }
 
 export type WeaponId = 'sword' | 'bow' | 'fireStaff' | 'iceStaff';
@@ -53,6 +73,14 @@ export interface WeaponDef {
   lengthRatio: number;
   /** Where the weapon sits relative to the goat's origin (its feet). */
   offset: { x: number; y: number };
+  /**
+   * The motion for a shot rather than a bash.
+   *
+   * Only the weapons that actually throw something have one. Without it a bow
+   * plays its melee bash while an arrow leaves it, which reads as the arrow
+   * arriving from somewhere else.
+   */
+  cast?: SwingDef;
 }
 
 /** Each sheet is drawn as 4 across and 2 down, so the two rows join into one swing. */
@@ -63,13 +91,56 @@ function swing(
   frameSize: SwingDef['frameSize'],
   bodyRatio: number,
   frameRate = 20,
-  extra: Partial<Pick<SwingDef, 'mirror' | 'lengthRatio' | 'offset'>> = {},
+  extra: Partial<Pick<SwingDef, 'mirror' | 'lengthRatio' | 'offset' | 'order'>> = {},
 ): SwingDef {
+  const drawn = [...rows.swing, ...rows.swing_b];
+  const frames = extra.order ? extra.order.map((i) => drawn[i] ?? drawn[0]!) : drawn;
   return {
-    texture, frames: [...rows.swing, ...rows.swing_b],
+    texture, frames,
     anchor, frameSize, bodyRatio, frameRate, ...extra,
   };
 }
+
+/**
+ * Cast motions.
+ *
+ * Every `lengthRatio` here is Logesh's own measurement, not a guess. It has to
+ * be solved per sheet rather than shared, because it is divided by the sheet's
+ * body ratio -- which measures the artwork's *vertical* extent, and a staff
+ * drawn horizontal mid-cast has a short one. The beam was the extreme case: at
+ * 1.3 it drew a staff half again as tall as the goat.
+ */
+const CASTS = {
+  arrow: swing(ARROWCAST_TEXTURE_KEY, ARROWCAST_FRAMES, ARROWCAST_ANCHOR, ARROWCAST_FRAME_SIZE, ARROWCAST_BODY_RATIO, 18,
+    { lengthRatio: 1.0, offset: { x: 50, y: -92 } }),
+  fireBall: swing(FIREBALLCAST_TEXTURE_KEY, FIREBALLCAST_FRAMES, FIREBALLCAST_ANCHOR, FIREBALLCAST_FRAME_SIZE, FIREBALLCAST_BODY_RATIO, 17,
+    { lengthRatio: 1.11, offset: { x: 50, y: -92 } }),
+  fireWave: swing(FIREWAVECAST_TEXTURE_KEY, FIREWAVECAST_FRAMES, FIREWAVECAST_ANCHOR, FIREWAVECAST_FRAME_SIZE, FIREWAVECAST_BODY_RATIO, 16,
+    { lengthRatio: 0.95, offset: { x: 50, y: -88 } }),
+  iceShards: swing(ICESHARDSCAST_TEXTURE_KEY, ICESHARDSCAST_FRAMES, ICESHARDSCAST_ANCHOR, ICESHARDSCAST_FRAME_SIZE, ICESHARDSCAST_BODY_RATIO, 18,
+    { lengthRatio: 0.96, offset: { x: 50, y: -92 } }),
+  iceNova: swing(ICENOVACAST_TEXTURE_KEY, ICENOVACAST_FRAMES, ICENOVACAST_ANCHOR, ICENOVACAST_FRAME_SIZE, ICENOVACAST_BODY_RATIO, 16,
+    { lengthRatio: 0.98, offset: { x: 46, y: -92 } }),
+  // Frame 1 of this sheet winds up with the head low and *behind* the caster,
+  // then snaps 135 degrees to level, so the staff enters from below and leaves
+  // from above. Logesh's reorder borrows the recovery frame for the wind-up
+  // rather than redrawing the sheet.
+  iceBeam: swing(ICEBEAMCAST_TEXTURE_KEY, ICEBEAMCAST_FRAMES, ICEBEAMCAST_ANCHOR, ICEBEAMCAST_FRAME_SIZE, ICEBEAMCAST_BODY_RATIO, 14,
+    { order: [0, 6, 2, 3, 4, 5, 6, 7], lengthRatio: 0.66, offset: { x: 50, y: -92 } }),
+} as const;
+
+/**
+ * The cast motion for each of the server's ability ids.
+ *
+ * Only the abilities whose element the art actually shows are here. Healing,
+ * the shield and the dash have no drawn motion, and borrowing a fire sheet for
+ * one of them would say the wrong thing about what is happening.
+ */
+export const ABILITY_CASTS: Readonly<Record<string, SwingDef>> = {
+  flame_burst: CASTS.fireWave,
+  binding_nova: CASTS.iceNova,
+  arcane_bolt: CASTS.iceBeam,
+};
 
 export const WEAPONS: Record<WeaponId, WeaponDef> = {
   sword: {
@@ -93,6 +164,7 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
     name: 'Bow',
     blurb: 'Bashes up close. Ranged shot comes later.',
     swings: [swing(BOW_TEXTURE_KEY, BOW_FRAMES, BOW_ANCHOR, BOW_FRAME_SIZE, BOW_BODY_RATIO, 20)],
+    cast: CASTS.arrow,
     lengthRatio: 0.86,
     offset: { x: 34, y: -84 },
   },
@@ -102,6 +174,7 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
     blurb: 'Overhead smash, embers on impact.',
     swings: [swing(FIRESTAFF_TEXTURE_KEY, FIRESTAFF_FRAMES, FIRESTAFF_ANCHOR, FIRESTAFF_FRAME_SIZE, FIRESTAFF_BODY_RATIO, 19,
       { lengthRatio: 1.35, offset: { x: 34, y: -60 } })],
+    cast: CASTS.fireBall,
     lengthRatio: 1.0,
     offset: { x: 36, y: -86 },
   },
@@ -111,6 +184,7 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
     blurb: 'Wide frost sweep, shards along the arc.',
     swings: [swing(ICESTAFF_TEXTURE_KEY, ICESTAFF_FRAMES, ICESTAFF_ANCHOR, ICESTAFF_FRAME_SIZE, ICESTAFF_BODY_RATIO, 19,
       { mirror: true, lengthRatio: 1.15 })],
+    cast: CASTS.iceShards,
     lengthRatio: 0.95,
     offset: { x: 38, y: -84 },
   },
@@ -122,6 +196,7 @@ export const WEAPON_ORDER: readonly WeaponId[] = ['sword', 'bow', 'fireStaff', '
 export const WEAPON_TEXTURES: readonly string[] = [
   SWORDA_TEXTURE_KEY, SWORDB_TEXTURE_KEY, SWORDC_TEXTURE_KEY,
   BOW_TEXTURE_KEY, FIRESTAFF_TEXTURE_KEY, ICESTAFF_TEXTURE_KEY,
+  ...new Set(Object.values(CASTS).map((def) => def.texture)),
 ];
 
 export function swingKey(texture: string): string {
@@ -129,10 +204,12 @@ export function swingKey(texture: string): string {
 }
 
 export function registerWeaponAnimations(anims: Phaser.Animations.AnimationManager): void {
-  for (const weapon of Object.values(WEAPONS)) {
-    for (const def of weapon.swings) {
-      const clip: ClipDef = { frames: def.frames, frameRate: def.frameRate, repeat: 0 };
-      registerClips(anims, def.texture, { swing: clip });
-    }
+  const sheets = [
+    ...Object.values(WEAPONS).flatMap((weapon) => weapon.swings),
+    ...Object.values(CASTS),
+  ];
+  for (const def of sheets) {
+    const clip: ClipDef = { frames: def.frames, frameRate: def.frameRate, repeat: 0 };
+    registerClips(anims, def.texture, { swing: clip });
   }
 }

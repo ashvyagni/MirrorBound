@@ -1,0 +1,54 @@
+{
+ "frames": {
+  "rail": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 132,
+    "h": 736
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 20,
+    "y": 0,
+    "w": 132,
+    "h": 736
+   },
+   "sourceSize": {
+    "w": 172,
+    "h": 737
+   }
+  },
+  "socket": {
+   "frame": {
+    "x": 136,
+    "y": 2,
+    "w": 172,
+    "h": 173
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 274,
+    "w": 172,
+    "h": 173
+   },
+   "sourceSize": {
+    "w": 172,
+    "h": 737
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "cooldownRail.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 512,
+   "h": 740
+  },
+  "scale": "1"
+ }
+}

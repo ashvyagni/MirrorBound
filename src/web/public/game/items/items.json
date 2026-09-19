@@ -1,0 +1,154 @@
+{
+ "frames": {
+  "health_potion": {
+   "frame": {
+    "x": 233,
+    "y": 2,
+    "w": 67,
+    "h": 86
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 10,
+    "y": 8,
+    "w": 67,
+    "h": 86
+   },
+   "sourceSize": {
+    "w": 81,
+    "h": 100
+   }
+  },
+  "mana_potion": {
+   "frame": {
+    "x": 302,
+    "y": 2,
+    "w": 67,
+    "h": 86
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 8,
+    "y": 8,
+    "w": 67,
+    "h": 86
+   },
+   "sourceSize": {
+    "w": 81,
+    "h": 100
+   }
+  },
+  "ember_heart": {
+   "frame": {
+    "x": 371,
+    "y": 2,
+    "w": 80,
+    "h": 77
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 16,
+    "w": 80,
+    "h": 77
+   },
+   "sourceSize": {
+    "w": 81,
+    "h": 100
+   }
+  },
+  "wolf_fang": {
+   "frame": {
+    "x": 137,
+    "y": 2,
+    "w": 45,
+    "h": 91
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 23,
+    "y": 5,
+    "w": 45,
+    "h": 91
+   },
+   "sourceSize": {
+    "w": 81,
+    "h": 100
+   }
+  },
+  "mirror_eye": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 57,
+    "h": 99
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 14,
+    "y": 0,
+    "w": 57,
+    "h": 99
+   },
+   "sourceSize": {
+    "w": 81,
+    "h": 100
+   }
+  },
+  "essence": {
+   "frame": {
+    "x": 184,
+    "y": 2,
+    "w": 47,
+    "h": 90
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 17,
+    "y": 4,
+    "w": 47,
+    "h": 90
+   },
+   "sourceSize": {
+    "w": 81,
+    "h": 100
+   }
+  },
+  "shards": {
+   "frame": {
+    "x": 61,
+    "y": 2,
+    "w": 74,
+    "h": 93
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 4,
+    "y": 5,
+    "w": 74,
+    "h": 93
+   },
+   "sourceSize": {
+    "w": 81,
+    "h": 100
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "items.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 512,
+   "h": 103
+  },
+  "scale": "1"
+ }
+}

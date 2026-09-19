@@ -60,6 +60,11 @@ class Band:
     #: Lets one character's effect be drawn over another without dragging the
     #: original body along with it.
     fx_alias: str | None = None
+    #: Also emit this band a second time with its effects *removed*, under this
+    #: anim name -- the same split as `fx_alias`, taken from the other side. A
+    #: character holding a weapon should not also be throwing its own bare
+    #: handed effect, and these sheets bake the effect into the pose.
+    clean_alias: str | None = None
     #: Hue rotation applied to those isolated frames, in degrees. Recolouring
     #: here rather than tinting at runtime matters because Phaser's tint is a
     #: multiply: it can only ever darken a channel, so it cannot turn a pink
@@ -104,6 +109,12 @@ class SheetSpec:
     #: sheets whose size differences are real posing (a goat lying down is
     #: genuinely smaller than one standing up).
     normalize_to: str | None = None
+    #: Uniform factor applied to every frame on the way out. The source sheets
+    #: are drawn far larger than anything is displayed at, which is right for
+    #: the game -- a sprite is scaled up on big screens -- but wrong for UI
+    #: chrome that is never drawn above a few dozen pixels, where it only buys
+    #: a megabyte of atlas nobody sees. Resampled once here with a good kernel.
+    downscale: float = 1.0
     #: How the background is separated from the art.
     #: "black"  -- artwork on black with near-black outlines. Outline and
     #:            background share a value, so only geometry can tell them
@@ -278,16 +289,16 @@ def cluster_bodies(body: np.ndarray, band: Band, spec: SheetSpec) -> list[tuple[
     # frame whose artwork happens to break into two pieces a pixel apart, which
     # is exactly what a glowing trail detaching from a blade looks like.
     if band.grid_cols:
+        # The cells are the ground truth, so every cell is a frame -- not just
+        # the ones a blob's centre happened to land in. Bucketing blobs instead
+        # loses a frame whenever two of them touch across a cell boundary: the
+        # merged blob has one centre, one bucket gets it, and its neighbour
+        # comes back empty. Two slimes in `slime-alert` do exactly that.
         cell = (band.x1 - band.x0) / band.grid_cols
-        buckets: dict[int, list[int]] = {}
-        for lo, hi in spans:
-            index = int(((lo + hi) / 2 - band.x0) / cell)
-            index = max(0, min(band.grid_cols - 1, index))
-            if index in buckets:
-                buckets[index] = [min(buckets[index][0], lo), max(buckets[index][1], hi)]
-            else:
-                buckets[index] = [lo, hi]
-        return [(lo, hi) for _, (lo, hi) in sorted(buckets.items())]
+        return [
+            (int(band.x0 + i * cell), int(band.x0 + (i + 1) * cell) - 1)
+            for i in range(band.grid_cols)
+        ]
 
     merged: list[list[int]] = []
     for span in spans:
@@ -346,11 +357,27 @@ def segment(band: Band, spec: SheetSpec, alpha: np.ndarray, body: np.ndarray,
     if fx is not None:
         seeds.append((fx[ys, xs], spec.fx_min_area))
 
+    # On a grid sheet, which cell a pixel sits in decides who owns it. Assigning
+    # a whole blob to one frame is right when frames are found by blob, and
+    # wrong here: artwork that touches across a boundary is one blob, and giving
+    # all of it to a single cell empties its neighbour.
+    column_owner = None
+    if band.grid_cols:
+        cell = (band.x1 - band.x0) / band.grid_cols
+        column_owner = np.clip(
+            (np.arange(region.shape[1]) / cell).astype(np.int16),
+            0, band.grid_cols - 1,
+        )
+
     for source, min_area in seeds:
         for blob in components(source & region, min_area):
+            fresh = blob & (labels < 0)
+            if column_owner is not None:
+                labels[fresh] = np.broadcast_to(column_owner, region.shape)[fresh]
+                continue
             cols = np.nonzero(blob.any(axis=0))[0]
             owner = _owner(int(cols[0]) + band.x0, int(cols[-1]) + band.x0, clusters)
-            labels[blob & (labels < 0)] = owner
+            labels[fresh] = owner
 
     _grow(labels, region)
 
@@ -417,7 +444,9 @@ def band_scales(body: np.ndarray, spec: SheetSpec) -> dict[str, float]:
     judging by height alone would wrongly inflate every travel animation.
     """
     if spec.normalize_to is None:
-        return {}
+        # Still a per-band table, so `downscale` travels the same path as a
+        # normalisation factor rather than needing a second one of its own.
+        return {band.key: spec.downscale for band in spec.bands}
 
     areas: dict[str, float] = {}
     for band in spec.bands:
@@ -432,13 +461,16 @@ def band_scales(body: np.ndarray, spec: SheetSpec) -> dict[str, float]:
     if not reference:
         raise SystemExit(f"[{spec.name}] normalize_to band {spec.normalize_to!r} has no body")
     return {
-        key: (reference / area) ** 0.5 if area else 1.0
+        key: ((reference / area) ** 0.5 if area else 1.0) * spec.downscale
         for key, area in areas.items()
     }
 
 
 #: How far an effect's glow reaches past its bright core, in px.
 FX_GLOW_REACH = 10
+
+#: Extra growth when subtracting an effect, to take its soft fringe with it.
+CLEAN_MARGIN = 5
 
 
 def rotate_hue(rgb: np.ndarray, degrees: float) -> np.ndarray:
@@ -590,17 +622,30 @@ def collect_frames(rgb: np.ndarray, alpha: np.ndarray, spec: SheetSpec) -> list[
                 anchor_x = (lo + hi) // 2
             name = band.names[i] if band.names else f"{band.key}-{i:02d}"
 
-            if band.fx_alias and isolate is not None:
+            if (band.fx_alias or band.clean_alias) and isolate is not None:
                 effect = self_effect(
                     owned, isolate[band.y0:band.y1, band.x0:band.x1],
                     spec.fx_isolate_min_area,
                 )
-                if effect.any():
+                if band.fx_alias and effect.any():
                     frames.append(_cut(
                         f"{band.fx_alias}-{i:02d}", band.fx_alias, i, effect,
                         rotate_hue(band_rgb, band.fx_hue_shift),
                         band_alpha, band, anchor_x, anchor_y, scale,
                     ))
+                if band.clean_alias:
+                    # Emitted for every frame, effect or not, so the clean clip
+                    # keeps the same length and timing as the original. The
+                    # effect is grown before subtracting: its soft edge falls
+                    # below the blob threshold that isolates it, and those
+                    # crumbs are plainly visible once the swirl around them is
+                    # gone.
+                    clean = owned & ~dilate(effect, CLEAN_MARGIN)
+                    if clean.any():
+                        frames.append(_cut(
+                            f"{band.clean_alias}-{i:02d}", band.clean_alias, i, clean,
+                            band_rgb, band_alpha, band, anchor_x, anchor_y, scale,
+                        ))
 
             frames.append(Frame(
                 name=name,
@@ -634,8 +679,13 @@ def pack(frames: list[Frame], padding: int = PADDING) -> tuple[int, int]:
     """Shelf packer: tallest first, into rows of a fixed width."""
     ordered = sorted(frames, key=lambda f: -f.h)
     area = sum((f.w + padding) * (f.h + padding) for f in frames)
+    # Wide enough for the total area *and* for the widest single frame. Area
+    # alone is not enough: a sheet holding one wide frame has a small area and
+    # picks a narrow atlas, and the frame is then written past its right edge
+    # and cropped away. The HUD's hotbar plate is 736px of a 512px canvas.
+    widest = max(f.w for f in frames) + padding * 2
     width = 512
-    while width * width < area * 1.3:
+    while width < widest or width * width < area * 1.3:
         width *= 2
 
     x = y = shelf = 0

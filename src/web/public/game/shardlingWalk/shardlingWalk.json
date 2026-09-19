@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "f-00": {
+   "frame": {
+    "x": 350,
+    "y": 485,
+    "w": 351,
+    "h": 233
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 5,
+    "y": 11,
+    "w": 351,
+    "h": 233
+   },
+   "sourceSize": {
+    "w": 366,
+    "h": 245
+   }
+  },
+  "f-01": {
+   "frame": {
+    "x": 688,
+    "y": 2,
+    "w": 335,
+    "h": 241
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 13,
+    "y": 3,
+    "w": 335,
+    "h": 241
+   },
+   "sourceSize": {
+    "w": 366,
+    "h": 245
+   }
+  },
+  "f-02": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 345,
+    "h": 244
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 4,
+    "y": 0,
+    "w": 345,
+    "h": 244
+   },
+   "sourceSize": {
+    "w": 366,
+    "h": 245
+   }
+  },
+  "f-03": {
+   "frame": {
+    "x": 2,
+    "y": 721,
+    "w": 360,
+    "h": 230
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 14,
+    "w": 360,
+    "h": 230
+   },
+   "sourceSize": {
+    "w": 366,
+    "h": 245
+   }
+  },
+  "f-04": {
+   "frame": {
+    "x": 349,
+    "y": 2,
+    "w": 337,
+    "h": 243
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 29,
+    "y": 1,
+    "w": 337,
+    "h": 243
+   },
+   "sourceSize": {
+    "w": 366,
+    "h": 245
+   }
+  },
+  "f-05": {
+   "frame": {
+    "x": 2,
+    "y": 248,
+    "w": 344,
+    "h": 235
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 14,
+    "y": 10,
+    "w": 344,
+    "h": 235
+   },
+   "sourceSize": {
+    "w": 366,
+    "h": 245
+   }
+  },
+  "f-06": {
+   "frame": {
+    "x": 348,
+    "y": 248,
+    "w": 333,
+    "h": 235
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 10,
+    "y": 8,
+    "w": 333,
+    "h": 235
+   },
+   "sourceSize": {
+    "w": 366,
+    "h": 245
+   }
+  },
+  "f-07": {
+   "frame": {
+    "x": 2,
+    "y": 485,
+    "w": 346,
+    "h": 234
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 11,
+    "y": 11,
+    "w": 346,
+    "h": 234
+   },
+   "sourceSize": {
+    "w": 366,
+    "h": 245
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "shardlingWalk.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 1024,
+   "h": 953
+  },
+  "scale": "1"
+ }
+}

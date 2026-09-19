@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "walk-00": {
+   "frame": {
+    "x": 2,
+    "y": 378,
+    "w": 216,
+    "h": 362
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 30,
+    "y": 11,
+    "w": 216,
+    "h": 362
+   },
+   "sourceSize": {
+    "w": 259,
+    "h": 374
+   }
+  },
+  "walk-01": {
+   "frame": {
+    "x": 436,
+    "y": 2,
+    "w": 247,
+    "h": 369
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 1,
+    "y": 4,
+    "w": 247,
+    "h": 369
+   },
+   "sourceSize": {
+    "w": 259,
+    "h": 374
+   }
+  },
+  "walk-02": {
+   "frame": {
+    "x": 220,
+    "y": 2,
+    "w": 214,
+    "h": 372
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 20,
+    "y": 2,
+    "w": 214,
+    "h": 372
+   },
+   "sourceSize": {
+    "w": 259,
+    "h": 374
+   }
+  },
+  "walk-03": {
+   "frame": {
+    "x": 220,
+    "y": 378,
+    "w": 232,
+    "h": 359
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 20,
+    "y": 13,
+    "w": 232,
+    "h": 359
+   },
+   "sourceSize": {
+    "w": 259,
+    "h": 374
+   }
+  },
+  "walk-04": {
+   "frame": {
+    "x": 685,
+    "y": 2,
+    "w": 217,
+    "h": 365
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 30,
+    "y": 8,
+    "w": 217,
+    "h": 365
+   },
+   "sourceSize": {
+    "w": 259,
+    "h": 374
+   }
+  },
+  "walk-05": {
+   "frame": {
+    "x": 454,
+    "y": 378,
+    "w": 237,
+    "h": 359
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 22,
+    "y": 13,
+    "w": 237,
+    "h": 359
+   },
+   "sourceSize": {
+    "w": 259,
+    "h": 374
+   }
+  },
+  "walk-06": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 216,
+    "h": 374
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 20,
+    "y": 0,
+    "w": 216,
+    "h": 374
+   },
+   "sourceSize": {
+    "w": 259,
+    "h": 374
+   }
+  },
+  "walk-07": {
+   "frame": {
+    "x": 693,
+    "y": 378,
+    "w": 236,
+    "h": 356
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 16,
+    "w": 236,
+    "h": 356
+   },
+   "sourceSize": {
+    "w": 259,
+    "h": 374
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "goatFront.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 1024,
+   "h": 742
+  },
+  "scale": "1"
+ }
+}

@@ -8,9 +8,13 @@
 
 import Phaser from 'phaser';
 
-import { CAMERA, DEPTH, PALETTE } from '../constants';
+import { EFFECTS, effectKey, type EffectDef, type EffectId } from '../animation/abilityClips';
+import { GOAT_BODY_RATIO } from '../animation/goatAtlas.generated';
+import { CAMERA, DEPTH, PALETTE, PLAYER_DISPLAY_HEIGHT } from '../constants';
 import type { Vec2 } from '../contracts';
 import type { Settings } from '../../ui/settings';
+
+const PLAYER_BODY = PLAYER_DISPLAY_HEIGHT * GOAT_BODY_RATIO;
 
 export class Vfx {
   #settings: Settings;
@@ -32,6 +36,62 @@ export class Vfx {
     const emitter = this.scene.add.particles(x, y, texture, { ...cfg, emitting: false }).setDepth(DEPTH.fxHigh);
     emitter.explode(n, 0, 0);
     this.scene.time.delayedCall(((cfg.lifespan as { max?: number })?.max ?? (cfg.lifespan as number) ?? 600) + 50, () => emitter.destroy());
+  }
+
+  // --- drawn effects ----------------------------------------------------------
+
+  /**
+   * Play one of Logesh's effect sheets standing on the floor at `pos`.
+   *
+   * Fire-and-forget: it plays once and destroys itself, so the caller must
+   * invoke it once per server event and never once per snapshot -- snapshots
+   * repeat at 20 Hz and a pillar spawned per snapshot is twenty pillars.
+   *
+   * Returns false when the atlas is not loaded, so the caller can fall back to
+   * particles rather than silently dropping the feedback.
+   */
+  groundEffect(id: EffectId, pos: Vec2, sizeMult = 1, facing?: Vec2): boolean {
+    const def: EffectDef = EFFECTS[id];
+    if (!this.scene.textures.exists(def.texture)) return false;
+    const sprite = this.scene.add.sprite(pos.x, pos.y, def.texture, def.frames[0]);
+    // Uniform scale solved from the artwork, not `setDisplaySize`: that reads
+    // the untrimmed source box, which these sheets pad by wildly different
+    // amounts frame to frame.
+    sprite.setScale((PLAYER_BODY * def.sizeRatio * sizeMult) / (def.frameSize.height * def.bodyRatio));
+    const anchorX = def.anchorX ?? def.anchor.x;
+    sprite.setOrigin(anchorX, def.anchor.y);
+    sprite.setDepth(def.ground ? DEPTH.fxLow : DEPTH.entityTop);
+    if (def.ground) {
+      this.#standOnFloor(sprite);
+      sprite.on(Phaser.Animations.Events.ANIMATION_UPDATE, () => this.#standOnFloor(sprite));
+    } else if (facing && (facing.x !== 0 || facing.y !== 0)) {
+      // Mirror first, then turn by the mirrored angle, so the effect's own "up"
+      // stays upward at every angle. The origin has to mirror with it or the
+      // effect keeps its reach on the side the art was drawn for.
+      const flipped = facing.x < 0;
+      sprite.setFlipX(flipped);
+      sprite.setOrigin(flipped ? 1 - anchorX : anchorX, def.anchor.y);
+      sprite.setRotation(flipped ? Math.atan2(-facing.y, -facing.x) : Math.atan2(facing.y, facing.x));
+    }
+    sprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => sprite.destroy());
+    sprite.play(effectKey(def));
+    return true;
+  }
+
+  /**
+   * Put the *artwork's* bottom edge on the sprite's y, frame by frame.
+   *
+   * A fixed origin of 1 is not the fix and is worse: the atlas shares one
+   * source box across a sheet, and only whichever frame reaches lowest actually
+   * touches its bottom edge -- pinning to the box grounds that one frame and
+   * leaves the rest hovering by the difference. So the origin comes from each
+   * frame's own trim.
+   */
+  #standOnFloor(sprite: Phaser.GameObjects.Sprite): void {
+    const frame = sprite.frame;
+    const boxHeight = frame.realHeight || frame.height;
+    if (!boxHeight) return;
+    sprite.setOrigin(sprite.originX, (frame.y + frame.height) / boxHeight);
   }
 
   // --- combat -------------------------------------------------------------------
@@ -83,6 +143,9 @@ export class Vfx {
       : kind.includes('arcane') ? PALETTE.arcane : kind.includes('mirror') ? PALETTE.magenta : 0xe8e4dc;
     this.hitSparks(pos, colour, kind.includes('fire') ? 16 : 7);
     if (kind.includes('fire')) {
+      // The fire bolt carries a 56-unit blast radius on the server; the pillar
+      // is what says so. It stands upright wherever it lands.
+      this.groundEffect('firePillar', pos, 0.55);
       const ring = this.scene.add.image(pos.x, pos.y, 'fx:ring').setTint(PALETTE.ember).setScale(0.2).setAlpha(0.8)
         .setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.fxLow);
       this.scene.tweens.add({ targets: ring, scale: 1.2, alpha: 0, duration: 320, onComplete: () => ring.destroy() });
@@ -93,6 +156,9 @@ export class Vfx {
 
   flameCone(pos: Vec2, facing: Vec2): void {
     const angle = Phaser.Math.RadToDeg(Math.atan2(facing.y, facing.x));
+    // The wave rolls along the floor, so it stays upright at every angle --
+    // only its placement follows the facing.
+    this.groundEffect('fireWave', { x: pos.x + facing.x * 34, y: pos.y + facing.y * 22 }, 1);
     this.#burst(pos.x + facing.x * 20, pos.y - 12 + facing.y * 14, 'fx:soft', 46, {
       lifespan: { min: 300, max: 620 }, speed: { min: 220, max: 420 }, angle: { min: angle - 38, max: angle + 38 },
       scale: { start: 0.9, end: 0.1 }, alpha: { start: 0.95, end: 0 }, tint: [0xfff1a8, 0xffb13d, 0xff7a3d, 0xd62e6c],
@@ -102,6 +168,9 @@ export class Vfx {
   }
 
   nova(pos: Vec2, radius: number): void {
+    // Erupts from the ground, so its base belongs on the floor line. Sized off
+    // the server's own radius rather than a number picked to look right.
+    this.groundEffect('iceNova', pos, Math.max(0.6, radius / 150));
     const ring = this.scene.add.image(pos.x, pos.y - 8, 'fx:ring').setTint(PALETTE.arcane).setScale(0.1).setAlpha(1)
       .setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.fxLow);
     this.scene.tweens.add({ targets: ring, scale: (radius * 2) / 84, alpha: 0, duration: 420, ease: 'Quad.easeOut', onComplete: () => ring.destroy() });
@@ -123,10 +192,13 @@ export class Vfx {
     });
   }
 
-  arcaneCast(pos: Vec2): void {
+  arcaneCast(pos: Vec2, facing?: Vec2): void {
     const flash = this.scene.add.image(pos.x, pos.y - 20, 'fx:glow').setTint(PALETTE.arcane).setScale(0.4).setAlpha(0.8)
       .setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.fxHigh);
     this.scene.tweens.add({ targets: flash, scale: 0.9, alpha: 0, duration: 220, onComplete: () => flash.destroy() });
+    // The lance the bolt leaves along. This is the one ability the server marks
+    // `pierce`, which is what a lance says and a puff of glow does not.
+    if (facing) this.groundEffect('iceBeam', { x: pos.x, y: pos.y - 22 }, 0.6, facing);
   }
 
   // --- world --------------------------------------------------------------------------

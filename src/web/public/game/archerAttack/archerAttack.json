@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "f-00": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 351,
+    "h": 512
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 22,
+    "y": 0,
+    "w": 351,
+    "h": 512
+   },
+   "sourceSize": {
+    "w": 373,
+    "h": 514
+   }
+  },
+  "f-01": {
+   "frame": {
+    "x": 355,
+    "y": 2,
+    "w": 343,
+    "h": 512
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 30,
+    "y": 0,
+    "w": 343,
+    "h": 512
+   },
+   "sourceSize": {
+    "w": 373,
+    "h": 514
+   }
+  },
+  "f-02": {
+   "frame": {
+    "x": 700,
+    "y": 2,
+    "w": 314,
+    "h": 512
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 24,
+    "y": 0,
+    "w": 314,
+    "h": 512
+   },
+   "sourceSize": {
+    "w": 373,
+    "h": 514
+   }
+  },
+  "f-03": {
+   "frame": {
+    "x": 1016,
+    "y": 2,
+    "w": 360,
+    "h": 512
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 360,
+    "h": 512
+   },
+   "sourceSize": {
+    "w": 373,
+    "h": 514
+   }
+  },
+  "f-04": {
+   "frame": {
+    "x": 1378,
+    "y": 2,
+    "w": 356,
+    "h": 472
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 11,
+    "y": 42,
+    "w": 356,
+    "h": 472
+   },
+   "sourceSize": {
+    "w": 373,
+    "h": 514
+   }
+  },
+  "f-05": {
+   "frame": {
+    "x": 2,
+    "y": 516,
+    "w": 313,
+    "h": 472
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 36,
+    "y": 42,
+    "w": 313,
+    "h": 472
+   },
+   "sourceSize": {
+    "w": 373,
+    "h": 514
+   }
+  },
+  "f-06": {
+   "frame": {
+    "x": 666,
+    "y": 516,
+    "w": 303,
+    "h": 471
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 32,
+    "y": 42,
+    "w": 303,
+    "h": 471
+   },
+   "sourceSize": {
+    "w": 373,
+    "h": 514
+   }
+  },
+  "f-07": {
+   "frame": {
+    "x": 317,
+    "y": 516,
+    "w": 347,
+    "h": 472
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 12,
+    "y": 42,
+    "w": 347,
+    "h": 472
+   },
+   "sourceSize": {
+    "w": 373,
+    "h": 514
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "archerAttack.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 2048,
+   "h": 990
+  },
+  "scale": "1"
+ }
+}
