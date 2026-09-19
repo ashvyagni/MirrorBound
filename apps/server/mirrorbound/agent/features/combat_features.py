@@ -58,6 +58,26 @@ def dependency_signals(event: Event) -> dict[str, float]:
     }
 
 
+def combo_signal(event: Event) -> float | None:
+    """1.0 when this attack landed as part of an active combo chain, 0.0 for
+    an opening hit that didn't chain off a previous one, None when there's no
+    combo information to read at all.
+
+    Reads `data["comboStep"]` directly rather than inferring "attacks close
+    together in time" from tick deltas -- the game already computes this
+    authoritatively per weapon (`Player.start_attack`/`weapon.combo_window` in
+    game/entities/player.py resets the chain if you wait too long between
+    swings, and every weapon's window differs), so re-deriving it here would
+    just be a worse, stateful copy of logic that already exists. `comboStep`
+    is 1-indexed: 1 is the opening hit of a (possible) chain, 2+ means the
+    previous hit landed recently enough for this one to extend it.
+    """
+    combo_step = event.data.get("comboStep")
+    if combo_step is None:
+        return None
+    return 1.0 if combo_step >= 2 else 0.0
+
+
 def aggression_signal(event: Event) -> float | None:
     """1.0 for a clearly offensive action, 0.0 for a clearly defensive one, None
     (no observation) for anything ambiguous — movement, an unrecognized type, or

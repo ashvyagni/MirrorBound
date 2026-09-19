@@ -45,6 +45,31 @@ def test_same_intent_does_not_spam_actions():
     assert len(events_of(s, "TWIN_ACTION")) == 1
 
 
+def test_intent_with_desired_weapon_the_twin_owns_switches_equipped_weapon():
+    s = fresh()
+    st = s.state
+    st.twin.inventory.add_weapon("hunter_bow")
+    assert st.twin.inventory.equipped_weapon == "frost_staff"
+    s.twin_executor.on_intent(st, TwinIntent("FOLLOW", desired_weapon="hunter_bow"))
+    assert st.twin.inventory.equipped_weapon == "hunter_bow"
+    assert events_of(s, "TWIN_WEAPON_SWITCH")
+
+
+def test_desired_weapon_not_owned_is_ignored():
+    s = fresh()
+    st = s.state
+    s.twin_executor.on_intent(st, TwinIntent("FOLLOW", desired_weapon="iron_sword"))
+    assert st.twin.inventory.equipped_weapon == "frost_staff"
+    assert not events_of(s, "TWIN_WEAPON_SWITCH")
+
+
+def test_desired_weapon_already_equipped_does_not_re_emit():
+    s = fresh()
+    st = s.state
+    s.twin_executor.on_intent(st, TwinIntent("FOLLOW", desired_weapon="frost_staff"))
+    assert not events_of(s, "TWIN_WEAPON_SWITCH")
+
+
 def test_follow_moves_the_twin_toward_the_goal_and_stops():
     s = fresh()
     st = s.state

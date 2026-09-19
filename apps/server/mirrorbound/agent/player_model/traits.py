@@ -19,6 +19,7 @@ DEFAULT_TRAIT_NAMES = (
     "ranged_dependency",
     "spell_dependency",
     "defensive_tendency",
+    "combo_dependency",
 )
 
 

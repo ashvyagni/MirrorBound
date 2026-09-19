@@ -42,9 +42,12 @@ Events are emitted on meaningful gameplay moments, never per frame. The full voc
 ## 2. Player model (Ujesha)
 
 - **Traits** (`aggression`, `mobility`, `risk_tolerance`, `preferred_range`, `melee/ranged/spell_dependency`,
-  `defensive_tendency`): exponentially-weighted moving averages. Each carries `value`, `confidence`
-  (`1 - exp(-samples/20)`, capped below 1), `samples`, `recent_trend`. Recency weighting is the decay:
-  the model answers "what is this player doing *now*".
+  `defensive_tendency`, `combo_dependency`): exponentially-weighted moving averages. Each carries `value`,
+  `confidence` (`1 - exp(-samples/20)`, capped below 1), `samples`, `recent_trend`. Recency weighting is
+  the decay: the model answers "what is this player doing *now*". `combo_dependency` reads `PLAYER_ATTACKED`'s
+  `comboStep` directly (the game's own per-weapon combo-chain tracking) rather than inferring chaining from
+  tick deltas, and is deliberately separate from `aggression` -- a player who attacks constantly without
+  chaining reads as aggressive but not combo-heavy.
 - **Sequence prediction**: three Markov tables (orders 1-3) over action tokens with a 30 s half-life
   on every transition weight. Prediction backs off from the longest context with enough evidence
   (`min_context_weight`) to shorter ones, so a single observation never wins outright. Abandoned
@@ -73,24 +76,45 @@ Every decision scores all candidates from the observation, the player model and 
 | Candidate | Fires when | Scaled by |
 |---|---|---|
 | RETREAT | twin low health with enemies near | (1 - risk_tolerance), defensive_tendency |
-| INTERCEPT | an enemy is winding up on the player, or threats near a hurt player | defensive_tendency, player health deficit |
+| INTERCEPT | an enemy is winding up on the player, or threats near a hurt player | defensive_tendency, player health deficit, player `combo_dependency` × its confidence (step into an ongoing chain) |
 | PROTECT | two or more enemies pressing the player | defensive_tendency, threat count |
 | DISTRACT | player under 40% health, twin healthy | defensive_tendency, risk |
-| ASSIST | the player has a target | twin aggression, player aggression × its confidence; penalised if an AoE is predicted at that target |
-| ATTACK | any enemy, preferring isolated ones and (by `target_preference`) dangerous vs weak ones | aggression, risk vs crowd |
-| FLANK | player's target within reach | mobility; bonus when an AoE is predicted (stay out of the cone) |
+| ASSIST | the player has a target | twin aggression, player aggression × its confidence, own `preferred_range` (ranged-leaning mildly favors supporting over closing in); penalised if an AoE is predicted at that target |
+| ATTACK | any enemy, preferring isolated ones and (by `target_preference`) dangerous vs weak ones | aggression, risk vs crowd, own `preferred_range` (melee-leaning favors it, ranged-leaning suppresses it) |
+| FLANK | player's target within reach | mobility, own `preferred_range` (ranged-leaning favors it), `spell_preference`, player `combo_dependency` × its confidence (break the 1v1 rhythm from another angle); bonus when an AoE is predicted (stay out of the cone) |
 | REPOSITION | far from the player | mobility, distance |
 | EXPLORE | room clear, pickups present | mobility |
 | FOLLOW | default | — |
 
-The current intent gets a small hysteresis bonus so decisions don't flap. Confidence is the winning
-utility over the sum of the top two. The full utility table is attached to the intent, sent in every
-snapshot and drawn in the F3 overlay.
+The current intent gets a small hysteresis bonus so decisions don't flap. Beyond that, a candidate whose
+*posture* (engaged: `ATTACK`/`ASSIST`/`FLANK`/`DISTRACT`/`INTERCEPT`/`PROTECT` vs. disengaged:
+`RETREAT`/`REPOSITION`/`FOLLOW`/`EXPLORE`) opposes the current intent's is penalized, scaled by
+`seconds_since_decision` (previously computed on every observation and never read by anything): a
+decision made very recently resists flipping to the opposite posture; the penalty decays to nothing
+over `MOMENTUM_WINDOW_SECONDS` (0.5s). The penalty's ceiling is kept well below what a genuine
+emergency scores (RETREAT at critical health easily clears 0.5+, versus a ≤0.18 penalty), so a real
+threat spike still overrides it outright -- this dampens marginal flip-flopping, not survival
+decisions. Confidence is the winning utility over the sum of the top two. The full utility table is
+attached to the intent, sent in every snapshot and drawn in the F3 overlay.
 
 **Contract for the full agent (Ojas):** implement `decide(observation: AgentObservation) ->
 TwinIntent` and register it with `twin.set_controller(...)`. The observation already carries the
 player model snapshot, the twin style snapshot, entity states (including enemy wind-ups and
-targets), pickups and the player's last action token. Nothing else in the game needs to change.
+targets), pickups and the player's last action token.
+
+**Weapon autonomy (extends the above):** `TwinIntent.desired_weapon` lets `decide()` also suggest a
+weapon, independent of `intent_type` -- never applied directly (see the architecture rule at the top
+of this doc), only validated and equipped by `game/twin_executor.py` if the twin actually owns it
+(`observation.twin_owned_weapons`). `TwinV0Controller._preferred_weapon()` scores each owned weapon
+against `preferred_range`/`spell_preference` and only switches past `WEAPON_SWITCH_MARGIN` (0.15), so
+a marginal lean doesn't cause flip-flopping. For the twin to have more than its starting `frost_staff`
+to choose from, `game/loot.py` now routes a weapon pickup to whichever entity (player or twin)
+actually walked over it, instead of always the player -- every other pickup kind (essence, shards,
+consumables, relics) is unaffected and still always goes to the player, since relic effects and
+shared currency are only ever read from `state.player.inventory`. Honest limit: `iron_sword`, the
+only melee weapon, isn't in `loot.py`'s drop table, so autonomous switching only reaches the ranged/
+magic weapons in practice unless a player manually equips the twin a sword via the `TWIN_EQUIP`
+command.
 
 ## 5. Execution and outcomes (`game/twin_executor.py`)
 
@@ -125,5 +149,7 @@ callout and a toast) so the player sees "you taught it that".
   on the floor.
 - `apps/server/runs/*.jsonl`: every session's tick-stamped inputs and events.
   `python tools/replay/replay.py <file>` re-simulates and reports the first divergence.
-- Tests: `tests/unit/test_twin_*.py`, `test_mirror_boss.py`, `tests/scenarios/test_telemetry_flow.py`,
-  `tests/integration/test_session.py::test_full_simulation_is_deterministic`.
+- Tests: `tests/unit/test_twin_*.py`, `test_mirror_boss.py`, `test_loot.py`,
+  `tests/scenarios/test_telemetry_flow.py`, `test_weapon_autonomy.py`,
+  `test_twin_adaptation_scenarios.py` (the master directive's own section-31 review scenarios, all six
+  now covered end to end against real telemetry), `tests/integration/test_session.py::test_full_simulation_is_deterministic`.

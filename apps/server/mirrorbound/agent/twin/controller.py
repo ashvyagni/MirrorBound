@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 
 from mirrorbound.agent.observation import AgentObservation, EntitySnapshot
 from mirrorbound.agent.twin.style import TwinStyleModel
+from mirrorbound.game.combat.weapons import get_weapon
 from mirrorbound.game.entities.entity import Vec2
 from mirrorbound.game.entities.twin import TwinIntent
 
@@ -26,6 +27,46 @@ FAR_FROM_PLAYER = 250.0
 FOLLOW_OFFSET = 62.0
 AOE_TOKENS = ("FLAME_BURST", "BINDING_NOVA", "FIRE_BURST")
 DASH_TOKENS = ("DASH", "SHADOW_DASH")
+
+# How strongly the twin's own learned preferred_range/spell_preference bias
+# ATTACK (close, self-chosen fight) vs FLANK/ASSIST (repositioned/supportive
+# engagement), given engagement distance itself is still weapon-driven, not
+# style-driven, until the twin can change its own equipment. Centered at zero
+# for a neutral/unconfident style (confident_value() already blends toward
+# 0.5 at low confidence, so subtracting 0.5 here means "no opinion yet"
+# contributes exactly nothing, rather than silently nudging every decision).
+RANGE_LEAN_ATTACK_WEIGHT = 0.30    # melee-leaning (< 0.5) favors ATTACK; ranged-leaning suppresses it
+RANGE_LEAN_FLANK_WEIGHT = 0.24     # ranged-leaning favors FLANK
+RANGE_LEAN_ASSIST_WEIGHT = 0.16    # ranged-leaning mildly favors ASSIST (support from range) over closing in
+SPELL_PREFERENCE_FLANK_WEIGHT = 0.12  # a spell-leaning twin values repositioning generally, not just AoE-dodging
+
+# Minimum score advantage an owned-but-unequipped weapon needs over the
+# current one before the twin bothers requesting a switch -- without this,
+# a barely-confident lean would make it flip weapons on every decision tick.
+WEAPON_SWITCH_MARGIN = 0.15
+
+# Decision momentum, driven by seconds_since_decision (previously computed on
+# every observation and never read by anything -- see AI_ARCHITECTURE.md).
+# A candidate whose posture opposes the currently-held intent's is penalized,
+# scaled by how recently the last decision was made: at the real ~0.1s
+# decision cadence this is a meaningful, real penalty; after a long gap
+# (a delayed tick, or a slower cadence) it decays to nothing, since there's
+# no "recent commitment" left to protect. The penalty is deliberately kept
+# well below what a genuine emergency scores -- RETREAT at critical twin
+# health easily clears 0.5+, far above MOMENTUM_SWITCH_PENALTY's ceiling --
+# so a real threat spike still wins outright; this dampens close, marginal
+# flips (flickering), not survival decisions.
+MOMENTUM_WINDOW_SECONDS = 0.5
+MOMENTUM_SWITCH_PENALTY = 0.18
+ENGAGED_POSTURE = {"ATTACK", "ASSIST", "FLANK", "DISTRACT", "INTERCEPT", "PROTECT"}
+DISENGAGED_POSTURE = {"RETREAT", "REPOSITION", "FOLLOW", "EXPLORE"}
+
+# How strongly a confidently combo-heavy player pushes the twin toward
+# disrupting the exchange (INTERCEPT: literally step into an incoming
+# attack; FLANK: hit the player's target from another angle, breaking the
+# 1v1 rhythm) rather than just reading as generically more aggressive.
+COMBO_INTERCEPT_WEIGHT = 0.25
+COMBO_FLANK_WEIGHT = 0.18
 
 
 def clamp01(x: float) -> float:
@@ -77,6 +118,43 @@ class TwinV0Controller:
                 best, best_d = e, d
         return best, best_d
 
+    @staticmethod
+    def _preferred_weapon(
+        owned: list[str], current_id: str, range_lean: float, spell_lean: float
+    ) -> str | None:
+        """Which owned weapon (if any) is a confidently better stylistic fit
+        than the one currently equipped -- or None to keep the current one.
+
+        Scoring is deliberately coarse: (range_lean - 0.5) rewards a ranged
+        weapon and penalizes a melee one; spell_lean does the same for the
+        SPELL tag. Honest limit: iron_sword (the only melee weapon) isn't in
+        loot.py's WEAPON_DROPS, so in practice the twin only ever owns
+        ranged/magic weapons unless a player manually equips it a sword via
+        the TWIN_EQUIP command -- the melee term still exists for that case,
+        it's just rarely reachable through play alone. It also can't
+        distinguish ember_staff from frost_staff (both SPELL-tagged): that
+        would need a style dimension this model doesn't track, so ties
+        resolve to owned-list order rather than inventing one.
+        """
+        if len(owned) <= 1:
+            return None
+
+        def score(weapon_id: str) -> float:
+            w = get_weapon(weapon_id)
+            s = (range_lean - 0.5) * (-1.0 if w.is_melee else 1.0)
+            if "SPELL" in w.tags:
+                s += spell_lean - 0.5
+            return s
+
+        best = max(owned, key=score)
+        if best == current_id or score(best) - score(current_id) < WEAPON_SWITCH_MARGIN:
+            return None
+        return best
+
+    @staticmethod
+    def _posture(intent_type: str) -> str:
+        return "engaged" if intent_type in ENGAGED_POSTURE else "disengaged"
+
     def _engage_position(self, obs: AgentObservation, target: EntitySnapshot, from_pos: Vec2) -> Vec2:
         """Where to stand to fight `target` with the current weapon."""
         to_target = target.position - from_pos
@@ -102,8 +180,17 @@ class TwinV0Controller:
         risk = style.confident_value("risk_tolerance")
         mobility = style.confident_value("mobility")
         target_pref = style.confident_value("target_preference")
+        # melee_dependency/ranged_dependency are updated in lockstep with
+        # preferred_range in style.py (every melee/ranged attack nudges all
+        # three together, always by the same amount) -- they're the same
+        # evidence expressed three ways, so using preferred_range alone here
+        # avoids triple-counting a single signal.
+        range_lean = style.confident_value("preferred_range")   # 0 = melee-leaning, 1 = ranged-leaning
+        spell_lean = style.confident_value("spell_preference")
         # The player model informs *how* the twin supports, not what it copies.
         player_aggr, player_aggr_conf = self._trait(model, "aggression")
+        combo_dep, combo_conf = self._trait(model, "combo_dependency")
+        combo_pressure = combo_dep * combo_conf
         predicted, pred_conf = self._top_prediction(model)
         aoe_incoming = predicted in AOE_TOKENS and pred_conf > 0.45
         dash_incoming = predicted in DASH_TOKENS and pred_conf > 0.45
@@ -147,6 +234,7 @@ class TwinV0Controller:
             u = 0.55 + 0.3 * defensive + clamp01(0.6 - player_hp) * 0.45
             if winding_at_player:
                 u += 0.1
+            u += COMBO_INTERCEPT_WEIGHT * combo_pressure
             mid = player.position + (threat.position - player.position) * 0.6
             candidates.append(Candidate("INTERCEPT", u, threat, mid, f"{threat.role} threatening player (hp {player_hp:.0%})"))
         else:
@@ -173,6 +261,7 @@ class TwinV0Controller:
         # --- ASSIST: fight the player's target -------------------------------------
         if player_target is not None:
             u = 0.42 + 0.35 * aggression + 0.15 * player_aggr * player_aggr_conf
+            u += RANGE_LEAN_ASSIST_WEIGHT * (range_lean - 0.5)
             if aoe_incoming:
                 u -= 0.2   # the player is about to blanket that spot; don't stand in it
             candidates.append(Candidate("ASSIST", u, player_target, None,
@@ -191,6 +280,7 @@ class TwinV0Controller:
             best = max(enemies, key=score)
             crowd = sum(1 for o in enemies if (o.position - best.position).length() < ISOLATION_RADIUS) - 1
             u = 0.33 + 0.35 * aggression + (0.22 if isolated(best) else 0.0) - 0.12 * crowd * (1 - risk)
+            u -= RANGE_LEAN_ATTACK_WEIGHT * (range_lean - 0.5)
             u *= clamp01(0.35 + twin_hp)
             candidates.append(Candidate("ATTACK", u, best, None,
                                         ("isolated " if isolated(best) else "") + f"{best.role}, aggression {aggression:.2f}"))
@@ -203,6 +293,9 @@ class TwinV0Controller:
             hold = obs.twin_weapon_range * (0.7 if obs.twin_weapon_is_melee else 0.55)
             pos = player_target.position + away_from_player * max(40.0, hold)
             u = 0.3 + 0.3 * mobility + (0.28 if aoe_incoming else 0.0) + 0.1 * aggression
+            u += RANGE_LEAN_FLANK_WEIGHT * (range_lean - 0.5)
+            u += SPELL_PREFERENCE_FLANK_WEIGHT * (spell_lean - 0.5)
+            u += COMBO_FLANK_WEIGHT * combo_pressure
             candidates.append(Candidate("FLANK", u, player_target, pos,
                                         "flanking player's target" + (" to stay out of the burst" if aoe_incoming else "")))
         else:
@@ -234,14 +327,22 @@ class TwinV0Controller:
         candidates.append(Candidate("FOLLOW", u, None, follow_pos, "staying with the player"))
 
         # --- pick --------------------------------------------------------------------------------
+        momentum = clamp01(1.0 - obs.seconds_since_decision / MOMENTUM_WINDOW_SECONDS)
+        current_posture = self._posture(self.current_intent)
         for c in candidates:
             if c.intent == self.current_intent:
                 c.utility += HYSTERESIS
+            elif self._posture(c.intent) != current_posture:
+                c.utility -= MOMENTUM_SWITCH_PENALTY * momentum
         candidates.sort(key=lambda c: c.utility, reverse=True)
         best, second = candidates[0], candidates[1]
         total = best.utility + second.utility
         confidence = clamp01(best.utility / total) if total > 0 else 0.5
         self.current_intent = best.intent
+
+        desired_weapon = self._preferred_weapon(
+            obs.twin_owned_weapons, obs.twin_weapon_id, range_lean, spell_lean
+        )
 
         return TwinIntent(
             intent_type=best.intent,
@@ -250,4 +351,5 @@ class TwinV0Controller:
             confidence=confidence,
             utilities={c.intent: round(c.utility, 3) for c in candidates},
             reason=best.reason,
+            desired_weapon=desired_weapon,
         )

@@ -59,6 +59,25 @@ class TwinExecutor:
                 twin_position=state.twin.position.to_dict(),
             )
         state.twin.remember(intent)
+        self._apply_weapon_switch(state, intent)
+
+    def _apply_weapon_switch(self, state: GameState, intent: TwinIntent) -> None:
+        """The controller only ever suggests a weapon via `desired_weapon` --
+        this validates it against what the twin actually owns before ever
+        calling equip(), same intent -> validate -> execute shape as every
+        other intent. A request for a weapon not in inventory.weapons (a
+        stale suggestion, or a controller bug) is silently ignored rather
+        than trusted.
+        """
+        weapon_id = intent.desired_weapon
+        inventory = state.twin.inventory
+        if (
+            weapon_id
+            and weapon_id != inventory.equipped_weapon
+            and weapon_id in inventory.weapons
+        ):
+            inventory.equip(weapon_id)
+            state.emit("TWIN_WEAPON_SWITCH", weapon=weapon_id)
 
     def _close(self, state: GameState, opened: _Open, reason: str) -> None:
         twin = state.twin
