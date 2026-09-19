@@ -13,6 +13,7 @@ import { useState } from 'react';
 
 import { Icon, weaponIcon } from './icons';
 import { closeConversation, command, useUi } from './store';
+import type { Conversation } from './store';
 
 function priceTone(price: number, gold: number): 'ok' | 'short' {
   return gold >= price ? 'ok' : 'short';
@@ -21,10 +22,13 @@ function priceTone(price: number, gold: number): 'ok' | 'short' {
 export function DialogueScreen() {
   const screen = useUi((s) => s.screen);
   const conversation = useUi((s) => s.conversation);
+  if (screen !== 'dialogue' || !conversation) return null;
+  return <ConversationPanel key={conversation.npcId} conversation={conversation} />;
+}
+
+function ConversationPanel({ conversation }: { conversation: Conversation }) {
   const inventory = useUi((s) => s.playerDetail.inventory);
   const [line, setLine] = useState(0);
-
-  if (screen !== 'dialogue' || !conversation) return null;
 
   const gold = inventory?.gold ?? 0;
   const owned = new Set(inventory?.weapons.map((w) => w.id) ?? []);
@@ -35,7 +39,7 @@ export function DialogueScreen() {
 
   return (
     <div className="overlay overlay--dim">
-      <div className="dialog dialog--talk">
+      <div className="dialog dialog--talk" role="dialog" aria-modal="true" aria-label={conversation.name}>
         <header className="dialog__head">
           <div>
             <h2 className="dialog__title">{conversation.name}</h2>

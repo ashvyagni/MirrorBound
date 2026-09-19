@@ -15,20 +15,6 @@ import { Key } from './Key';
 import { Portrait } from './Portrait';
 import { askForNames, command, openScreen, useUi } from './store';
 
-/** Abilities the player may put in a slot. Names come from the snapshot. */
-const ABILITY_POOL = [
-  'arcane_bolt', 'flame_burst', 'shadow_dash', 'binding_nova', 'mending_light', 'aegis',
-] as const;
-
-const ABILITY_LABELS: Record<string, string> = {
-  arcane_bolt: 'Arcane Bolt',
-  flame_burst: 'Flame Burst',
-  shadow_dash: 'Shadow Dash',
-  binding_nova: 'Binding Nova',
-  mending_light: 'Mending Light',
-  aegis: 'Aegis',
-};
-
 function WeaponCard({ weapon, held, onEquip }: {
   weapon: WeaponInfo; held: 'main' | 'off' | null; onEquip: () => void;
 }) {
@@ -56,7 +42,7 @@ function WeaponCard({ weapon, held, onEquip }: {
   );
 }
 
-function AbilitySlotRow({ slot, owned }: { slot: AbilitySlot; owned: readonly string[] }) {
+function AbilitySlotRow({ slot }: { slot: AbilitySlot }) {
   return (
     <div className="slotrow">
       <kbd className="slotrow__key">{slot.slot}</kbd>
@@ -65,15 +51,6 @@ function AbilitySlotRow({ slot, owned }: { slot: AbilitySlot; owned: readonly st
         <div className="slotrow__name">{slot.name}</div>
         <div className="slotrow__desc">{slot.description}</div>
       </div>
-      <label className="slotrow__pick">
-        <span className="sr-only">{`Ability for slot ${slot.slot}`}</span>
-        <select
-          value={slot.id}
-          onChange={(e) => command({ action: 'SET_ABILITY_SLOT', slot: slot.slot, abilityId: e.target.value })}
-        >
-          {owned.map((id) => <option key={id} value={id}>{ABILITY_LABELS[id] ?? id}</option>)}
-        </select>
-      </label>
       <span className="slotrow__cost">{slot.cost} mana</span>
     </div>
   );
@@ -181,7 +158,8 @@ export function CharacterScreen() {
           <section className="sheet__col">
             <h3 className="sheet__h">Abilities</h3>
             <div className="slotlist">
-              {p.abilities.map((a) => <AbilitySlotRow key={a.slot} slot={a} owned={ABILITY_POOL} />)}
+              <p className="dialog__muted">Abilities come from your equipped and carried weapons. Change weapons to change this list.</p>
+              {p.abilities.map((a) => <AbilitySlotRow key={a.slot} slot={a} />)}
             </div>
 
             <h3 className="sheet__h">

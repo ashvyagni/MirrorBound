@@ -63,7 +63,7 @@ CLIENT_EVENT_TYPES = {
     "BOSS_NOVA_CHARGE", "BOSS_NOVA", "BOSS_DEFEATED", "RUN_COMPLETE", "ACTION_REJECTED", "PLAYER_HEALED",
     "TARGET_CHANGE", "ITEM_USE_STARTED", "ABILITY_INTERRUPTED", "TWIN_WEAPON_SWITCH", "GOLD_GAINED",
     "SHOP_PURCHASE", "NPC_TALK", "QUEST_UPDATED", "CHECKPOINT_SAVED", "AREA_ENTER", "ABILITY_SLOT_CHANGED",
-    "TWIN_ITEM_GIVEN", "AREA_DISCOVERED",
+    "TWIN_ITEM_GIVEN", "AREA_DISCOVERED", "TWIN_TAKEN",
 }
 
 # Spatial heatmap cell size in world units. Rooms are 1280-1600 wide, so 64 gives
@@ -458,9 +458,11 @@ class GameSession:
                 self._respec()
             elif action == "USE_ITEM" and cmd.itemId:
                 self._use_item(cmd.itemId)
-            elif action == "SET_ABILITY_SLOT" and cmd.slot and cmd.abilityId:
-                if player.inventory.set_slot(cmd.slot, cmd.abilityId):
-                    state.emit("ABILITY_SLOT_CHANGED", slot=cmd.slot, ability=cmd.abilityId)
+            elif action == "SET_ABILITY_SLOT":
+                # Older clients can still send this command. Slots are now
+                # derived from weapons; never call the removed inventory setter.
+                state.emit("ACTION_REJECTED", actor=player.id, action=action,
+                           reason="abilities are determined by equipped weapons")
             elif action == "SWAP_WEAPON":
                 if player.inventory.swap_weapons():
                     player.combo_step = 0

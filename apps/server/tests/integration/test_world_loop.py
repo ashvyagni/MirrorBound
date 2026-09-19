@@ -7,6 +7,8 @@ would see happen.
 
 from __future__ import annotations
 
+import pytest
+
 from mirrorbound.api.session import GameSession
 from mirrorbound.game.entities.entity import Vec2
 from mirrorbound.game.world import save as save_system
@@ -136,6 +138,44 @@ def test_finding_the_twin_changes_what_the_elder_says():
 
 
 # --- vendors ------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("role", ["elder", "weaponsmith", "apothecary", "hearth"])
+def test_talk_at_the_advertised_boundary_reaches_the_client(role):
+    s = fresh_village(f"talk-wire-{role}")
+    first = s.snapshot()
+    npc = next(n for n in first["npcs"] if n["role"] == role)
+    p = s.state.player
+    p.position = Vec2(npc["position"]["x"] + npc["radius"] + p.radius, npc["position"]["y"])
+    assert "npcs" not in s.snapshot(), "ordinary snapshots omit unchanged NPC details"
+    s.handle_input({"type": "COMMAND", "action": "TALK", "npcId": npc["id"]})
+    s.step(DT)
+    response = s.snapshot()
+    talks = [e for e in response["events"] if e["type"] == "NPC_TALK"]
+    assert len(talks) == 1
+    assert talks[0]["data"]["npc"] == npc["id"]
+    assert talks[0]["data"]["lines"] == npc["lines"]
+    assert talks[0]["data"]["stock"] == npc["stock"]
+
+
+def test_shop_purchase_updates_inventory_while_dialogue_has_paused_the_world():
+    s = fresh_village("shop-paused-wire")
+    smith = stand_by(s, "weaponsmith")
+    s.state.player.inventory.add_gold(500)
+    s.handle_input({"type": "COMMAND", "action": "TALK", "npcId": smith.id})
+    s.step(DT)
+    assert any(e["type"] == "NPC_TALK" for e in s.snapshot()["events"])
+    s.handle_input({"type": "COMMAND", "action": "PAUSE"})
+    s.handle_input({"type": "COMMAND", "action": "BUY_ITEM", "npcId": smith.id, "itemId": "iron_sword"})
+    s.step(DT)
+    response = s.snapshot()
+    assert response["paused"]
+    assert response["player"]["inventory"]["gold"] == 455
+    assert "iron_sword" in {w["id"] for w in response["player"]["inventory"]["weapons"]}
+    assert any(e["type"] == "SHOP_PURCHASE" for e in response["events"])
+    s.handle_input({"type": "COMMAND", "action": "RESUME"})
+    s.step(DT)
+    assert not s.snapshot()["paused"]
 
 def stand_by(session, role: str):
     npc = next(n for n in session.state.room.npcs if n.definition.role == role)
@@ -488,6 +528,8 @@ def test_the_twin_becomes_the_mirror_on_the_threshold():
     taken = [e for e in s.state.pending_events if e.type == "TWIN_TAKEN"]
     assert len(taken) == 1, "it happens once"
     assert any(e.enemy_def.boss for e in s.state.enemies), "and the Mirror is there"
+    wire = [e for e in s.snapshot()["events"] if e["type"] == "TWIN_TAKEN"]
+    assert len(wire) == 1, "the browser must receive the event to play the transformation"
 
 
 def test_a_twin_that_was_never_found_is_not_taken():

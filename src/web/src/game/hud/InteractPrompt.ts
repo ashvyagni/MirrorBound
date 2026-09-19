@@ -103,13 +103,24 @@ export class InteractPrompt {
     );
   }
 
-  /** World point to HUD point, through the play camera. */
+  /**
+   * World point to HUD point, through the play camera.
+   *
+   * Measured from `worldView`, not from `scrollX`. A Phaser camera zooms about
+   * its own midpoint, so `scroll` is where the camera would start if it were
+   * not zoomed and `worldView` is the rectangle of world it can actually see.
+   * The two are the same only at zoom 1, and this camera runs at
+   * `RENDER_SCALE` -- at zoom 2 on a 1920x1080 canvas they differ by exactly
+   * (960, 540), which put the prompt in the bottom-right corner of the screen
+   * and flickered it in and out as the visibility check tripped.
+   */
   #toScreen(x: number, y: number): { x: number; y: number } {
     const cam = this.scene.scene.get('play')?.cameras?.main;
     if (!cam) return { x, y };
+    const view = cam.worldView;
     return {
-      x: (x - cam.scrollX) * cam.zoom,
-      y: (y - cam.scrollY) * cam.zoom,
+      x: (x - view.x) * cam.zoom,
+      y: (y - view.y) * cam.zoom,
     };
   }
 

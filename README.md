@@ -1,89 +1,108 @@
 # Mirrorbound
 
-**You play. Your twin watches. Your twin learns. Eventually, your mirror learns you well enough to fight back.**
+**You play. Your twin watches. Your twin learns. Eventually, your mirror fights back.**
 
-Mirrorbound is a top-down fantasy action RPG vertical slice. You are an elf-kin wanderer searching a
-haunted grove for your missing twin, accompanied by a spirit-twin that fights beside you. The
-companion is a real AI: it observes how you fight, forms its own preferences from what works for
-it, and chooses among competing actions every tenth of a second. The run ends at **The Mirror**, a
-boss that reads your accumulated behaviour model and counters your habits, weighted by how sure it
-is about them.
+Mirrorbound **0.1.0** is an initial playable single-player action-RPG vertical slice, built with
+Python, FastAPI, TypeScript, React and Phaser. The Python simulation owns movement, combat,
+loot and progression. The browser renders its snapshots. A local utility-AI companion learns
+from your actions and its own outcomes; the final boss counters your accumulated habits.
 
-| | |
-|---|---|
-| Client | TypeScript · React 19 · Phaser 4 · Vite (`src/web`) |
-| Server / game core | Python 3.12+ · FastAPI · WebSockets · Pydantic (`apps/server`) |
-| Agent | Python: EWMA traits, n-gram/Markov sequence prediction, spatial heatmaps, utility AI |
-| Determinism | Same seed + same tick-stamped inputs = same run. Replays are JSONL. |
+This is an early release with known integration and polish work remaining. See
+[FEATURE_STATUS.md](FEATURE_STATUS.md) for the current feature inventory, verified fixes,
+and prioritized issues. Older integration documents describe earlier development stages.
 
-## Run it
+## Run locally
 
-Two processes: the Python server owns the world, the browser draws it.
+Requires Python 3.12+, [uv](https://docs.astral.sh/uv/), and Node.js 22.22.2+, 24.15+, or 26+ with npm.
+Run these in separate terminals from the repository root:
 
 ```bash
-# 1. server (from the repo root)
 cd apps/server
-python -m venv .venv && .venv/Scripts/pip install -e . pytest          # Windows
-# python -m venv .venv && .venv/bin/pip install -e . pytest             # macOS / Linux
-.venv/Scripts/python -m uvicorn mirrorbound.api.app:create_app --factory --port 8000
+uv sync
+uv run uvicorn mirrorbound.api.app:create_app --factory --host 127.0.0.1 --port 8000
 ```
 
 ```bash
-# 2. client
 cd src/web
-npm install
-npm run dev            # http://localhost:5173
+npm ci
+npm run dev
 ```
 
-Open <http://localhost:5173>. Useful URL parameters: `?seed=1234` reproduces a dungeon,
-`?session=name` runs a separate game per tab, `?server=http://host:8000` points at another server.
+Open [the game](http://localhost:5173/?session=player). Use a stable `?session=player` to return
+to that session's checkpoint. Without `session`, the browser generates a new session on page load.
+`?seed=1234&session=test` starts a fresh reproducible run and deliberately ignores checkpoints.
+An alternate server can be selected with `?server=ws://127.0.0.1:8000` (use `wss://` for TLS).
+
+Saves live in `apps/server/saves/`; replay recordings live in `apps/server/runs/`. Both are local,
+gitignored data. Checkpoints preserve progression, not the exact fight or learned AI model.
+This repository does not currently include a packaged executable or a hosted game service.
 
 ## Controls
 
 | Key | Action |
 |---|---|
-| `W A S D` / arrows | Move. Your last movement direction is your facing. |
+| `W A S D` / arrows | Move |
 | `Shift` | Run |
-| `J` / `Space` | Attack in facing direction (sword chains three hits) |
-| `1` `2` `3` `4` | Arcane Bolt · Flame Burst · Shadow Dash · Binding Nova |
-| `P` / `Esc` | Pause menu |
-| `I` | Inventory (player and twin tabs) |
-| `K` | Skill tree |
-| `F3` | AI debug overlay: player profile, prediction, twin utilities, learning, heatmaps |
-| `F` | Fullscreen |
+| Mouse position | Aim attacks and spells |
+| `J` / `Space` | Basic attack |
+| `1`–`4` | Abilities supplied by your two carried weapons |
+| `Q` | Swap equipped and offhand weapons |
+| `E` | Talk to a nearby NPC; click dialogue to advance, `Esc` to leave |
+| `F` / `G` | Health / mana potion |
+| `R`, then `H` | Cycle the potion dial, then drink the selected potion |
+| `I` / `K` / `C` / `M` | Inventory / skills / character / map |
+| `P` / `Esc` | Pause or resume; Escape also closes menus |
+| `F3` | AI debug overlay |
+| `\` | Command console |
 
-The mouse is only used for menus.
+Settings and key rebinding are available through the canvas settings button. Pickups collect
+on contact; walk into unlocked doors and portals to travel. Some menu/input behavior still
+needs consolidation; details are in the feature audit.
 
-## What is in the slice
+## In this release
 
-- Seven-room dungeon: entrance → combat → exploration → treasure → combat → elite → boss, built
-  from handcrafted templates and seeded decoration across three biomes (grove, ruins, crypt).
-- Four weapons that feel different (sword combo, bow, ember staff, frost staff), four abilities
-  with mana and cooldowns, consumables, resources, relics, XP/levels and a 12-node skill tree.
-- Four enemy archetypes plus elites, each with wind-up telegraphs, threat-based targeting,
-  repositioning and retreat.
-- Twin v0: a utility-AI companion that intercepts, protects, flanks, assists, retreats and
-  explores, and a style model that learns from you and from its own outcomes.
-- The Mirror: a final boss driven by the player model (kite, rush, dodge, riposte, predict-dash,
-  zone denial), every counter announced on screen.
-- Living environment: swaying flora, torches, ripples, motes/fireflies/embers, leaves, birds and
-  ground critters with a wander/pause/flee state machine.
-- Working HUD, pause, inventory, skills, settings (volumes, zoom, quality, shake, damage numbers),
-  controls, death/victory screens, and synthesised audio with real volume control.
+- Five areas: Hollow Reach, Wakewood Crypt, Emberfall, the Ashen Deep and Mirror Sanctum.
+  Two villages and thirteen dungeon rooms across grove, ruins and crypt environments.
+- Four NPC roles with authored dialogue, quest flags, names, weapon/potion/relic shops,
+  and a hearth that restores health and mana and writes a checkpoint.
+- An unarmed opening, a guaranteed entrance sword, four equipable weapons, eight weapon-granted
+  abilities, two carried weapons, potions, gold, resources, three relics and twelve skill nodes.
+- Seven ordinary enemy archetypes, elite variants, the Ashen Warden guardian and the Mirror boss.
+- A rescued twin with ten utility choices, independent weapon selection, imitation and outcome
+  learning; player traits, decaying sequence predictions, pattern detection and spatial heatmaps.
+- Drawn character, enemy, world and HUD atlases, directional villagers, ambient life, particles,
+  synthesized audio, canvas inventory/skills/map/settings, and React dialogue and character screens.
+- Deterministic simulation tests and a JSONL recording/replay checker.
 
-## Tests and build
+## Validate
 
 ```bash
-cd apps/server && .venv/Scripts/python -m pytest -q     # 180+ tests: game systems, AI, contracts, determinism
-cd src/web && npm run typecheck && npm run build         # strict TS + production bundle
-python tools/replay/replay.py apps/server/runs/<recording>.jsonl   # re-simulate a run, diff the event log
+cd apps/server
+uv run pytest -q
 ```
 
-## Read next
+```bash
+cd src/web
+npm test
+npm run typecheck
+npm run lint
+npm run build
+```
 
-- [ARCHITECTURE.md](ARCHITECTURE.md) — how the client, server and agent fit together.
-- [AI_ARCHITECTURE.md](AI_ARCHITECTURE.md) — telemetry → player model → twin decisions → boss counters.
-- [GAMEPLAY.md](GAMEPLAY.md) — the loop, rooms, weapons, abilities, enemies, progression.
-- [INTEGRATION.md](INTEGRATION.md) — how contributor branches were audited and merged; what to do next.
-- [ASSET_LICENSES.md](ASSET_LICENSES.md) — where every asset came from.
-- [AGENTS.md](AGENTS.md) — rules for anyone (human or AI) committing here.
+Replay a fresh recorded run with the server environment:
+
+```bash
+cd apps/server
+uv run python ../../tools/replay/replay.py runs/<recording>.jsonl
+```
+
+## Code and design
+
+- [FEATURE_STATUS.md](FEATURE_STATUS.md) — release inventory and remaining work.
+- [ARCHITECTURE.md](ARCHITECTURE.md) — system design.
+- [AI_ARCHITECTURE.md](AI_ARCHITECTURE.md) — modeling, utility decisions and boss counters.
+- [GAMEPLAY.md](GAMEPLAY.md) — gameplay design; some older descriptions need updating.
+- [docs/contracts](docs/contracts/) — snapshot and telemetry documentation.
+- [ASSET_LICENSES.md](ASSET_LICENSES.md) — recorded asset provenance.
+- [INTEGRATION.md](INTEGRATION.md) — historical contributor integration notes.
+- [AGENTS.md](AGENTS.md) — repository rules.

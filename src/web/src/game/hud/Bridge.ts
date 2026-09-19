@@ -8,6 +8,7 @@ import type {
 import { isRoomFull } from '../contracts';
 import { eventBus } from '../EventBus';
 import { POTIONS, type LoadoutSnapshot, type WeaponSlot } from '../state/Loadout';
+import { Interactions } from '../state/Interactions';
 import { runFromDungeon } from '../world/Run';
 
 /**
@@ -58,6 +59,7 @@ export class Bridge {
   #run = '';
   #paused: boolean | null = null;
   #interact = '';
+  #interactions = new Interactions();
   #phase = '';
 
   /** Cached from the last detail snapshot; the frequent ones omit it. */
@@ -240,14 +242,12 @@ export class Bridge {
       Math.hypot(p.x - me.x, p.y - me.y) < reach;
 
     let best: { label: string; x: number; y: number } | null = null;
-    for (const npc of snap.npcs ?? []) {
-      if (near(npc.position, npc.radius + 48)) {
-        best = { label: npc.name, x: npc.position.x, y: npc.position.y };
-        break;
-      }
+    const npc = this.#interactions.update(snap);
+    if (npc) {
+      best = { label: npc.name, x: npc.position.x, y: npc.position.y };
     }
-    if (!best && isRoomFull(snap.room)) {
-      for (const portal of snap.room.portals) {
+    if (!best && this.#interactions.room) {
+      for (const portal of this.#interactions.room.portals) {
         if (near(portal, portal.radius + 32)) {
           best = { label: portal.label, x: portal.x, y: portal.y };
           break;

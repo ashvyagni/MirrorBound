@@ -77,3 +77,20 @@ Rules:
 - `events` is filtered to `CLIENT_EVENT_TYPES` and capped at 60 per snapshot.
 - The client must tolerate a lite `room` and missing detail blocks by caching the last full ones.
 - Field names are camelCase on the wire, snake_case inside event `data` (they are the telemetry events verbatim).
+
+## NPC interactions and weapon-derived abilities (0.1.0)
+
+- `npcs` is detail-only. Absence means unchanged; `[]` explicitly clears it. Clear cached
+  NPCs when `room.id` changes, including transitions between areas whose room indexes match.
+- Each NPC includes `id`, `name`, `role`, `sprite`, `position`, `radius`, authored `lines`,
+  and `stock` entries (`kind`, `itemId`, `price`, `name`, `description`).
+- The displayed talk reach is `npc.radius + player.radius`. The client uses authoritative
+  positions to choose its nearest candidate; `TALK` with `npcId` is still validated by Python.
+- Successful `TALK` emits `NPC_TALK` with `npc`, `name`, `role`, `lines`, `stock`, `position`.
+  It is delivered through `snapshot.events`; the UI then requests `PAUSE`. Purchases are
+  `BUY_ITEM` requests and their results arrive as updated inventory and `SHOP_PURCHASE`.
+- `TWIN_TAKEN` is delivered to the client for the boss transformation. Its data contains
+  `twin`, `position`, `room_id` and `first_visit`; the twin snapshot is already dormant.
+- Player ability slots derive from the equipped weapon pair, and may number fewer than four.
+  Legacy `SET_ABILITY_SLOT` remains a recognized command for compatibility but returns
+  `ACTION_REJECTED` with `abilities are determined by equipped weapons`.

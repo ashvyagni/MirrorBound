@@ -161,6 +161,19 @@ def test_seed_from_session_id_is_stable():
     assert seed_from_session("a") != seed_from_session("b")
 
 
+def test_legacy_ability_selection_is_rejected_without_stopping_the_session():
+    s = GameSession("legacy-slots", seed=5, record=False)
+    before = s.state.player.inventory.ability_slots
+    s.handle_input({"type": "COMMAND", "action": "SET_ABILITY_SLOT", "slot": 1, "abilityId": "mending_light"})
+    s.step(DT)
+    assert s.state.player.inventory.ability_slots == before
+    assert any(e["type"] == "ACTION_REJECTED" and e["data"].get("action") == "SET_ABILITY_SLOT"
+               for e in s.snapshot()["events"])
+    tick = s.state.tick
+    s.step(DT)
+    assert s.state.tick == tick + 1
+
+
 # --- the connection actually resumes -------------------------------------------
 
 

@@ -1,7 +1,14 @@
 # Asset licenses and provenance
 
-Everything the game draws or plays comes from one of three places. Nothing was taken from a
-commercial game or an image search.
+This records the project's asset provenance. The original table below predates the world,
+enemy and HUD art additions; it is representative, not an exhaustive current inventory.
+
+For 0.1.0, source art lives under `assets/` and 146 generated atlas JSON/PNG pairs live under
+`src/web/public/game/`. The pipeline is `src/web/scripts/{sheets,atlaslib,build_atlas}.py`;
+generated frame metadata lives under `src/web/src/game/animation/`. Characters, enemies,
+weapons, spell effects, buildings, villagers, flora, doors, lights and HUD elements now have
+drawn atlas art. Procedural painting remains for floors, effects and fallbacks. Some shipped
+sheets, including the corrupted arsenal and several enemy families, are not wired to gameplay.
 
 ## 1. Team-made art (Logesh)
 
@@ -19,11 +26,10 @@ Owned by the team; usable in the game without attribution requirements.
 
 ## 2. Procedurally painted at runtime (this repo, code)
 
-All environment, enemy, projectile, pickup, FX and critter textures are painted with the Canvas 2D
-API when the game starts (`src/web/src/game/world/TextureFactory.ts`, `PropPainter.ts`,
-`paint.ts`). They are code, licensed with the repository, and seeded so they look identical
-everywhere. Deliberately matched to the soft-outlined painted style of the team art so the world
-does not mix visual languages.
+Canvas 2D painting in `src/web/src/game/world/TextureFactory.ts`, `PropPainter.ts` and `paint.ts`
+provides floor tiles, effects, critters and fallbacks. `propArt.ts`, enemy animation tables and
+projectile mappings select drawn atlas art where available. The following list describes the
+procedural texture coverage, not a claim that every listed object still uses it on screen.
 
 Covered: floor tiles per biome (grass, dirt, path, flagstone, water, wall), trees, bushes, rocks,
 logs, flowers, grass tufts, mushrooms, pillars, crates, chest, statue, rubble, bones, gravestones,
@@ -45,6 +51,7 @@ Loaded from Google Fonts at runtime (not shipped in the repo):
 |---|---|---|
 | Inter | SIL Open Font License 1.1 | https://fonts.google.com/specimen/Inter |
 | Instrument Serif | SIL Open Font License 1.1 | https://fonts.google.com/specimen/Instrument+Serif |
+| Silkscreen | SIL Open Font License 1.1 | https://fonts.google.com/specimen/Silkscreen |
 
 If the fonts fail to load, the UI falls back to system fonts.
 

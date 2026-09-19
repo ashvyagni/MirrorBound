@@ -15,6 +15,7 @@ import type {
 } from '@/game/contracts';
 import { isRoomFull } from '@/game/contracts';
 import { eventBus } from '@/game/EventBus';
+import { Interactions } from '@/game/state/Interactions';
 import type { ConnectionStatus } from '@/game/types';
 
 export type Screen =
@@ -156,6 +157,7 @@ export function pushToast(kind: Toast['kind'], title: string, detail?: string): 
 let lastHudPush = 0;
 /** The opening name prompt is a one-off, not a thing that can come back. */
 let askedForName = false;
+const interactions = new Interactions();
 
 eventBus.on('game:snapshot', (snap) => {
   const patch: Partial<UiState> = {};
@@ -191,17 +193,9 @@ eventBus.on('game:snapshot', (snap) => {
       window.setTimeout(() => askForNames('player'), 600);
     }
   }
-  if (snap.npcs) patch.npcs = snap.npcs;
-  // Who you could talk to right now. Computed from the authoritative positions
-  // rather than tracked, so it can never drift out of step with the world.
-  const npcs = patch.npcs ?? state.npcs;
-  if (npcs.length) {
-    const p = snap.player.position;
-    const near = npcs.find((n) => Math.hypot(n.position.x - p.x, n.position.y - p.y) <= n.radius) ?? null;
-    if ((near?.id ?? null) !== (state.nearbyNpc?.id ?? null)) patch.nearbyNpc = near;
-  } else if (state.nearbyNpc) {
-    patch.nearbyNpc = null;
-  }
+  const near = interactions.update(snap);
+  if (interactions.npcs !== state.npcs) patch.npcs = interactions.npcs;
+  if (near !== state.nearbyNpc) patch.nearbyNpc = near;
   // The HUD does not need every one of the 20 snapshots a second; 10 is plenty
   // and halves React work. Detail snapshots always go through.
   const now = performance.now();
@@ -296,7 +290,7 @@ eventBus.on('game:events', (events) => {
         pushToast('warn', 'Cast interrupted', 'You were hit mid-channel.');
         break;
       case 'ACTION_REJECTED':
-        if (e.data.action === 'BUY_ITEM' || e.data.action === 'TRAVEL') {
+        if (e.data.action === 'BUY_ITEM' || e.data.action === 'TRAVEL' || e.data.action === 'TALK') {
           pushToast('warn', 'Not yet', String(e.data.reason ?? ''));
         }
         break;
