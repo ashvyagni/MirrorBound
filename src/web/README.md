@@ -26,6 +26,9 @@ npm run lint
 | `R` | Turn the potion dial |
 | `F` | Drink the selected potion |
 | `M` | Open the full map |
+| `P` | Pause — blurs the world and shows the run's stats |
+| `Space` | Interact with whatever you are standing next to |
+| `\` | Console: `spawn <thing>`, `clear`, `help` |
 
 Every one of these is rebindable. The settings screen's Controls tab takes the
 next key you press, and the table persists -- `DeviceIntentSource` was already
@@ -184,6 +187,20 @@ leaves them to work out that the companion had it. The row that lost its key
 shows a dash, which is a problem you can see rather than one you have to deduce.
 Escape, Tab, F5 and F12 are reserved, because binding the key that closes the
 screen you are binding from leaves clearing storage by hand as the only way out.
+
+## The console
+
+`\` opens a one-line command bar. `spawn <thing>` puts any of the eleven
+creatures, the boss or any of the seven items in front of you; `clear` takes
+them all back out.
+
+Completion is a ghost drawn behind the cursor at low opacity and taken with Tab
+or the right arrow. Nothing is ever typed for you, so a wrong guess costs
+nothing and the opaque text is always exactly what you entered.
+
+Commands live in one table in `state/Commands.ts` rather than a switch, because
+the same table answers both "run this" and "what might they be typing" — two
+lists that have to agree are one list that eventually does not.
 
 ## The room
 
