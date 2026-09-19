@@ -7,13 +7,13 @@ export const FIRESTAFF_TEXTURE_KEY = "fireStaff" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const FIRESTAFF_BODY_RATIO = 0.76634 as const;
+export const FIRESTAFF_BODY_RATIO = 0.91242 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const FIRESTAFF_FRAME_SIZE = { width: 344, height: 505 } as const;
+export const FIRESTAFF_FRAME_SIZE = { width: 460, height: 451 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const FIRESTAFF_ANCHOR = { x: 0.52035, y: 0.53069 } as const;
+export const FIRESTAFF_ANCHOR = { x: 0.48478, y: 0.46120 } as const;
 
 export const FIRESTAFF_FRAMES = {
   swing: ["swing-00", "swing-01", "swing-02", "swing-03"],

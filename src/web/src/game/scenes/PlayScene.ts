@@ -21,9 +21,11 @@ import { ProjectileView } from '../entities/ProjectileView';
 import { TwinView } from '../entities/TwinView';
 import { WeaponOverlay } from '../entities/WeaponOverlay';
 import { eventBus } from '../EventBus';
-import { KeyboardIntentSource } from '../input/KeyboardIntentSource';
+import { DeviceIntentSource } from '../input/DeviceIntentSource';
+import { bridgeSnapshotToHud } from '../hud/bridge';
 import { WebSocketClient } from '../network/WebSocketClient';
-import type { PlayerSnapshot } from '../types';
+import { HudScene } from './HudScene';
+import type { Intent, PlayerSnapshot } from '../types';
 import { Ambient } from '../world/Ambient';
 import { TextureFactory } from '../world/TextureFactory';
 import { WorldRenderer } from '../world/WorldRenderer';
@@ -41,7 +43,7 @@ export class PlayScene extends Phaser.Scene {
   #world!: WorldRenderer;
   #ambient!: Ambient;
   #vfx!: Vfx;
-  #source!: KeyboardIntentSource;
+  #source!: DeviceIntentSource;
   #weapon!: WeaponOverlay;
   #player: PlayerView | null = null;
   #twin: TwinView | null = null;
@@ -53,7 +55,6 @@ export class PlayScene extends Phaser.Scene {
   #settings: Settings = getSettings();
   #modalOpen = false;
   #debug!: Phaser.GameObjects.Graphics;
-  #vignette!: Phaser.GameObjects.Image;
   #teardown: Array<() => void> = [];
   #lastUiSnapshot: PlayerSnapshot | null = null;
   #cameraBound = false;
@@ -71,9 +72,8 @@ export class PlayScene extends Phaser.Scene {
     this.#vfx = new Vfx(this, this.#settings);
     this.#weapon = new WeaponOverlay(this);
     this.#debug = this.add.graphics().setDepth(DEPTH.debug);
-    this.#vignette = this.add.image(0, 0, 'fx:vignette').setDepth(DEPTH.vignette).setAlpha(0.8);
 
-    this.#source = new KeyboardIntentSource(this.input.keyboard!);
+    this.#source = new DeviceIntentSource(this.input.keyboard!, this.input);
     this.cameras.main.setBackgroundColor(PALETTE.night);
     this.cameras.main.setZoom(RENDER_SCALE * this.#settings.zoom);
 
@@ -103,6 +103,11 @@ export class PlayScene extends Phaser.Scene {
     for (const event of [Phaser.Scale.Events.ENTER_FULLSCREEN, Phaser.Scale.Events.LEAVE_FULLSCREEN]) {
       this.scale.on(event, () => eventBus.emit('game:fullscreen', { active: this.scale.isFullscreen }));
     }
+    // Logesh's art HUD runs as its own scene so it is not under this camera's
+    // RENDER_SCALE zoom, and is fed from the snapshot by the bridge.
+    this.#teardown.push(bridgeSnapshotToHud());
+    this.scene.launch(HudScene.KEY);
+
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.#dispose());
     eventBus.emit('game:ready', { scene: PlayScene.KEY });
   }
@@ -125,7 +130,15 @@ export class PlayScene extends Phaser.Scene {
         eventBus.emit('player:changed', ui);
       }
     }
-    this.#ws.sendInput(playing ? intent : { moveX: 0, moveY: 0, attack: false, run: false, ability: null }, time);
+    // Only the five movement/combat fields cross as an InputMessage; the rest of
+    // the Intent is HUD-level and becomes discrete commands below.
+    this.#ws.sendInput(
+      playing
+        ? { moveX: intent.moveX, moveY: intent.moveY, attack: intent.attack, run: intent.run, ability: intent.ability }
+        : { moveX: 0, moveY: 0, attack: false, run: false, ability: null },
+      time,
+    );
+    if (playing) this.#hudIntents(intent);
 
     this.#twin?.update(dt);
     for (const e of this.#enemies.values()) e.update(dt);
@@ -133,10 +146,39 @@ export class PlayScene extends Phaser.Scene {
     for (const p of this.#pickups.values()) p.update(dt);
     this.#ambient.update(dt, this.#player ? { x: this.#player.x, y: this.#player.y } : null);
 
-    const cam = this.cameras.main;
-    this.#vignette.setPosition(cam.midPoint.x, cam.midPoint.y);
-    this.#vignette.setScale((cam.displayWidth / this.#vignette.width) * 1.02, (cam.displayHeight / this.#vignette.height) * 1.02);
     this.#drawDebug();
+  }
+
+
+  /**
+   * Turn the HUD-level parts of an intent into server commands.
+   *
+   * These are edge-triggered and rare, so they go as discrete `COMMAND`s rather
+   * than riding every input frame. The server validates each one -- swapping to
+   * a weapon you do not own comes back as `ACTION_REJECTED`, it does not happen
+   * locally and then get corrected.
+   */
+  #hudIntents(intent: Intent): void {
+    const snap = this.#snapshot;
+    if (!snap) return;
+
+    if (intent.weaponSlot !== null) {
+      // Hand 1 is "the other weapon you own" (see hud/bridge.ts): the server has
+      // one equipped weapon, not two hands, so this equips rather than swaps.
+      const owned = snap.player.inventory?.weapons.map((w) => w.id) ?? [];
+      const equipped = snap.player.currentWeapon;
+      const wanted = intent.weaponSlot === 0 ? equipped : owned.find((id) => id !== equipped);
+      if (wanted && wanted !== equipped) {
+        eventBus.emit('ui:command', { type: 'COMMAND', action: 'EQUIP_WEAPON', weaponId: wanted });
+      }
+    }
+
+    if (intent.potionUse) {
+      const potion = snap.player.inventory?.consumables.find((c) => c.count > 0);
+      if (potion) eventBus.emit('ui:command', { type: 'COMMAND', action: 'USE_ITEM', itemId: potion.id });
+    }
+
+    if (intent.mapToggle) eventBus.emit('map:toggle', {});
   }
 
   // --- snapshots ------------------------------------------------------------------------
@@ -491,5 +533,6 @@ export class PlayScene extends Phaser.Scene {
     this.#ws.disconnect();
     this.#world.destroy();
     this.#ambient.destroy();
+    this.scene.stop(HudScene.KEY);
   }
 }

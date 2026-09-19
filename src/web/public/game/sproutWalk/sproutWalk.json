@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "f-00": {
+   "frame": {
+    "x": 918,
+    "y": 2,
+    "w": 299,
+    "h": 375
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 14,
+    "y": 31,
+    "w": 299,
+    "h": 375
+   },
+   "sourceSize": {
+    "w": 332,
+    "h": 406
+   }
+  },
+  "f-01": {
+   "frame": {
+    "x": 1219,
+    "y": 2,
+    "w": 314,
+    "h": 373
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 28,
+    "w": 314,
+    "h": 373
+   },
+   "sourceSize": {
+    "w": 332,
+    "h": 406
+   }
+  },
+  "f-02": {
+   "frame": {
+    "x": 612,
+    "y": 2,
+    "w": 304,
+    "h": 378
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 23,
+    "y": 28,
+    "w": 304,
+    "h": 378
+   },
+   "sourceSize": {
+    "w": 332,
+    "h": 406
+   }
+  },
+  "f-03": {
+   "frame": {
+    "x": 309,
+    "y": 402,
+    "w": 296,
+    "h": 353
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 36,
+    "y": 50,
+    "w": 296,
+    "h": 353
+   },
+   "sourceSize": {
+    "w": 332,
+    "h": 406
+   }
+  },
+  "f-04": {
+   "frame": {
+    "x": 298,
+    "y": 2,
+    "w": 312,
+    "h": 380
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 11,
+    "y": 25,
+    "w": 312,
+    "h": 380
+   },
+   "sourceSize": {
+    "w": 332,
+    "h": 406
+   }
+  },
+  "f-05": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 294,
+    "h": 398
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 11,
+    "y": 0,
+    "w": 294,
+    "h": 398
+   },
+   "sourceSize": {
+    "w": 332,
+    "h": 406
+   }
+  },
+  "f-06": {
+   "frame": {
+    "x": 1535,
+    "y": 2,
+    "w": 308,
+    "h": 370
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 5,
+    "y": 36,
+    "w": 308,
+    "h": 370
+   },
+   "sourceSize": {
+    "w": 332,
+    "h": 406
+   }
+  },
+  "f-07": {
+   "frame": {
+    "x": 2,
+    "y": 402,
+    "w": 305,
+    "h": 357
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 14,
+    "y": 48,
+    "w": 305,
+    "h": 357
+   },
+   "sourceSize": {
+    "w": 332,
+    "h": 406
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "sproutWalk.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 2048,
+   "h": 761
+  },
+  "scale": "1"
+ }
+}

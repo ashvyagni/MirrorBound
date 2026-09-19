@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "f-00": {
+   "frame": {
+    "x": 545,
+    "y": 2,
+    "w": 257,
+    "h": 463
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 50,
+    "y": 0,
+    "w": 257,
+    "h": 463
+   },
+   "sourceSize": {
+    "w": 378,
+    "h": 464
+   }
+  },
+  "f-01": {
+   "frame": {
+    "x": 1702,
+    "y": 2,
+    "w": 308,
+    "h": 461
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 45,
+    "y": 1,
+    "w": 308,
+    "h": 461
+   },
+   "sourceSize": {
+    "w": 378,
+    "h": 464
+   }
+  },
+  "f-02": {
+   "frame": {
+    "x": 804,
+    "y": 2,
+    "w": 343,
+    "h": 463
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 35,
+    "y": 0,
+    "w": 343,
+    "h": 463
+   },
+   "sourceSize": {
+    "w": 378,
+    "h": 464
+   }
+  },
+  "f-03": {
+   "frame": {
+    "x": 1149,
+    "y": 2,
+    "w": 261,
+    "h": 462
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 43,
+    "y": 1,
+    "w": 261,
+    "h": 462
+   },
+   "sourceSize": {
+    "w": 378,
+    "h": 464
+   }
+  },
+  "f-04": {
+   "frame": {
+    "x": 1412,
+    "y": 2,
+    "w": 288,
+    "h": 462
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 44,
+    "y": 1,
+    "w": 288,
+    "h": 462
+   },
+   "sourceSize": {
+    "w": 378,
+    "h": 464
+   }
+  },
+  "f-05": {
+   "frame": {
+    "x": 2,
+    "y": 468,
+    "w": 333,
+    "h": 455
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 8,
+    "w": 333,
+    "h": 455
+   },
+   "sourceSize": {
+    "w": 378,
+    "h": 464
+   }
+  },
+  "f-06": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 281,
+    "h": 464
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 38,
+    "y": 0,
+    "w": 281,
+    "h": 464
+   },
+   "sourceSize": {
+    "w": 378,
+    "h": 464
+   }
+  },
+  "f-07": {
+   "frame": {
+    "x": 285,
+    "y": 2,
+    "w": 258,
+    "h": 464
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 45,
+    "y": 0,
+    "w": 258,
+    "h": 464
+   },
+   "sourceSize": {
+    "w": 378,
+    "h": 464
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "acolyteIdle.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 2048,
+   "h": 925
+  },
+  "scale": "1"
+ }
+}

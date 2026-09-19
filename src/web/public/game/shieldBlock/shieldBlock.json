@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "block-00": {
+   "frame": {
+    "x": 555,
+    "y": 338,
+    "w": 209,
+    "h": 235
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 11,
+    "y": 114,
+    "w": 209,
+    "h": 235
+   },
+   "sourceSize": {
+    "w": 222,
+    "h": 349
+   }
+  },
+  "block-01": {
+   "frame": {
+    "x": 394,
+    "y": 338,
+    "w": 159,
+    "h": 321
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 50,
+    "y": 13,
+    "w": 159,
+    "h": 321
+   },
+   "sourceSize": {
+    "w": 222,
+    "h": 349
+   }
+  },
+  "block-02": {
+   "frame": {
+    "x": 215,
+    "y": 338,
+    "w": 177,
+    "h": 332
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 31,
+    "y": 2,
+    "w": 177,
+    "h": 332
+   },
+   "sourceSize": {
+    "w": 222,
+    "h": 349
+   }
+  },
+  "block-03": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 206,
+    "h": 334
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 16,
+    "y": 0,
+    "w": 206,
+    "h": 334
+   },
+   "sourceSize": {
+    "w": 222,
+    "h": 349
+   }
+  },
+  "block-04": {
+   "frame": {
+    "x": 210,
+    "y": 2,
+    "w": 210,
+    "h": 333
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 3,
+    "y": 8,
+    "w": 210,
+    "h": 333
+   },
+   "sourceSize": {
+    "w": 222,
+    "h": 349
+   }
+  },
+  "block-05": {
+   "frame": {
+    "x": 422,
+    "y": 2,
+    "w": 215,
+    "h": 333
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 2,
+    "y": 8,
+    "w": 215,
+    "h": 333
+   },
+   "sourceSize": {
+    "w": 222,
+    "h": 349
+   }
+  },
+  "block-06": {
+   "frame": {
+    "x": 639,
+    "y": 2,
+    "w": 210,
+    "h": 333
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 2,
+    "y": 8,
+    "w": 210,
+    "h": 333
+   },
+   "sourceSize": {
+    "w": 222,
+    "h": 349
+   }
+  },
+  "block-07": {
+   "frame": {
+    "x": 2,
+    "y": 338,
+    "w": 211,
+    "h": 333
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 8,
+    "w": 211,
+    "h": 333
+   },
+   "sourceSize": {
+    "w": 222,
+    "h": 349
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "shieldBlock.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 1024,
+   "h": 673
+  },
+  "scale": "1"
+ }
+}
