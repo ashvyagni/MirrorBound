@@ -31,13 +31,29 @@ TAG_TO_DEPENDENCY_TRAIT = {
 COMBAT_CATEGORY_TAGS = set(TAG_TO_DEPENDENCY_TRAIT)
 
 OFFENSIVE_TYPES = {"PLAYER_ATTACKED"}
+
+# Which events count as "the player chose a way to fight".
+#
+# This gate is the whole correctness of the dependency traits. The collector is
+# subscribed to the *entire* bus, and `tags` is not a player-only field: the
+# twin's TWIN_ATTACKED carries its weapon's tags, and DAMAGE_DEALT carries the
+# tags of whoever landed the hit. Keying off `data["tags"]` alone therefore
+# scored the twin's frost staff as the player's own ranged/spell preference --
+# a pure-melee player alongside the default frost-staff twin read as
+# melee 0.46 / ranged 0.54 instead of melee ~1.0, which inverts the Mirror's
+# kite-vs-rush counter and makes the debug overlay lie about the player.
+#
+# Same rule the rest of this module already follows: information we do not have
+# about the player is not evidence about the player.
+PLAYER_ACTION_TYPES = {"PLAYER_ATTACKED", ABILITY_CAST_TYPE}
 DEFENSIVE_TYPES = {"PLAYER_BLOCKED", "PLAYER_RETREATED"}
 DEFENSIVE_TAG = "DEFENSIVE"
 
 
 def dependency_signals(event: Event) -> dict[str, float]:
-    """One signal per known tag category, only when data["tags"] is present AND
-    contains at least one combat category (MELEE/RANGED/SPELL).
+    """One signal per known tag category, only when the event is one of the
+    *player's own* actions (PLAYER_ACTION_TYPES) AND data["tags"] is present
+    AND contains at least one combat category (MELEE/RANGED/SPELL).
 
     A melee attack (tags=["MELEE"]) reads as melee_dependency=1.0 AND
     ranged_dependency=0.0 AND spell_dependency=0.0 for the same observation —
@@ -47,6 +63,8 @@ def dependency_signals(event: Event) -> dict[str, float]:
     "missing info -> skip" rule as everywhere else — it's not an observation
     for these traits either, even though `tags` is technically present.
     """
+    if event.type not in PLAYER_ACTION_TYPES:
+        return {}
     tags = event.data.get("tags")
     if tags is None:
         return {}

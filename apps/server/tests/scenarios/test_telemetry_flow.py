@@ -51,3 +51,46 @@ def test_repeated_ability_sequence_becomes_a_prediction():
     preds = s.pipeline.snapshot().to_json_dict()["predictions"]
     assert preds and preds[0]["token"] == "FLAME_BURST"
     assert preds[0]["confidence"] > 0.5
+
+
+def test_the_twin_fighting_does_not_move_the_players_traits():
+    """The regression the other test in this file could not catch.
+
+    `test_melee_play_is_read_as_melee_by_both_models` calls the combat system
+    directly with no twin acting, so it never exercised the case that broke:
+    the collector is subscribed to the whole bus, and TWIN_ATTACKED carries
+    both `tags` (its frost staff: RANGED, SPELL) and `distance` (the gap to its
+    target). Scored as player evidence, a pure-melee player alongside the
+    default twin read as ranged, and a stationary player as maximally mobile.
+
+    This drives the real tick loop with the twin genuinely fighting, and asserts
+    the player model still describes the *player*.
+    """
+    s = GameSession("twin-noise", seed=31, record=False)
+    st = s.state
+    st.enemies = []
+    bag = st.spawn_enemy("slime", st.player.position + Vec2(70, 0))
+    bag.max_health = bag.health = 10**9
+    st.player.face(Vec2(1, 0))
+
+    for _ in range(900):
+        s.handle_input({"type": "INPUT", "moveX": 0.0, "moveY": 0.0, "attack": True})
+        s.step(DT)
+        bag.health = 10**9          # keep the fight going
+
+    twin_attacks = sum(1 for e in s.state.bus._buffer if e.type == "TWIN_ATTACKED")
+    traits = s.pipeline.snapshot().to_json_dict()["traits"]
+
+    assert twin_attacks > 0, "the twin must actually be firing for this to prove anything"
+    # The player swung a sword and never moved or cast anything.
+    assert traits["melee_dependency"]["value"] > 0.9, traits["melee_dependency"]
+    assert traits["ranged_dependency"]["value"] < 0.1, traits["ranged_dependency"]
+    assert traits["spell_dependency"]["value"] < 0.1, traits["spell_dependency"]
+    assert traits["mobility"]["samples"] == 0, "a stationary player has no mobility evidence"
+
+    # And the Mirror therefore reads them the right way round.
+    melee = traits["melee_dependency"]
+    ranged = traits["ranged_dependency"]
+    kite = melee["value"] * melee["confidence"]
+    rush = ranged["value"] * ranged["confidence"]
+    assert kite > rush, f"boss would rush a melee player: kite={kite:.3f} rush={rush:.3f}"
