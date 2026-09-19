@@ -22,4 +22,4 @@ COPY . .
 ENV PORT=8000
 
 # Run uvicorn on the configured port using the virtual environment created by uv
-CMD uv run uvicorn main:app --host 0.0.0.0 --port $PORT
+CMD uv run uvicorn mirrorbound.api.app:create_app --factory --host 0.0.0.0 --port $PORT
