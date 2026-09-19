@@ -21,6 +21,14 @@ from mirrorbound.game.state import GameState
 
 AOE_TOKENS = ("FLAME_BURST", "BINDING_NOVA", "FIRE_BURST")
 DASH_TOKENS = ("DASH", "SHADOW_DASH")
+# Below this much trait x confidence on both kite and rush, the boss has no
+# usable read on the player and holds range to get one.
+PROBE_THRESHOLD = 0.25
+# The band a probing boss will sit in: close enough to threaten and to keep
+# shooting, far enough that it is not simply in melee.
+PROBE_NEAR = 110.0
+PROBE_FAR = 340.0
+
 NOVA_RADIUS = 150.0
 NOVA_DAMAGE = 22.0
 
@@ -41,6 +49,16 @@ class MirrorController:
         self.active_counter: str | None = None
         self.counters_used: dict[str, int] = {}
         self.phase = 1
+        # Whether the wind-up currently running was started as a ranged attack.
+        # Decided when the boss commits, not when the swing lands: the distance
+        # at resolution is whatever the player has done in the meantime, and a
+        # dashing player closes during the wind-up -- so a shot begun at 200
+        # was becoming a punch at 27, every time. That silently turned every
+        # ranged-only branch off against the one player it most needed to work
+        # against, and it reads wrong besides: a boss that raises a bolt and
+        # then throws an elbow because you stepped in is not telegraphing
+        # anything.
+        self._windup_ranged = False
 
     # --- model access ---------------------------------------------------------------
 
@@ -128,7 +146,7 @@ class MirrorController:
             boss.velocity = Vec2()
             boss.windup_timer -= dt
             if boss.windup_timer <= 0:
-                ranged = dist > boss.enemy_def.attack_range + target.radius
+                ranged = self._windup_ranged
                 if ranged and predicted in DASH_TOKENS and pred_conf > 0.5 and target.id == state.player.id:
                     # Shoot where the dash will land, not where the player is.
                     lead = state.player.last_move_dir if not state.player.last_move_dir.is_zero() else state.player.facing
@@ -166,6 +184,7 @@ class MirrorController:
         elif riposte > 0.35 and boss.attack_timer <= 0 and dist < boss.enemy_def.attack_range + target.radius + 10:
             boss.set_state(EnemyState.ATTACK)
             boss.windup_timer = boss.enemy_def.attack_windup * 0.45
+            self._windup_ranged = False        # a riposte is a punish in reach
             self._counter(state, boss, "riposte", riposte, f"aggression {aggression:.2f}@{aggr_conf:.2f}: punishing the swing")
             return
 
@@ -190,11 +209,36 @@ class MirrorController:
         self.deny_timer -= dt
 
         # --- default engagement, blended by kite/rush ---------------------------------------------
-        if kite > rush and kite > 0.3:
-            ideal = 230.0
-            if dist < ideal * 0.75:
+        # "I do not know you yet."
+        #
+        # kite and rush are both trait x confidence, so a player the model has
+        # no read on scores zero on both and `kite > rush` is false -- the boss
+        # fell straight through to closing the distance and then stood in melee
+        # for the rest of the fight. Measured against a dash-heavy player (whose
+        # actions carry no melee/ranged/spell tag at all, so every dependency
+        # trait stays at zero confidence): every one of 29 wind-ups resolved at
+        # range 27, against the 84 that counts as a ranged attack. That made
+        # `predict_dash` -- the counter written for exactly that player --
+        # unreachable, while the branch itself was fine.
+        #
+        # So an unread player is held at range and probed instead. It reads
+        # correctly too: the Mirror keeps its distance until it has learned
+        # something, rather than confidently committing to a read it does not
+        # have.
+        read = max(kite, rush)
+        probing = read < PROBE_THRESHOLD
+        kiting = kite > rush and kite > 0.3
+        if probing or kiting:
+            # Kiting is a decision to hold one specific range against someone
+            # known to want to be close. Probing is not: it holds whatever
+            # range it already has, anywhere it can still shoot from, and only
+            # moves when it is too far to fire or close enough to be grabbed.
+            # Backing off to a kite's 230 from closer in would read as the boss
+            # retreating from a player it has no reason to fear yet.
+            near, far = (230.0 * 0.75, 230.0 * 1.1) if kiting else (PROBE_NEAR, PROBE_FAR)
+            if dist < near:
                 boss.velocity = (-direction) * boss.speed * speed_mult
-            elif dist > ideal * 1.1:
+            elif dist > far:
                 boss.velocity = direction * boss.speed * speed_mult * 0.8
             else:
                 side = 1 if (state.tick // 100) % 2 == 0 else -1
@@ -202,7 +246,13 @@ class MirrorController:
             if boss.attack_timer <= 0 and dist < 380:
                 boss.set_state(EnemyState.ATTACK)
                 boss.windup_timer = boss.enemy_def.attack_windup + 0.15
-                self._counter(state, boss, "kite", kite, f"melee dependency {melee_dep:.2f}@{melee_conf:.2f}: keeping range")
+                self._windup_ranged = dist > boss.enemy_def.attack_range + target.radius
+                if probing:
+                    self._counter(state, boss, "probe", 1.0 - read,
+                                  "no read on you yet: holding range to watch")
+                else:
+                    self._counter(state, boss, "kite", kite,
+                                  f"melee dependency {melee_dep:.2f}@{melee_conf:.2f}: keeping range")
             return
 
         # Rush / generic: close and strike; ranged players get closed on faster.
@@ -216,11 +266,13 @@ class MirrorController:
             if boss.attack_timer <= 0 and 140 < dist < 360 and (state.tick % 3 == 0) and rush < 0.3:
                 boss.set_state(EnemyState.ATTACK)
                 boss.windup_timer = boss.enemy_def.attack_windup + 0.1
+                self._windup_ranged = True
         else:
             boss.velocity = Vec2()
             if boss.attack_timer <= 0:
                 boss.set_state(EnemyState.ATTACK)
                 boss.windup_timer = boss.enemy_def.attack_windup
+                self._windup_ranged = False
 
     def _nova(self, state: GameState, boss: Enemy, combat: CombatSystem) -> None:
         for who in (state.player, state.twin):
