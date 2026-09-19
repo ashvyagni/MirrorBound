@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "parry-00": {
+   "frame": {
+    "x": 449,
+    "y": 2,
+    "w": 161,
+    "h": 311
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 62,
+    "y": 14,
+    "w": 161,
+    "h": 311
+   },
+   "sourceSize": {
+    "w": 329,
+    "h": 338
+   }
+  },
+  "parry-01": {
+   "frame": {
+    "x": 2,
+    "y": 653,
+    "w": 207,
+    "h": 303
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 55,
+    "y": 18,
+    "w": 207,
+    "h": 303
+   },
+   "sourceSize": {
+    "w": 329,
+    "h": 338
+   }
+  },
+  "parry-02": {
+   "frame": {
+    "x": 325,
+    "y": 342,
+    "w": 266,
+    "h": 305
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 19,
+    "w": 266,
+    "h": 305
+   },
+   "sourceSize": {
+    "w": 329,
+    "h": 338
+   }
+  },
+  "parry-03": {
+   "frame": {
+    "x": 612,
+    "y": 2,
+    "w": 237,
+    "h": 311
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 62,
+    "y": 14,
+    "w": 237,
+    "h": 311
+   },
+   "sourceSize": {
+    "w": 329,
+    "h": 338
+   }
+  },
+  "parry-04": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 282,
+    "h": 338
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 28,
+    "y": 0,
+    "w": 282,
+    "h": 338
+   },
+   "sourceSize": {
+    "w": 329,
+    "h": 338
+   }
+  },
+  "parry-05": {
+   "frame": {
+    "x": 2,
+    "y": 342,
+    "w": 321,
+    "h": 309
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 8,
+    "y": 20,
+    "w": 321,
+    "h": 309
+   },
+   "sourceSize": {
+    "w": 329,
+    "h": 338
+   }
+  },
+  "parry-06": {
+   "frame": {
+    "x": 593,
+    "y": 342,
+    "w": 293,
+    "h": 304
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 4,
+    "y": 25,
+    "w": 293,
+    "h": 304
+   },
+   "sourceSize": {
+    "w": 329,
+    "h": 338
+   }
+  },
+  "parry-07": {
+   "frame": {
+    "x": 286,
+    "y": 2,
+    "w": 161,
+    "h": 313
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 43,
+    "y": 25,
+    "w": 161,
+    "h": 313
+   },
+   "sourceSize": {
+    "w": 329,
+    "h": 338
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "shieldParryDark.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 1024,
+   "h": 958
+  },
+  "scale": "1"
+ }
+}

@@ -7,6 +7,8 @@ from pathlib import Path
 
 import numpy as np
 
+from dataclasses import replace
+
 from atlaslib import Band, SheetSpec
 
 ASSETS = Path(__file__).resolve().parents[3] / "assets"
@@ -635,5 +637,110 @@ BARS_PLATES = _ui("barsPlates", "bars-plates.png", (
 SCREENS = (SCREEN_FRAME, CONTROLS, MAP_TOKENS, BOSS_BAR, FLOURISHES,
            ITEMS, SKILL_NODES, BARS_PLATES)
 
+
+# --- the corrupted twin's arsenal -------------------------------------------
+
+#: The colour everything the boss carries is rotated to, so a corrupted weapon
+#: reads as belonging to the thing holding it rather than to the player it was
+#: taken from.
+#:
+#: The evolved form's violet, not the companion's. `bro` measures 224 degrees,
+#: which is a blue -- that is the creature *before* it turns, and rotating the
+#: arsenal to it came back cheerfully blue rather than corrupted. 270 is a
+#: clear violet, a few degrees off the palette's own `frameLine` at 263, and it
+#: matches the concept art for the evolved form.
+CORRUPT_HUE = 270.0
+
+#: How far the corrupted colour is pulled toward grey. Corruption is not only a
+#: different hue, it is a colder and deader one -- a pure rotation leaves a
+#: cheerful violet sword that looks like a reskin rather than a theft.
+CORRUPT_DESATURATE = 0.22
+
+
+def _corrupt(spec: SheetSpec) -> SheetSpec:
+    """The same drawing, rotated to the twin's colour.
+
+    No new art. Weapon, cast and spell sheets carry no character -- they are
+    composited over whoever holds them -- so the boss holds the player's own
+    weapons, and every one of these is generated from the source sheet the
+    player's version is generated from. They cannot drift apart, because there
+    is only one drawing.
+    """
+    return replace(
+        spec,
+        name=f"{spec.name}Dark",
+        hue_target=CORRUPT_HUE,
+        desaturate=CORRUPT_DESATURATE,
+    )
+
+
+#: Every weapon, cast motion and effect the player has, as the boss's.
+CORRUPTED = tuple(_corrupt(spec) for spec in (*WEAPONS, *CASTS, *SPELLS, *SHIELDS))
+
+
+# --- the Mirror -------------------------------------------------------------
+
+def _mirror(name: str, file: str, width: int = 1536, height: int = 1024) -> SheetSpec:
+    """One animation of the boss.
+
+    Like `_mob`, but it does not stand on anything: `anchor="center"`, exactly
+    as the companion it grew out of. Pinning a floating creature's lowest pixel
+    to a floor makes it bob every time its mantle changes length.
+
+    `strip_grid` because six of these ten sheets came back with the cell
+    borders drawn in -- see the note on that field.
+    """
+    half = height // 2
+    return SheetSpec(
+        name=name,
+        source=ASSETS / "enemies" / file,
+        body=_mob_body,
+        anchor="center",
+        key="green",
+        body_min_area=300,
+        strip_grid=3,
+        bands=(
+            Band("a", 0, half, 0, width, 4, grid_cols=4,
+                 names=tuple(f"f-{i:02d}" for i in range(4))),
+            Band("b", half, height, 0, width, 4, grid_cols=4,
+                 names=tuple(f"f-{i:02d}" for i in range(4, 8))),
+        ),
+    )
+
+
+MIRROR = tuple(
+    _mirror(f"mirror{clip.capitalize()}", f"mirror-{clip}.png")
+    for clip in ("idle", "drift", "strike", "cast", "hurt", "death")
+)
+
+#: The hatching, in two sheets. Deliberately no `normalize_to`: every other
+#: multi-band sheet uses it to stop a character changing size between
+#: animations, and these are the one case where the size change *is* the
+#: animation -- normalising them would flatten the whole cutscene to one size.
+HATCH = (
+    _mirror("hatchCrack", "hatch-crack.png", 1774, 887),
+    _mirror("hatchBurst", "hatch-burst.png", 1774, 887),
+)
+
+
+def _boss_spell(name: str, file: str) -> SheetSpec:
+    """Its own two effects: the player's spell builder, on the 1774x887 canvas
+    these two came back at, plus the grid strip."""
+    return replace(
+        _spell(name, f"spells/{file}", "green"),
+        strip_grid=3,
+        bands=(
+            Band("cast", 0, 443, 0, 1774, 4, grid_cols=4,
+                 names=tuple(f"cast-{i:02d}" for i in range(4))),
+            Band("cast_b", 443, 887, 0, 1774, 4, grid_cols=4,
+                 names=tuple(f"cast-{i:02d}" for i in range(4, 8))),
+        ),
+    )
+
+
+BOSS_SPELLS = (_boss_spell("mirrorBolt", "mirror-bolt.png"),
+               _boss_spell("shardRing", "shard-ring.png"))
+
 SHEETS = (GOAT, BRO, DUMMY, *FACINGS, *WEAPONS, *CASTS, *SHIELDS, *SPELLS,
-          ICONS, *UI, *SCREENS, *ENEMIES)
+          ICONS, *UI, *SCREENS, *ENEMIES, *CORRUPTED,
+          *MIRROR, *HATCH, *BOSS_SPELLS)

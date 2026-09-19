@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "swing-00": {
+   "frame": {
+    "x": 128,
+    "y": 2,
+    "w": 108,
+    "h": 446
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 17,
+    "y": 26,
+    "w": 108,
+    "h": 446
+   },
+   "sourceSize": {
+    "w": 125,
+    "h": 482
+   }
+  },
+  "swing-01": {
+   "frame": {
+    "x": 238,
+    "y": 2,
+    "w": 115,
+    "h": 446
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 7,
+    "y": 36,
+    "w": 115,
+    "h": 446
+   },
+   "sourceSize": {
+    "w": 125,
+    "h": 482
+   }
+  },
+  "swing-02": {
+   "frame": {
+    "x": 355,
+    "y": 2,
+    "w": 116,
+    "h": 446
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 7,
+    "y": 27,
+    "w": 116,
+    "h": 446
+   },
+   "sourceSize": {
+    "w": 125,
+    "h": 482
+   }
+  },
+  "swing-03": {
+   "frame": {
+    "x": 473,
+    "y": 2,
+    "w": 110,
+    "h": 446
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 12,
+    "y": 24,
+    "w": 110,
+    "h": 446
+   },
+   "sourceSize": {
+    "w": 125,
+    "h": 482
+   }
+  },
+  "swing-04": {
+   "frame": {
+    "x": 585,
+    "y": 2,
+    "w": 115,
+    "h": 445
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 7,
+    "y": 15,
+    "w": 115,
+    "h": 445
+   },
+   "sourceSize": {
+    "w": 125,
+    "h": 482
+   }
+  },
+  "swing-05": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 124,
+    "h": 470
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 124,
+    "h": 470
+   },
+   "sourceSize": {
+    "w": 125,
+    "h": 482
+   }
+  },
+  "swing-06": {
+   "frame": {
+    "x": 702,
+    "y": 2,
+    "w": 109,
+    "h": 445
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 16,
+    "y": 29,
+    "w": 109,
+    "h": 445
+   },
+   "sourceSize": {
+    "w": 125,
+    "h": 482
+   }
+  },
+  "swing-07": {
+   "frame": {
+    "x": 813,
+    "y": 2,
+    "w": 109,
+    "h": 445
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 15,
+    "y": 28,
+    "w": 109,
+    "h": 445
+   },
+   "sourceSize": {
+    "w": 125,
+    "h": 482
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "bowIdleDark.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 1024,
+   "h": 474
+  },
+  "scale": "1"
+ }
+}
