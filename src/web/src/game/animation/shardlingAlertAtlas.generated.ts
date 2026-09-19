@@ -10,10 +10,10 @@ export const SHARDLINGALERT_TEXTURE_KEY = "shardlingAlert" as const;
 export const SHARDLINGALERT_BODY_RATIO = 0.85691 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const SHARDLINGALERT_FRAME_SIZE = { width: 388, height: 311 } as const;
+export const SHARDLINGALERT_FRAME_SIZE = { width: 382, height: 311 } as const;
 
 /** Origin on the body centre and its feet. */
-export const SHARDLINGALERT_ANCHOR = { x: 0.50515, y: 0.98392 } as const;
+export const SHARDLINGALERT_ANCHOR = { x: 0.53403, y: 0.98392 } as const;
 
 export const SHARDLINGALERT_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

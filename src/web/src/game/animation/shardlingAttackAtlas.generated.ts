@@ -10,10 +10,10 @@ export const SHARDLINGATTACK_TEXTURE_KEY = "shardlingAttack" as const;
 export const SHARDLINGATTACK_BODY_RATIO = 0.86572 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const SHARDLINGATTACK_FRAME_SIZE = { width: 388, height: 283 } as const;
+export const SHARDLINGATTACK_FRAME_SIZE = { width: 444, height: 283 } as const;
 
 /** Origin on the body centre and its feet. */
-export const SHARDLINGATTACK_ANCHOR = { x: 0.49485, y: 0.98587 } as const;
+export const SHARDLINGATTACK_ANCHOR = { x: 0.52477, y: 0.98587 } as const;
 
 export const SHARDLINGATTACK_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

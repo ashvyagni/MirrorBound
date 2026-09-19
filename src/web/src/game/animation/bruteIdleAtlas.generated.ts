@@ -10,10 +10,10 @@ export const BRUTEIDLE_TEXTURE_KEY = "bruteIdle" as const;
 export const BRUTEIDLE_BODY_RATIO = 0.89162 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const BRUTEIDLE_FRAME_SIZE = { width: 391, height: 346 } as const;
+export const BRUTEIDLE_FRAME_SIZE = { width: 370, height: 346 } as const;
 
 /** Origin on the body centre and its feet. */
-export const BRUTEIDLE_ANCHOR = { x: 0.49361, y: 0.99133 } as const;
+export const BRUTEIDLE_ANCHOR = { x: 0.45676, y: 0.99133 } as const;
 
 export const BRUTEIDLE_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

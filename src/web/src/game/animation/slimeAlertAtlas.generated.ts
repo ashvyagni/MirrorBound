@@ -10,10 +10,10 @@ export const SLIMEALERT_TEXTURE_KEY = "slimeAlert" as const;
 export const SLIMEALERT_BODY_RATIO = 0.78488 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const SLIMEALERT_FRAME_SIZE = { width: 390, height: 258 } as const;
+export const SLIMEALERT_FRAME_SIZE = { width: 412, height: 258 } as const;
 
 /** Origin on the body centre and its feet. */
-export const SLIMEALERT_ANCHOR = { x: 0.50000, y: 0.99225 } as const;
+export const SLIMEALERT_ANCHOR = { x: 0.52670, y: 0.99225 } as const;
 
 export const SLIMEALERT_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

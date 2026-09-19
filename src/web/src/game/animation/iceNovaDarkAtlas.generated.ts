@@ -10,10 +10,10 @@ export const ICENOVADARK_TEXTURE_KEY = "iceNovaDark" as const;
 export const ICENOVADARK_BODY_RATIO = 0.58281 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const ICENOVADARK_FRAME_SIZE = { width: 386, height: 320 } as const;
+export const ICENOVADARK_FRAME_SIZE = { width: 437, height: 320 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const ICENOVADARK_ANCHOR = { x: 0.50000, y: 0.50000 } as const;
+export const ICENOVADARK_ANCHOR = { x: 0.55835, y: 0.50000 } as const;
 
 export const ICENOVADARK_FRAMES = {
   cast: ["cast-00", "cast-01", "cast-02", "cast-03"],

@@ -10,10 +10,10 @@ export const BRUTEWALK_TEXTURE_KEY = "bruteWalk" as const;
 export const BRUTEWALK_BODY_RATIO = 0.86850 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const BRUTEWALK_FRAME_SIZE = { width: 393, height: 346 } as const;
+export const BRUTEWALK_FRAME_SIZE = { width: 384, height: 346 } as const;
 
 /** Origin on the body centre and its feet. */
-export const BRUTEWALK_ANCHOR = { x: 0.49109, y: 0.98266 } as const;
+export const BRUTEWALK_ANCHOR = { x: 0.45833, y: 0.98266 } as const;
 
 export const BRUTEWALK_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

@@ -10,10 +10,10 @@ export const ICESHARDSCASTDARK_TEXTURE_KEY = "iceShardsCastDark" as const;
 export const ICESHARDSCASTDARK_BODY_RATIO = 0.86682 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const ICESHARDSCASTDARK_FRAME_SIZE = { width: 465, height: 443 } as const;
+export const ICESHARDSCASTDARK_FRAME_SIZE = { width: 470, height: 443 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const ICESHARDSCASTDARK_ANCHOR = { x: 0.45591, y: 0.56433 } as const;
+export const ICESHARDSCASTDARK_ANCHOR = { x: 0.46170, y: 0.56433 } as const;
 
 export const ICESHARDSCASTDARK_FRAMES = {
   swing: ["swing-00", "swing-01", "swing-02", "swing-03"],

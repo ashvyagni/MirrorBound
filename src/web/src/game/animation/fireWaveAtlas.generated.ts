@@ -10,10 +10,10 @@ export const FIREWAVE_TEXTURE_KEY = "fireWave" as const;
 export const FIREWAVE_BODY_RATIO = 0.77155 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const FIREWAVE_FRAME_SIZE = { width: 384, height: 232 } as const;
+export const FIREWAVE_FRAME_SIZE = { width: 379, height: 232 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const FIREWAVE_ANCHOR = { x: 0.50000, y: 0.50000 } as const;
+export const FIREWAVE_ANCHOR = { x: 0.52770, y: 0.50000 } as const;
 
 export const FIREWAVE_FRAMES = {
   cast: ["cast-00", "cast-01", "cast-02", "cast-03"],

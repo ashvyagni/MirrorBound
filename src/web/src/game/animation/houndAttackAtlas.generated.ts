@@ -10,10 +10,10 @@ export const HOUNDATTACK_TEXTURE_KEY = "houndAttack" as const;
 export const HOUNDATTACK_BODY_RATIO = 0.67082 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const HOUNDATTACK_FRAME_SIZE = { width: 392, height: 281 } as const;
+export const HOUNDATTACK_FRAME_SIZE = { width: 399, height: 281 } as const;
 
 /** Origin on the body centre and its feet. */
-export const HOUNDATTACK_ANCHOR = { x: 0.51020, y: 0.98932 } as const;
+export const HOUNDATTACK_ANCHOR = { x: 0.50125, y: 0.98932 } as const;
 
 export const HOUNDATTACK_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

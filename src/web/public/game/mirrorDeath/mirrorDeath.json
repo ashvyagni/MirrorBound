@@ -104,7 +104,7 @@
    "frame": {
     "x": 1631,
     "y": 2,
-    "w": 324,
+    "w": 325,
     "h": 444
    },
    "rotated": false,
@@ -112,7 +112,7 @@
    "spriteSourceSize": {
     "x": 17,
     "y": 31,
-    "w": 324,
+    "w": 325,
     "h": 444
    },
    "sourceSize": {

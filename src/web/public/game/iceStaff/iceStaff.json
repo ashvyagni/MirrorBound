@@ -10,19 +10,19 @@
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 242,
+    "x": 246,
     "y": 4,
     "w": 103,
     "h": 400
    },
    "sourceSize": {
-    "w": 485,
+    "w": 489,
     "h": 408
    }
   },
   "swing-01": {
    "frame": {
-    "x": 375,
+    "x": 374,
     "y": 2,
     "w": 216,
     "h": 379
@@ -30,13 +30,13 @@
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 167,
+    "x": 171,
     "y": 0,
     "w": 216,
     "h": 379
    },
    "sourceSize": {
-    "w": 485,
+    "w": 489,
     "h": 408
    }
   },
@@ -50,19 +50,19 @@
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 148,
+    "x": 152,
     "y": 98,
     "w": 283,
     "h": 277
    },
    "sourceSize": {
-    "w": 485,
+    "w": 489,
     "h": 408
    }
   },
   "swing-03": {
    "frame": {
-    "x": 593,
+    "x": 592,
     "y": 2,
     "w": 314,
     "h": 283
@@ -70,13 +70,13 @@
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 138,
+    "x": 142,
     "y": 115,
     "w": 314,
     "h": 283
    },
    "sourceSize": {
-    "w": 485,
+    "w": 489,
     "h": 408
    }
   },
@@ -84,19 +84,19 @@
    "frame": {
     "x": 389,
     "y": 683,
-    "w": 334,
+    "w": 336,
     "h": 195
    },
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 135,
+    "x": 139,
     "y": 150,
-    "w": 334,
+    "w": 336,
     "h": 195
    },
    "sourceSize": {
-    "w": 485,
+    "w": 489,
     "h": 408
    }
   },
@@ -110,13 +110,13 @@
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 100,
+    "x": 104,
     "y": 128,
     "w": 385,
     "h": 205
    },
    "sourceSize": {
-    "w": 485,
+    "w": 489,
     "h": 408
    }
   },
@@ -124,19 +124,19 @@
    "frame": {
     "x": 287,
     "y": 404,
-    "w": 388,
+    "w": 412,
     "h": 227
    },
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
     "x": 0,
-    "y": 117,
-    "w": 388,
+    "y": 115,
+    "w": 412,
     "h": 227
    },
    "sourceSize": {
-    "w": 485,
+    "w": 489,
     "h": 408
    }
   },
@@ -144,19 +144,19 @@
    "frame": {
     "x": 107,
     "y": 2,
-    "w": 266,
+    "w": 265,
     "h": 400
    },
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 93,
+    "x": 91,
     "y": 8,
-    "w": 266,
+    "w": 265,
     "h": 400
    },
    "sourceSize": {
-    "w": 485,
+    "w": 489,
     "h": 408
    }
   }

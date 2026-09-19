@@ -4,59 +4,59 @@
    "frame": {
     "x": 2,
     "y": 2,
-    "w": 171,
+    "w": 172,
     "h": 182
    },
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 21,
+    "x": 0,
     "y": 6,
-    "w": 171,
+    "w": 172,
     "h": 182
    },
    "sourceSize": {
-    "w": 192,
+    "w": 191,
     "h": 188
    }
   },
   "victory": {
    "frame": {
-    "x": 175,
+    "x": 176,
     "y": 2,
-    "w": 192,
+    "w": 181,
     "h": 179
    },
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 0,
+    "x": 10,
     "y": 0,
-    "w": 192,
+    "w": 181,
     "h": 179
    },
    "sourceSize": {
-    "w": 192,
+    "w": 191,
     "h": 188
    }
   },
   "levelUp": {
    "frame": {
-    "x": 2,
-    "y": 186,
-    "w": 180,
+    "x": 359,
+    "y": 2,
+    "w": 130,
     "h": 178
    },
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 0,
+    "x": 29,
     "y": 6,
-    "w": 180,
+    "w": 130,
     "h": 178
    },
    "sourceSize": {
-    "w": 192,
+    "w": 191,
     "h": 188
    }
   }
@@ -67,7 +67,7 @@
   "format": "RGBA8888",
   "size": {
    "w": 512,
-   "h": 366
+   "h": 186
   },
   "scale": "1"
  }

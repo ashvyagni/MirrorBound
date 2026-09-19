@@ -10,10 +10,10 @@ export const SLIMEATTACK_TEXTURE_KEY = "slimeAttack" as const;
 export const SLIMEATTACK_BODY_RATIO = 0.82817 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const SLIMEATTACK_FRAME_SIZE = { width: 392, height: 355 } as const;
+export const SLIMEATTACK_FRAME_SIZE = { width: 433, height: 355 } as const;
 
 /** Origin on the body centre and its feet. */
-export const SLIMEATTACK_ANCHOR = { x: 0.50510, y: 0.99437 } as const;
+export const SLIMEATTACK_ANCHOR = { x: 0.44573, y: 0.99437 } as const;
 
 export const SLIMEATTACK_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

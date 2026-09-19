@@ -7,13 +7,13 @@ export const FIREPILLARCAST_TEXTURE_KEY = "firePillarCast" as const;
  *  Cells are padded by trails and motion range, so this -- not the frame
  *  height -- is what two characters must be compared on to size them
  *  relative to each other. */
-export const FIREPILLARCAST_BODY_RATIO = 0.89570 as const;
+export const FIREPILLARCAST_BODY_RATIO = 0.89378 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const FIREPILLARCAST_FRAME_SIZE = { width: 451, height: 465 } as const;
+export const FIREPILLARCAST_FRAME_SIZE = { width: 569, height: 466 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const FIREPILLARCAST_ANCHOR = { x: 0.46341, y: 0.49032 } as const;
+export const FIREPILLARCAST_ANCHOR = { x: 0.34446, y: 0.49142 } as const;
 
 export const FIREPILLARCAST_FRAMES = {
   swing: ["swing-00", "swing-01", "swing-02", "swing-03"],

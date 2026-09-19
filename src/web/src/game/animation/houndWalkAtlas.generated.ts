@@ -10,10 +10,10 @@ export const HOUNDWALK_TEXTURE_KEY = "houndWalk" as const;
 export const HOUNDWALK_BODY_RATIO = 0.83921 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const HOUNDWALK_FRAME_SIZE = { width: 397, height: 227 } as const;
+export const HOUNDWALK_FRAME_SIZE = { width: 418, height: 227 } as const;
 
 /** Origin on the body centre and its feet. */
-export const HOUNDWALK_ANCHOR = { x: 0.51385, y: 0.98238 } as const;
+export const HOUNDWALK_ANCHOR = { x: 0.50718, y: 0.98238 } as const;
 
 export const HOUNDWALK_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

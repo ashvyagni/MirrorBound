@@ -10,10 +10,10 @@ export const FIRESTAFFDARK_TEXTURE_KEY = "fireStaffDark" as const;
 export const FIRESTAFFDARK_BODY_RATIO = 0.91242 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const FIRESTAFFDARK_FRAME_SIZE = { width: 460, height: 451 } as const;
+export const FIRESTAFFDARK_FRAME_SIZE = { width: 504, height: 451 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const FIRESTAFFDARK_ANCHOR = { x: 0.48478, y: 0.46120 } as const;
+export const FIRESTAFFDARK_ANCHOR = { x: 0.44048, y: 0.45898 } as const;
 
 export const FIRESTAFFDARK_FRAMES = {
   swing: ["swing-00", "swing-01", "swing-02", "swing-03"],

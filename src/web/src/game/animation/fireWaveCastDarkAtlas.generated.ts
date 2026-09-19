@@ -10,10 +10,10 @@ export const FIREWAVECASTDARK_TEXTURE_KEY = "fireWaveCastDark" as const;
 export const FIREWAVECASTDARK_BODY_RATIO = 0.89016 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const FIREWAVECASTDARK_FRAME_SIZE = { width: 431, height: 437 } as const;
+export const FIREWAVECASTDARK_FRAME_SIZE = { width: 468, height: 437 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const FIREWAVECASTDARK_ANCHOR = { x: 0.53132, y: 0.50114 } as const;
+export const FIREWAVECASTDARK_ANCHOR = { x: 0.54487, y: 0.50114 } as const;
 
 export const FIREWAVECASTDARK_FRAMES = {
   swing: ["swing-00", "swing-01", "swing-02", "swing-03"],

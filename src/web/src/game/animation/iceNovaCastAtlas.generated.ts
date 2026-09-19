@@ -10,10 +10,10 @@ export const ICENOVACAST_TEXTURE_KEY = "iceNovaCast" as const;
 export const ICENOVACAST_BODY_RATIO = 0.82871 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const ICENOVACAST_FRAME_SIZE = { width: 411, height: 505 } as const;
+export const ICENOVACAST_FRAME_SIZE = { width: 423, height: 505 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const ICENOVACAST_ANCHOR = { x: 0.55961, y: 0.41386 } as const;
+export const ICENOVACAST_ANCHOR = { x: 0.54374, y: 0.41386 } as const;
 
 export const ICENOVACAST_FRAMES = {
   swing: ["swing-00", "swing-01", "swing-02", "swing-03"],

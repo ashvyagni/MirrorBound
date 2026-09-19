@@ -10,10 +10,10 @@ export const SPROUTATTACK_TEXTURE_KEY = "sproutAttack" as const;
 export const SPROUTATTACK_BODY_RATIO = 0.86082 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const SPROUTATTACK_FRAME_SIZE = { width: 396, height: 388 } as const;
+export const SPROUTATTACK_FRAME_SIZE = { width: 484, height: 388 } as const;
 
 /** Origin on the body centre and its feet. */
-export const SPROUTATTACK_ANCHOR = { x: 0.50253, y: 0.99227 } as const;
+export const SPROUTATTACK_ANCHOR = { x: 0.46901, y: 0.99227 } as const;
 
 export const SPROUTATTACK_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

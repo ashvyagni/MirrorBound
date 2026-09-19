@@ -10,10 +10,10 @@ export const ICEBEAMCASTDARK_TEXTURE_KEY = "iceBeamCastDark" as const;
 export const ICEBEAMCASTDARK_BODY_RATIO = 0.61111 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const ICEBEAMCASTDARK_FRAME_SIZE = { width: 448, height: 405 } as const;
+export const ICEBEAMCASTDARK_FRAME_SIZE = { width: 405, height: 405 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const ICEBEAMCASTDARK_ANCHOR = { x: 0.45089, y: 0.53086 } as const;
+export const ICEBEAMCASTDARK_ANCHOR = { x: 0.41235, y: 0.53086 } as const;
 
 export const ICEBEAMCASTDARK_FRAMES = {
   swing: ["swing-00", "swing-01", "swing-02", "swing-03"],

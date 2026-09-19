@@ -10,10 +10,10 @@ export const SCARABATTACK_TEXTURE_KEY = "scarabAttack" as const;
 export const SCARABATTACK_BODY_RATIO = 0.60000 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const SCARABATTACK_FRAME_SIZE = { width: 389, height: 260 } as const;
+export const SCARABATTACK_FRAME_SIZE = { width: 460, height: 260 } as const;
 
 /** Origin on the body centre and its feet. */
-export const SCARABATTACK_ANCHOR = { x: 0.50386, y: 0.98846 } as const;
+export const SCARABATTACK_ANCHOR = { x: 0.51087, y: 0.98846 } as const;
 
 export const SCARABATTACK_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

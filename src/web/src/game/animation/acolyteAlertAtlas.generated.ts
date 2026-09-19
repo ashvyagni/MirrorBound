@@ -10,10 +10,10 @@ export const ACOLYTEALERT_TEXTURE_KEY = "acolyteAlert" as const;
 export const ACOLYTEALERT_BODY_RATIO = 0.97697 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const ACOLYTEALERT_FRAME_SIZE = { width: 384, height: 456 } as const;
+export const ACOLYTEALERT_FRAME_SIZE = { width: 397, height: 456 } as const;
 
 /** Origin on the body centre and its feet. */
-export const ACOLYTEALERT_ANCHOR = { x: 0.50000, y: 0.99123 } as const;
+export const ACOLYTEALERT_ANCHOR = { x: 0.47355, y: 0.99123 } as const;
 
 export const ACOLYTEALERT_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

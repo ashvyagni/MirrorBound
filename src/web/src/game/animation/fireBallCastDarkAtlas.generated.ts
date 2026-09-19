@@ -10,10 +10,10 @@ export const FIREBALLCASTDARK_TEXTURE_KEY = "fireBallCastDark" as const;
 export const FIREBALLCASTDARK_BODY_RATIO = 0.96599 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const FIREBALLCASTDARK_FRAME_SIZE = { width: 429, height: 441 } as const;
+export const FIREBALLCASTDARK_FRAME_SIZE = { width: 449, height: 441 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const FIREBALLCASTDARK_ANCHOR = { x: 0.48019, y: 0.48980 } as const;
+export const FIREBALLCASTDARK_ANCHOR = { x: 0.44766, y: 0.48980 } as const;
 
 export const FIREBALLCASTDARK_FRAMES = {
   swing: ["swing-00", "swing-01", "swing-02", "swing-03"],

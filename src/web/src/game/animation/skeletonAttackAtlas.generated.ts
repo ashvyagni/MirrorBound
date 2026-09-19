@@ -10,10 +10,10 @@ export const SKELETONATTACK_TEXTURE_KEY = "skeletonAttack" as const;
 export const SKELETONATTACK_BODY_RATIO = 0.94675 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const SKELETONATTACK_FRAME_SIZE = { width: 454, height: 385 } as const;
+export const SKELETONATTACK_FRAME_SIZE = { width: 604, height: 385 } as const;
 
 /** Origin on the body centre and its feet. */
-export const SKELETONATTACK_ANCHOR = { x: 0.47577, y: 0.99221 } as const;
+export const SKELETONATTACK_ANCHOR = { x: 0.39073, y: 0.99221 } as const;
 
 export const SKELETONATTACK_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

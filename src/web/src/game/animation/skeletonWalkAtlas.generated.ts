@@ -10,10 +10,10 @@ export const SKELETONWALK_TEXTURE_KEY = "skeletonWalk" as const;
 export const SKELETONWALK_BODY_RATIO = 0.98829 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const SKELETONWALK_FRAME_SIZE = { width: 410, height: 427 } as const;
+export const SKELETONWALK_FRAME_SIZE = { width: 435, height: 427 } as const;
 
 /** Origin on the body centre and its feet. */
-export const SKELETONWALK_ANCHOR = { x: 0.52439, y: 0.99297 } as const;
+export const SKELETONWALK_ANCHOR = { x: 0.49425, y: 0.99297 } as const;
 
 export const SKELETONWALK_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

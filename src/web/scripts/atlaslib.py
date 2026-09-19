@@ -411,6 +411,41 @@ def _grow(labels: np.ndarray, region: np.ndarray) -> None:
         labels[claim] = proposal[claim]
 
 
+def _grid_seeds(band: Band, region: np.ndarray, body: np.ndarray,
+                fx: np.ndarray | None) -> list[np.ndarray | None]:
+    """The one piece of artwork that anchors each cell of a grid band.
+
+    Taken as the largest connected component standing inside the cell's own
+    columns, with no area floor: on a grid band every cell holds exactly one
+    character, so the biggest thing in it is that character. A neighbour's
+    overhanging blade is in the cell too, but it is a sliver beside a body and
+    never wins.
+
+    Restricting to the cell's columns is what keeps two touching characters
+    apart -- each is the largest thing in its own cell, so each becomes a seed,
+    and neither can swallow the other.
+    """
+    cell = (band.x1 - band.x0) / band.grid_cols
+    seeds: list[np.ndarray | None] = []
+    for i in range(band.grid_cols):
+        lo, hi = int(round(i * cell)), int(round((i + 1) * cell))
+        strip = np.zeros_like(region)
+        strip[:, lo:hi] = region[:, lo:hi]
+        # Body first; a cell with no body at all -- an all-effect frame -- falls
+        # back to its largest effect rather than going unseeded and being
+        # claimed by whichever neighbour floods into it.
+        for source in (body, fx):
+            if source is None:
+                continue
+            found = components(source & strip, 1)
+            if found:
+                seeds.append(found[0])
+                break
+        else:
+            seeds.append(None)
+    return seeds
+
+
 def segment(band: Band, spec: SheetSpec, alpha: np.ndarray, body: np.ndarray,
             fx: np.ndarray | None, clusters: list[tuple[int, int]]) -> np.ndarray:
     """Label every artwork pixel in the band with the frame that owns it."""
@@ -418,31 +453,45 @@ def segment(band: Band, spec: SheetSpec, alpha: np.ndarray, body: np.ndarray,
     region = alpha[ys, xs] > 0.08
     labels = np.full(region.shape, -1, dtype=np.int16)
 
+    fx_band = fx[ys, xs] if fx is not None else None
     seeds: list[tuple[np.ndarray, int]] = [(body[ys, xs], spec.body_min_area)]
-    if fx is not None:
-        seeds.append((fx[ys, xs], spec.fx_min_area))
+    if fx_band is not None:
+        seeds.append((fx_band, spec.fx_min_area))
 
-    # On a grid sheet, which cell a pixel sits in decides who owns it. Assigning
-    # a whole blob to one frame is right when frames are found by blob, and
-    # wrong here: artwork that touches across a boundary is one blob, and giving
-    # all of it to a single cell empties its neighbour.
-    column_owner = None
     if band.grid_cols:
-        cell = (band.x1 - band.x0) / band.grid_cols
-        column_owner = np.clip(
-            (np.arange(region.shape[1]) / cell).astype(np.int16),
-            0, band.grid_cols - 1,
-        )
-
-    for source, min_area in seeds:
-        for blob in components(source & region, min_area):
-            fresh = blob & (labels < 0)
-            if column_owner is not None:
-                labels[fresh] = np.broadcast_to(column_owner, region.shape)[fresh]
-                continue
-            cols = np.nonzero(blob.any(axis=0))[0]
-            owner = _owner(int(cols[0]) + band.x0, int(cols[-1]) + band.x0, clusters)
-            labels[fresh] = owner
+        # One seed per cell -- the biggest piece of artwork standing in it --
+        # and then let the flood below carry each label outward THROUGH the
+        # art. That is the whole trick, and it is why this is not a straight
+        # cut at the cell line.
+        #
+        # A straight cut is what was here before, and it is wrong in one
+        # direction and right in the other. Two slimes touching across a
+        # boundary are one blob, so giving the blob to a single cell empties
+        # its neighbour -- the cut fixes that. But a skeleton whose sword
+        # overhangs its cell is ALSO one blob, and the cut hands the blade tip
+        # to the next frame, which then draws a sword floating behind a
+        # skeleton that is already holding one.
+        #
+        # There is no threshold that separates those two cases. Measured across
+        # every grid sheet, the mass either side of a boundary runs smoothly
+        # from 50/50 down to 100/0 with no gap anywhere in between.
+        #
+        # Connectivity separates them exactly, though, because it asks the
+        # question that actually matters: is this pixel attached to this frame's
+        # character? The sword is joined to its own skeleton and to nothing in
+        # the next cell, so its owner's wavefront is the only one that ever
+        # reaches it. The two slimes each have their own core, so their
+        # wavefronts meet at the bridge between them and stop.
+        for i, seed in enumerate(_grid_seeds(band, region, body[ys, xs], fx_band)):
+            if seed is not None:
+                labels[seed & (labels < 0)] = i
+    else:
+        for source, min_area in seeds:
+            for blob in components(source & region, min_area):
+                fresh = blob & (labels < 0)
+                cols = np.nonzero(blob.any(axis=0))[0]
+                owner = _owner(int(cols[0]) + band.x0, int(cols[-1]) + band.x0, clusters)
+                labels[fresh] = owner
 
     _grow(labels, region)
 

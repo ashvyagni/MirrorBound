@@ -10,10 +10,10 @@ export const FLOURISHES_TEXTURE_KEY = "flourishes" as const;
 export const FLOURISHES_BODY_RATIO = 0.95213 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const FLOURISHES_FRAME_SIZE = { width: 192, height: 188 } as const;
+export const FLOURISHES_FRAME_SIZE = { width: 191, height: 188 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const FLOURISHES_ANCHOR = { x: 0.50000, y: 0.50000 } as const;
+export const FLOURISHES_ANCHOR = { x: 0.39267, y: 0.50000 } as const;
 
 export const FLOURISHES_FRAMES = {
   mark: ["death", "victory", "levelUp"],

@@ -10,10 +10,10 @@ export const SPROUTALERT_TEXTURE_KEY = "sproutAlert" as const;
 export const SPROUTALERT_BODY_RATIO = 0.69432 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const SPROUTALERT_FRAME_SIZE = { width: 387, height: 440 } as const;
+export const SPROUTALERT_FRAME_SIZE = { width: 371, height: 440 } as const;
 
 /** Origin on the body centre and its feet. */
-export const SPROUTALERT_ANCHOR = { x: 0.49612, y: 0.99773 } as const;
+export const SPROUTALERT_ANCHOR = { x: 0.45822, y: 0.99773 } as const;
 
 export const SPROUTALERT_FRAMES = {
   a: ["f-00", "f-01", "f-02", "f-03"],

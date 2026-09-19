@@ -10,10 +10,10 @@ export const SKILLNODES_TEXTURE_KEY = "skillNodes" as const;
 export const SKILLNODES_BODY_RATIO = 0.75850 as const;
 
 /** Every frame shares this source box, so one origin works for all of them. */
-export const SKILLNODES_FRAME_SIZE = { width: 192, height: 206 } as const;
+export const SKILLNODES_FRAME_SIZE = { width: 193, height: 206 } as const;
 
 /** Origin on the body centre and its vertical centre. */
-export const SKILLNODES_ANCHOR = { x: 0.50000, y: 0.50000 } as const;
+export const SKILLNODES_ANCHOR = { x: 0.51295, y: 0.50000 } as const;
 
 export const SKILLNODES_FRAMES = {
   node: ["locked", "available", "unlocked", "maxed"],
