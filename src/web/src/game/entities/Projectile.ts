@@ -40,11 +40,27 @@ export class Projectile extends Phaser.GameObjects.Sprite {
 
     this.setTexture(def.texture, def.frames[0]);
 
+    /**
+     * Whether this effect turns to face where it is going.
+     *
+     * Everything thrown does. Everything that stands on the floor does not: a
+     * flame pillar tipped forty degrees is a pillar falling over, and a wave
+     * that rolls along the ground rolls along it at every angle. `ground` is
+     * already the flag that says which is which.
+     */
+    const turns = !def.ground;
+
+    // Thrown effects take their facing from the direction of travel rather
+    // than from the goat's, because they are no longer attached to it -- and
+    // for a shot going straight up the goat's facing says nothing useful.
+    const flipped = turns ? aim.x < 0 : flippedFor(facing);
+
     // `anchorX` overrides where the effect is held, so a beam can hang off the
     // staff rather than be centred on a point in front of it. The origin has to
     // mirror along with the texture or the effect keeps its reach on the side
-    // the art was drawn for -- see `mirroredOriginX`.
-    const flipped = flippedFor(facing);
+    // the art was drawn for -- see `mirroredOriginX`. It is also what the
+    // rotation below turns about, which is why a beam sweeps around its source
+    // rather than orbiting its own middle.
     this.setOrigin(mirroredOriginX(def.anchorX ?? def.anchor.x, flipped), def.anchor.y);
 
     const goatBody = GOAT_DISPLAY_HEIGHT * GOAT_BODY_RATIO;
@@ -60,6 +76,25 @@ export class Projectile extends Phaser.GameObjects.Sprite {
       hostY + aim.y * reach + def.offset.y * ART_RATIO,
     );
     this.setFlipX(flipped);
+
+    /**
+     * Point it along the aim.
+     *
+     * Composed with the flip rather than replacing it. Rotating by the raw aim
+     * angle alone would send a left-going shot round to 180 degrees, which
+     * points it correctly and also stands it on its head -- fine for an arrow,
+     * wrong for anything whose art has a top. Mirroring first and then turning
+     * by the mirrored angle keeps each effect's own "up" upward at every angle.
+     *
+     * The mirrored sprite's forward direction is -x, so solving
+     * `(-cos t, -sin t) = aim` gives the angle below.
+     */
+    this.setRotation(
+      turns
+        ? (flipped ? Math.atan2(-aim.y, -aim.x) : Math.atan2(aim.y, aim.x))
+        : 0,
+    );
+
     this.setVisible(true).setActive(true);
     this.play(abilityKey(id), true);
     this.setDepth(depthAt(this.y));
