@@ -64,18 +64,3 @@ export function updateSettings(patch: Partial<Settings>): Settings {
 export function resetSettings(): Settings {
   return updateSettings({ ...DEFAULT_SETTINGS });
 }
-
-export const KEYBINDS: ReadonlyArray<readonly [string, string]> = [
-  ['W A S D', 'Move (sets facing)'],
-  ['Shift', 'Run'],
-  ['J / Space', 'Attack in facing direction'],
-  ['1', 'Arcane Bolt'],
-  ['2', 'Flame Burst'],
-  ['3', 'Shadow Dash'],
-  ['4', 'Binding Nova'],
-  ['P / Esc', 'Pause'],
-  ['I', 'Inventory'],
-  ['K', 'Skills'],
-  ['F3', 'AI debug overlay'],
-  ['F', 'Fullscreen'],
-];

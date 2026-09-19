@@ -1,7 +1,7 @@
 import { eventBus } from '@/game/EventBus';
 
 import { AnimatedMark } from './AnimatedMark';
-import { KEYBINDS } from './settings';
+import { Key } from './Key';
 import { openScreen, useUi } from './store';
 
 export function Toasts() {
@@ -100,39 +100,20 @@ export function PauseMenu() {
       <div className="dialog dialog--menu">
         <div className="dialog__brand"><AnimatedMark /><div><h2 className="dialog__title">Paused</h2><p className="dialog__muted">Mirrorbound</p></div></div>
         <nav className="menu">
-          <button type="button" className="menu__item" onClick={() => openScreen('none')}>Resume <kbd>P</kbd></button>
-          <button type="button" className="menu__item" onClick={() => openScreen('inventory')}>Inventory <kbd>I</kbd></button>
-          <button type="button" className="menu__item" onClick={() => openScreen('skills')}>Skills <kbd>K</kbd></button>
+          <button type="button" className="menu__item" onClick={() => openScreen('none')}>Resume <Key of="pause" /></button>
+          <button type="button" className="menu__item" onClick={() => openScreen('character')}>Character <Key of="character" /></button>
+          <button type="button" className="menu__item" onClick={() => openScreen('inventory')}>Inventory <Key of="inventory" /></button>
+          <button type="button" className="menu__item" onClick={() => openScreen('skills')}>Skills <Key of="skills" /></button>
+          <button type="button" className="menu__item" onClick={() => openScreen('map')}>World map <Key of="map" /></button>
           <button type="button" className="menu__item" onClick={() => openScreen('settings')}>Settings</button>
           <button type="button" className="menu__item" onClick={() => openScreen('controls')}>Controls</button>
           <button type="button" className="menu__item" onClick={() => eventBus.emit('game:toggle-fullscreen', {})}>
-            {fullscreen ? 'Leave fullscreen' : 'Fullscreen'} <kbd>F</kbd>
+            {fullscreen ? 'Leave fullscreen' : 'Fullscreen'}
           </button>
           <button type="button" className="menu__item menu__item--danger" onClick={() => { eventBus.emit('ui:command', { type: 'COMMAND', action: 'RESTART' }); openScreen('none'); }}>
             Restart run
           </button>
         </nav>
-      </div>
-    </div>
-  );
-}
-
-export function ControlsScreen() {
-  const screen = useUi((s) => s.screen);
-  if (screen !== 'controls') return null;
-  return (
-    <div className="overlay overlay--dim">
-      <div className="dialog">
-        <header className="dialog__head">
-          <h2 className="dialog__title">Controls</h2>
-          <button type="button" className="btn btn--ghost" onClick={() => openScreen('pause')}>Back</button>
-        </header>
-        <dl className="keys">
-          {KEYBINDS.map(([key, action]) => (
-            <div key={key} className="keys__row"><dt><kbd>{key}</kbd></dt><dd>{action}</dd></div>
-          ))}
-        </dl>
-        <p className="dialog__muted">Facing follows your last movement. Attacks and abilities fire that way — the mouse is only for menus.</p>
       </div>
     </div>
   );

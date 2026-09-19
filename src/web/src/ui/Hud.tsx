@@ -1,6 +1,7 @@
 import type { AbilitySlot } from '@/game/contracts';
 
 import { Icon, weaponIcon } from './icons';
+import { Key } from './Key';
 import { Portrait } from './Portrait';
 import { useUi } from './store';
 
@@ -42,6 +43,8 @@ export function Hud() {
   const weapon = useUi((s) => s.playerDetail.weapon);
   const inventory = useUi((s) => s.playerDetail.inventory);
   const twinWeapon = useUi((s) => s.twinDetail.weapon);
+  const campaign = useUi((s) => s.campaign);
+  const nearbyNpc = useUi((s) => s.nearbyNpc);
   if (!snap) return null;
   const p = snap.player;
   const t = snap.twin;
@@ -49,6 +52,10 @@ export function Hud() {
   const dungeon = snap.dungeon;
   const gateOpen = room?.doors.some((d) => d.side === 'north' && d.targetIndex !== null && !d.locked);
   const enemiesLeft = snap.enemies.length;
+  const safe = room?.roomType === 'village';
+  const potions = inventory?.consumables ?? [];
+  const potionCount = (id: string) => potions.find((c) => c.id === id)?.count ?? 0;
+  const potionReady = p.potionCooldown <= 0;
 
   return (
     <div className="hud" aria-live="off">
@@ -58,8 +65,10 @@ export function Hud() {
         <div className="hud__room-sub">
           <span className="chip chip--dim">{room?.roomType ?? ''}</span>
           <span className="chip chip--dim">{room?.biome ?? ''}</span>
+          {safe && <span className="chip chip--good">Safe</span>}
           {enemiesLeft > 0 && <span className="chip chip--warn">{enemiesLeft} hostile{enemiesLeft === 1 ? '' : 's'}</span>}
-          {enemiesLeft === 0 && gateOpen && <span className="chip chip--good">Gate open · go north</span>}
+          {!safe && enemiesLeft === 0 && gateOpen && <span className="chip chip--good">Gate open · go north</span>}
+          {safe && <span className="chip chip--dim">Roads out to the north</span>}
         </div>
         {dungeon && (
           <ol className="hud__path" aria-label="Dungeon progress">
@@ -78,12 +87,13 @@ export function Hud() {
         </section>
       )}
 
-      {/* Top right: the twin */}
+      {/* Top right: the twin. Nothing here until it has been found. */}
+      {!t.dormant && (
       <section className="hud__twin panel" data-downed={t.state === 'downed'}>
         <Portrait atlas="bro" frame="idle-00" size={44} className="hud__twin-portrait" />
         <div className="hud__twin-body">
           <div className="hud__twin-head">
-            <span className="hud__twin-name">Twin</span>
+            <span className="hud__twin-name">{campaign?.twinName ?? 'Twin'}</span>
             <span className="chip chip--cool">{t.intent.intentType.toLowerCase()}</span>
           </div>
           <Bar value={t.health} max={t.maxHealth} className="bar--health bar--thin" />
@@ -94,6 +104,7 @@ export function Hud() {
           {twinWeapon && <span className="hud__twin-weapon"><Icon name={weaponIcon(twinWeapon.family)} /> {twinWeapon.name}</span>}
         </div>
       </section>
+      )}
 
       {/* Bottom left: you */}
       <section className="hud__player panel">
@@ -130,14 +141,45 @@ export function Hud() {
           </div>
         </div>
         <div className="hud__resources">
-          <span title="Essence"><Icon name="essence" /> {inventory?.resources.essence ?? 0}</span>
-          <span title="Mirror shards"><Icon name="shards" /> {inventory?.resources.shards ?? 0}</span>
-          <span title="Health potions (use from inventory)"><Icon name="health_potion" /> {inventory?.consumables.find((c) => c.id === 'health_potion')?.count ?? 0}</span>
+          <span title="Gold"><Icon name="essence" /> {inventory?.gold ?? 0}</span>
+          <span
+            className="hud__potion"
+            data-ready={potionReady && potionCount('health_potion') > 0}
+            title="Health potion"
+          >
+            <Icon name="health_potion" /> {potionCount('health_potion')} <Key of="healthPotion" />
+          </span>
+          <span
+            className="hud__potion"
+            data-ready={potionReady && potionCount('mana_potion') > 0}
+            title="Mana potion"
+          >
+            <Icon name="mana_potion" /> {potionCount('mana_potion')} <Key of="manaPotion" />
+          </span>
         </div>
       </section>
 
+      {/* Standing next to someone: the one prompt the world ever shows. */}
+      {nearbyNpc && (
+        <div className="hud__prompt">
+          <Key of="interact" /> Talk to {nearbyNpc.name}
+        </div>
+      )}
+
+      {/* What you are in the middle of, when it is worth saying. */}
+      {(p.drinking || p.channelling) && (
+        <div className="hud__casting">
+          {p.drinking ? 'Drinking…' : 'Channelling…'}
+        </div>
+      )}
+
+      {/* Read off the live bindings, so a rebound key is the key it names. */}
       <div className="hud__hint">
-        <kbd>WASD</kbd> move · <kbd>Shift</kbd> run · <kbd>J</kbd> attack · <kbd>1-4</kbd> abilities · <kbd>I</kbd> inventory · <kbd>K</kbd> skills · <kbd>P</kbd> pause · <kbd>F3</kbd> AI view
+        <Key of="moveUp" /><Key of="moveLeft" /><Key of="moveDown" /><Key of="moveRight" /> move
+        · <Key of="run" /> run · <Key of="attack" /> attack · <kbd>1-4</kbd> abilities
+        · <Key of="healthPotion" />/<Key of="manaPotion" /> potions · <Key of="swapWeapon" /> swap
+        · <Key of="character" /> character · <Key of="inventory" /> bag · <Key of="skills" /> skills
+        · <Key of="map" /> map · <Key of="pause" /> pause · <Key of="debug" /> AI view
       </div>
     </div>
   );

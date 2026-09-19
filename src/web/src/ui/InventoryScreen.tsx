@@ -6,6 +6,7 @@ import { eventBus } from '@/game/EventBus';
 import { hasItemArt, Icon, weaponIcon } from './icons';
 import { Portrait } from './Portrait';
 import { openScreen, useUi } from './store';
+import { Key } from './Key';
 
 function command(payload: Parameters<typeof eventBus.emit<'ui:command'>>[1]) {
   eventBus.emit('ui:command', payload);
@@ -59,7 +60,7 @@ export function InventoryScreen() {
               <Portrait atlas="bro" frame="idle-00" size={26} /> Twin
             </button>
           </div>
-          <button type="button" className="btn btn--ghost" onClick={() => openScreen('none')}>Close <kbd>I</kbd></button>
+          <button type="button" className="btn btn--ghost" onClick={() => openScreen('none')}>Close <Key of="inventory" /></button>
         </header>
 
         {tab === 'player' && inv && (

@@ -33,6 +33,10 @@ export function DebugOverlay() {
   const twin = snap.twin;
   const style = snap.twinModel;
   const utilities = Object.entries(twin.intent.utilities).sort((a, b) => b[1] - a[1]);
+  // Strongest habit first, and only a handful: the detector holds one per
+  // context and the list is for reading, not for auditing.
+  const patterns = [...(model.patterns ?? [])].sort((a, b) => b.confidence - a.confidence).slice(0, 5);
+  const patternEvents = model.pattern_events ?? [];
   const max = utilities[0]?.[1] ?? 1;
   const twinActions = events.filter((e) => e.type === 'TWIN_OUTCOME').slice(-4).reverse();
   const counters = events.filter((e) => e.type === 'BOSS_COUNTER').slice(-4).reverse();
@@ -62,6 +66,43 @@ export function DebugOverlay() {
             <span>{Math.round(p.confidence * 100)}% <small>n={p.order}</small></span>
           </div>
         ))}
+      </section>
+
+      <section>
+        <h4>Habits <small>sequences it has decided are real</small></h4>
+        {patterns.length === 0 && (
+          // A habit can be held and then lost, which leaves no current pattern
+          // but a history that says otherwise. Saying "nothing yet" over a list
+          // of what it learned and forgot reads as a bug.
+          <p className="dbg__muted">
+            {patternEvents.length === 0
+              ? 'Nothing repeated enough yet. Do the same three things twice.'
+              : 'Nothing held right now — what it had went stale.'}
+          </p>
+        )}
+        {patterns.map((p) => (
+          <div key={p.sequence.join('>')} className="dbg-pattern" title={`held since tick ${p.first_detected_tick}`}>
+            <span className="dbg-pattern__seq">
+              {p.sequence.map((token, i) => (
+                <span key={`${token}-${i}`} data-last={i === p.sequence.length - 1}>
+                  {token.toLowerCase()}
+                </span>
+              ))}
+            </span>
+            <span className="dbg-pattern__bar"><i style={{ width: `${Math.round(p.confidence * 100)}%` }} /></span>
+            <span>{Math.round(p.confidence * 100)}%</span>
+          </div>
+        ))}
+        {patternEvents.length > 0 && (
+          <ul className="dbg__list">
+            {/* Newest first: what just changed is what you want to read. */}
+            {[...patternEvents].reverse().slice(0, 4).map((e, i) => (
+              <li key={i} data-ok={e.kind === 'DETECTED'}>
+                {e.kind === 'DETECTED' ? 'learned' : 'forgot'} · {e.pattern.sequence.join(' → ').toLowerCase()}
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <section>

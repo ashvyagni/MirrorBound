@@ -3,7 +3,8 @@ import type { SkillNode } from '@/game/contracts';
 import { eventBus } from '@/game/EventBus';
 
 import { Portrait } from './Portrait';
-import { openScreen, useUi } from './store';
+import { command, openScreen, useUi } from './store';
+import { Key } from './Key';
 
 /**
  * `emblem` is the frame name on Logesh's `skillNodes` sheet, which draws one
@@ -20,8 +21,15 @@ export function SkillTreeScreen() {
   const screen = useUi((s) => s.screen);
   const snap = useUi((s) => s.snapshot);
   const tree = useUi((s) => s.playerDetail.skillTree);
+  const room = useUi((s) => s.room);
   if (screen !== 'skills' || !snap) return null;
   const points = snap.player.skillPoints;
+  // Unlearning is a village service, the same as resting and shopping. The
+  // server enforces both of these; showing the reason is what stops the
+  // button reading as broken.
+  const learned = tree.some((n) => n.unlocked);
+  const inVillage = room?.roomType === 'village';
+  const canRespec = learned && inVillage && snap.enemies.length === 0;
 
   return (
     <div className="overlay overlay--dim">
@@ -31,7 +39,23 @@ export function SkillTreeScreen() {
             <h2 className="dialog__title">Skills</h2>
             <p className="dialog__muted">{points > 0 ? `${points} skill point${points > 1 ? 's' : ''} to spend` : 'Level up to earn skill points'}</p>
           </div>
-          <button type="button" className="btn btn--ghost" onClick={() => openScreen('none')}>Close <kbd>K</kbd></button>
+          <div className="dialog__actions">
+            <button
+              type="button"
+              className="btn btn--ghost"
+              disabled={!canRespec}
+              title={
+                !learned ? 'Nothing learned yet'
+                  : !inVillage ? 'Only in a village'
+                    : snap.enemies.length > 0 ? 'Not in a fight'
+                      : 'Take every point back and start the tree over'
+              }
+              onClick={() => command({ action: 'RESPEC' })}
+            >
+              Unlearn all
+            </button>
+            <button type="button" className="btn btn--ghost" onClick={() => openScreen('none')}>Close <Key of="skills" /></button>
+          </div>
         </header>
         <div className="tree">
           {CATEGORIES.map((cat) => (
