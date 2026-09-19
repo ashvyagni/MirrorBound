@@ -82,7 +82,7 @@ export function useHotkeys(): void {
           break;
         case 'inventory':
           e.preventDefault();
-          toggleScreen('inventory');
+          eventBus.emit('inventory:toggle', {});
           break;
         case 'skills':
           e.preventDefault();

@@ -15,6 +15,7 @@ import { InteractPrompt } from '../hud/InteractPrompt';
 import { PauseScreen } from '../hud/PauseScreen';
 import { Toast } from '../hud/Toast';
 import { Bridge } from '../hud/Bridge';
+import { InventoryScreen } from '../hud/InventoryScreen';
 import { SkillScreen } from '../hud/SkillScreen';
 import { complete, run, type CommandHost } from '../state/Commands';
 import { FX } from '../world/textures';
@@ -50,6 +51,7 @@ export class HudScene extends Phaser.Scene {
   readonly #toast = new Toast(this);
   readonly #bridge = new Bridge();
   readonly #skills = new SkillScreen(this);
+  readonly #inventory = new InventoryScreen(this);
   /** Built in `create`, because it needs the play scene to talk to. */
   #console!: Console;
   #teardown: Array<() => void> = [];
@@ -86,6 +88,7 @@ export class HudScene extends Phaser.Scene {
     this.#prompt.build();
     this.#toast.build();
     this.#skills.build();
+    this.#inventory.build();
 
     // The console runs its commands against the play scene, which is the only
     // thing that can actually put something in the room.
@@ -130,12 +133,27 @@ export class HudScene extends Phaser.Scene {
           ...this.#settings.texts, ...this.#map.texts,
           ...this.#settingsScreen.texts, ...this.#pause.texts,
           ...this.#prompt.texts, ...this.#console.texts, ...this.#toast.texts,
-          ...this.#skills.texts,
+          ...this.#skills.texts, ...this.#inventory.texts,
         ]) {
           text.updateText();
         }
       })
       .catch(() => { /* the fallback stack is still readable */ });
+  }
+
+  /**
+   * Shut every other screen.
+   *
+   * One at a time, because two scrims stack into an unreadable murk and the
+   * one underneath still takes clicks. Called by each opener rather than by a
+   * screen manager: there are five of them and a manager would be more
+   * machinery than the rule needs.
+   */
+  #closeScreens(): void {
+    this.#map.close();
+    this.#settingsScreen.close();
+    this.#skills.close();
+    this.#inventory.close();
   }
 
   #listen(): void {
@@ -150,13 +168,19 @@ export class HudScene extends Phaser.Scene {
       eventBus.on('skills:changed', ({ nodes, points, respecBlockedBy }) =>
         this.#skills.set(nodes, points, respecBlockedBy)),
       eventBus.on('skills:toggle', () => {
-        this.#map.close();
-        this.#settingsScreen.close();
+        this.#closeScreens();
         this.#skills.toggle();
       }),
+      eventBus.on('inventory:changed', ({ inventory, abilities }) =>
+        this.#inventory.set(inventory, abilities)),
+      eventBus.on('inventory:toggle', () => {
+        this.#closeScreens();
+        this.#inventory.toggle();
+      }),
       eventBus.on('map:toggle', () => {
-        this.#settingsScreen.close();
-        this.#map.toggle();
+        const wasOpen = this.#map.open;
+        this.#closeScreens();
+        if (!wasOpen) this.#map.toggle();
       }),
       // Only one screen at a time: two scrims stack into an unreadable murk,
       // and the one underneath still takes clicks.
@@ -223,6 +247,7 @@ export class HudScene extends Phaser.Scene {
     this.#prompt.destroy();
     this.#toast.destroy();
     this.#skills.destroy();
+    this.#inventory.destroy();
     this.#bridge.stop();
     this.#console.destroy();
     this.#flourish.destroy();
