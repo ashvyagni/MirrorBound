@@ -191,3 +191,41 @@ def test_loot_is_collected_into_inventory_and_emits_pickup():
     assert "hunter_bow" in p.inventory.weapons
     assert p.inventory.consumables["health_potion"] == 1
     assert len(events_of(s, "ITEM_PICKUP")) == 3
+
+
+def test_killing_your_target_clears_it():
+    """A corpse is not a target.
+
+    `target_id` is only reassigned when the player damages something *else*, so
+    without clearing it on death it keeps naming the enemy you just killed --
+    measured still pointing at one 1800 ticks after it left `state.enemies`.
+    Everything that asks "what is the player fighting" then resolves nothing:
+    the twin's ASSIST and FLANK are both gated on it.
+    """
+    s = fresh()
+    p = s.state.player
+    p.face(Vec2(1, 0))
+    victim = place_enemy(s, "sprout", Vec2(40, 0))
+
+    s.combat.damage_enemy(s.state, victim, 1.0, p.id, [], Vec2(1, 0), 0, "test")
+    assert p.target_id == victim.id, "damaging an enemy makes it the target"
+
+    s.combat.damage_enemy(s.state, victim, 10_000, p.id, [], Vec2(1, 0), 0, "test")
+    assert not victim.active
+    assert p.target_id is None, "the target died; it must not still be named"
+
+    other = place_enemy(s, "sprout", Vec2(40, 0))
+    s.combat.damage_enemy(s.state, other, 1.0, p.id, [], Vec2(1, 0), 0, "test")
+    assert p.target_id == other.id, "the next thing hit becomes the target"
+
+
+def test_an_enemy_the_twin_kills_also_clears_the_players_target():
+    """Whoever lands the killing blow, it is still the player's target that
+    stopped existing."""
+    s = fresh()
+    p = s.state.player
+    enemy = place_enemy(s, "sprout", Vec2(40, 0))
+    s.combat.damage_enemy(s.state, enemy, 1.0, p.id, [], Vec2(1, 0), 0, "test")
+    assert p.target_id == enemy.id
+    s.combat.damage_enemy(s.state, enemy, 10_000, s.state.twin.id, [], Vec2(1, 0), 0, "test")
+    assert p.target_id is None

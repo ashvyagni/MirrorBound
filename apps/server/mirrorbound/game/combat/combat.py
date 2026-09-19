@@ -327,6 +327,14 @@ class CombatSystem:
 
     def on_enemy_killed(self, state: GameState, enemy: Enemy, killer_id: str) -> None:
         edef = enemy.enemy_def
+        # A corpse is not a target. `target_id` is only ever reassigned when the
+        # player damages something *else*, so without this it keeps naming the
+        # enemy you just killed -- measured still pointing at one 1800 ticks
+        # after it left `state.enemies`. Everything that asks "what is the
+        # player fighting" then resolves nothing: the twin's ASSIST and FLANK
+        # are both gated on it, and the HUD target readout goes stale too.
+        if state.player.target_id == enemy.id:
+            state.player.target_id = None
         state.stats.enemies_killed += 1
         if killer_id == state.twin.id:
             state.twin.kills += 1

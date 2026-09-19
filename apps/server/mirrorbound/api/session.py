@@ -297,7 +297,12 @@ class GameSession:
         parsed = parse_client_message(message)
         if parsed is None:
             return
-        self.recorder.record_input(self.state.tick, message)
+        # While paused the clock does not advance and `step` throws movement
+        # input away, so recording it stamps thousands of frames onto one tick
+        # and the replay then feeds them all into that single tick. Commands
+        # still go down -- RESUME is one, and the pause has to be replayable.
+        if not (self.state.paused and isinstance(parsed, InputMessage)):
+            self.recorder.record_input(self.state.tick, message)
         if isinstance(parsed, InputMessage):
             inp = PlayerInput(
                 move_x=parsed.moveX, move_y=parsed.moveY, attack=parsed.attack, run=parsed.run,

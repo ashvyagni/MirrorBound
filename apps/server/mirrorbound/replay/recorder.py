@@ -31,8 +31,19 @@ class ReplayRecorder:
         root = Path(directory) if directory else Path(__file__).resolve().parents[2] / "runs"
         root.mkdir(parents=True, exist_ok=True)
         safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in session_id)
-        self.path = root / f"{safe}_{seed}.jsonl"
-        self._fh = self.path.open("w", encoding="utf-8")
+        # Never reuse a path. Restarting keeps the same session id, and
+        # `restart()` without a seed keeps the seed too, so the obvious name
+        # collides with the run that just finished -- and opening it "w"
+        # deleted exactly the recording someone would want to look at after
+        # dying. A reconnect does the same thing. Suffix until the name is free.
+        stem = f"{safe}_{seed}"
+        candidate = root / f"{stem}.jsonl"
+        attempt = 1
+        while candidate.exists():
+            candidate = root / f"{stem}-{attempt}.jsonl"
+            attempt += 1
+        self.path = candidate
+        self._fh = self.path.open("x", encoding="utf-8")
         self._write({"kind": "meta", "seed": seed, "session": session_id})
 
     def _write(self, record: dict) -> None:
