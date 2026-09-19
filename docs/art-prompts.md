@@ -584,3 +584,158 @@ The second band stops at x 1152 because the eighth cell is deliberately empty,
 and `Band` is told three frames rather than four so the pipeline holds you to
 it. Leaving that cell means the next item is a redraw of one cell rather than a
 new sheet.
+
+---
+
+## Part 11 — What is still missing
+
+An audit of `main`'s interface against this branch, so the remaining art is
+known rather than discovered one screen at a time.
+
+`main` has six UI surfaces this branch does not, and they are already written
+there — the gap is art and wiring, not design:
+
+| surface on `main` | what it shows | art still needed |
+| --- | --- | --- |
+| `InventoryScreen` | items, relics, resources, equipped weapon, the twin's learned dimensions | slot tile, sheet 60 |
+| `SkillTreeScreen` | 4 categories, tiers, nodes, links, costs | **sheet 59** |
+| `SettingsScreen` | 9 settings: 3 volume sliders, zoom, quality, 4 toggles | none — sheet 54 covers it |
+| `Overlays` | death, victory, pause, controls, connection, toasts | toast plate, sheet 60 |
+| `DebugOverlay` | twin prediction, traits, utilities | **none — it is bars and text** |
+| `Hud` bars | health, mana, **xp**, **boss**, thin | xp trough, sheet 60 |
+
+Three things fall out of that which are worth saying plainly.
+
+**The settings screen needs no new art at all.** Nine settings is three sliders,
+a stepper, a select and four toggles, and sheet 54 already holds a button pair,
+a toggle pair, a slider track, a slider knob and a tab pair. It is a wiring job.
+
+**The debug overlay needs none either.** It is entirely bars and numbers over a
+dark plate -- type and CSS, the same argument as damage numbers in Part 9.
+
+**The boss bar is already drawn.** Sheet 56 exists and is built; nothing in this
+branch shows it yet because nothing in this branch is a boss.
+
+### Items, potions and relics
+
+Prompted in Part 10 as **sheet 58** and not yet drawn. That one sheet covers
+both potions, all three relics and both resources -- seven of the things
+`InventoryScreen` lists. Until it exists the hotbar dial keeps borrowing the
+fireball and frost-nova icons as stand-ins.
+
+### Sheet 53 wants redrawing
+
+`assets/ui/screen-frame.png` came back as an **L**: a top bar, a left bar, one
+corner, and nothing on the right or the bottom. `Panel.ts` works around it by
+taking the L apart and rebuilding the rectangle from the corner and the two
+bars, so nothing is blocked -- but a closed frame would let that code delete
+half of itself.
+
+If it is regenerated, the prompt needs one line it did not have:
+
+> The frame is CLOSED. All four borders are present and the same thickness:
+> top, bottom, left and right. It is a hollow rectangle, not a corner piece
+> and not an L. Every one of the four corners carries the stepped notch and
+> the pink stud.
+
+### Order
+
+| # | sheet | canvas | frames |
+| --- | --- | --- | --- |
+| 59 | skill nodes | 1536 x 1024 | 8 |
+| 60 | bars and plates | 1536 x 1024 | 7 |
+
+Paste **Block 0-UI** first, as with the rest of Part 9.
+
+---
+
+### 59. Skill nodes — `assets/ui/skill-nodes.png`
+
+Four node states and four category emblems. The categories are `main`'s, not
+invented: `COMBAT`, `MAGIC`, `MOBILITY`, `SURVIVAL`.
+
+```
+Piece 59: EIGHT SKILL-TREE PIECES, one per cell, on a 1536 x 1024 canvas in a
+strict 4 x 2 grid of 384 x 512 cells. Each is centred in its own cell with
+clear green around it. They are unrelated objects, not an animation.
+
+No text, no numbers, no cost labels.
+
+TOP ROW -- four states of the SAME node. All four are the same outer shape at
+the same size and in the same position in their cell: a diamond about 260
+pixels across, standing on one point, with its corners cut as small square
+steps. Only the fill and the rim change between them.
+
+1. LOCKED. Dark violet face #191322, DIM violet rim, and a small solid dark
+   bar across the middle like a closed slot. The quietest of the four.
+2. AVAILABLE. The same diamond with a lighter #241d2e face and a bright violet
+   rim, its interior empty and clearly open.
+3. UNLOCKED. The same diamond with a soft-pink #f5a4c0 rim about twice the
+   thickness of the others, a dark face, and a solid pink diamond centred
+   inside it at about a third of the width.
+4. MAXED. The same diamond with the warm accent #d62e6c as BOTH its rim and
+   its inner diamond, and four short pink spurs radiating from its four
+   points, each about 40 pixels long.
+
+BOTTOM ROW -- four category emblems, drawn smaller, about 150 pixels, with no
+diamond around them. Each is flat bone white with a dark outline, three or
+four shapes at most, and must read at a third of its size:
+
+5. COMBAT. Two short swords crossed in an X, plain blades, plain crossguards.
+6. MAGIC. A four-pointed star with concave sides -- a sparkle -- with one
+   smaller star tucked beside its lower right point.
+7. MOBILITY. A single winged boot seen from the side: a simple boot shape with
+   two swept feathers off its heel.
+8. SURVIVAL. A plain heater shield, flat, with one horizontal band across it.
+```
+
+---
+
+### 60. Bars and plates — `assets/ui/bars-plates.png`
+
+The pieces every remaining screen needs and none of them has.
+
+```
+Piece 60: SEVEN INTERFACE PIECES, on a 1536 x 1024 canvas in a strict 4 x 2
+grid of 384 x 512 cells. Use the first seven cells; leave the eighth
+completely empty pure green. They are unrelated pieces, not an animation.
+
+Every one of them is EMPTY: no text, no numbers, no icons, no fills.
+
+TOP ROW, left to right:
+1. XP TROUGH. A long, very THIN horizontal trough about 340 x 26 -- roughly
+   thirteen times wider than it is tall, noticeably slimmer than a health bar.
+   Dark violet frame about 12 pixels thick with a lighter violet rim, hollow
+   and empty inside. Both ends are square. No taper, no emblem, no segments.
+2. TOAST PLATE. A small horizontal plate about 330 x 120 for a line of
+   notification text: dark violet face, lighter violet rim, corners cut as
+   small 45-degree steps, and a solid soft-pink #f5a4c0 bar 10 pixels wide
+   running down its LEFT edge only. Empty inside.
+3. SLOT. A square inventory tile about 220 x 220. A recess: dark interior, a
+   darker inner edge and a thin lighter violet rim, reading as pressed INTO a
+   surface. Corners cut as small square steps. Completely empty.
+4. SLOT, SELECTED. The same square at the same size and position, with a soft
+   pink #f5a4c0 rim about twice as thick and a slightly lighter interior.
+   Nothing else changes -- these two are swapped in place.
+
+BOTTOM ROW, left to right:
+5. SCROLLBAR TRACK. A narrow vertical trough about 34 x 330, dark violet with
+   a thin lighter rim, hollow, square ends, uniform along its whole length.
+6. SCROLLBAR THUMB. A narrow vertical block about 26 x 120, lighter violet
+   #241d2e with a bright rim, and three short horizontal grip lines across its
+   middle in dim violet #7d7188.
+7. DIVIDER. A single thin horizontal rule about 340 x 8: a dim violet #7d7188
+   bar with a dark outline, square ends, uniform along its length. It is
+   repeated between rows, so it must not have a middle.
+
+8. EMPTY. Nothing at all: flat pure green.
+
+Pieces 3 and 4 must be identical in outline, size and position -- they are the
+same slot in two states, and the game swaps between them in place.
+```
+
+### After these two
+
+That closes the interface. What is then left in the whole project is the
+creature art in `docs/art-prompts-2.md` -- forty-seven sheets, of which the
+grove's thirteen are the only ones blocking anything -- and sheet 58's items.
