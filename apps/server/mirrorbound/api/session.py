@@ -27,6 +27,7 @@ from mirrorbound.game.core.events import Event
 from mirrorbound.game.core.rng import DeterministicRNG
 from mirrorbound.game.dungeon.generation import DungeonGenerator, DungeonRun
 from mirrorbound.game.dungeon.room import TILE, Portal, Room
+from mirrorbound.game.combat.weapons import STARTING_BLADE
 from mirrorbound.game.entities.enemy import ARCHETYPES
 from mirrorbound.game.enemy_ai.controller import BasicEnemyController
 from mirrorbound.game.enemy_ai.mirror import MirrorController
@@ -318,6 +319,7 @@ class GameSession:
         room.visited = True
         if first_visit:
             state.spawn_enemies_for_room(room)
+            self._maybe_leave_a_blade(room)
             if not room.looted:
                 state.spawn_room_treasure(room)
                 # Treasure is handed out once per room, ever. Marking it here
@@ -337,6 +339,31 @@ class GameSession:
                    first_visit=first_visit, area=room.area_id, safe=room.room_type == "village")
         self._maybe_rescue_twin(room, first_visit)
         self._maybe_take_the_twin(room, first_visit)
+
+    def _maybe_leave_a_blade(self, room: Room) -> None:
+        """A sword at the threshold, for someone who walked in with nothing.
+
+        The player starts bare-handed on purpose: abilities belong to weapons,
+        so the first one you pick up is the first time the ability bar has
+        anything on it. That only works if there is one to pick up -- and there
+        was not. Starting gold is zero, the smith stocked nothing under 140,
+        and weapon drops run from 12% on a brute to 50% on the Warden. A new
+        player could clear the opening dungeon with two swipes and a dash and
+        never see the rest of the game.
+
+        So a dungeon entrance leaves one out, exactly when you have nothing at
+        all. Owning any weapon -- bought, found, or handed over by the twin --
+        means the threshold is bare, so this can never be farmed and never
+        shows up as clutter on a second run.
+        """
+        if room.room_type != "entrance":
+            return
+        if self.state.player.inventory.weapons:
+            return
+        where = self.state.player.position + Vec2(0.0, -110.0)
+        self.state.spawn_pickup("weapon", room.clamp(where, 20.0), item_id=STARTING_BLADE)
+        self.state.emit("BLADE_LEFT", item=STARTING_BLADE, position=where.to_dict(),
+                        room_id=room.id)
 
     def _maybe_take_the_twin(self, room: Room, first_visit: bool) -> None:
         """The Mirror is your twin. Walking into its room is where that lands.

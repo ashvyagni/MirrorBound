@@ -94,6 +94,10 @@ ELDER_MARA = NpcDef(
 SMITH_OREN = NpcDef(
     id="smith_oren", name="Oren the Smith", role="weaponsmith", fx=0.26, fy=0.52, sprite="npc_smith",
     stock=(
+        # The cheapest thing on the bench, and the only one you can afford
+        # early. The player begins bare-handed, so a shop with no starter
+        # weapon in it is a shop that cannot help you.
+        ShopEntry("weapon", "iron_sword", 45),
         ShopEntry("weapon", "hunter_bow", 140),
         ShopEntry("weapon", "ember_staff", 190),
         ShopEntry("weapon", "frost_staff", 190),
@@ -101,8 +105,8 @@ SMITH_OREN = NpcDef(
     ),
     lines={
         "intro": (
-            "That sword of yours will do the job. It always has.",
-            "Everything on this bench only changes how the job feels.",
+            "You came in with nothing. That happens more than you'd think.",
+            "Take a blade off the bench. Everything else here only changes how the job feels.",
         ),
         "twin_rescued": (
             "Your shadow there picks things up off the floor. I've seen it.",

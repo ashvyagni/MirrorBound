@@ -8,7 +8,8 @@
 
 import Phaser from 'phaser';
 
-import { BIOMES, DEPTH, LIGHT_ANGLE, TILE, type BiomeName } from '../constants';
+import { DIALOGUE_TEXTURE_KEY } from '../animation/dialogueAtlas.generated';
+import { BIOMES, DEPTH, HUD, LIGHT_ANGLE, PIXEL_FONT, TILE, type BiomeName } from '../constants';
 import { isPerson, propArt, propArtSide } from './propArt';
 import type { DecorSnap, DoorSnap, RoomFull } from '../contracts';
 import type { Quality } from '../../ui/settings';
@@ -77,6 +78,7 @@ export class WorldRenderer {
     this.#buildFloor(room, biome);
     this.#buildDecor(room, biome);
     this.#buildDoors(room);
+    this.#buildPortals(room);
   }
 
   // --- floor -------------------------------------------------------------------
@@ -276,6 +278,71 @@ export class WorldRenderer {
         frequency: 220, quantity: 1, blendMode: 'ADD',
       }).setDepth(DEPTH.fxLow + 1);
       this.#emitters.push(emitter);
+    }
+  }
+
+  // --- portals ----------------------------------------------------------------------
+
+  /**
+   * The ways out of an area.
+   *
+   * Nothing drew these. Portals were in the snapshot, the server routed travel
+   * through them and the interact prompt named them, but no object was ever
+   * added for one -- so a village's roads out and the exit that opens in a
+   * cleared dungeon were invisible circles on the floor. You could only leave
+   * an area by walking over a spot with nothing on it.
+   *
+   * Drawn as a ring lying on the ground with its destination written above it,
+   * because a portal is a place rather than a thing: a standing gate would
+   * have to face a direction, and these sit in the open.
+   *
+   * A locked one is drawn broken and dim, with the reason under it, so a way
+   * out you cannot use yet still tells you it is there.
+   */
+  #buildPortals(room: RoomFull): void {
+    for (const portal of room.portals) {
+      const open = !portal.locked;
+
+      const ring = this.scene.add
+        .image(portal.x, portal.y, DIALOGUE_TEXTURE_KEY, open ? 'ringSolid' : 'ringBroken')
+        .setDepth(DEPTH.floorDecal + 1)
+        .setAlpha(open ? 0.9 : 0.45);
+      // Flattened: it lies on the floor, so the circle reads as an ellipse.
+      ring.setDisplaySize(portal.radius * 2.2, portal.radius * 1.3);
+      this.#objects.push(ring);
+
+      if (open) {
+        const glowImg = this.scene.add.image(portal.x, portal.y, 'fx:glow')
+          .setScale(portal.radius / 42, portal.radius / 70)
+          .setAlpha(0.3).setDepth(DEPTH.floorDecal)
+          .setBlendMode(Phaser.BlendModes.ADD)
+          .setTint(portal.kind === 'descent' ? 0xb48cff : 0xf0c060);
+        this.#objects.push(glowImg);
+        this.#tweens.push(this.scene.tweens.add({
+          targets: [ring, glowImg], alpha: { from: 0.28, to: 0.75 },
+          duration: 1500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+        }));
+      }
+
+      const label = this.scene.add
+        .text(portal.x, portal.y - portal.radius * 0.9, portal.label.toUpperCase(), {
+          fontFamily: PIXEL_FONT.stack,
+          fontSize: '13px',
+          color: open ? HUD.ink : HUD.dimInk,
+        })
+        .setOrigin(0.5, 1)
+        .setDepth(DEPTH.entityBase + portal.y * 0.01 + 2);
+      this.#objects.push(label);
+
+      if (portal.lockReason) {
+        const why = this.scene.add
+          .text(portal.x, portal.y + portal.radius * 0.7, portal.lockReason.toUpperCase(), {
+            fontFamily: PIXEL_FONT.stack, fontSize: '11px', color: HUD.dimInk,
+          })
+          .setOrigin(0.5, 0)
+          .setDepth(DEPTH.entityBase + portal.y * 0.01 + 2);
+        this.#objects.push(why);
+      }
     }
   }
 

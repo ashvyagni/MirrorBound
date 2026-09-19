@@ -224,6 +224,14 @@ WEAPONS["ice_staff"] = FROST_STAFF
 #: with abilities bound to weapons, starting armed would hand over half the
 #: moveset before the player has been shown there is a choice in it.
 STARTING_WEAPON = ""
+
+#: The blade a dungeon entrance leaves out for an unarmed player.
+#:
+#: Separate from `STARTING_WEAPON`, which is what you are *holding* when the
+#: game begins -- nothing. This is what the world puts in front of you when you
+#: have nothing, so the moment you first get an ability is something you walked
+#: over and picked up rather than something you woke up with.
+STARTING_BLADE = IRON_SWORD.id
 TWIN_STARTING_WEAPON = FROST_STAFF.id
 
 

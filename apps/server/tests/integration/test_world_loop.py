@@ -497,3 +497,50 @@ def test_a_twin_that_was_never_found_is_not_taken():
     assert s.state.twin.dormant
     _walk_to_boss_room(s)
     assert not any(e.type == "TWIN_TAKEN" for e in s.state.pending_events)
+
+
+# --- the first weapon --------------------------------------------------------
+
+def test_a_dungeon_entrance_leaves_a_blade_for_an_unarmed_player():
+    """The opening has to hand you the moment the ability bar lights up.
+
+    You begin bare-handed and abilities belong to weapons, so with nothing in
+    your hands there is only the dash. Starting gold is zero and weapon drops
+    are a chance, so without this a new player could clear the first dungeon
+    and never see the rest of the moveset.
+    """
+    save_system.delete_save("blade")
+    s = GameSession("blade", seed=5, record=False)
+    assert s.state.player.inventory.ability_slots == ["shadow_dash"]
+
+    s.handle_input({"type": "COMMAND", "action": "TRAVEL", "areaId": "wakewood_crypt"})
+    s.step(DT)
+    assert s.state.room.room_type == "entrance"
+    blades = [p for p in s.state.pickups if p.item_id == "iron_sword"]
+    assert len(blades) == 1
+
+    walk_to(s, Vec2(blades[0].position.x, blades[0].position.y))
+    for _ in range(30):
+        s.step(DT)
+    assert s.state.player.inventory.weapons == ["iron_sword"]
+    assert s.state.player.inventory.ability_slots == ["aegis", "shadow_dash"]
+
+
+def test_an_armed_player_finds_no_blade_at_the_threshold():
+    """Owning anything at all means the threshold is bare, so it cannot be
+    farmed and never turns up as clutter on a later run."""
+    save_system.delete_save("armed")
+    s = GameSession("armed", seed=5, record=False)
+    s.state.player.inventory.add_weapon("hunter_bow")
+    s.handle_input({"type": "COMMAND", "action": "TRAVEL", "areaId": "wakewood_crypt"})
+    s.step(DT)
+    assert not [p for p in s.state.pickups if p.kind == "weapon"]
+
+
+def test_the_smith_stocks_something_you_can_afford_first():
+    """A shop whose cheapest weapon costs 140 cannot help a player with 0."""
+    from mirrorbound.game.world.npc import VILLAGE_NPCS
+    smith = next(n for n in VILLAGE_NPCS["hollow_reach"] if n.role == "weaponsmith")
+    weapons = [e for e in smith.stock if e.kind == "weapon"]
+    assert any(e.item_id == "iron_sword" for e in weapons)
+    assert min(e.price for e in weapons) <= 60
