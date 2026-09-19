@@ -1,19 +1,50 @@
 /**
- * Enemies: procedural painted sprites with readable combat states -- a bob
- * while moving, a red pulse and telegraph arc while winding up, a white flash
- * on hit, and a squash-and-burst on death.
+ * Enemies: Logesh's drawn sheets where one exists for the archetype, the older
+ * procedural painted sprite where one does not, with readable combat states --
+ * a bob while moving, a red pulse and telegraph arc while winding up, a white
+ * flash on hit, and a squash-and-burst on death.
+ *
+ * The drawn sheets are four separate textures per enemy (idle / walk / alert /
+ * attack) rather than four clips inside one, so changing animation means
+ * changing texture as well as animation key.
  */
 
 import Phaser from 'phaser';
 
+import {
+  ENEMY_SHEETS, enemyAnimationKey, isEnemyKind,
+  type EnemyClipName, type EnemyKind,
+} from '../animation/enemyClips';
 import { DEPTH, PALETTE } from '../constants';
 import type { EnemySnap, Vec2 } from '../contracts';
 import { EntityView } from './EntityView';
 
-const SIZE: Record<string, number> = { skeleton: 1.0, archer: 1.0, hound: 0.95, slime: 1.0, mirror: 1.15 };
+/** Relative size per archetype, against ENEMY_DISPLAY_HEIGHT. */
+const SIZE: Record<string, number> = {
+  skeleton: 1.0, archer: 0.96, hound: 0.8, slime: 0.9, mirror: 1.15,
+  acolyte: 0.98, brute: 1.2, scarab: 0.72, shardling: 0.78, spitter: 0.92,
+  sprout: 0.85, warden: 1.15,
+};
+
+/** Drawn height of a 1.0-size enemy, in world units. Matches the player's 76
+ *  so the cast is in proportion; each sheet's own body ratio is divided out so
+ *  a tall padded frame does not read as a tall monster. */
+const ENEMY_DISPLAY_HEIGHT = 78;
+
+/** Server enemy state -> which of the four drawn sheets to show. */
+function clipFor(snap: EnemySnap): EnemyClipName {
+  if (snap.windingUp) return 'alert';
+  if (snap.state === 'attack') return 'attack';
+  if (snap.state === 'idle' || snap.state === 'dead') return 'idle';
+  return 'walk';
+}
 
 export class EnemyView extends EntityView {
-  readonly sprite: Phaser.GameObjects.Image;
+  readonly sprite: Phaser.GameObjects.Sprite;
+  /** Null when no drawn sheet exists for this archetype (the boss today),
+   *  in which case the painted texture is used and never animated. */
+  readonly #kind: EnemyKind | null;
+  #clip: EnemyClipName = 'idle';
   readonly #bar: Phaser.GameObjects.Graphics;
   readonly #telegraph: Phaser.GameObjects.Graphics;
   #ring: Phaser.GameObjects.Image | null = null;
@@ -30,9 +61,27 @@ export class EnemyView extends EntityView {
     super(scene, snap.id, snap.position, snap.boss ? 1.4 : snap.elite ? 1.1 : 0.85);
     this.snap = snap;
     this.#lastHealth = snap.health;
-    const key = scene.textures.exists(`enemy:${snap.sprite}`) ? `enemy:${snap.sprite}` : 'enemy:skeleton';
-    this.#baseScale = (SIZE[snap.sprite] ?? 1) * (snap.elite ? 1.22 : 1) * (snap.boss ? 1.25 : 1);
-    this.sprite = scene.add.image(snap.position.x, snap.position.y, key).setOrigin(0.5, 0.92).setScale(this.#baseScale);
+    const size = (SIZE[snap.sprite] ?? 1) * (snap.elite ? 1.22 : 1) * (snap.boss ? 1.25 : 1);
+    this.#kind = isEnemyKind(snap.sprite) && scene.textures.exists(ENEMY_SHEETS[snap.sprite].idle.texture)
+      ? snap.sprite
+      : null;
+
+    if (this.#kind) {
+      const sheet = ENEMY_SHEETS[this.#kind].idle;
+      // Divide out the sheet's padding so every enemy is scaled by how big its
+      // *body* is, not how big its frame box happens to be.
+      this.#baseScale = (ENEMY_DISPLAY_HEIGHT * size) / (sheet.frameSize.height * sheet.bodyRatio);
+      this.sprite = scene.add.sprite(snap.position.x, snap.position.y, sheet.texture)
+        .setOrigin(sheet.anchor.x, sheet.anchor.y)
+        .setScale(this.#baseScale);
+      this.#playClip('idle');
+    } else {
+      const key = scene.textures.exists(`enemy:${snap.sprite}`) ? `enemy:${snap.sprite}` : 'enemy:skeleton';
+      this.#baseScale = size;
+      this.sprite = scene.add.sprite(snap.position.x, snap.position.y, key)
+        .setOrigin(0.5, 0.92)
+        .setScale(this.#baseScale);
+    }
     this.#bar = scene.add.graphics().setDepth(DEPTH.fxHigh);
     this.#telegraph = scene.add.graphics().setDepth(DEPTH.floorDecal + 3);
     if (snap.elite) {
@@ -51,6 +100,18 @@ export class EnemyView extends EntityView {
     this.snap = snap;
     this.syncTarget(snap.position, snap.velocity);
     if (Math.abs(snap.facing.x) > 0.2) this.sprite.setFlipX(snap.facing.x < 0);
+    this.#playClip(clipFor(snap));
+  }
+
+  /** Swap to one of the four drawn sheets. No-op for a painted fallback, and
+   *  for a clip that is already playing. */
+  #playClip(clip: EnemyClipName): void {
+    if (!this.#kind || clip === this.#clip) return;
+    this.#clip = clip;
+    const sheet = ENEMY_SHEETS[this.#kind][clip];
+    this.sprite.setTexture(sheet.texture);
+    this.sprite.setOrigin(sheet.anchor.x, sheet.anchor.y);
+    this.sprite.play(enemyAnimationKey(this.#kind, clip), true);
   }
 
   hit(): void {
