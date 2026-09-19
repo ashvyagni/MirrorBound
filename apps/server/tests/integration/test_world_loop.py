@@ -457,3 +457,43 @@ def test_spawning_is_refused_in_a_village_and_does_not_stop_the_tick():
     tick = s.state.tick
     s.step(DT)
     assert s.state.tick > tick, "the tick must survive a refused command"
+
+
+# --- the Mirror --------------------------------------------------------------
+
+def _walk_to_boss_room(session):
+    """Step through a dungeon until the boss room is the current one."""
+    for room in session.dungeon.rooms:
+        session._enter_room(room, None)
+        session.step(DT)
+        if room.room_type == "boss":
+            return room
+    raise AssertionError("no boss room in this dungeon")
+
+
+def test_the_twin_becomes_the_mirror_on_the_threshold():
+    """The boss is your twin, and the boss room is where that lands.
+
+    Up to here it has followed you, learned from you and fought beside you.
+    Walking in takes it out of the world and leaves the Mirror standing where
+    it was -- which is the reason the Mirror fights the way you do.
+    """
+    save_system.delete_save("taken")
+    s = GameSession("taken", seed=5, record=False, start_area="mirror_sanctum")
+    s.state.twin.dormant = False
+    _walk_to_boss_room(s)
+
+    assert s.state.twin.dormant, "the twin leaves the world"
+    assert "twin_taken" in s.campaign.flags
+    taken = [e for e in s.state.pending_events if e.type == "TWIN_TAKEN"]
+    assert len(taken) == 1, "it happens once"
+    assert any(e.enemy_def.boss for e in s.state.enemies), "and the Mirror is there"
+
+
+def test_a_twin_that_was_never_found_is_not_taken():
+    """No companion, no transformation -- and no event to play a cutscene on."""
+    save_system.delete_save("never")
+    s = GameSession("never", seed=5, record=False, start_area="mirror_sanctum")
+    assert s.state.twin.dormant
+    _walk_to_boss_room(s)
+    assert not any(e.type == "TWIN_TAKEN" for e in s.state.pending_events)

@@ -336,6 +336,36 @@ class GameSession:
                    name=room.name, biome=room.biome, position=spawn.to_dict(), enemies=len(state.enemies),
                    first_visit=first_visit, area=room.area_id, safe=room.room_type == "village")
         self._maybe_rescue_twin(room, first_visit)
+        self._maybe_take_the_twin(room, first_visit)
+
+    def _maybe_take_the_twin(self, room: Room, first_visit: bool) -> None:
+        """The Mirror is your twin. Walking into its room is where that lands.
+
+        Up to here the twin has followed you, learned from you and fought
+        beside you. The boss room takes it: the twin leaves the world, and the
+        thing that comes out of it is the Mirror -- which is why the Mirror
+        fights the way you do. The client plays the hatch on `TWIN_TAKEN`,
+        cracking the companion sprite open into the boss.
+
+        Done on entering rather than on the Warden's death so the two beats do
+        not land on top of each other: the Warden is the end of the Ashen Deep,
+        and this is the opening of the Sanctum.
+
+        The twin goes dormant rather than dying. It is not dead -- it is in
+        front of you, and killing the Mirror is what gets it back.
+        """
+        state = self.state
+        if room.room_type != "boss" or state.twin.dormant:
+            return
+        if not any(e.enemy_def.boss for e in state.enemies):
+            return
+
+        where = state.twin.position.copy()
+        state.twin.dormant = True
+        state.twin.velocity = Vec2()
+        self.campaign.flags.add("twin_taken")
+        state.emit("TWIN_TAKEN", twin=self.campaign.twin_name, position=where.to_dict(),
+                   room_id=room.id, first_visit=first_visit)
 
     # ---------------------------------------------------------------- messages
 

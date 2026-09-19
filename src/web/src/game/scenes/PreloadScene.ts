@@ -4,6 +4,7 @@ import { registerEffectAnimations, EFFECT_TEXTURES } from '../animation/abilityC
 import { BRO_TEXTURE, registerBroAnimations } from '../animation/broClips';
 import { registerAlertMarkAnimation, SHARED_ENEMY_TEXTURES } from '../animation/enemyClips';
 import { registerFxAnimations } from '../animation/fx';
+import { HATCH_TEXTURES, registerHatchAnimations } from '../entities/Hatch';
 import { GOAT_TEXTURES, registerGoatAnimations } from '../animation/goatClips';
 import { ITEMS_TEXTURE_KEY } from '../animation/itemsAtlas.generated';
 import { SKILLNODES_TEXTURE_KEY } from '../animation/skillNodesAtlas.generated';
@@ -74,7 +75,7 @@ export class PreloadScene extends Phaser.Scene {
     // today, but both are built from tables that can grow.
     const textures = [...new Set([
       ...GOAT_TEXTURES, BRO_TEXTURE, ...WEAPON_TEXTURES, ...EFFECT_TEXTURES,
-      ...SHARED_ENEMY_TEXTURES, ...UI_TEXTURES,
+      ...SHARED_ENEMY_TEXTURES, ...UI_TEXTURES, ...HATCH_TEXTURES,
     ])];
     for (const texture of textures) {
       this.load.setPath(`game/${texture}`);
@@ -94,6 +95,7 @@ export class PreloadScene extends Phaser.Scene {
     // frames name an unloaded texture is a clip that draws nothing.
     registerAlertMarkAnimation(this.anims);
     registerEffectAnimations(this.anims);
+    registerHatchAnimations(this.anims);
     registerFxAnimations(this.anims);
     const registered = performance.now();
     // Paint the world once, up front, so the first room appears without a hitch.

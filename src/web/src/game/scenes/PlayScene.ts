@@ -15,6 +15,7 @@ import type { CommandMessage, EnemySnap, GameSnapshot, RoomFull, ServerEvent, Ve
 import { isRoomFull } from '../contracts';
 import { Vfx } from '../effects/Vfx';
 import { EnemyView } from '../entities/EnemyView';
+import { Hatch } from '../entities/Hatch';
 import { PickupView } from '../entities/PickupView';
 import { PlayerView } from '../entities/PlayerView';
 import { ProjectileView } from '../entities/ProjectileView';
@@ -362,6 +363,27 @@ export class PlayScene extends Phaser.Scene {
    * already handled are acted on; a batch that goes backwards means the server
    * restarted and the watermark is reset.
    */
+  /**
+   * Crack the companion open into the Mirror.
+   *
+   * Sixteen frames across two sheets, and the whole point of it is the size
+   * change: the thing that has been following you all game becomes the thing
+   * that is two and a half times your height. A boss that simply appeared at
+   * full size would be a boss you never saw arrive.
+   *
+   * The real Mirror is hidden for the duration and shown on the last frame, so
+   * what you watch is one creature becoming another rather than a cutscene
+   * playing next to a boss that was already standing there.
+   */
+  #playHatch(at: Vec2): void {
+    const boss = [...this.#enemies.values()].find((view) => view.snap.boss);
+    boss?.sprite.setVisible(false);
+    this.cameras.main.shake(260, 0.006);
+    new Hatch(this, at.x, at.y, () => {
+      boss?.sprite.setVisible(true);
+    });
+  }
+
   #onEvents(events: ServerEvent[]): void {
     if (events.length === 0) return;
     let batchHigh = events[0]!.tick;
@@ -383,6 +405,18 @@ export class PlayScene extends Phaser.Scene {
   #onEvent(e: ServerEvent): void {
     const player = this.#player;
     switch (e.type) {
+      // The twin becomes the boss, once, on the threshold of the Sanctum.
+      //
+      // The Mirror is drawn in the room already -- the server spawned it with
+      // everything else -- so the hatch is played *over* it and the boss is
+      // hidden until the shell opens. Doing it the other way round, spawning
+      // the Mirror when the cutscene ends, would mean the server and the
+      // client disagreed about what was in the room for a second and a half.
+      case 'TWIN_TAKEN': {
+        this.#playHatch(this.#pos(e));
+        break;
+      }
+
       case 'PLAYER_ATTACKED': {
         if (!player) break;
         const facing = (e.data.facing as Vec2) ?? player.facingVec;
