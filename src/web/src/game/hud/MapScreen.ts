@@ -47,7 +47,7 @@ export class MapScreen {
     this.#texts.push(...this.#panel.texts);
 
     this.#caption = this.scene.add
-      .text(0, HEIGHT / 2 - this.#panel.inset * 0.7, '', {
+      .text(0, HEIGHT / 2 - this.#panel.inset * 1.25, '', {
         fontFamily: PIXEL_FONT.stack,
         fontSize: `${HUD.hintSize}px`,
         color: HUD.dimInk,

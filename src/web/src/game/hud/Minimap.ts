@@ -55,9 +55,12 @@ export class Minimap {
   /**
    * Repaint the dots.
    *
-   * The room is fitted to the circle on its longer side, so a wide room stays
-   * the shape it is rather than being stretched to fill a round frame -- which
-   * would put a mark in the wrong place relative to everything else.
+   * The room is fitted to the circle by its DIAGONAL, not by its longer side.
+   * Fitting the long side leaves the corners outside the circle -- at 1280x960
+   * they overhang it by a quarter of the room's width -- and the room outline
+   * then draws as a rectangle sticking out through the frame. Fitting the
+   * diagonal is the only scale at which every corner is inside the ring, and
+   * it keeps the room the shape it actually is.
    */
   draw(): void {
     const view = this.#view;
@@ -65,7 +68,7 @@ export class Minimap {
 
     const { minimap } = HUD_ART;
     const inner = minimap.size / 2 * 0.94;
-    const scale = (inner * 2) / Math.max(view.room.width, view.room.height);
+    const scale = (inner * 2) / Math.hypot(view.room.width, view.room.height);
     const toMap = (p: Vec2) => ({
       x: minimap.x + (p.x - view.room.width / 2) * scale,
       y: minimap.y + (p.y - view.room.height / 2) * scale,
