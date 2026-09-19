@@ -1,4 +1,7 @@
+import { BARSPLATES_TEXTURE_KEY } from '../animation/barsPlatesAtlas.generated';
 import { BOSSBAR_TEXTURE_KEY } from '../animation/bossBarAtlas.generated';
+import { ITEMS_TEXTURE_KEY } from '../animation/itemsAtlas.generated';
+import { SKILLNODES_TEXTURE_KEY } from '../animation/skillNodesAtlas.generated';
 import { CONTROLS_TEXTURE_KEY } from '../animation/controlsAtlas.generated';
 import { COOLDOWNRAIL_TEXTURE_KEY } from '../animation/cooldownRailAtlas.generated';
 import { FLOURISHES_TEXTURE_KEY } from '../animation/flourishesAtlas.generated';
@@ -33,4 +36,9 @@ export const HUD_TEXTURES: readonly string[] = [
   MAPTOKENS_TEXTURE_KEY,
   BOSSBAR_TEXTURE_KEY,
   FLOURISHES_TEXTURE_KEY,
+  // Items the player finds, the skill tree's nodes, and the small pieces every
+  // remaining screen is assembled from.
+  ITEMS_TEXTURE_KEY,
+  SKILLNODES_TEXTURE_KEY,
+  BARSPLATES_TEXTURE_KEY,
 ];

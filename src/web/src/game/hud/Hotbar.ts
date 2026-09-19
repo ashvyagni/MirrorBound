@@ -4,6 +4,7 @@ import { goatAnimationKey } from '../animation/goatClips';
 import { GOAT_TEXTURE_KEY } from '../animation/goatAtlas.generated';
 import { HOTBAR_TEXTURE_KEY } from '../animation/hotbarAtlas.generated';
 import { ICONS_TEXTURE_KEY } from '../animation/iconsAtlas.generated';
+import { ITEMS_TEXTURE_KEY } from '../animation/itemsAtlas.generated';
 import { POTIONDIAL_TEXTURE_KEY } from '../animation/potionDialAtlas.generated';
 import { WEAPONS } from '../animation/weaponClips';
 import { HUD, HUD_ART, PALETTE, PIXEL_FONT } from '../constants';
@@ -110,7 +111,7 @@ export class Hotbar {
   }
 
   #buildDial(x: number, y: number): void {
-    this.#potionIcon = this.scene.add.sprite(x, y, ICONS_TEXTURE_KEY, 'iceNova');
+    this.#potionIcon = this.scene.add.sprite(x, y, ITEMS_TEXTURE_KEY, 'health_potion');
     fitInside(this.#potionIcon, this.#item * 0.86);
 
     this.#dial = this.scene.add.image(x, y, POTIONDIAL_TEXTURE_KEY, 'dial');
@@ -173,10 +174,10 @@ export class Hotbar {
 
     const potion = POTIONS[loadout.potionIndex] ?? POTIONS[0]!;
     const count = loadout.counts[potion.id] ?? 0;
-    // Health and mana borrow the two icons whose colour already says which is
-    // which. There is no potion icon on the sheet, and inventing one in a
-    // different hand would be visible next to the others.
-    this.#potionIcon.setTexture(ICONS_TEXTURE_KEY, potion.heal ? 'fireBall' : 'iceNova');
+    // The item sheet's frames are named with `main`'s consumable ids, so the
+    // potion indexes its own icon with nothing in between -- and an id with no
+    // art is a missing-frame error rather than a blank dial.
+    this.#potionIcon.setTexture(ITEMS_TEXTURE_KEY, potion.id);
     fitInside(this.#potionIcon, this.#item * 0.86);
     this.#potionIcon.setAlpha(count > 0 ? 1 : 0.3);
     this.#potionCount.setText(String(count));

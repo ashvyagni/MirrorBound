@@ -4,7 +4,7 @@ import { slotInfo, WEAPONS, WEAPON_ORDER, type SlotId, type WeaponId } from '@/g
 import { eventBus } from '@/game/EventBus';
 import { POTIONS, type LoadoutSnapshot } from '@/game/state/Loadout';
 
-import { Icon } from './Icon';
+import { Icon, ItemIcon } from './Icon';
 import { useCooldowns } from './useCooldowns';
 
 /**
@@ -150,7 +150,7 @@ export function LoadoutPanel() {
                   }
                 }}
               >
-                <Icon name={potion.heal ? 'fireBall' : 'iceNova'} size={24} />
+                <ItemIcon name={potion.id as 'health_potion' | 'mana_potion'} size={24} />
                 <span className="potion__name">{potion.name}</span>
                 <kbd>{count}</kbd>
               </button>
