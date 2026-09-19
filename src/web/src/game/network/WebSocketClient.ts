@@ -45,6 +45,11 @@ export class WebSocketClient {
     const params = new URLSearchParams(window.location.search);
     const explicit = params.get('server');
     if (explicit) return `${explicit.replace(/\/$/, '')}/ws/${this.sessionId}${this.seed ? `?seed=${this.seed}` : ''}`;
+    
+    if (import.meta.env.VITE_WS_URL) {
+      return `${import.meta.env.VITE_WS_URL.replace(/\/$/, '')}/ws/${this.sessionId}${this.seed ? `?seed=${this.seed}` : ''}`;
+    }
+
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     // "localhost" resolves to ::1 first in Chromium and the server listens on
     // IPv4; the fallback costs ~300 ms per connect, so go straight to 127.0.0.1.
