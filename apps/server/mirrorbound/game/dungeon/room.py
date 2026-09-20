@@ -23,6 +23,14 @@ BLOCKING_DECOR = {
     "tree": 22, "tree_big": 30, "rock": 18, "rock_big": 26, "pillar": 16,
     "broken_pillar": 14, "crate": 16, "chest": 16, "statue": 18, "well": 24,
     "brazier": 12, "gravestone": 12, "log": 20, "torch": 0, "bush": 0,
+    # Grove clutter.
+    "fallen_trunk": 24, "stump": 15, "moss_rock": 18, "fence_post": 9,
+    "cart_wheel": 15,
+    # Ruins clutter.
+    "column_fallen": 26, "stone_bench": 20, "urn_cracked": 13,
+    "stair_fragment": 22, "arch_broken": 20, "sarcophagus": 26, "rune_stone": 13,
+    # Crypt clutter.
+    "skull_stack": 11, "coffin_cracked": 15, "iron_cage": 16,
 }
 
 
@@ -37,8 +45,22 @@ class Decor:
     radius: float = 0.0
     flip: bool = False
 
+    @property
+    def collision_radius(self) -> float:
+        return self.radius * self.scale
+
+    @property
+    def collision_center(self) -> Vec2:
+        # Buildings are drawn with a bottom anchor. Their foundations extend
+        # behind that point; trunks and people use a small circle at their feet.
+        lift = self.collision_radius * .55 if self.kind in {"hut", "hut_big", "forge", "stall", "well"} else 0.0
+        return Vec2(self.x, self.y - lift)
+
     def to_dict(self) -> dict:
         return {
+            "collisionX": round(self.collision_center.x, 1),
+            "collisionY": round(self.collision_center.y, 1),
+            "collisionRadius": round(self.collision_radius, 2),
             "kind": self.kind, "x": round(self.x, 1), "y": round(self.y, 1),
             "variant": self.variant, "scale": round(self.scale, 2),
             "blocking": self.blocking, "radius": self.radius, "flip": self.flip,
@@ -178,7 +200,7 @@ class Room:
         if self.is_wall(pos.x - radius, pos.y - radius) or self.is_wall(pos.x + radius, pos.y + radius):
             return True
         for d in self.decor:
-            if d.blocking and (pos - Vec2(d.x, d.y)).length() < d.radius + radius:
+            if d.blocking and (pos - d.collision_center).length() < d.collision_radius + radius:
                 return True
         return False
 
@@ -188,10 +210,10 @@ class Room:
         for d in self.decor:
             if not d.blocking:
                 continue
-            centre = Vec2(d.x, d.y)
+            centre = d.collision_center
             diff = out - centre
             dist = diff.length()
-            min_dist = d.radius + radius
+            min_dist = d.collision_radius + radius
             if dist < min_dist:
                 if dist == 0:
                     diff = Vec2(1, 0)

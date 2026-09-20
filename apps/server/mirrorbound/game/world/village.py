@@ -166,16 +166,16 @@ def _decorate(room: Room, rng: DeterministicRNG) -> None:
                 return
             pos = Vec2(rng.uniform(TILE * 2, room.width - TILE * 2),
                        rng.uniform(TILE * 2, room.height - TILE * 2))
-            if not free(pos, radius):
+            if not free(pos, radius * 1.7):
                 continue
             room.decor.append(Decor(kind=kind, x=pos.x, y=pos.y, variant=rng.randint(0, variants - 1),
                                     scale=round(rng.uniform(0.92, 1.12), 2), blocking=blocking,
                                     radius=radius, flip=rng.chance(0.5)))
-            taken.append((pos, radius))
+            taken.append((pos, radius * 1.3))
             placed += 1
 
     for kind in _BUILDINGS:
-        scatter(kind, rng.randint(1, 3), blocking=True, radius=26.0)
+        scatter(kind, rng.randint(1, 3), blocking=True, radius={"hut": 34, "hut_big": 52, "forge": 32, "stall": 24, "well": 24, "banner": 9}[kind])
     # Trees ring the village rather than dotting it, and there are enough of
     # them to read as a treeline -- a handful scattered over 1600x1120 left
     # whole quarters of the map as bare grass.

@@ -20,7 +20,10 @@ from mirrorbound.game.entities.twin import Twin
 # Re-exported for older imports (`from mirrorbound.game.state import Room`).
 __all__ = ["GameState", "Room", "RunStats"]
 
-PHASES = ("playing", "dead", "victory")
+#: `dead` is a setback -- the respawn timer runs and the room carries on.
+#: `defeat` is the run ending, and only the Sanctum does that: everywhere else
+#: dying costs you the walk back, which is the deal the rest of the game makes.
+PHASES = ("playing", "dead", "defeat", "victory")
 
 
 @dataclass
@@ -66,6 +69,10 @@ class GameState:
     # Region scaling for the area currently being played; applied at spawn.
     difficulty: float = 1.0
     phase: str = "playing"
+    # Whether the Warden has already left its shard this run. Kept on the state
+    # rather than counted from `pickups`, because the shard stops being a
+    # pickup the moment the twin takes it.
+    shard_dropped: bool = False
     paused: bool = False
     transition_timer: float = 0.0  # > 0 while fading between rooms
     stats: RunStats = field(default_factory=RunStats)
@@ -127,6 +134,12 @@ class GameState:
         for kind, pos in room.treasure:
             if kind == "chest":
                 # A chest is a burst of everything.
+                #
+                # The loot lands on the floor the instant the room is entered,
+                # so there is no "open the chest" interaction to hang an
+                # animation on -- this *is* the moment the chest opens, and the
+                # client plays the lid coming up against it.
+                self.emit("CHEST_OPENED", position=pos.to_dict(), room_id=room.id)
                 self.spawn_pickup("shards", pos + Vec2(-26, 18), amount=loot_rng.randint(2, 4))
                 self.spawn_pickup("essence", pos + Vec2(26, 18), amount=loot_rng.randint(6, 10))
                 self.spawn_pickup("health_potion", pos + Vec2(0, 30))
