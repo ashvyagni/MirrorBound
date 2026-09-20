@@ -4,7 +4,6 @@ import { abilityIcon, weaponIcon } from '../animation/abilityIcons';
 import { BARSPLATES_TEXTURE_KEY } from '../animation/barsPlatesAtlas.generated';
 import { CONTROLS_TEXTURE_KEY } from '../animation/controlsAtlas.generated';
 import { GLYPHS_TEXTURE_KEY } from '../animation/glyphsAtlas.generated';
-import { ICONS_TEXTURE_KEY } from '../animation/iconsAtlas.generated';
 import { isItemName } from '../animation/items';
 import { ITEMS_TEXTURE_KEY } from '../animation/itemsAtlas.generated';
 import { HUD, PIXEL_FONT, RENDER_SCALE, VIEW } from '../constants';
@@ -128,8 +127,8 @@ export class InventoryScreen {
     const half = (this.#right - this.#left) / 2;
 
     // --- the two hands ------------------------------------------------------
-    this.#hand(this.#left + half * 0.5, 'FIRST HAND', 'Q', byId.get(inv.equippedWeapon), 0);
-    this.#hand(this.#left + half * 1.5, 'SECOND HAND', 'E', byId.get(inv.offhandWeapon), 2);
+    this.#hand(this.#left + half * 0.5, 'FIRST HAND', 'MAIN', byId.get(inv.equippedWeapon), 0);
+    this.#hand(this.#left + half * 1.5, 'SECOND HAND', 'OFFHAND', byId.get(inv.offhandWeapon), 2);
 
     const rule = this.scene.add.image(this.#left, L.listTop - 54, BARSPLATES_TEXTURE_KEY, 'divider')
       .setOrigin(0, 0.5).setAlpha(0.3);
@@ -174,7 +173,8 @@ export class InventoryScreen {
     this.#add(slot);
 
     if (weapon) {
-      const icon = this.scene.add.image(cx - 150, L.handTop, ICONS_TEXTURE_KEY, weaponIcon(weapon.animation));
+      const art = weaponIcon(weapon.animation);
+      const icon = this.scene.add.image(cx - 150, L.handTop, art.texture, art.frame);
       fitInside(icon, L.hand * 0.56);
       this.#add(icon);
       this.#add(this.#row(cx - 80, L.handTop - 26, weapon.name.toUpperCase(), HUD.labelSize, HUD.ink, 0));
@@ -195,7 +195,8 @@ export class InventoryScreen {
       cap.setAlpha(ability ? 1 : 0.35);
       this.#add(cap);
       if (!ability) continue;
-      const icon = this.scene.add.image(x + 22, L.handTop + 48, ICONS_TEXTURE_KEY, abilityIcon(ability.id));
+      const art = abilityIcon(ability.id);
+      const icon = this.scene.add.image(x + 22, L.handTop + 48, art.texture, art.frame);
       fitInside(icon, 26);
       this.#add(icon);
       this.#add(this.#row(x + 48, L.handTop + 48,
@@ -210,7 +211,8 @@ export class InventoryScreen {
     fitInside(slot, L.slot);
     this.#add(slot);
 
-    const icon = this.scene.add.image(x + 30, y, ICONS_TEXTURE_KEY, weaponIcon(weapon.animation));
+    const art = weaponIcon(weapon.animation);
+    const icon = this.scene.add.image(x + 30, y, art.texture, art.frame);
     fitInside(icon, L.slot * 0.56);
     this.#add(icon);
 
@@ -289,28 +291,19 @@ export class InventoryScreen {
     this.#panel.setVisible(next);
     if (next) {
       this.#render();
-      this.#watchEscape();
     } else {
       this.#unwatchEscape();
     }
     return next;
   }
 
-  close(): void {
+  close(notify = true): void {
     if (!this.open) return;
     this.#panel.setVisible(false);
+    if (notify) eventBus.emit('ui:screen-close', { screen: 'inventory' });
     this.#unwatchEscape();
   }
 
-  #watchEscape(): void {
-    if (this.#escape) return;
-    this.#escape = (event: KeyboardEvent) => {
-      if (event.keyCode !== Phaser.Input.Keyboard.KeyCodes.ESC) return;
-      event.preventDefault();
-      this.close();
-    };
-    window.addEventListener('keydown', this.#escape, { capture: true });
-  }
 
   #unwatchEscape(): void {
     if (!this.#escape) return;

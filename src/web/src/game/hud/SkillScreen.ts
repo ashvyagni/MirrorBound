@@ -242,16 +242,16 @@ export class SkillScreen {
     this.#panel.setVisible(next);
     if (next) {
       this.#render();
-      this.#watchEscape();
     } else {
       this.#unwatchEscape();
     }
     return next;
   }
 
-  close(): void {
+  close(notify = true): void {
     if (!this.open) return;
     this.#panel.setVisible(false);
+    if (notify) eventBus.emit('ui:screen-close', { screen: 'skills' });
     this.#unwatchEscape();
   }
 
@@ -262,15 +262,6 @@ export class SkillScreen {
    * the console does: Phaser only reports keys it has been asked for, and this
    * has to answer one it never asked about.
    */
-  #watchEscape(): void {
-    if (this.#escape) return;
-    this.#escape = (event: KeyboardEvent) => {
-      if (event.keyCode !== Phaser.Input.Keyboard.KeyCodes.ESC) return;
-      event.preventDefault();
-      this.close();
-    };
-    window.addEventListener('keydown', this.#escape, { capture: true });
-  }
 
   #unwatchEscape(): void {
     if (!this.#escape) return;

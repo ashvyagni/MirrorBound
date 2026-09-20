@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "bonePile0": {
+   "frame": {
+    "x": 2,
+    "y": 352,
+    "w": 154,
+    "h": 74
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 8,
+    "y": 134,
+    "w": 154,
+    "h": 74
+   },
+   "sourceSize": {
+    "w": 168,
+    "h": 219
+   }
+  },
+  "skullStack0": {
+   "frame": {
+    "x": 314,
+    "y": 222,
+    "w": 111,
+    "h": 103
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 30,
+    "y": 106,
+    "w": 111,
+    "h": 103
+   },
+   "sourceSize": {
+    "w": 168,
+    "h": 219
+   }
+  },
+  "cobweb0": {
+   "frame": {
+    "x": 283,
+    "y": 2,
+    "w": 146,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 12,
+    "y": 58,
+    "w": 146,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 168,
+    "h": 219
+   }
+  },
+  "hangingChain0": {
+   "frame": {
+    "x": 108,
+    "y": 2,
+    "w": 37,
+    "h": 196
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 69,
+    "y": 23,
+    "w": 37,
+    "h": 196
+   },
+   "sourceSize": {
+    "w": 168,
+    "h": 219
+   }
+  },
+  "coffinCracked0": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 104,
+    "h": 218
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 34,
+    "y": 0,
+    "w": 104,
+    "h": 218
+   },
+   "sourceSize": {
+    "w": 168,
+    "h": 219
+   }
+  },
+  "candleCluster0": {
+   "frame": {
+    "x": 172,
+    "y": 222,
+    "w": 140,
+    "h": 125
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 13,
+    "y": 87,
+    "w": 140,
+    "h": 125
+   },
+   "sourceSize": {
+    "w": 168,
+    "h": 219
+   }
+  },
+  "ironCage0": {
+   "frame": {
+    "x": 147,
+    "y": 2,
+    "w": 134,
+    "h": 174
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 24,
+    "y": 28,
+    "w": 134,
+    "h": 174
+   },
+   "sourceSize": {
+    "w": 168,
+    "h": 219
+   }
+  },
+  "rootIntrusion0": {
+   "frame": {
+    "x": 2,
+    "y": 222,
+    "w": 168,
+    "h": 128
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 84,
+    "w": 168,
+    "h": 128
+   },
+   "sourceSize": {
+    "w": 168,
+    "h": 219
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "cryptProps.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 512,
+   "h": 428
+  },
+  "scale": "1"
+ }
+}

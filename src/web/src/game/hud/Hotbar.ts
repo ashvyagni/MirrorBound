@@ -9,6 +9,7 @@ import { POTIONDIAL_TEXTURE_KEY } from '../animation/potionDialAtlas.generated';
 import { weaponIcon } from '../animation/abilityIcons';
 import { HUD, HUD_ART, PALETTE, PIXEL_FONT } from '../constants';
 import { eventBus } from '../EventBus';
+import { keybinds, keyName } from '../state/Keybinds';
 import { POTIONS, type LoadoutSnapshot } from '../state/Loadout';
 import { artHeight, artWidth, fitInside, fitWidth } from './fit';
 
@@ -93,7 +94,7 @@ export class Hotbar {
     // On the plate below the recess, not under the plate: the plate's lower
     // band is 30 canvas pixels of empty metal, and the only thing beneath it
     // is the bottom of the screen.
-    const label = this.#text(x, y + this.#item * 0.95, index === 0 ? 'Q' : 'E', HUD.hintSize);
+    const label = this.#text(x, y + this.#item * 0.95, index === 0 ? 'MAIN' : keyName(keybinds.get('swapWeapon').primary), HUD.hintSize);
 
     const hand: Hand = { icon, label, highlight, x, y };
     this.#objects.push(highlight, icon);
@@ -157,14 +158,15 @@ export class Hotbar {
         hand.icon.play(goatAnimationKey('idle'), true);
       } else {
         hand.icon.stop();
-        hand.icon.setTexture(ICONS_TEXTURE_KEY, weaponIcon(id));
+        const mark = weaponIcon(id);
+        hand.icon.setTexture(mark.texture, mark.frame);
       }
       fitInside(hand.icon, this.#item);
 
       hand.icon.setAlpha(active ? 1 : 0.45);
       hand.highlight.setVisible(active);
       hand.label.setColor(active ? HUD.activeInk : HUD.dimInk);
-      hand.label.setText(i === 0 ? 'Q' : 'E');
+      hand.label.setText(i === 0 ? 'MAIN' : keyName(keybinds.get('swapWeapon').primary));
     });
 
     const potion = POTIONS[loadout.potionIndex] ?? POTIONS[0]!;
@@ -192,6 +194,22 @@ export class Hotbar {
       return;
     }
     this.#dial.setAngle(now + delta * (1 - Math.exp(-deltaSeconds / 0.09)));
+  }
+
+  /**
+   * Show or hide the whole piece.
+   *
+   * Used by the Sanctum cutscene, which is a scene rather than a moment of
+   * play: a hotbar and a minimap over it say "you are playing" while the one
+   * thing the game wants is for you to watch. Visibility rather than destroy,
+   * because the scene ends and everything has to come back exactly as it was.
+   */
+  setVisible(on: boolean): void {
+    for (const object of this.#objects) {
+      // Not every GameObject carries the Visible component -- a Zone used as a
+      // hit area does not -- so this asks rather than asserts.
+      (object as unknown as Partial<Phaser.GameObjects.Components.Visible>).setVisible?.(on);
+    }
   }
 
   destroy(): void {

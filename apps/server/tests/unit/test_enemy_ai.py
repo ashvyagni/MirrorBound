@@ -61,6 +61,7 @@ def test_fast_enemy_darts_out_after_biting():
 def test_hitting_an_enemy_pulls_its_aggro_toward_the_attacker():
     s, e = setup("skeleton", Vec2(150, 0))
     twin = s.state.twin
+    twin.awaken(s.state.player.position, "Twin")
     twin.position = s.state.player.position + Vec2(150, 140)
     e.take_hit(10, twin.id)
     drive(s, e, 5)
@@ -73,3 +74,66 @@ def test_low_health_fragile_enemy_retreats():
     e.hits_taken = 3
     drive(s, e, 3)
     assert e.state is EnemyState.RETREAT
+
+
+# --- the three families that had art and no archetype ------------------------
+
+def test_the_three_new_families_exist_and_are_reachable():
+    """Art for these shipped long before any server def did.
+
+    Twelve atlases sat in `public/game` that nothing could ever spawn. The
+    point of the check is the second half: an archetype nothing references
+    from a spawn table is the same problem one step along.
+    """
+    from mirrorbound.game.dungeon.templates import TEMPLATES
+    from mirrorbound.game.entities.enemy import ARCHETYPES
+
+    spawnable = {
+        spec.enemy_type
+        for templates in TEMPLATES.values()
+        for template in templates
+        for spec in template.spawns
+    }
+    for family in ("spitter", "sprout", "shardling"):
+        assert family in ARCHETYPES, f"{family} has art but no archetype"
+        assert family in spawnable, f"{family} exists but no room ever spawns it"
+
+
+def test_the_shardling_is_the_only_spread_shot():
+    """Everything else throws one thing you can step around.
+
+    The whole reason it earns a place is that sidestepping does not answer it.
+    If something else grows a spread later this is worth revisiting, but it
+    should be a decision rather than a drift.
+    """
+    from mirrorbound.game.entities.enemy import ARCHETYPES
+
+    spreads = {
+        eid: e.projectile.count
+        for eid, e in ARCHETYPES.items()
+        if e.projectile is not None and e.projectile.count > 1
+    }
+    assert spreads == {"shardling": 5}
+
+
+def test_the_sprout_notices_you_far_later_than_anything_else():
+    """Its entire contribution is that a dressed room stops reading as safe."""
+    from mirrorbound.game.entities.enemy import ARCHETYPES
+
+    sprout = ARCHETYPES["sprout"]
+    # The dummy is excluded because it is not a creature: it is a post with
+    # straw on it and it notices nothing at all, which would make this
+    # comparison meaningless rather than wrong.
+    others = [e.aggro_range for eid, e in ARCHETYPES.items()
+              if eid not in ("sprout", "dummy") and not e.boss and not eid.startswith("elite_")]
+    assert sprout.aggro_range < min(others) / 1.5
+
+
+def test_the_spitter_outranges_every_other_enemy():
+    """It is meant to be able to hurt you from off-screen, and to die to one hit."""
+    from mirrorbound.game.entities.enemy import ARCHETYPES
+
+    spitter = ARCHETYPES["spitter"]
+    others = [e.attack_range for eid, e in ARCHETYPES.items() if eid != "spitter"]
+    assert spitter.attack_range > max(others)
+    assert spitter.health == min(e.health for e in ARCHETYPES.values() if e.id != "scarab")

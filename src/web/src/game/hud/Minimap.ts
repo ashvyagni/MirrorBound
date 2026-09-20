@@ -20,6 +20,7 @@ export interface MapView {
   biome: BiomeName;
   /** Changes when the room does. The floor is only repainted when it moves. */
   roomId: string;
+  roomSeed?: number;
   player: Vec2;
   marks: readonly Vec2[];
 }
@@ -81,7 +82,7 @@ export class Minimap {
 
   set(view: MapView): void {
     this.#view = view;
-    if (view.roomId !== this.#painted) this.#paintFloor(view);
+    if (`${view.roomId}:${view.roomSeed ?? 0}` !== this.#painted) this.#paintFloor(view);
   }
 
   /**
@@ -103,7 +104,9 @@ export class Minimap {
     if (!rows || !cols) return;
 
     const size = Math.round(this.#inner);
-    const key = `minimap:floor:${view.roomId}`;
+    const identity = `${view.roomId}:${view.roomSeed ?? 0}`;
+    const key = `minimap:floor:${identity}`;
+    if (this.#painted) this.scene.textures.remove(`minimap:floor:${this.#painted}`);
     if (this.scene.textures.exists(key)) this.scene.textures.remove(key);
 
     const canvas = this.scene.textures.createCanvas(key, size, size);
@@ -154,7 +157,7 @@ export class Minimap {
     this.#floor.setTexture(key);
     this.#floor.setDisplaySize(size, size);
     this.#floor.setVisible(true);
-    this.#painted = view.roomId;
+    this.#painted = identity;
   }
 
   /** Repaint the marks. The floor underneath is already drawn. */
@@ -193,6 +196,22 @@ export class Minimap {
     this.#dots.fillRect(self.x - 5, self.y - 5, 10, 10);
     this.#dots.fillStyle(PALETTE.pink, 1);
     this.#dots.fillRect(self.x - 3, self.y - 3, 6, 6);
+  }
+
+  /**
+   * Show or hide the whole piece.
+   *
+   * Used by the Sanctum cutscene, which is a scene rather than a moment of
+   * play: a hotbar and a minimap over it say "you are playing" while the one
+   * thing the game wants is for you to watch. Visibility rather than destroy,
+   * because the scene ends and everything has to come back exactly as it was.
+   */
+  setVisible(on: boolean): void {
+    for (const object of this.#objects) {
+      // Not every GameObject carries the Visible component -- a Zone used as a
+      // hit area does not -- so this asks rather than asserts.
+      (object as unknown as Partial<Phaser.GameObjects.Components.Visible>).setVisible?.(on);
+    }
   }
 
   destroy(): void {

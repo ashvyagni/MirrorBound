@@ -1,5 +1,12 @@
+import type Phaser from 'phaser';
+
 import { BUILDINGS_TEXTURE_KEY } from '../animation/buildingsAtlas.generated';
+import { CHEST_FRAMES, CHEST_TEXTURE_KEY } from '../animation/chestAtlas.generated';
+import { TILES_TEXTURE_KEY } from '../animation/tilesAtlas.generated';
 import { CRYPT_TEXTURE_KEY } from '../animation/cryptAtlas.generated';
+import { CRYPTPROPS_TEXTURE_KEY } from '../animation/cryptPropsAtlas.generated';
+import { GROVEPROPS_TEXTURE_KEY } from '../animation/grovePropsAtlas.generated';
+import { RUINSPROPS_TEXTURE_KEY } from '../animation/ruinsPropsAtlas.generated';
 import { DOORS_TEXTURE_KEY } from '../animation/doorsAtlas.generated';
 import { FLORA_TEXTURE_KEY } from '../animation/floraAtlas.generated';
 import { GROUNDCOVER_TEXTURE_KEY } from '../animation/groundcoverAtlas.generated';
@@ -72,11 +79,46 @@ const ART: Readonly<Record<string, Art>> = {
   well: { texture: RUINS_TEXTURE_KEY, stem: 'well', variants: 1, height: 60 },
   crate: { texture: RUINS_TEXTURE_KEY, stem: 'crate', variants: 2, height: 36 },
 
+  // Grove clutter. The grove used to dress every room from three trees, three
+  // bushes and three rocks, which is most of why its rooms read as one room.
+  fallen_trunk: { texture: GROVEPROPS_TEXTURE_KEY, stem: 'fallenTrunk', variants: 1, height: 30 },
+  stump: { texture: GROVEPROPS_TEXTURE_KEY, stem: 'stump', variants: 1, height: 28 },
+  berry_bush: { texture: GROVEPROPS_TEXTURE_KEY, stem: 'berryBush', variants: 1, height: 34 },
+  reeds: { texture: GROVEPROPS_TEXTURE_KEY, stem: 'reeds', variants: 1, height: 46 },
+  fern_clump: { texture: GROVEPROPS_TEXTURE_KEY, stem: 'fernClump', variants: 1, height: 30 },
+  moss_rock: { texture: GROVEPROPS_TEXTURE_KEY, stem: 'mossRock', variants: 1, height: 30 },
+  fence_post: { texture: GROVEPROPS_TEXTURE_KEY, stem: 'fencePost', variants: 1, height: 52 },
+  cart_wheel: { texture: GROVEPROPS_TEXTURE_KEY, stem: 'cartWheel', variants: 1, height: 42 },
+
+  // More ruined stonework.
+  arch_broken: { texture: RUINSPROPS_TEXTURE_KEY, stem: 'archBroken', variants: 1, height: 110 },
+  column_fallen: { texture: RUINSPROPS_TEXTURE_KEY, stem: 'columnFallen', variants: 1, height: 34 },
+  stone_bench: { texture: RUINSPROPS_TEXTURE_KEY, stem: 'stoneBench', variants: 1, height: 34 },
+  urn_cracked: { texture: RUINSPROPS_TEXTURE_KEY, stem: 'urnCracked', variants: 1, height: 48 },
+  stair_fragment: { texture: RUINSPROPS_TEXTURE_KEY, stem: 'stairFragment', variants: 1, height: 44 },
+  rune_stone: { texture: RUINSPROPS_TEXTURE_KEY, stem: 'runeStone', variants: 1, height: 72 },
+  sarcophagus: { texture: RUINSPROPS_TEXTURE_KEY, stem: 'sarcophagus', variants: 1, height: 44 },
+  bannered_rubble: { texture: RUINSPROPS_TEXTURE_KEY, stem: 'banneredRubble', variants: 1, height: 40 },
+
+  // More crypt dressing. The candles are drawn cold; the game lights them.
+  bone_pile: { texture: CRYPTPROPS_TEXTURE_KEY, stem: 'bonePile', variants: 1, height: 26 },
+  skull_stack: { texture: CRYPTPROPS_TEXTURE_KEY, stem: 'skullStack', variants: 1, height: 34 },
+  cobweb: { texture: CRYPTPROPS_TEXTURE_KEY, stem: 'cobweb', variants: 1, height: 40 },
+  hanging_chain: { texture: CRYPTPROPS_TEXTURE_KEY, stem: 'hangingChain', variants: 1, height: 66 },
+  coffin_cracked: { texture: CRYPTPROPS_TEXTURE_KEY, stem: 'coffinCracked', variants: 1, height: 78 },
+  candle_cluster: { texture: CRYPTPROPS_TEXTURE_KEY, stem: 'candleCluster', variants: 1, height: 24 },
+  iron_cage: { texture: CRYPTPROPS_TEXTURE_KEY, stem: 'ironCage', variants: 1, height: 52 },
+  root_intrusion: { texture: CRYPTPROPS_TEXTURE_KEY, stem: 'rootIntrusion', variants: 1, height: 24 },
+
   // Crypt.
   gravestone: { texture: CRYPT_TEXTURE_KEY, stem: 'gravestone', variants: 3, height: 44 },
   bones: { texture: CRYPT_TEXTURE_KEY, stem: 'bones', variants: 2, height: 18 },
   mushrooms: { texture: CRYPT_TEXTURE_KEY, stem: 'mushrooms', variants: 2, height: 18 },
-  chest: { texture: CRYPT_TEXTURE_KEY, stem: 'chest', variants: 1, height: 36 },
+  // Its own sheet rather than the crypt's one static frame: the chest atlas is
+  // eight frames of a lid coming up, and `chest0` is that sequence closed. The
+  // frame names happen to match the stem scheme exactly, so nothing else about
+  // the lookup changes.
+  chest: { texture: CHEST_TEXTURE_KEY, stem: 'chest', variants: 1, height: 36 },
 
   // Fire holders. Drawn cold -- the flame is a separate animated effect.
   brazier: { texture: LIGHTS_TEXTURE_KEY, stem: 'brazier', variants: 1, height: 56 },
@@ -150,4 +192,31 @@ export const WORLD_TEXTURES: readonly string[] = [
   RUINS_TEXTURE_KEY, CRYPT_TEXTURE_KEY, LIGHTS_TEXTURE_KEY,
   DOORS_TEXTURE_KEY, BUILDINGS_TEXTURE_KEY,
   VILLAGERS_TEXTURE_KEY, VILLAGERSSIDE_TEXTURE_KEY,
+  GROVEPROPS_TEXTURE_KEY, RUINSPROPS_TEXTURE_KEY, CRYPTPROPS_TEXTURE_KEY,
+  CHEST_TEXTURE_KEY,
+  // One drawn floor per biome. Tiny -- twelve 32px tiles in a 384x32 strip --
+  // so all three come down at boot rather than per room: a room transition
+  // that has to wait for its floor would show the painted one and then swap.
+  ...Object.values(TILES_TEXTURE_KEY),
 ];
+
+/**
+ * The chest's lid coming up.
+ *
+ * Registered here rather than with the character clips because the chest is
+ * decor, not a creature, and this is the only prop in the game with a motion of
+ * its own. It does not loop and it does not return: a chest that has been
+ * emptied stays open, which is also how the player reads a room they have
+ * already cleared.
+ */
+export const CHEST_OPEN_KEY = 'chest:open';
+
+export function registerChestAnimation(anims: Phaser.Animations.AnimationManager): void {
+  if (anims.exists(CHEST_OPEN_KEY)) return;
+  anims.create({
+    key: CHEST_OPEN_KEY,
+    frames: [...CHEST_FRAMES.a, ...CHEST_FRAMES.b].map((frame) => ({ key: CHEST_TEXTURE_KEY, frame })),
+    frameRate: 14,
+    repeat: 0,
+  });
+}

@@ -1,14 +1,15 @@
+import { icon } from '../animation/icons';
 import { abilityIcon } from '../animation/abilityIcons';
-import type { IconName } from '../animation/icons';
+import type { Recharging } from './CooldownRail';
 import type { WeaponId } from '../animation/weaponClips';
 import { BIOMES, type BiomeName } from '../constants';
 import type {
-  AreaSnap, CommandMessage, GameSnapshot, Inventory, PlayerSnap, RoomFull, SkillNode, Vec2,
+  AreaSnap, CommandMessage, GameSnapshot, Inventory, PlayerSnap, SkillNode, Vec2,
 } from '../contracts';
-import { isRoomFull } from '../contracts';
 import { eventBus } from '../EventBus';
 import { POTIONS, type LoadoutSnapshot, type WeaponSlot } from '../state/Loadout';
 import { Interactions } from '../state/Interactions';
+import { saves } from '../state/Saves';
 import { runFromDungeon } from '../world/Run';
 
 /**
@@ -102,9 +103,11 @@ export class Bridge {
   }
 
   #onSnapshot(snap: GameSnapshot): void {
+    this.#interactions.update(snap);
+    saves.update(snap);
     const p = snap.player;
     this.#learnWeapons(p);
-    this.#emitVitals(p);
+    this.#emitVitals(p, snap);
     this.#emitLoadout(p);
     this.#emitCooldowns(p);
     this.#emitRoom(snap);
@@ -132,12 +135,22 @@ export class Bridge {
     return this.#animations.get(weaponId) ?? null;
   }
 
-  #emitVitals(p: PlayerSnap): void {
-    const key = `${p.health}/${p.maxHealth}/${p.mana}/${p.maxMana}`;
+  #emitVitals(p: PlayerSnap, snap: GameSnapshot): void {
+    // A dormant twin contributes nothing to the key, so finding it is a change
+    // and losing it is a change -- without that the bars would appear only on
+    // the next time the player took damage.
+    const t = snap.twin.dormant ? null : snap.twin;
+    const key = `${p.health}/${p.maxHealth}/${p.mana}/${p.maxMana}/${p.level}/${p.xp}/${p.xpToNext}`
+      + `/${t ? `${t.health}/${t.maxHealth}/${t.mana}/${t.maxMana}` : 'none'}`;
     if (key === this.#vitals) return;
     this.#vitals = key;
     eventBus.emit('vitals:changed', {
       health: p.health, maxHealth: p.maxHealth, mana: p.mana, maxMana: p.maxMana,
+      level: p.level,
+      // `xpToNext` is what the level costs, not what is left of it, so the
+      // fraction is a plain division rather than one minus anything.
+      levelProgress: p.xpToNext > 0 ? Math.min(1, Math.max(0, p.xp / p.xpToNext)) : 0,
+      twin: t ? { health: t.health, maxHealth: t.maxHealth, mana: t.mana, maxMana: t.maxMana } : null,
     });
   }
 
@@ -167,16 +180,16 @@ export class Bridge {
   }
 
   #emitCooldowns(p: PlayerSnap): void {
-    const active: Partial<Record<IconName, { left: number; total: number }>> = {};
+    const active: Recharging[] = [];
     for (const slot of p.abilities) {
       if (slot.cooldown > 0) {
-        active[abilityIcon(slot.id)] = { left: slot.cooldown, total: slot.cooldownTotal };
+        active.push({ id: slot.id, icon: abilityIcon(slot.id), left: slot.cooldown, total: slot.cooldownTotal });
       }
     }
     // The potion's shared cooldown rides the same rail: it is a thing you are
     // waiting on, which is the only thing the rail is about.
     if (p.potionCooldown > 0) {
-      active.sword = { left: p.potionCooldown, total: p.potionCooldownTotal };
+      active.push({ id: 'potion', icon: icon('sword'), left: p.potionCooldown, total: p.potionCooldownTotal });
     }
     const key = JSON.stringify(active);
     if (key === this.#cooldowns) return;
@@ -185,28 +198,32 @@ export class Bridge {
   }
 
   #emitRoom(snap: GameSnapshot): void {
-    if (!isRoomFull(snap.room)) return;
-    const room: RoomFull = snap.room;
+    const room = this.#interactions.room;
+    if (!room) return;
     const biome: BiomeName = (room.biome in BIOMES ? room.biome : 'grove') as BiomeName;
     // Everything worth walking towards: enemies, and the people in a village.
     const marks: Vec2[] = [
       ...snap.enemies.filter((e) => e.active).map((e) => e.position),
-      ...(snap.npcs ?? []).map((n) => n.position),
+      ...this.#interactions.npcs.map((n) => n.position),
     ];
     eventBus.emit('map:changed', {
       room: { width: room.width, height: room.height },
       tiles: room.tiles,
       biome,
       roomId: room.id,
+      roomSeed: room.seed,
       player: snap.player.position,
       marks,
     });
   }
 
   #emitRun(snap: GameSnapshot): void {
-    if (!snap.dungeon) return;
+    if (!snap.dungeon) {
+      if (this.#run) { this.#run = ''; eventBus.emit('run:changed', { current: 0, rooms: [] }); }
+      return;
+    }
     const run = runFromDungeon(snap.dungeon);
-    const key = `${run.current}:${run.rooms.map((r) => `${r.cleared}${r.visited}`).join('')}`;
+    const key = JSON.stringify(run);
     if (key === this.#run) return;
     this.#run = key;
     eventBus.emit('run:changed', run);
@@ -217,16 +234,16 @@ export class Bridge {
     this.#paused = snap.paused;
     eventBus.emit('game:pause', { paused: snap.paused });
     if (!snap.paused) return;
-    const room = isRoomFull(snap.room) ? snap.room : null;
+    const room = this.#interactions.room;
     eventBus.emit('pause:stats', {
       elapsed: snap.stats.seconds,
       room: room?.name ?? '—',
       biome: room?.biome ?? '—',
       health: snap.player.health,
       maxHealth: snap.player.maxHealth,
-      hits: snap.stats.enemiesKilled,
+      kills: snap.stats.enemiesKilled,
       casts: snap.stats.abilitiesCast,
-      potions: snap.stats.roomsCleared,
+      rooms: snap.stats.roomsCleared,
     });
   }
 
@@ -241,7 +258,7 @@ export class Bridge {
     const near = (p: Vec2, reach: number) =>
       Math.hypot(p.x - me.x, p.y - me.y) < reach;
 
-    let best: { label: string; x: number; y: number } | null = null;
+    let best: { label: string; x: number; y: number; action?: 'walk' | 'collect' } | null = null;
     const npc = this.#interactions.update(snap);
     if (npc) {
       best = { label: npc.name, x: npc.position.x, y: npc.position.y };
@@ -249,7 +266,7 @@ export class Bridge {
     if (!best && this.#interactions.room) {
       for (const portal of this.#interactions.room.portals) {
         if (near(portal, portal.radius + 32)) {
-          best = { label: portal.label, x: portal.x, y: portal.y };
+          best = { action: 'walk', label: portal.label, x: portal.x, y: portal.y };
           break;
         }
       }
@@ -257,12 +274,12 @@ export class Bridge {
     if (!best) {
       for (const pickup of snap.pickups) {
         if (near(pickup.position, 44)) {
-          best = { label: pickup.kind.replace(/_/g, ' '), x: pickup.position.x, y: pickup.position.y };
+          best = { action: 'collect', label: pickup.kind.replace(/_/g, ' '), x: pickup.position.x, y: pickup.position.y };
           break;
         }
       }
     }
-    const key = best ? `${best.label}@${Math.round(best.x)},${Math.round(best.y)}` : '';
+    const key = best ? `${best.action ?? 'talk'}:${best.label}@${Math.round(best.x)},${Math.round(best.y)}` : '';
     if (key === this.#interact) return;
     this.#interact = key;
     eventBus.emit('interact:target', best);
@@ -282,7 +299,7 @@ export class Bridge {
 
     // The three rules the server enforces, spelled out so a disabled button
     // says why rather than just refusing.
-    const room = isRoomFull(snap.room) ? snap.room : null;
+    const room = this.#interactions.room;
     const blocked = !this.#skills.some((n) => n.unlocked) ? 'Nothing learned yet'
       : room && !room.safe ? 'Only in a village'
       : snap.enemies.some((e) => e.active) ? 'Not in a fight'
@@ -308,7 +325,7 @@ export class Bridge {
   #emitCampaign(snap: GameSnapshot): void {
     if (snap.campaign) this.#areas = snap.campaign.areas;
     if (this.#areas.length === 0) return;
-    const room = isRoomFull(snap.room) ? snap.room : null;
+    const room = this.#interactions.room;
     // The server honours travel only from a village. Saying so up front beats
     // a click that is silently refused.
     const canTravel = room?.roomType === 'village';
@@ -344,6 +361,27 @@ export class Bridge {
     if (snap.phase === 'dead') eventBus.emit('flourish', { name: 'death' });
     else if (snap.phase === 'victory') eventBus.emit('flourish', { name: 'victory' });
     else eventBus.emit('flourish:clear', {});
+
+    // A run ends two ways. `dead` is not one of them -- that is the ordinary
+    // setback, and the respawn timer is already counting.
+    if (snap.phase === 'victory' || snap.phase === 'defeat') {
+      const s = snap.stats;
+      eventBus.emit('run:ended', {
+        ending: snap.phase,
+        stats: {
+          seconds: s.seconds,
+          enemiesKilled: s.enemiesKilled,
+          roomsCleared: s.roomsCleared,
+          damageDealt: s.damageDealt,
+          damageTaken: s.damageTaken,
+          essenceCollected: s.essenceCollected,
+          twinKills: snap.twin.kills,
+          level: snap.player.level,
+        },
+      });
+    } else {
+      eventBus.emit('run:ended', { ending: null });
+    }
   }
 
   stop(): void {

@@ -10,6 +10,9 @@
 import type Phaser from 'phaser';
 
 import { BIOMES, RENDER_SCALE, TILE, VIEW, type BiomeName } from '../constants';
+import {
+  TILES_FRAMES, TILES_SIZE, TILES_TEXTURE_KEY,
+} from '../animation/tilesAtlas.generated';
 import { blob, glow, paint, poly, rgba, shade, speckle, type Ctx } from './paint';
 import { paintCritters, paintEnemies, paintProps } from './PropPainter';
 
@@ -36,7 +39,48 @@ export class TextureFactory {
   ensureBiome(biome: BiomeName): void {
     if (this.#built.has(`biome:${biome}`)) return;
     this.#built.add(`biome:${biome}`);
-    this.#paintTiles(biome);
+    // Drawn tiles if the sheet for this biome arrived, painted ones if not.
+    // Both produce the same texture keys, so nothing downstream -- the floor
+    // composer, the edge fringing, the water ripples -- can tell which it got.
+    if (!this.#sliceTiles(biome)) this.#paintTiles(biome);
+  }
+
+  /**
+   * Cut a biome's drawn tile sheet into the textures the floor asks for.
+   *
+   * The sheet is twelve tiles already at world scale, so this is a straight
+   * copy per tile rather than a resample: `build_tiles.py` did the resampling
+   * once, with a good kernel, instead of every client doing it on every load.
+   *
+   * Returns false when the sheet is not loaded, which is the whole fallback --
+   * a biome whose art has not been drawn keeps the painted floor it has always
+   * had rather than rendering nothing.
+   */
+  #sliceTiles(biome: BiomeName): boolean {
+    // Indexed defensively: `BiomeName` includes `sandbox`, the violet test
+    // room, which has no drawn floor of its own and is meant to fall through.
+    const texture = (TILES_TEXTURE_KEY as Partial<Record<BiomeName, string>>)[biome];
+    if (!texture || !this.scene.textures.exists(texture)) return false;
+
+    // All twelve or none. Falling back half way would leave some tiles drawn
+    // and the painted pass unable to make the rest -- their keys would already
+    // be taken -- so a floor that failed at tile seven would render seven
+    // drawn tiles and five missing ones rather than twelve painted ones.
+    const made: string[] = [];
+    for (const frame of TILES_FRAMES) {
+      const key = `tile:${biome}:${frame.replace(/(\d)$/, ':$1')}`;
+      if (this.scene.textures.exists(key)) continue;
+      const canvas = this.scene.textures.createCanvas(key, TILES_SIZE, TILES_SIZE);
+      if (!canvas) {
+        for (const done of made) this.scene.textures.remove(done);
+        return false;
+      }
+      made.push(key);
+      canvas.getContext().imageSmoothingEnabled = false;
+      canvas.drawFrame(texture, frame, 0, 0);
+      canvas.refresh();
+    }
+    return true;
   }
 
   static tileKey(biome: BiomeName, tile: number, variant: number): string {

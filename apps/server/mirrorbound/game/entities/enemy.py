@@ -72,6 +72,19 @@ class EnemyDef:
     elite: bool = False
     boss: bool = False
     role: str = "melee"                # melee | ranged | fast | tank | boss (client + twin read this)
+    # Set only by `armed_with`: the player weapon this creature is fighting
+    # with. It changes no number here -- every stat the weapon dictates has
+    # already been folded into the fields above -- and exists so the client can
+    # draw the thing in its hands. The Mirror taking your sword is the premise;
+    # a Mirror that swings an invisible one only half tells you so.
+    weapon_id: str = ""
+    #: Ability ids this creature can cast, beyond its basic attack.
+    #:
+    #: Empty for everything that is not a boss. The Mirror carries its own, and
+    #: `armed_with` appends whatever the weapon it took grants -- which is the
+    #: point of taking it: a Mirror holding an ember staff that never casts
+    #: flame burst has taken the stick and not the fighting style.
+    abilities: tuple[str, ...] = ()
 
     def to_dict(self) -> dict:
         return {
@@ -120,6 +133,10 @@ MIRROR = EnemyDef(
     attack_range=70, aggro_range=2000, attack_cooldown=1.0, attack_windup=0.3,
     behavior=EnemyBehavior.MIRROR, size=15, xp_reward=400, sprite="mirror",
     tags=("MELEE", "RANGED", "SPELL"), knockback=200, knockback_resist=0.85,
+    # Its own two. Anything it takes off you is added to these, never instead
+    # of them -- the Mirror armed with your staff fights with your staff *and*
+    # with what it already was.
+    abilities=("mirror_nova", "mirror_volley"),
     projectile=ProjectileSpec(kind="mirror_bolt", speed=430, radius=7, lifetime=1.3),
     loot=LootTable(12, 20, 1.0, 0.5, 0.5, relic_chance=1.0), boss=True, role="boss",
 )
@@ -173,8 +190,73 @@ WARDEN = EnemyDef(
     elite=True, role="tank",
 )
 
+SPITTER = EnemyDef(
+    # The artillery question: it outranges everything you carry except the bow,
+    # and it is the only thing in the game that can hurt you from off-screen.
+    # Paid for by being the most fragile body here -- one clean hit kills it --
+    # so the question is never "can I survive this", it is "do I break off what
+    # I am doing and go over there". Its pod is slow on purpose: standing still
+    # is what gets you hit, and it is trivially dodged while moving.
+    id="spitter", name="Fen Spitter", health=24, damage=14, speed=54,
+    attack_range=440, aggro_range=520, attack_cooldown=2.8, attack_windup=0.9,
+    behavior=EnemyBehavior.KEEP_DISTANCE, size=12, xp_reward=30, sprite="spitter",
+    tags=("RANGED",), knockback=50,
+    projectile=ProjectileSpec(kind="spore_pod", speed=190, radius=9, lifetime=3.0),
+    loot=LootTable(2, 3, 0.10, 0.10, 0.08), role="ranged",
+)
+
+SPROUT = EnemyDef(
+    # The ambush question: the shortest aggro range in the game by a factor of
+    # two. Everything else announces itself from across the room, so a dressed
+    # room reads as safe to walk through -- this is the one that does not, and
+    # it hits hard and immediately when you are already inside its reach.
+    # Slow, so it never chases far: leaving is always an option you had.
+    id="sprout", name="Bitterroot Sprout", health=54, damage=22, speed=118,
+    attack_range=38, aggro_range=130, attack_cooldown=1.1, attack_windup=0.2,
+    behavior=EnemyBehavior.CHARGE, size=13, xp_reward=26, sprite="sprout",
+    tags=("MELEE",), knockback=120, knockback_resist=0.2,
+    loot=LootTable(1, 3, 0.06, 0.12, 0.06), role="melee",
+)
+
+SHARDLING = EnemyDef(
+    # The arc question, and the only spread shot in the game. Everything else
+    # throws one thing you can step around; this sheds a fan of five, so
+    # sidestepping does not work and the answer is to get out of the cone or
+    # get past it. Armoured to make that a decision rather than a race: you
+    # will not out-damage it before the next burst.
+    id="shardling", name="Kiln Shardling", health=140, damage=9, speed=66,
+    attack_range=250, aggro_range=330, attack_cooldown=2.5, attack_windup=0.8,
+    behavior=EnemyBehavior.TANK, size=17, xp_reward=44, sprite="shardling",
+    tags=("RANGED", "HEAVY"), knockback=90, knockback_resist=0.75,
+    projectile=ProjectileSpec(kind="shell_shard", speed=300, radius=6, lifetime=1.1,
+                              count=5, spread=0.26),
+    loot=LootTable(3, 5, 0.16, 0.12, 0.08), role="tank",
+)
+
+
+DUMMY = EnemyDef(
+    # The practice dummy. Not a creature: a post with straw on it, spawned in
+    # The Proving so a weapon can be measured instead of guessed at.
+    #
+    # It goes through the ordinary damage path rather than a special one, which
+    # is the whole point -- mitigation, crits, combo multipliers and weapon
+    # tags all apply, so the number that comes off it is the number a real
+    # enemy would take. Everything that would make it a fight is zeroed: it
+    # never moves, never notices you, and cannot attack. The health is large
+    # enough to survive a long measuring session rather than infinite, because
+    # an enemy that cannot die needs a special case in the kill path and this
+    # one does not deserve one.
+    id="dummy", name="Practice Dummy", health=100000, damage=0, speed=0,
+    attack_range=0, aggro_range=0, attack_cooldown=999, attack_windup=0,
+    behavior=EnemyBehavior.TANK, size=14, xp_reward=0, sprite="dummy",
+    tags=(), knockback=0, knockback_resist=1.0,
+    loot=LootTable(0, 0, 0.0, 0.0, 0.0, gold_min=0, gold_max=0),
+)
+
+
 ARCHETYPES: dict[str, EnemyDef] = {
-    e.id: e for e in (SKELETON, ARCHER, HOUND, SLIME, ACOLYTE, BRUTE, SCARAB, WARDEN, MIRROR)
+    e.id: e for e in (SKELETON, ARCHER, HOUND, SLIME, ACOLYTE, BRUTE, SCARAB,
+                      SPITTER, SPROUT, SHARDLING, DUMMY, WARDEN, MIRROR)
 }
 
 # Aliases used by earlier templates.
@@ -244,6 +326,12 @@ class Enemy(Entity):
     home: Vec2 = field(default_factory=Vec2)
     hits_taken: int = 0
     stagger: float = 0.0             # brief hit-stun; interrupts wind-ups
+    #: Seconds left on each ability this creature has cast, by ability id.
+    #:
+    #: Per-instance rather than on the def, because the def is shared by every
+    #: creature of the type and two Mirrors in the sandbox must not share one
+    #: nova cooldown.
+    ability_timers: dict[str, float] = field(default_factory=dict)
 
     def __post_init__(self):
         self.health = self.enemy_def.health
@@ -312,5 +400,42 @@ class Enemy(Entity):
             "targetId": self.target_id,
             "windingUp": self.is_winding_up,
             "windup": round(self.windup_timer, 2),
+            "weapon": self.enemy_def.weapon_id or None,
         })
         return base
+
+
+def armed_with(edef: EnemyDef, weapon_id: str) -> EnemyDef:
+    """The same creature, fighting with a player's weapon instead of its own.
+
+    Enemies have no inventory -- every number an attack reads comes off the
+    `EnemyDef` -- so arming one means deriving a new def rather than putting
+    something in its hands. `replace` on a frozen dataclass gives a fresh def
+    that only this enemy holds, so arming one Mirror never touches the
+    archetype every other one is spawned from.
+
+    The weapon's own reach, cadence and projectile are used verbatim, because
+    the point of doing this at all is to watch what *that weapon* does in the
+    boss's hands. Its damage is scaled to the creature rather than copied: a
+    Mirror that suddenly hits for fourteen is not a Mirror holding a sword, it
+    is a different fight.
+    """
+    from mirrorbound.game.combat.weapons import IRON_SWORD, get_weapon
+
+    weapon = get_weapon(weapon_id)
+    scale = weapon.damage / IRON_SWORD.damage
+    return replace(
+        edef,
+        weapon_id=weapon_id,
+        damage=round(edef.damage * scale, 1),
+        attack_range=weapon.range,
+        # Floored at the wind-up: a telegraph you cannot see because the next
+        # one has already started is not a telegraph.
+        attack_cooldown=max(weapon.cooldown, edef.attack_windup + 0.1),
+        projectile=weapon.projectile,
+        tags=tuple(weapon.tags),
+        # Its own, then the weapon's. Taking a weapon is taking what it can do,
+        # not just its reach and its cadence -- this is the difference between
+        # a Mirror that swings your staff and one that fights the way you do.
+        abilities=tuple(dict.fromkeys((*edef.abilities, *weapon.abilities))),
+    )

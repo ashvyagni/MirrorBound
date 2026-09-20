@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from mirrorbound.game.combat.weapons import TWIN_STARTING_WEAPON, WeaponDef, get_weapon
+from mirrorbound.game.combat.weapons import BARE_HANDS, TWIN_STARTING_WEAPON, WeaponDef, get_weapon
 from mirrorbound.game.entities.entity import Entity, Vec2
 from mirrorbound.game.inventory import Inventory
 
@@ -79,7 +79,13 @@ class Twin(Entity):
     # all: it does not decide, move, fight, take damage or pick things up. The
     # entity still exists so nothing downstream has to cope with it being None.
     dormant: bool = True
+    # Set the moment the twin takes the Warden's shard, and cleared on the
+    # threshold of the Sanctum when the shard finishes with it. Purely a
+    # presentation flag on the server's side -- nothing about the twin's
+    # fighting changes -- but it is the only warning the player gets.
+    corrupted: bool = False
     name: str = "the Twin"
+    call_remaining: float = 0.0
     # Ticks between controller decisions. 6 ticks = 10 decisions/second, which
     # is plenty for an ally and keeps the controller cheap.
     decision_interval: int = 6
@@ -92,7 +98,12 @@ class Twin(Entity):
 
     @property
     def weapon(self) -> WeaponDef:
-        return get_weapon(self.inventory.equipped_weapon or TWIN_STARTING_WEAPON)
+        return get_weapon(self.inventory.equipped_weapon or BARE_HANDS.id)
+
+    @property
+    def available(self) -> bool:
+        """Only a living, present companion participates in combat and physics."""
+        return not self.dormant and not self.downed and self.alive
 
     @property
     def downed(self) -> bool:
@@ -137,7 +148,7 @@ class Twin(Entity):
             self.set_state("walk" if self.velocity.length() > 5 else "idle")
 
     def can_attack(self) -> bool:
-        return self.attack_cooldown <= 0 and self.state not in ("downed",)
+        return self.available and self.attack_cooldown <= 0
 
     def start_attack(self) -> None:
         self.attack_cooldown = self.weapon.cooldown * 1.1
@@ -146,6 +157,13 @@ class Twin(Entity):
     def awaken(self, near: Vec2, name: str) -> None:
         """Found. From here on it is a participant, not scenery."""
         self.dormant = False
+        self.active = True
+        self.velocity = Vec2()
+        self.knockback = Vec2()
+        self.status_effects.clear()
+        self.slow_factor = 1.0
+        self.call_remaining = 0.0
+        self.intent = TwinIntent("FOLLOW")
         self.name = name
         self.position = near + Vec2(-46, 26)
         self.health = self.max_health
@@ -182,6 +200,7 @@ class Twin(Entity):
             "type": "twin",
             "state": self.state,
             "dormant": self.dormant,
+            "corrupted": self.corrupted,
             "name": self.name,
             "mana": round(self.mana, 1),
             "maxMana": round(self.max_mana, 1),

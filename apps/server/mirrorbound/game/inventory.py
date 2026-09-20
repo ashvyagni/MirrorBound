@@ -59,6 +59,16 @@ class Inventory:
             self.offhand_weapon = weapon_id
         return True
 
+    def remove_weapon(self, weapon_id: str) -> bool:
+        if weapon_id not in self.weapons:
+            return False
+        self.weapons.remove(weapon_id)
+        if self.equipped_weapon == weapon_id:
+            self.equipped_weapon = self.offhand_weapon if self.offhand_weapon in self.weapons else next(iter(self.weapons), "")
+        if self.offhand_weapon == weapon_id or self.offhand_weapon == self.equipped_weapon:
+            self.offhand_weapon = ""
+        return True
+
     def equip(self, weapon_id: str) -> bool:
         if weapon_id not in self.weapons:
             return False

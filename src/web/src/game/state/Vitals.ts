@@ -11,4 +11,15 @@ export interface VitalsSnapshot {
   maxHealth: number;
   mana: number;
   maxMana: number;
+  /** Current level, and how far through it, 0..1. */
+  level: number;
+  levelProgress: number;
+  /**
+   * The twin's own health and mana, or null while it is dormant.
+   *
+   * Null rather than zeroes: before the twin is found there is nobody to have
+   * vitals, and two empty troughs under the player's own would be answering a
+   * question the game has not raised yet.
+   */
+  twin: { health: number; maxHealth: number; mana: number; maxMana: number } | null;
 }

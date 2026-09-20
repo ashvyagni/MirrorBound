@@ -54,6 +54,22 @@ export class SettingsButton {
    *  reads `scale.isFullscreen` directly, so there is nothing to store. */
   setFullscreen(_active: boolean): void {}
 
+  /**
+   * Show or hide the whole piece.
+   *
+   * Used by the Sanctum cutscene, which is a scene rather than a moment of
+   * play: a hotbar and a minimap over it say "you are playing" while the one
+   * thing the game wants is for you to watch. Visibility rather than destroy,
+   * because the scene ends and everything has to come back exactly as it was.
+   */
+  setVisible(on: boolean): void {
+    for (const object of this.#objects) {
+      // Not every GameObject carries the Visible component -- a Zone used as a
+      // hit area does not -- so this asks rather than asserts.
+      (object as unknown as Partial<Phaser.GameObjects.Components.Visible>).setVisible?.(on);
+    }
+  }
+
   destroy(): void {
     for (const object of this.#objects) object.destroy();
     this.#objects = [];

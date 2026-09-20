@@ -8,8 +8,23 @@ import pytest
 
 from mirrorbound.api.session import GameSession
 from mirrorbound.game.entities.player import PlayerInput
+from mirrorbound.game.world import save as save_system
 
 DT = 1.0 / 60.0
+
+
+@pytest.fixture(autouse=True)
+def isolated_saves(tmp_path, monkeypatch):
+    """Every test writes its checkpoints to its own temporary directory.
+
+    Sessions checkpoint on their own -- entering a village is a checkpoint --
+    so a suite run used to leave a hundred and fifty stray profiles in the
+    repository's `saves/`, and any test that happened to pick a session id a
+    developer was also playing under would overwrite their run. Autouse rather
+    than opt-in, because the tests that write a save are mostly the ones that
+    never mention saving.
+    """
+    monkeypatch.setattr(save_system, "SAVE_DIR", tmp_path / "saves")
 
 # The campaign opens in a village, which is the right first thing for a player
 # and the wrong one for a combat test: villages have no enemies and no doors.
@@ -76,3 +91,18 @@ def arm(session, *weapon_ids: str):
     inv.equipped_weapon = weapon_ids[0] if weapon_ids else ""
     inv.offhand_weapon = weapon_ids[1] if len(weapon_ids) > 1 else ""
     return session
+
+
+def play_cutscene(session: GameSession, limit: int = 2400) -> None:
+    """Run the Sanctum's opening to its end.
+
+    Entering the boss room now starts a scene rather than taking the twin
+    outright, and the scene owns every tick it runs for. A test that wants the
+    state on the far side of it has to let it play.
+    """
+    ticks = 0
+    while session.cutscene is not None:
+        session.step(DT)
+        ticks += 1
+        if ticks > limit:
+            raise AssertionError("the cutscene never ended")

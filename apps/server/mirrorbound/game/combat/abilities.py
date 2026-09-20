@@ -20,6 +20,13 @@ class AbilityType(Enum):
     NOVA = "nova"
     HEAL = "heal"
     SHIELD = "shield"
+    #: A line out from the caster, resolved instantly, hitting everything on it.
+    #:
+    #: Not a fast projectile. `arcane_bolt` was one of those and threw a violet
+    #: thorn, while its icon and its cast animation were both the ice beam --
+    #: which is a lance that grows from the staff and retracts, and cannot fly
+    #: across a room without reading as the wrong thing entirely.
+    BEAM = "beam"
 
 
 @dataclass(frozen=True)
@@ -39,6 +46,13 @@ class AbilityDef:
     effect_tags: tuple[str, ...] = ()
     projectile: ProjectileSpec | None = None
     cone_angle: float = 1.2    # radians, CONE only
+    #: How far out from the caster the effect starts, along their facing.
+    #:
+    #: A beam leaves the *tip of the staff*, not the middle of the creature
+    #: holding it, and the staff is held out in front during the cast. Without
+    #: this the hitbox starts inside the caster and the drawn lance starts
+    #: somewhere the staff is not.
+    muzzle: float = 0.0
     duration: float = 0.0      # effect duration (slow, invulnerability)
     effect_value: float = 0.0  # dash distance, slow factor, heal amount
     vfx: str = ""
@@ -67,20 +81,27 @@ class AbilityDef:
 ARCANE_BOLT = AbilityDef(
     id="arcane_bolt",
     name="Arcane Bolt",
-    type=AbilityType.PROJECTILE,
+    type=AbilityType.BEAM,
     slot=1,
     icon="arcane_bolt",
     cooldown=1.2,
     cost=8,
     cast_time=0.0,
-    range=420,
+    # Long. It is the one attack in the game that crosses a room, which is
+    # what a beam is for and what pays for having to aim it -- the view is 960
+    # units wide, so this reaches most of the way across whatever you can see.
+    range=760,
     damage=22,
-    area=0,
+    # The beam's half-width. A line with no thickness is a line nothing is ever
+    # quite standing on, so this is what makes aiming forgiving enough to use.
+    area=26,
+    # Measured off the cast animation: the staff is held out and forward, and
+    # its head sits about this far along the facing when the lance appears.
+    muzzle=52,
     tags=("RANGED", "SPELL", "MAGIC"),
-    projectile=ProjectileSpec(kind="arcane_bolt", speed=560, radius=7, lifetime=0.9, pierce=True),
     vfx="arcane",
     sound="arcane",
-    description="A piercing bolt of violet light fired in your facing direction.",
+    description="A lance of light that spears everything in front of you.",
 )
 
 FLAME_BURST = AbilityDef(
@@ -226,9 +247,107 @@ FLAME_PILLAR = AbilityDef(
 )
 
 
+#: The two bolts the staves used to fire on M1.
+#:
+#: Moved off the basic attack and onto a key, which is what turns a staff from
+#: a wand you hold down into three spells with a bash to buy time between them.
+#: Cheap and short-cooldown compared with the other two each staff grants --
+#: this is the spell you open with, not the one you save.
+EMBER_BOLT = AbilityDef(
+    id="ember_bolt",
+    name="Ember Bolt",
+    type=AbilityType.PROJECTILE,
+    slot=1,
+    icon="ember_bolt",
+    cooldown=0.85,
+    cost=6,
+    cast_time=0.0,
+    range=320,
+    damage=20,
+    area=0,
+    tags=("RANGED", "SPELL", "MAGIC", "AOE", "BURST"),
+    projectile=ProjectileSpec(kind="fire_bolt", speed=380, radius=9, lifetime=1.2, aoe_radius=56),
+    vfx="fire",
+    sound="fire",
+    description="A slow fireball that bursts on impact and hurts everything nearby.",
+)
+
+FROST_BOLT = AbilityDef(
+    id="frost_bolt",
+    name="Frost Bolt",
+    type=AbilityType.PROJECTILE,
+    slot=1,
+    icon="frost_bolt",
+    cooldown=0.5,
+    cost=4,
+    cast_time=0.0,
+    range=340,
+    damage=11,
+    area=0,
+    tags=("RANGED", "SPELL", "MAGIC", "FAST"),
+    projectile=ProjectileSpec(kind="ice_bolt", speed=440, radius=6, lifetime=1.1,
+                              slow=0.55, slow_duration=1.6),
+    vfx="ice",
+    sound="ice",
+    description="A rapid frost bolt that slows whatever it touches.",
+)
+
+# --- the Mirror's own -------------------------------------------------------
+#
+# Its two, as data rather than as special cases in the controller. The nova was
+# already in the fight -- hard-coded in `MirrorController._nova` with its radius
+# and damage as module constants -- and the shard volley was not in it at all.
+# Writing both as abilities is what lets the boss run one selection routine over
+# its own kit and the kit it took from you, instead of one branch per move.
+#
+# Neither is on any weapon and neither has a slot, because nothing the player
+# can hold grants them: these are the Mirror's.
+
+MIRROR_NOVA = AbilityDef(
+    id="mirror_nova",
+    name="Sundering",
+    type=AbilityType.NOVA,
+    slot=0,
+    icon="binding_nova",
+    cooldown=7.0,
+    cost=0,
+    # The telegraph *is* the mechanic: the whole encounter is built on having
+    # time to read a wind-up and leave. Kept at the value the hard-coded
+    # version charged for.
+    cast_time=0.9,
+    range=0,
+    damage=22,
+    area=150,
+    tags=("SPELL", "AOE", "BOSS"),
+    description="A ring of force that breaks outward from the Mirror.",
+)
+
+MIRROR_VOLLEY = AbilityDef(
+    id="mirror_volley",
+    name="Shardfall",
+    type=AbilityType.PROJECTILE,
+    slot=0,
+    icon="arcane_bolt",
+    cooldown=4.5,
+    cost=0,
+    cast_time=0.0,
+    range=420,
+    damage=13,
+    area=0,
+    tags=("RANGED", "SPELL", "BOSS"),
+    # Three at once, spread wide enough to punish standing still at range but
+    # not so wide that closing the gap is impossible. The Mirror's answer to a
+    # player who has learned to keep away from it.
+    projectile=ProjectileSpec(kind="mirror_bolt", speed=400, radius=7, lifetime=1.5,
+                              count=3, spread=0.22),
+    description="Three shards of the broken mirror, thrown at once.",
+)
+
+
 ABILITIES: dict[str, AbilityDef] = {
     a.id: a for a in (ARCANE_BOLT, FLAME_BURST, SHADOW_DASH, BINDING_NOVA, MENDING_LIGHT, AEGIS,
-                      ARROW_VOLLEY, FLAME_PILLAR)
+                      ARROW_VOLLEY, FLAME_PILLAR, EMBER_BOLT, FROST_BOLT,
+                      MIRROR_NOVA, MIRROR_VOLLEY)
 }
 
 #: What you hold when nothing is equipped.

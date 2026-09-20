@@ -4,24 +4,10 @@ import { AnimatedMark } from './AnimatedMark';
 import { Key } from './Key';
 import { openScreen, useUi } from './store';
 
-export function Toasts() {
-  const toasts = useUi((s) => s.toasts);
-  if (!toasts.length) return null;
-  return (
-    <div className="toasts" aria-live="polite">
-      {toasts.map((t) => (
-        <div key={t.id} className="toast" data-kind={t.kind}>
-          <strong>{t.title}</strong>
-          {t.detail && <span>{t.detail}</span>}
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export function ConnectionOverlay() {
   const connection = useUi((s) => s.connection);
   const attempt = useUi((s) => s.attempt);
+  const message = useUi((s) => s.connectionMessage);
   const ready = useUi((s) => s.ready);
   const snapshot = useUi((s) => s.snapshot);
   if (!ready || (connection === 'open' && snapshot)) return null;
@@ -30,13 +16,13 @@ export function ConnectionOverlay() {
     <div className="overlay overlay--dim">
       <div className="dialog">
         <AnimatedMark />
-        <h2 className="dialog__title">{failing ? 'Cannot reach the game server' : 'Connecting to the world'}</h2>
+        <h2 className="dialog__title">{message ? 'Save opened elsewhere' : failing ? 'Cannot reach the game server' : 'Connecting to the world'}</h2>
         <p className="dialog__text">
-          {failing
+          {message ?? (failing
             ? 'The browser is the view; the Python server is the world. Start it and this page will reconnect on its own.'
-            : 'Waiting for the first snapshot from the simulation…'}
+            : 'Waiting for the first snapshot from the simulation…')}
         </p>
-        {failing && (
+        {failing && !message && (
           <pre className="dialog__code">{`cd apps/server\npython -m uvicorn mirrorbound.api.app:create_app --factory --port 8000`}</pre>
         )}
         {attempt > 0 && <p className="dialog__muted">Reconnect attempt {attempt}</p>}

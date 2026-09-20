@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 
 import { COOLDOWNRAIL_TEXTURE_KEY } from '../animation/cooldownRailAtlas.generated';
 import { ICONS_TEXTURE_KEY } from '../animation/iconsAtlas.generated';
-import type { IconName } from '../animation/icons';
+import type { IconArt } from '../animation/icons';
 import { HUD, HUD_ART, PALETTE, PIXEL_FONT, RENDER_SCALE, VIEW } from '../constants';
 import { fitInside, fitWidth } from './fit';
 import { controlArt } from './controlArt';
@@ -22,8 +22,19 @@ interface Socket {
  * show a picture and a number; which server ability produced them is settled
  * once in `animation/abilityIcons.ts`, and letting an id reach this far would
  * make the rail the second place that has to know the two vocabularies.
+ *
+ * A list rather than a map keyed by icon. Two abilities can legitimately draw
+ * the same mark -- the bow's mending light and the frost staff's arcane bolt
+ * both borrow the beam, and the potion borrows the sword -- and keyed by icon
+ * the second one silently replaced the first's timer.
  */
-type Recharging = Partial<Record<IconName, { left: number; total: number }>>;
+export interface Recharging {
+  /** What is cooling. Unique per entry; two entries may share an icon. */
+  id: string;
+  icon: IconArt;
+  left: number;
+  total: number;
+}
 
 /**
  * What is recharging, stacked up the right-hand side.
@@ -130,10 +141,9 @@ export class CooldownRail {
    * reshuffle as timers pass each other -- an entry that jumps position while
    * you are watching it is worse than no entry at all.
    */
-  set(recharging: Recharging): void {
-    const entries = Object.entries(recharging)
-      .filter((entry): entry is [string, { left: number; total: number }] => Boolean(entry[1]))
-      .sort((a, b) => a[1].left - b[1].left)
+  set(recharging: readonly Recharging[]): void {
+    const entries = [...recharging]
+      .sort((a, b) => a.left - b.left)
       .slice(0, HUD_ART.rail.capacity);
 
     this.#sockets.forEach((socket, i) => {
@@ -142,17 +152,32 @@ export class CooldownRail {
         this.#hide(socket);
         return;
       }
-      const [icon, timer] = entry;
 
       socket.frame.setVisible(true);
-      socket.icon.setVisible(true).setTexture(ICONS_TEXTURE_KEY, icon);
+      socket.icon.setVisible(true).setTexture(entry.icon.texture, entry.icon.frame);
       fitInside(socket.icon, this.#size * 0.52);
 
       socket.sweep.setVisible(true);
-      socket.sweep.height = this.#innerH * Phaser.Math.Clamp(timer.left / timer.total, 0, 1);
+      socket.sweep.height = this.#innerH * Phaser.Math.Clamp(entry.left / entry.total, 0, 1);
 
-      socket.label.setVisible(true).setText(Math.max(timer.left, 0).toFixed(1));
+      socket.label.setVisible(true).setText(Math.max(entry.left, 0).toFixed(1));
     });
+  }
+
+  /**
+   * Show or hide the whole piece.
+   *
+   * Used by the Sanctum cutscene, which is a scene rather than a moment of
+   * play: a hotbar and a minimap over it say "you are playing" while the one
+   * thing the game wants is for you to watch. Visibility rather than destroy,
+   * because the scene ends and everything has to come back exactly as it was.
+   */
+  setVisible(on: boolean): void {
+    for (const object of this.#objects) {
+      // Not every GameObject carries the Visible component -- a Zone used as a
+      // hit area does not -- so this asks rather than asserts.
+      (object as unknown as Partial<Phaser.GameObjects.Components.Visible>).setVisible?.(on);
+    }
   }
 
   destroy(): void {

@@ -122,6 +122,30 @@ export const BIOMES = {
     ambient: 'dust',
     fog: 0x24201c,
   },
+  /**
+   * The Proving: flat, cold and obviously unreal.
+   *
+   * Deliberately the one biome that does not look like a place. Every variant
+   * is the same value, so the floor reads as a grid rather than as ground, and
+   * nothing here suggests cover or a route -- which is the whole point of
+   * testing in it.
+   */
+  sandbox: {
+    grass: ['#3a2f55', '#3a2f55', '#3a2f55'],
+    grassDark: '#2c2442',
+    grassLight: '#4a3d6b',
+    dirt: '#3a2f55',
+    dirtLight: '#4a3d6b',
+    path: '#4a3d6b',
+    stone: '#3a2f55',
+    stoneLight: '#5a4b80',
+    wall: '#191428',
+    wallTop: '#4a3d6b',
+    water: '#2c2f52',
+    waterLight: '#5b5fa0',
+    ambient: 'dust',
+    fog: 0x191428,
+  },
   crypt: {
     grass: ['#3b3b49', '#3c3c4a', '#3a3a48'],
     grassDark: '#2c2c38',
@@ -320,12 +344,48 @@ export const HUD_ART = {
     /** Left edge, measured from the portrait ring's centre. */
     x: 214, y: 92,
     width: 268,
-    /** Centre-to-centre of the health and mana troughs. */
-    gap: 46,
+    /**
+     * Centre-to-centre of the health and mana troughs.
+     *
+     * Widened from 46 to make room for the twin's bar between them. At 46 the
+     * clear space between the two was eleven pixels and the companion trough
+     * is nineteen, so every bar in the stack overlapped its neighbour.
+     */
+    gap: 58,
     /** The trough's inner opening, as a fraction of the drawn piece. The fill
      *  is a rectangle inside the art, so it has to know where the art's own
      *  walls are. */
     inset: { left: 0.108, right: 0.028, top: 0.3, bottom: 0.3 },
+  },
+  /**
+   * The twin's pair, tucked under the player's own.
+   *
+   * Narrower and indented so the two stacks read as "yours" and "theirs" at a
+   * glance rather than as four bars of equal weight. Sheet 92's troughs are
+   * chunkier than the player's (aspect 4.1 against 7.7), so matching the
+   * player's height means a much shorter bar -- which is the right read for a
+   * companion's vitals anyway.
+   */
+  twinBars: {
+    /** Indent from the player's own bar, and how far below it. */
+    indent: 20, drop: 30, width: 74,
+    /** Where the mark sits, measured from the player's bar left edge. */
+    markX: 2, markSize: 12,
+    /** The opening inside the drawn trough. Measured off the art. */
+    inset: { left: 0.05, right: 0.10, top: 0.26, bottom: 0.26 },
+  },
+  /**
+   * The level bar, under everything.
+   *
+   * Deliberately not a third health bar: ten drawn segments rather than one
+   * smooth capsule, because progress toward something is a different kind of
+   * fact from a resource being spent.
+   */
+  level: {
+    y: 216, width: 200,
+    /** The hexagonal plate the number sits in, and where it overlaps the bar. */
+    plateX: 200, plateSize: 42,
+    inset: { left: 0.045, right: 0.045, top: 0.26, bottom: 0.26 },
   },
   minimap: {
     x: 1920 - 150, y: 150, size: 228,

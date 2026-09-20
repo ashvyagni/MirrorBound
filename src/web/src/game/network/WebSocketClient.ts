@@ -9,6 +9,8 @@ import type { CommandMessage, GameSnapshot, InputMessage } from '../contracts';
 import { eventBus } from '../EventBus';
 import type { ConnectionStatus } from '../types';
 
+import { sessionIdentity } from './sessionIdentity';
+
 const MAX_ATTEMPTS = 12;
 /** An open socket that has not delivered a snapshot in this long is considered dead. */
 const SILENCE_TIMEOUT_MS = 3000;
@@ -28,7 +30,7 @@ export class WebSocketClient {
 
   constructor(sessionId?: string) {
     const params = new URLSearchParams(window.location.search);
-    this.sessionId = sessionId ?? params.get('session') ?? `web-${Math.random().toString(36).slice(2, 8)}`;
+    this.sessionId = sessionIdentity(sessionId);
     this.seed = params.get('seed');
   }
 
@@ -44,18 +46,17 @@ export class WebSocketClient {
   url(): string {
     const params = new URLSearchParams(window.location.search);
     const explicit = params.get('server');
-    if (explicit) return `${explicit.replace(/\/$/, '')}/ws/${this.sessionId}${this.seed ? `?seed=${this.seed}` : ''}`;
+    if (explicit) return `${explicit.replace(/\/$/, '')}/ws/${encodeURIComponent(this.sessionId)}${this.seed ? `?seed=${this.seed}` : ''}`;
     
     if (import.meta.env.VITE_WS_URL) {
-      return `${import.meta.env.VITE_WS_URL.replace(/\/$/, '')}/ws/${this.sessionId}${this.seed ? `?seed=${this.seed}` : ''}`;
+      return `${import.meta.env.VITE_WS_URL.replace(/\/$/, '')}/ws/${encodeURIComponent(this.sessionId)}${this.seed ? `?seed=${this.seed}` : ''}`;
     }
-
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     // "localhost" resolves to ::1 first in Chromium and the server listens on
     // IPv4; the fallback costs ~300 ms per connect, so go straight to 127.0.0.1.
     const pageHost = window.location.hostname || 'localhost';
     const host = pageHost === 'localhost' ? '127.0.0.1' : pageHost;
-    return `${protocol}//${host}:8000/ws/${this.sessionId}${this.seed ? `?seed=${this.seed}` : ''}`;
+    return `${protocol}//${host}:8000/ws/${encodeURIComponent(this.sessionId)}${this.seed ? `?seed=${this.seed}` : ''}`;
   }
 
   connect(): void {
@@ -87,7 +88,11 @@ export class WebSocketClient {
         if (snapshot.events.length) eventBus.emit('game:events', snapshot.events);
       }
     };
-    ws.onclose = () => {
+    ws.onclose = (event) => {
+      if (event.code === 4409) {
+        this.#closedByUs = true;
+        eventBus.emit('game:events', [{ tick: 0, type: 'SESSION_REPLACED', data: {} }]);
+      }
       if (this.#ws !== ws) return;
       this.#clearWatchdog();
       eventBus.emit('game:connection', { status: 'closed', attempt: this.#attempt });

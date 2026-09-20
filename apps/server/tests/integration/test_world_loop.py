@@ -13,7 +13,7 @@ from mirrorbound.api.session import GameSession
 from mirrorbound.game.entities.entity import Vec2
 from mirrorbound.game.world import save as save_system
 from mirrorbound.game.world.campaign import AREAS, CampaignState, sanitise_name
-from tests.conftest import DT, combat_session
+from tests.conftest import DT, combat_session, play_cutscene
 
 
 def fresh_village(name="world") -> GameSession:
@@ -62,49 +62,47 @@ def test_walking_into_a_portal_travels_to_that_area():
     assert s.dungeon is not None
 
 
-def test_travelling_past_a_gate_grants_what_was_skipped():
-    """Jumping ahead on the map is allowed, and pays out what you jumped over.
+def test_a_gated_area_is_refused_rather_than_skipped_into():
+    """One area at a time, each opened by finishing the one before it.
 
-    The Ashen Deep is gated behind the Wakewood Crypt. Asking to go straight
-    there completes the Crypt first -- its gold, its seal and the areas it
-    unlocks -- so arriving early leaves the campaign in the state it would have
-    been in had you walked it, rather than in a half-open one.
+    This used to work the other way: the map let you jump anywhere and quietly
+    completed every area you had jumped over -- gold, seals and all. That made
+    the campaign a menu. The Mirror was two clicks from the opening village,
+    and finishing a dungeon was something the game did for you.
     """
-    s = fresh_village("skip")
+    s = fresh_village("gated")
     gold_before = s.state.player.inventory.gold
     s.handle_input({"type": "COMMAND", "action": "TRAVEL", "areaId": "ashen_deep"})
     s.step(DT)
 
-    assert s.campaign.current_area == "ashen_deep"
-    assert "wakewood_crypt" in s.campaign.completed_areas
-    assert "seal_of_waking" in s.campaign.seals
-    assert s.state.player.inventory.gold == gold_before + 120
-    granted = [e for e in s.state.pending_events
-               if e.type == "QUEST_UPDATED" and e.data.get("skipped")]
-    assert [e.data["area"] for e in granted] == ["wakewood_crypt"]
+    assert s.campaign.current_area != "ashen_deep", "walked straight past the gate"
+    assert "wakewood_crypt" not in s.campaign.completed_areas, "it was completed for free"
+    assert s.state.player.inventory.gold == gold_before, "it paid out for skipping"
+    rejected = [e for e in s.state.pending_events
+                if e.type == "ACTION_REJECTED" and e.data.get("action") == "TRAVEL"]
+    assert rejected, "refused silently"
+    assert "Wakewood Crypt" in rejected[0].data["reason"], rejected[0].data
 
 
-def test_skipping_the_whole_way_grants_every_area_in_between():
-    """Straight to the Mirror from the opening village.
+def test_finishing_an_area_is_what_opens_the_next_one():
+    s = fresh_village("chain")
+    assert not s.campaign.is_open("ashen_deep")[0]
+    s.campaign.complete("wakewood_crypt")
+    assert s.campaign.is_open("ashen_deep")[0]
+    # And the one after it stays shut until the Deep is done.
+    assert not s.campaign.is_open("mirror_sanctum")[0]
+    s.campaign.complete("ashen_deep")
+    assert s.campaign.is_open("mirror_sanctum")[0]
 
-    The Sanctum requires the Ashen Deep, which requires the Wakewood Crypt, so
-    one jump has to settle both -- in order, so that each one's unlocks are in
-    place before the next is completed, and each purse and seal exactly once.
-    """
-    s = fresh_village("skip-all")
-    gold_before = s.state.player.inventory.gold
-    s.handle_input({"type": "COMMAND", "action": "TRAVEL", "areaId": "mirror_sanctum"})
+
+def test_the_first_dungeon_and_the_sandbox_are_open_from_the_start():
+    """A chain you cannot begin is a chain with no first link."""
+    s = fresh_village("first")
+    assert s.campaign.is_open("wakewood_crypt")[0]
+    assert s.campaign.is_open("the_proving")[0]
+    s.handle_input({"type": "COMMAND", "action": "TRAVEL", "areaId": "wakewood_crypt"})
     s.step(DT)
-
-    assert s.campaign.current_area == "mirror_sanctum"
-    assert {"wakewood_crypt", "ashen_deep"} <= s.campaign.completed_areas
-    assert s.state.player.inventory.gold == gold_before + 120 + 260
-    assert s.campaign.seals.count("seal_of_waking") == 1
-    assert s.campaign.seals.count("seal_of_ash") == 1
-    # Granted oldest first, so each area's unlocks land before the next needs them.
-    granted = [e.data["area"] for e in s.state.pending_events
-               if e.type == "QUEST_UPDATED" and e.data.get("skipped")]
-    assert granted == ["wakewood_crypt", "ashen_deep"]
+    assert s.campaign.current_area == "wakewood_crypt"
 
 
 def test_travel_is_refused_from_inside_a_dungeon():
@@ -522,6 +520,9 @@ def test_the_twin_becomes_the_mirror_on_the_threshold():
     s = GameSession("taken", seed=5, record=False, start_area="mirror_sanctum")
     s.state.twin.dormant = False
     _walk_to_boss_room(s)
+    # Walking in starts the scene; the twin is taken on its `hatch` beat.
+    assert s.cutscene is not None, "the threshold opens the Sanctum's scene"
+    play_cutscene(s)
 
     assert s.state.twin.dormant, "the twin leaves the world"
     assert "twin_taken" in s.campaign.flags
@@ -538,6 +539,7 @@ def test_a_twin_that_was_never_found_is_not_taken():
     s = GameSession("never", seed=5, record=False, start_area="mirror_sanctum")
     assert s.state.twin.dormant
     _walk_to_boss_room(s)
+    assert s.cutscene is None, "no companion, no scene to play"
     assert not any(e.type == "TWIN_TAKEN" for e in s.state.pending_events)
 
 
@@ -586,3 +588,43 @@ def test_the_smith_stocks_something_you_can_afford_first():
     weapons = [e for e in smith.stock if e.kind == "weapon"]
     assert any(e.item_id == "iron_sword" for e in weapons)
     assert min(e.price for e in weapons) <= 60
+
+
+def test_the_way_home_opens_at_the_far_end_rather_than_underfoot():
+    """Reported from play: "i need to come to the centre instead of the end".
+
+    The exit portal was placed at `room.width / 2, room.height / 2` -- the
+    literal middle of the room, which is where the fight just happened and
+    where the player is already standing. A dungeon that ends without a step
+    does not read as leaving it.
+    """
+    from mirrorbound.game.world.campaign import HOME_VILLAGE, START_AREA
+
+    s = GameSession("exit_portal", seed=11, record=False, start_area="wakewood_crypt")
+    last = s.dungeon.rooms[-1]
+    s._enter_room(last, from_side="south")
+    s._open_exit_portal(last)
+
+    home = HOME_VILLAGE.get(s.campaign.current_area, START_AREA)
+    portal = next(p for p in last.portals if p.target_area == home)
+    centre = Vec2(last.width / 2, last.height / 2)
+    assert (Vec2(portal.x, portal.y) - centre).length() > 100, "still in the middle"
+    # And it is opposite the way in, not just somewhere else.
+    entered = last.player_spawn
+    assert (Vec2(portal.x, portal.y) - entered).length() > (centre - entered).length()
+
+
+def test_the_way_home_stays_inside_the_room():
+    """Mirroring a spawn that is already near a wall must not put it in one."""
+    from mirrorbound.game.world.campaign import HOME_VILLAGE, START_AREA
+
+    s = GameSession("exit_inside", seed=12, record=False, start_area="wakewood_crypt")
+    last = s.dungeon.rooms[-1]
+    for side in ("south", "north", "east", "west"):
+        last.portals.clear()
+        s._enter_room(last, from_side=side)
+        s._open_exit_portal(last)
+        home = HOME_VILLAGE.get(s.campaign.current_area, START_AREA)
+        portal = next(p for p in last.portals if p.target_area == home)
+        assert 0 < portal.x < last.width, f"{side}: x outside the room"
+        assert 0 < portal.y < last.height, f"{side}: y outside the room"

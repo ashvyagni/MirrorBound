@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "chest0": {
+   "frame": {
+    "x": 154,
+    "y": 318,
+    "w": 150,
+    "h": 117
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 14,
+    "y": 41,
+    "w": 150,
+    "h": 117
+   },
+   "sourceSize": {
+    "w": 165,
+    "h": 159
+   }
+  },
+  "chest1": {
+   "frame": {
+    "x": 2,
+    "y": 318,
+    "w": 150,
+    "h": 120
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 10,
+    "y": 38,
+    "w": 150,
+    "h": 120
+   },
+   "sourceSize": {
+    "w": 165,
+    "h": 159
+   }
+  },
+  "chest2": {
+   "frame": {
+    "x": 307,
+    "y": 162,
+    "w": 150,
+    "h": 126
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 6,
+    "y": 32,
+    "w": 150,
+    "h": 126
+   },
+   "sourceSize": {
+    "w": 165,
+    "h": 159
+   }
+  },
+  "chest3": {
+   "frame": {
+    "x": 155,
+    "y": 162,
+    "w": 150,
+    "h": 135
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 23,
+    "w": 150,
+    "h": 135
+   },
+   "sourceSize": {
+    "w": 165,
+    "h": 159
+   }
+  },
+  "chest4": {
+   "frame": {
+    "x": 2,
+    "y": 162,
+    "w": 151,
+    "h": 154
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 12,
+    "y": 4,
+    "w": 151,
+    "h": 154
+   },
+   "sourceSize": {
+    "w": 165,
+    "h": 159
+   }
+  },
+  "chest5": {
+   "frame": {
+    "x": 310,
+    "y": 2,
+    "w": 151,
+    "h": 156
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 9,
+    "y": 2,
+    "w": 151,
+    "h": 156
+   },
+   "sourceSize": {
+    "w": 165,
+    "h": 159
+   }
+  },
+  "chest6": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 152,
+    "h": 158
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 4,
+    "y": 0,
+    "w": 152,
+    "h": 158
+   },
+   "sourceSize": {
+    "w": 165,
+    "h": 159
+   }
+  },
+  "chest7": {
+   "frame": {
+    "x": 156,
+    "y": 2,
+    "w": 152,
+    "h": 157
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 1,
+    "y": 1,
+    "w": 152,
+    "h": 157
+   },
+   "sourceSize": {
+    "w": 165,
+    "h": 159
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "chest.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 512,
+   "h": 440
+  },
+  "scale": "1"
+ }
+}

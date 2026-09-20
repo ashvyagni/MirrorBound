@@ -23,9 +23,9 @@ export interface PauseStats {
   biome: string;
   health: number;
   maxHealth: number;
-  hits: number;
+  kills: number;
   casts: number;
-  potions: number;
+  rooms: number;
 }
 
 export class PauseScreen {
@@ -100,9 +100,9 @@ export class PauseScreen {
       ['ROOM', stats.room.toUpperCase()],
       ['BIOME', stats.biome.toUpperCase()],
       ['HEALTH', `${Math.round(stats.health)} / ${stats.maxHealth}`],
-      ['HITS LANDED', String(stats.hits)],
+      ['ENEMIES DEFEATED', String(stats.kills)],
       ['SPELLS CAST', String(stats.casts)],
-      ['POTIONS DRUNK', String(stats.potions)],
+      ['ROOMS CLEARED', String(stats.rooms)],
       ['', ''],
     ];
     lines.forEach(([label, value], i) => {

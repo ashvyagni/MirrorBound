@@ -48,8 +48,7 @@ def reductions_for(state, target_id: str) -> tuple[float, list[str]]:
     if target_id == state.player.id:
         twin = state.twin
         if (
-            not twin.downed
-            and twin.alive
+            twin.available
             and twin.intent.intent_type == "PROTECT"
             and (twin.position - state.player.position).length() <= PROTECT_RADIUS
         ):

@@ -75,7 +75,7 @@ export class MapScreen {
     this.#texts.push(this.#caption);
 
     this.#worldNote = this.scene.add
-      .text(0, WORLD_TOP + 110, '', {
+      .text(0, WORLD_TOP + 170, '', {
         fontFamily: PIXEL_FONT.stack, fontSize: `${HUD.hintSize - 1}px`, color: HUD.dimInk,
       })
       .setOrigin(0.5, 0.5);
@@ -284,8 +284,10 @@ export class MapScreen {
     return this.#panel.visible;
   }
 
-  close(): void {
+  close(notify = true): void {
+    const wasOpen = this.open;
     this.#panel.setVisible(false);
+    if (wasOpen && notify) eventBus.emit('ui:screen-close', { screen: 'map' });
   }
 
   get run(): Run | null {

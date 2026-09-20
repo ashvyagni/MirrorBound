@@ -25,7 +25,6 @@ from mirrorbound.game.entities.projectile import Projectile
 from mirrorbound.game.loot import LootSystem
 from mirrorbound.game.state import GameState
 
-
 # The companion fights with the same weapons but hits softer: the player must
 # stay the one who wins fights, or the twin's help turns into watching.
 TWIN_DAMAGE_MULT = 0.6
@@ -147,6 +146,18 @@ class CombatSystem:
 
         player.start_ability(ability)
         state.stats.abilities_cast += 1
+        if ability.cast_time > 0:
+            player.begin_channel(ability.id, ability.cast_time)
+            state.emit("PLAYER_ABILITY_CAST", ability=ability.id.upper(), ability_id=ability.id,
+                       slot=slot, channel=ability.cast_time, tags=list(ability.tags), targets=[], hitCount=0,
+                       area=ability.area,
+                       position=player.position.to_dict(), facing=player.facing.to_dict())
+            return True
+        return self.resolve_ability(state, ability, slot=slot)
+
+    def resolve_ability(self, state: GameState, ability: AbilityDef, *, slot: int = 0, completed: bool = False) -> bool:
+        """Apply an accepted cast once its wind-up has completed."""
+        player = state.player
         facing = player.facing
         hits: list[str] = []
         extra: dict = {}
@@ -167,6 +178,24 @@ class CombatSystem:
                     self.damage_enemy(state, enemy, dmg, player.id, list(ability.tags), direction, 160, ability.id)
                     if "BURN" in ability.effect_tags:
                         enemy.apply_status("burn", 1.5)
+                    hits.append(enemy.id)
+        elif ability.type is AbilityType.BEAM:
+            # A line out from the caster, resolved the instant it is cast. It
+            # pierces by construction: everything standing on the line is hit,
+            # and there is no first target to stop at.
+            # From the staff's head, not from the middle of the goat holding it.
+            origin = player.position + facing * ability.muzzle
+            beam = Hitbox(shape=HitboxShape.LINE, position=origin,
+                          size=ability.range, direction=facing.angle())
+            for enemy in state.get_active_enemies():
+                # `area` is the beam's half-width. `overlaps_circle` on a LINE
+                # measures to the segment and knows nothing of thickness, so it
+                # is added to the target's own radius here.
+                if beam.overlaps_circle(enemy.position, enemy.radius + ability.area):
+                    dmg = ability.damage * player.spell_damage_multiplier()
+                    knock = (enemy.position - origin).normalized()
+                    self.damage_enemy(state, enemy, dmg, player.id, list(ability.tags), knock,
+                                      110, ability.id)
                     hits.append(enemy.id)
         elif ability.type is AbilityType.DASH:
             direction = player.last_move_dir if not player.velocity.is_zero() else player.facing
@@ -194,24 +223,28 @@ class CombatSystem:
                         enemy.apply_status("slow", ability.duration, slow_factor=ability.effect_value)
                     hits.append(enemy.id)
         elif ability.type is AbilityType.HEAL:
-            if ability.cast_time > 0:
-                # A channel: the heal lands when the channel finishes, and only
-                # if nothing interrupts it. The session completes it.
-                player.begin_channel(ability.id, ability.cast_time)
-                extra = {"channel": ability.cast_time}
-            else:
-                healed = player.heal(ability.effect_value)
-                state.emit("PLAYER_HEALED", amount=healed, remaining=player.health, source=ability.id)
+            healed = player.heal(ability.effect_value)
+            state.emit("PLAYER_HEALED", amount=healed, remaining=player.health, source=ability.id,
+                       position=player.position.to_dict())
         elif ability.type is AbilityType.SHIELD:
             player.apply_status("shield", ability.duration)
             extra = {"duration": ability.duration}
 
         state.emit(
-            "PLAYER_ABILITY_CAST",
+            "PLAYER_ABILITY_RESOLVED" if completed else "PLAYER_ABILITY_CAST",
             ability=ability.id.upper(),
             ability_id=ability.id,
             tags=list(ability.tags),
             slot=slot,
+            # The reach this cast actually resolved with. The client draws the
+            # cone, the nova and the pillar at this size rather than at numbers
+            # copied out of `abilities.py` by hand, so retuning a spell retunes
+            # the thing that draws it.
+            area=ability.area,
+            # A beam needs its reach and where it starts, or the drawn lance
+            # and the thing that hit you are two different lines.
+            reach=ability.range,
+            muzzle=ability.muzzle,
             position=player.position.to_dict(),
             facing=facing.to_dict(),
             targets=hits,
@@ -220,6 +253,101 @@ class CombatSystem:
             **extra,
         )
         return True
+
+    # ------------------------------------------------------------ enemy casting
+
+    def enemy_ability_ready(self, enemy: Enemy, ability: AbilityDef) -> bool:
+        """Whether this creature could cast this right now.
+
+        Cooldown only. Enemies have no mana -- giving them one would be a
+        second resource to tune with no dial the player can see -- so an
+        ability's `cost` is ignored and its `cooldown` carries the whole
+        restraint.
+        """
+        return enemy.active and enemy.ability_timers.get(ability.id, 0.0) <= 0.0
+
+    def resolve_enemy_ability(
+        self, state: GameState, enemy: Enemy, ability: AbilityDef, target: Entity,
+    ) -> bool:
+        """Cast one ability, as the creature rather than as the player.
+
+        `resolve_ability` above reads `state.player` in every branch, so it
+        cannot be pointed at anything else. Rather than thread an actor through
+        a method whose every line assumes the player, this is the enemy's own
+        path -- and it is deliberately the *same* ability definitions, so a
+        flame burst thrown at you has the reach, the arc and the cooldown of
+        the flame burst you throw.
+
+        Damage is not scaled here. `armed_with` already scaled the creature's
+        basic attack to its own weight, and an ability that hits for its
+        printed damage is the honest reading of "it fights the way you do".
+        """
+        if not self.enemy_ability_ready(enemy, ability):
+            return False
+        direction = (target.position - enemy.position).normalized()
+        if direction.is_zero():
+            direction = enemy.facing
+        enemy.face(direction)
+        enemy.ability_timers[ability.id] = ability.cooldown
+        hits: list[str] = []
+
+        if ability.type is AbilityType.PROJECTILE:
+            self._fire_projectiles(state, enemy, ability.projectile, direction, ability.damage,
+                                   90, ability.tags, source=ability.id)
+        elif ability.type is AbilityType.CONE:
+            hitbox = Hitbox(shape=HitboxShape.ARC, position=enemy.position, size=ability.area,
+                            direction=direction.angle(), arc_angle=ability.cone_angle)
+            for ally in self._allies(state):
+                if hitbox.overlaps_circle(ally.position, ally.radius):
+                    hits.append(self._hit_ally(state, enemy, ally, ability, 160))
+        elif ability.type is AbilityType.NOVA:
+            for ally in self._allies(state):
+                if (ally.position - enemy.position).length() <= ability.area + ally.radius:
+                    hits.append(self._hit_ally(state, enemy, ally, ability, 120))
+        elif ability.type is AbilityType.BEAM:
+            origin = enemy.position + direction * ability.muzzle
+            beam = Hitbox(shape=HitboxShape.LINE, position=origin,
+                          size=ability.range, direction=direction.angle())
+            for ally in self._allies(state):
+                if beam.overlaps_circle(ally.position, ally.radius + ability.area):
+                    hits.append(self._hit_ally(state, enemy, ally, ability, 110))
+        elif ability.type is AbilityType.HEAL:
+            enemy.health = min(enemy.max_health, enemy.health + ability.effect_value)
+        elif ability.type is AbilityType.SHIELD:
+            enemy.apply_status("shield", ability.duration)
+        elif ability.type is AbilityType.DASH:
+            # Toward you, not away: the player's dash is an escape and the
+            # boss's is a commitment, which is the same move read from the
+            # other side of the fight.
+            enemy.position = state.room.clamp(
+                enemy.position + direction * ability.effect_value, enemy.radius + 4)
+
+        state.emit("ENEMY_ABILITY_CAST", enemy_id=enemy.id, enemy_type=enemy.enemy_def.id,
+                   ability=ability.id.upper(), ability_id=ability.id, tags=list(ability.tags),
+                   area=ability.area, reach=ability.range, muzzle=ability.muzzle,
+                   position=enemy.position.to_dict(), facing=direction.to_dict(), targets=[h for h in hits if h],
+                   hitCount=len([h for h in hits if h]))
+        return True
+
+    def _allies(self, state: GameState) -> list[Entity]:
+        """Everything on the player's side that an enemy spell can catch."""
+        out: list[Entity] = []
+        if state.player.state != "dead":
+            out.append(state.player)
+        if state.twin.available:
+            out.append(state.twin)
+        return out
+
+    def _hit_ally(self, state: GameState, enemy: Enemy, ally: Entity,
+                  ability: AbilityDef, knockback: float) -> str:
+        direction = (ally.position - enemy.position).normalized()
+        if ally.id == state.player.id:
+            self.damage_player(state, ability.damage, enemy.id, direction, knockback)
+        else:
+            self.damage_twin(state, ability.damage, enemy.id, direction, knockback)
+        if "SLOW" in ability.effect_tags and ability.duration > 0:
+            ally.apply_status("slow", ability.duration, slow_factor=ability.effect_value)
+        return ally.id
 
     # -------------------------------------------------------------------- twin
 
@@ -255,6 +383,8 @@ class CombatSystem:
         `ranged` forces the mode; by default an enemy with a projectile shoots
         unless the target is practically touching it.
         """
+        if target.id == state.twin.id and not state.twin.available:
+            return False
         edef = enemy.enemy_def
         to_target = target.position - enemy.position
         dist = to_target.length()
@@ -352,6 +482,14 @@ class CombatSystem:
                        maxHealth=state.player.max_health, position=state.player.position.to_dict())
         if edef.boss:
             state.emit("BOSS_DEFEATED", enemy_id=enemy.id, position=enemy.position.to_dict())
+        # The Warden was carrying a piece of the mirror. It leaves exactly one,
+        # and only ever once: reloading into the Ashen Deep and killing a
+        # second Warden must not hand out a second shard.
+        if edef.id == "warden" and not state.twin.corrupted and not state.shard_dropped:
+            state.shard_dropped = True
+            shard = state.spawn_pickup("mirror_shard", enemy.position + Vec2(0, 24))
+            shard.ttl = 0.0     # waits for the twin however long that takes
+            state.emit("SHARD_DROPPED", position=shard.position.to_dict(), room_id=state.room.id)
 
     def damage_player(self, state: GameState, amount: float, attacker_id: str, direction: Vec2,
                       knockback: float) -> float:
@@ -365,6 +503,15 @@ class CombatSystem:
         actual = player.take_hit(reduced)
         if actual <= 0:
             return 0.0
+        # A hit the ward turned aside is a parry, and a parry makes the ward
+        # ready again. The status itself still runs out on its own timer and
+        # raising it again still costs mana, so this rewards blocking without
+        # making a permanent shield free -- see `clear_shield_cooldown`.
+        if "shield" in mitigations:
+            state.emit("PLAYER_PARRIED", actor=player.id, attacker=attacker_id,
+                       absorbed=round(amount - reduced, 1),
+                       refreshed=player.clear_shield_cooldown(),
+                       position=player.position.to_dict())
         if knockback > 0:
             player.knockback = player.knockback + direction * knockback * 0.6
         # A hit breaks a channelled cast. The mana is already spent, so this is
@@ -386,15 +533,23 @@ class CombatSystem:
             mitigatedBy=mitigations,
         )
         if player.state == "dead":
-            state.phase = "dead"
+            # Dying to the Mirror ends the run. Respawning at the entrance of
+            # the last room in the game would let the player walk back in with
+            # the boss still at whatever health they left it, which is not a
+            # fight so much as a war of attrition the boss cannot win.
+            final = state.room.room_type == "boss"
+            state.phase = "defeat" if final else "dead"
             state.emit("PLAYER_DIED", position=player.position.to_dict(), killer=attacker_id,
-                       room_id=state.room.id, tags=["HIGH_RISK"])
+                       room_id=state.room.id, final=final, tags=["HIGH_RISK"])
+            if final:
+                state.emit("RUN_FAILED", stats=state.stats.to_dict(), killer=attacker_id,
+                           room_id=state.room.id)
         return actual
 
     def damage_twin(self, state: GameState, amount: float, attacker_id: str, direction: Vec2,
                     knockback: float) -> float:
         twin = state.twin
-        if twin.downed or twin.invulnerable_for > 0:
+        if not twin.available or twin.invulnerable_for > 0:
             return 0.0
         reduced, _ = apply_reduction(state, twin.id, amount)
         actual = twin.take_hit(reduced)
@@ -456,9 +611,8 @@ class CombatSystem:
             if "burn" in enemy.status_effects:
                 # Burn ticks 4 dps, attributed to the player.
                 tick_damage = 4.0 * dt
-                if enemy.health > tick_damage:
-                    enemy.health -= tick_damage
-                    state.stats.damage_dealt += tick_damage
+                self.damage_enemy(state, enemy, tick_damage, state.player.id, ["FIRE"],
+                                  Vec2(), 0, "burn")
 
 
 __all__ = ["CombatSystem", "math"]

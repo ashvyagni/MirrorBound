@@ -15,6 +15,7 @@ from mirrorbound.game.core.rng import DeterministicRNG
 from mirrorbound.game.entities.enemy import Enemy, EnemyBehavior, EnemyState
 from mirrorbound.game.entities.entity import Entity, Vec2
 from mirrorbound.game.state import GameState
+from mirrorbound.game.movement.navigation import Navigator, clear_segment
 
 THREAT_DECAY_PER_SECOND = 0.35
 
@@ -24,10 +25,25 @@ class BasicEnemyController:
 
     def __init__(self, rng: DeterministicRNG):
         self.rng = rng.spawn("enemy_ai")
+        self.navigator = Navigator()
 
     # --- entry point ---------------------------------------------------------
 
     def update(self, dt: float, enemy: Enemy, state: GameState, combat: CombatSystem) -> None:
+        self._update(dt, enemy, state, combat)
+        if enemy.velocity.is_zero():
+            return
+        target = state.entity_by_id(enemy.target_id)
+        goal = enemy.position + enemy.velocity.normalized() * 120
+        if enemy.state is EnemyState.WANDER and enemy.wander_target:
+            goal = enemy.wander_target
+        elif enemy.state is EnemyState.REPOSITION and enemy.reposition_target:
+            goal = enemy.reposition_target
+        elif target and enemy.velocity.dot(target.position - enemy.position) > 0:
+            goal = target.position
+        enemy.velocity = self.navigator.velocity(state.room, enemy, goal, enemy.velocity.length())
+
+    def _update(self, dt: float, enemy: Enemy, state: GameState, combat: CombatSystem) -> None:
         if not enemy.active:
             enemy.set_state(EnemyState.DEAD)
             enemy.velocity = Vec2()
@@ -36,6 +52,8 @@ class BasicEnemyController:
         enemy.state_timer += dt
         if enemy.attack_timer > 0:
             enemy.attack_timer -= dt
+        for _ability, _left in list(enemy.ability_timers.items()):
+            enemy.ability_timers[_ability] = _left - dt
         for key in list(enemy.threat):
             enemy.threat[key] *= max(0.0, 1.0 - THREAT_DECAY_PER_SECOND * dt)
             if enemy.threat[key] < 0.5:
@@ -66,7 +84,7 @@ class BasicEnemyController:
             enemy.set_state(EnemyState.CHASE)
 
         if enemy.state is EnemyState.CHASE:
-            self._chase(enemy, target, dist, edef)
+            self._chase(enemy, target, dist, edef, state)
         elif enemy.state is EnemyState.ATTACK:
             self._attack(dt, enemy, target, dist, state, combat)
         elif enemy.state is EnemyState.REPOSITION:
@@ -80,7 +98,7 @@ class BasicEnemyController:
         candidates: list[Entity] = []
         if state.player.state != "dead":
             candidates.append(state.player)
-        if not state.twin.downed:
+        if state.twin.available:
             candidates.append(state.twin)
         if not candidates:
             return None
@@ -120,9 +138,12 @@ class BasicEnemyController:
                 enemy.velocity = diff.normalized() * (enemy.speed * 0.45)
                 enemy.face(diff)
 
-    def _chase(self, enemy: Enemy, target: Entity, dist: float, edef) -> None:
+    def _chase(self, enemy: Enemy, target: Entity, dist: float, edef, state: GameState) -> None:
         to_target = target.position - enemy.position
         enemy.face(to_target)
+        if not clear_segment(state.room, enemy.position, target.position, 0):
+            enemy.velocity = to_target.normalized() * enemy.speed
+            return
         if edef.behavior is EnemyBehavior.KEEP_DISTANCE:
             ideal = edef.attack_range * 0.72
             if dist < ideal * 0.7:

@@ -84,9 +84,26 @@ MIRROR_SANCTUM = AreaDef(
     completion_gold=0, completion_seal="seal_of_the_mirror",
 )
 
+#: A flat, empty room to test things in.
+#:
+#: Not part of the campaign: nothing gates it, nothing it contains counts, and
+#: it is reached from the map like anywhere else so that testing a weapon or a
+#: boss does not mean playing to the place that has one. `kind="sandbox"` keeps
+#: it out of the village/dungeon logic entirely -- it has no NPCs to talk to,
+#: no rooms to clear and no completion to award.
+THE_PROVING = AreaDef(
+    id="the_proving", name="The Proving", kind="sandbox", biome="sandbox",
+    subtitle="Nothing here is real. Nothing here counts.",
+    map_x=0.06, map_y=0.14,
+)
+
 AREAS: dict[str, AreaDef] = {
-    a.id: a for a in (HOLLOW_REACH, WAKEWOOD_CRYPT, EMBERFALL, ASHEN_DEEP, MIRROR_SANCTUM)
+    a.id: a for a in (HOLLOW_REACH, WAKEWOOD_CRYPT, EMBERFALL, ASHEN_DEEP,
+                      MIRROR_SANCTUM, THE_PROVING)
 }
+
+#: Areas that are always open and always on the map, campaign or not.
+ALWAYS_OPEN: frozenset[str] = frozenset({THE_PROVING.id})
 
 START_AREA = HOLLOW_REACH.id
 # Which village each dungeon sends you back to when you leave or finish it.
@@ -97,7 +114,7 @@ HOME_VILLAGE: dict[str, str] = {
 }
 # Where a village's road leads.
 VILLAGE_ROADS: dict[str, tuple[str, ...]] = {
-    "hollow_reach": ("wakewood_crypt", "emberfall"),
+    "hollow_reach": ("wakewood_crypt", "emberfall", "the_proving"),
     "emberfall": ("ashen_deep", "mirror_sanctum", "hollow_reach"),
 }
 
@@ -120,7 +137,7 @@ class CampaignState:
     twin_name: str = "the Twin"
     current_area: str = START_AREA
     completed_areas: set[str] = field(default_factory=set)
-    discovered_areas: set[str] = field(default_factory=lambda: {START_AREA})
+    discovered_areas: set[str] = field(default_factory=lambda: {START_AREA, *ALWAYS_OPEN})
     # Rooms already looted, by room id, so a treasure room re-entered is empty.
     looted_rooms: set[str] = field(default_factory=set)
     # Quest flags drive dialogue and nothing else. Empty at the start, so the

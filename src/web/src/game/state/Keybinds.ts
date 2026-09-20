@@ -21,7 +21,8 @@ import Phaser from 'phaser';
 
 export type Action =
   | 'moveUp' | 'moveDown' | 'moveLeft' | 'moveRight' | 'run'
-  | 'attack' | 'ability1' | 'ability2' | 'ability3' | 'ability4'
+  | 'attack' | 'dash' | 'ability1' | 'ability2' | 'ability3' | 'ability4'
+  | 'ability5' | 'ability6'
   | 'swapWeapon' | 'healthPotion' | 'manaPotion'
   | 'interact' | 'character' | 'inventory' | 'skills' | 'map' | 'pause' | 'debug'
   // The in-canvas HUD's own: the potion dial is one slot you turn and drink
@@ -44,6 +45,36 @@ export interface ActionInfo {
 
 const K = Phaser.Input.Keyboard.KeyCodes;
 
+/**
+ * Mouse buttons live in the same number space as keys, above every key code.
+ *
+ * One table has to hold both, because an action is bound to "whatever the
+ * player presses" and that is as often a mouse button as a key. Phaser's key
+ * codes stop well below 256, so anything at or above this base is a mouse
+ * button and `button` is its DOM `MouseEvent.button` index.
+ */
+export const MOUSE_BASE = 1000;
+export const MOUSE = {
+  left: MOUSE_BASE + 0,
+  middle: MOUSE_BASE + 1,
+  right: MOUSE_BASE + 2,
+  back: MOUSE_BASE + 3,
+  forward: MOUSE_BASE + 4,
+} as const;
+
+export function isMouseCode(code: number): boolean {
+  return code >= MOUSE_BASE;
+}
+
+/** The DOM button index a mouse code stands for. */
+export function mouseButton(code: number): number {
+  return code - MOUSE_BASE;
+}
+
+export function mouseCode(button: number): number {
+  return MOUSE_BASE + button;
+}
+
 /** Every action, in the order the Controls screen lists them. */
 export const ACTIONS: readonly ActionInfo[] = [
   { action: 'moveUp', label: 'Move up', group: 'Movement' },
@@ -53,10 +84,13 @@ export const ACTIONS: readonly ActionInfo[] = [
   { action: 'run', label: 'Run', group: 'Movement' },
 
   { action: 'attack', label: 'Attack', group: 'Combat' },
+  { action: 'dash', label: 'Dash', group: 'Combat' },
   { action: 'ability1', label: 'Ability 1', group: 'Combat' },
   { action: 'ability2', label: 'Ability 2', group: 'Combat' },
   { action: 'ability3', label: 'Ability 3', group: 'Combat' },
   { action: 'ability4', label: 'Ability 4', group: 'Combat' },
+  { action: 'ability5', label: 'Ability 5', group: 'Combat' },
+  { action: 'ability6', label: 'Ability 6', group: 'Combat' },
 
   { action: 'swapWeapon', label: 'Swap weapons', group: 'Items' },
   { action: 'healthPotion', label: 'Drink health potion', group: 'Items' },
@@ -68,7 +102,7 @@ export const ACTIONS: readonly ActionInfo[] = [
   { action: 'skills', label: 'Skills', group: 'Interface' },
   { action: 'map', label: 'World map', group: 'Interface' },
   { action: 'pause', label: 'Pause', group: 'Interface' },
-  { action: 'debug', label: 'AI debug view', group: 'Interface' },
+  { action: 'debug', label: 'What the AI knows', group: 'Interface' },
 
   { action: 'potionCycle', label: 'Turn the potion dial', group: 'Items' },
   { action: 'potionUse', label: 'Drink', group: 'Items' },
@@ -82,11 +116,19 @@ export const DEFAULT_BINDINGS: Readonly<Record<Action, Binding>> = {
   moveLeft: { primary: K.A, secondary: K.LEFT },
   moveRight: { primary: K.D, secondary: K.RIGHT },
   run: { primary: K.SHIFT },
-  attack: { primary: K.J, secondary: K.SPACE },
+  // The mouse already aims, so the button under the aiming hand swings. J is
+  // kept as the second binding for anyone playing on the keyboard alone.
+  attack: { primary: MOUSE.left, secondary: K.J },
+  // Dash is on Space whatever weapon grants it, rather than on whichever
+  // ability slot that weapon happens to put it in -- the one movement button
+  // should not move when you change swords.
+  dash: { primary: K.SPACE },
   ability1: { primary: K.ONE },
   ability2: { primary: K.TWO },
   ability3: { primary: K.THREE },
   ability4: { primary: K.FOUR },
+  ability5: { primary: K.FIVE },
+  ability6: { primary: K.SIX },
   swapWeapon: { primary: K.Q },
   healthPotion: { primary: K.F },
   manaPotion: { primary: K.G },
@@ -97,11 +139,11 @@ export const DEFAULT_BINDINGS: Readonly<Record<Action, Binding>> = {
   map: { primary: K.M },
   pause: { primary: K.P },
   debug: { primary: K.F3 },
-  // The dial turns with R and pours with F. `healthPotion` and `manaPotion`
+  // The dial turns with R and pours with H. `healthPotion` and `manaPotion`
   // keep their own keys as well: the dial is the faster way once you know it
   // is there, and a direct key is the faster way before you do.
   potionCycle: { primary: K.R },
-  potionUse: { primary: K.F, secondary: K.H },
+  potionUse: { primary: K.H },
   companion: { primary: K.T },
   console: { primary: K.BACK_SLASH },
 };
@@ -115,7 +157,12 @@ export const DEFAULT_BINDINGS: Readonly<Record<Action, Binding>> = {
  */
 const RESERVED = new Set<number>([K.ESC, K.F5, K.F12, K.TAB]);
 
-const STORAGE_KEY = 'mirrorbound.keybinds.v1';
+// v3 added two more ability keys, because a staff grants three abilities and
+// two hands no longer fit in four. v2 added `dash` as its own action and moved
+// attack onto the mouse. An older table is dropped rather than migrated row by
+// row: it has no rows for the actions that were added, and the defaults are
+// what those actions are meant to be on.
+const STORAGE_KEY = 'mirrorbound.keybinds.v3';
 
 /** Code to a readable name, built by inverting Phaser's own table. */
 const NAMES: Record<number, string> = (() => {
@@ -135,8 +182,15 @@ const NAMES: Record<number, string> = (() => {
   };
 })();
 
+/** Mouse buttons read as M1..M5 -- shorter than "Left Click" on a key cap. */
+const MOUSE_NAMES: Record<number, string> = {
+  [MOUSE.left]: 'M1', [MOUSE.middle]: 'M3', [MOUSE.right]: 'M2',
+  [MOUSE.back]: 'M4', [MOUSE.forward]: 'M5',
+};
+
 export function keyName(code: number | undefined): string {
   if (code === undefined || code < 0) return '—';
+  if (isMouseCode(code)) return MOUSE_NAMES[code] ?? `M${mouseButton(code) + 1}`;
   return NAMES[code] ?? `#${code}`;
 }
 
@@ -177,6 +231,20 @@ export class Keybinds {
             ...(typeof b.secondary === 'number' ? { secondary: b.secondary } : {}),
           };
         }
+      }
+      // Migrate the old duplicate F/H dial binding and discard other duplicates.
+      if (base.potionUse.primary === K.F && base.potionUse.secondary === K.H)
+        base.potionUse = { primary: K.H };
+      const used = new Set<number>();
+      for (const { action } of ACTIONS) {
+        const codes = [base[action].primary, base[action].secondary].filter(
+          (code): code is number => typeof code === 'number' && Number.isInteger(code)
+            && code > 0 && (code < 256 || (isMouseCode(code) && mouseButton(code) < 8))
+            && !RESERVED.has(code) && !used.has(code),
+        );
+        const unique = [...new Set(codes)];
+        unique.forEach((code) => used.add(code));
+        base[action] = { primary: unique[0] ?? -1, ...(unique[1] ? { secondary: unique[1] } : {}) };
       }
       return base;
     } catch {
@@ -268,8 +336,8 @@ export class Keybinds {
 
     const current = this.#bindings[action];
     this.#bindings[action] = slot === 'primary'
-      ? { primary: code, ...(current.secondary !== undefined ? { secondary: current.secondary } : {}) }
-      : { primary: current.primary, secondary: code };
+      ? { primary: code, ...(current.secondary !== undefined && current.secondary !== code ? { secondary: current.secondary } : {}) }
+      : current.primary === code ? { primary: code } : { primary: current.primary, secondary: code };
 
     this.#save();
     return taken;

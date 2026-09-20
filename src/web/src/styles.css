@@ -211,22 +211,6 @@ small { color: var(--ink-faint); font-weight: 400; }
 .hud__hint { position: absolute; left: 50%; bottom: 2px; transform: translateX(-50%); padding: 2px 10px; font-size: 10px; color: rgba(169, 155, 166, 0.5); white-space: nowrap; }
 .hud__hint kbd { padding: 0 4px; font-size: 9.5px; border-color: rgba(255,255,255,0.08); background: transparent; color: rgba(242,232,223,0.6); }
 
-/* ---------- toasts ---------- */
-
-.toasts { position: absolute; top: 88px; left: 50%; transform: translateX(-50%); display: grid; gap: 6px; z-index: 12; pointer-events: none; }
-.toast {
-  display: grid; gap: 1px; padding: 8px 16px; border-radius: 10px; text-align: center;
-  background: var(--panel-strong); border: 1px solid rgba(255, 255, 255, 0.08);
-  animation: toast-in 0.25s ease-out; backdrop-filter: blur(6px);
-}
-.toast strong { font: 400 16px/1.15 var(--display); }
-.toast span { font-size: 12px; color: var(--ink-dim); }
-.toast[data-kind='good'] strong { color: var(--gold); }
-.toast[data-kind='warn'] strong { color: var(--pink); }
-.toast[data-kind='ai'] { border-color: rgba(214, 46, 108, 0.45); }
-.toast[data-kind='ai'] strong { color: var(--pink); }
-@keyframes toast-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
-
 /* ---------- overlays & dialogs ---------- */
 
 .overlay { position: absolute; inset: 0; z-index: 20; display: grid; place-items: center; padding: 20px; }

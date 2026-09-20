@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from mirrorbound.game.combat.abilities import ABILITIES, AbilityDef
+from mirrorbound.game.combat.abilities import ABILITIES, AbilityDef, AbilityType
 from mirrorbound.game.combat.weapons import BARE_HANDS, STARTING_WEAPON, WeaponDef, get_weapon
 from mirrorbound.game.entities.entity import Entity, Vec2
 from mirrorbound.game.inventory import Inventory
@@ -54,6 +54,8 @@ class Player(Entity):
     attack_cooldown: float = 0.0
     combo_step: int = 0
     combo_timer: float = 0.0
+    #: Seconds left on a press that arrived while the last swing was recovering.
+    attack_buffer: float = 0.0
     # ability id -> seconds remaining / total, for the HUD ring.
     ability_cooldowns: dict[str, float] = field(default_factory=dict)
     ability_cooldown_max: dict[str, float] = field(default_factory=dict)
@@ -153,6 +155,19 @@ class Player(Entity):
     def controllable(self) -> bool:
         return self.state not in ("dead", "hurt", "dash")
 
+    def input_speed(self, running: bool) -> float:
+        """Movement allowed in the current state, also sent for view prediction."""
+        if self.state in ("dead", "hurt", "dash"):
+            return 0.0
+        speed = self.run_speed if running else self.speed
+        if self.state in ("attack", "cast"):
+            speed *= .45
+        elif self.state == "drink":
+            speed *= DRINK_SLOW
+        elif self.state == "channel":
+            speed *= CHANNEL_SLOW
+        return speed
+
     def apply_input(self, dt: float, inp: PlayerInput) -> None:
         """Turn movement input into velocity and facing."""
         if self.state == "dead":
@@ -169,15 +184,7 @@ class Player(Entity):
         if move.length() > 1:
             move = move.normalized()
         self.is_running = bool(inp.run) and not move.is_zero()
-        top = self.run_speed if self.is_running else self.speed
-        # Swinging slows you down, but doesn't root you.
-        if self.state in ("attack", "cast"):
-            top *= 0.45
-        elif self.state == "drink":
-            top *= DRINK_SLOW
-        elif self.state == "channel":
-            top *= CHANNEL_SLOW
-        self.velocity = move * top
+        self.velocity = move * self.input_speed(self.is_running)
         if not move.is_zero():
             self.last_move_dir = move
 
@@ -218,6 +225,8 @@ class Player(Entity):
             self.potion_cooldown = max(0.0, self.potion_cooldown - dt)
         if self.attack_cooldown > 0:
             self.attack_cooldown -= dt
+        if self.attack_buffer > 0:
+            self.attack_buffer = max(0.0, self.attack_buffer - dt)
         if self.combo_timer > 0:
             self.combo_timer -= dt
             if self.combo_timer <= 0:
@@ -274,6 +283,34 @@ class Player(Entity):
 
     def can_attack(self) -> bool:
         return self.attack_cooldown <= 0 and self.state not in ("dead", "hurt", "dash", "drink", "channel")
+
+    #: Grace on top of the wait a buffered press is already covering.
+    #:
+    #: Without a buffer an attack pressed during recovery was dropped outright,
+    #: and the sword's three-hit chain was unreachable in practice: the chain
+    #: needs its next press between the 0.42s cooldown and the 0.9s combo
+    #: window, so anyone clicking at a natural rate spent every press inside the
+    #: cooldown, landed hit one over and over, and never saw hits two or three.
+    ATTACK_BUFFER = 0.25
+
+    def buffer_attack(self) -> None:
+        """Remember a press, whether or not it can be acted on this tick.
+
+        Held for whatever is left of the current recovery plus a grace period,
+        rather than a flat window: a flat one shorter than the weapon's
+        cooldown still drops presses -- which is the bug this exists to fix --
+        and one long enough for the slowest weapon would feel like lag on the
+        fastest. It is a single flag, not a count, so mashing buys one swing
+        and never queues a burst for when the player has stopped asking.
+        """
+        self.attack_buffer = max(0.0, self.attack_cooldown) + self.ATTACK_BUFFER
+
+    def take_buffered_attack(self) -> bool:
+        """Whether a remembered press should swing now, consuming it."""
+        if self.attack_buffer <= 0 or not self.can_attack():
+            return False
+        self.attack_buffer = 0.0
+        return True
 
     # --- potions ----------------------------------------------------------------
 
@@ -344,6 +381,25 @@ class Player(Entity):
         if 1 <= slot <= len(slots):
             return ABILITIES.get(slots[slot - 1])
         return None
+
+    def clear_shield_cooldown(self) -> list[str]:
+        """Make every ward the player carries ready again. Returns what changed.
+
+        This is the parry's whole reward. It deliberately does not refund the
+        mana or extend the ward that is already up: the ward still runs out on
+        its own timer, and re-raising it still costs. Mana is what stops a
+        player who is being hit constantly from holding a shield forever, and
+        removing the cooldown without removing that limit is what makes reading
+        an attack worth doing rather than mandatory.
+        """
+        cleared: list[str] = []
+        for aid in list(self.ability_cooldowns):
+            ability = ABILITIES.get(aid)
+            if ability is not None and ability.type is AbilityType.SHIELD:
+                del self.ability_cooldowns[aid]
+                self.ability_cooldown_max.pop(aid, None)
+                cleared.append(aid)
+        return cleared
 
     def ability_cooldown_for(self, ability: AbilityDef) -> float:
         mult = self.mods.ability_cooldown_mult
@@ -506,6 +562,8 @@ class Player(Entity):
         base.update({
             "type": "player",
             "state": self.state,
+            "moveSpeed": round(self.input_speed(False), 3),
+            "runSpeed": round(self.input_speed(True), 3),
             "mana": round(self.mana, 1),
             "maxMana": round(self.max_mana, 1),
             "xp": self.xp,

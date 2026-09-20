@@ -237,6 +237,20 @@ export interface EnemyArt extends Record<EnemyStateName, EnemySheet> {
 }
 
 /** Two bands, in play order, joined into one clip. */
+import {
+  DUMMY_ANCHOR, DUMMY_BODY_RATIO, DUMMY_FRAMES, DUMMY_FRAME_SIZE, DUMMY_TEXTURE_KEY,
+} from './dummyAtlas.generated';
+
+/**
+ * The dummy standing still: frame zero of its only clip, held.
+ *
+ * A one-frame band rather than the whole sheet at frame rate zero, because a
+ * looping clip with no frame rate is not a definition of "hold still" that
+ * Phaser has any reason to honour. Its four inert states all share this, and
+ * only the flinch runs the full eight.
+ */
+const DUMMY_REST_FRAMES = { rest: [DUMMY_FRAMES.hit[0]!] } as const;
+
 function sheet(
   texture: string,
   bands: Readonly<Record<string, readonly string[]>>,
@@ -248,6 +262,10 @@ function sheet(
   return { texture, frames: Object.values(bands).flat(), anchor, frameSize, bodyRatio, frameRate };
 }
 
+const DUMMY_REST = sheet(
+  DUMMY_TEXTURE_KEY, DUMMY_REST_FRAMES, DUMMY_ANCHOR, DUMMY_FRAME_SIZE, DUMMY_BODY_RATIO, 1,
+);
+
 /**
  * Every enemy Logesh drew, keyed by the server's `sprite` id.
  *
@@ -257,6 +275,25 @@ function sheet(
  * the heaviest and is only ever wanted in one room in the game.
  */
 export const ENEMY_ART = {
+  /**
+   * The practice dummy, which is a prop pretending to be a creature.
+   *
+   * Its sheet holds one clip -- eight frames of being struck -- because that is
+   * the only thing it does. So every state points at the same sheet and the
+   * clip is played as the *flinch*: standing still it holds frame zero, and a
+   * hit runs the straw flying off. Registering it as an enemy family rather
+   * than as decor is what puts it through the ordinary damage path, which is
+   * the entire point of having one: the numbers that come off it are the
+   * numbers a real enemy would take.
+   */
+  dummy: {
+    idle: DUMMY_REST,
+    walk: DUMMY_REST,
+    alert: DUMMY_REST,
+    attack: DUMMY_REST,
+    hurt: sheet(DUMMY_TEXTURE_KEY, DUMMY_FRAMES, DUMMY_ANCHOR, DUMMY_FRAME_SIZE, DUMMY_BODY_RATIO, 16),
+    sizeRatio: 1.05,
+  },
   skeleton: {
     idle: sheet(SKELETONIDLE_TEXTURE_KEY, SKELETONIDLE_FRAMES, SKELETONIDLE_ANCHOR, SKELETONIDLE_FRAME_SIZE, SKELETONIDLE_BODY_RATIO, 7),
     walk: sheet(SKELETONWALK_TEXTURE_KEY, SKELETONWALK_FRAMES, SKELETONWALK_ANCHOR, SKELETONWALK_FRAME_SIZE, SKELETONWALK_BODY_RATIO, 11),
@@ -377,9 +414,18 @@ export function hasEnemyArt(sprite: string): sprite is EnemySpriteName {
   return sprite in ENEMY_ART;
 }
 
-/** Animations are global, so each is keyed by its own texture. */
-export function enemyStateKey(sheetDef: EnemySheet): string {
-  return animationKey(sheetDef.texture, 'play');
+/**
+ * The clip key for one state of one family.
+ *
+ * Keyed by texture *and* state rather than by texture alone. Most families
+ * draw every state on its own sheet, so the old texture-only key was unique by
+ * accident -- but a family that reuses one sheet for several states collapsed
+ * them all onto a single animation, and the last one registered won. The
+ * practice dummy is exactly that case: one sheet, and it must still hold still
+ * when idle and run the straw off when struck.
+ */
+export function enemyStateKey(sheetDef: EnemySheet, state: string): string {
+  return animationKey(sheetDef.texture, state);
 }
 
 /**
@@ -405,8 +451,20 @@ export const ENEMY_STATES = ['idle', 'walk', 'alert', 'attack'] as const;
  */
 export function enemySheets(sprite: EnemySpriteName): readonly EnemySheet[] {
   const art = ENEMY_ART[sprite] as EnemyArt;
-  const sheets = ENEMY_STATES.map((state) => art[state]);
-  return art.death ? [...sheets, art.death] : sheets;
+  // Every optional sheet counts too. They were left out, so `hurt` and `slam`
+  // were declared on the Warden and then never fetched -- which is why sheet 86
+  // shipped and its flinch and its slam did nothing at all. A sheet that is in
+  // the table is a sheet the family needs.
+  const sheets = [
+    ...ENEMY_STATES.map((state) => art[state]),
+    ...(art.hurt ? [art.hurt] : []),
+    ...(art.slam ? [art.slam] : []),
+    ...(art.death ? [art.death] : []),
+  ];
+  // De-duplicated: a family may point several states at one sheet (the
+  // practice dummy points all of them at its single sheet), and asking the
+  // loader for the same atlas five times is five requests.
+  return [...new Map(sheets.map((sheet) => [sheet.texture, sheet])).values()];
 }
 
 /** The atlas keys one enemy family needs loaded. */
@@ -448,7 +506,19 @@ export function registerEnemyAnimations(
       frameRate: def.frameRate,
       repeat: state === 'idle' || state === 'walk' ? -1 : 0,
     };
-    registerClips(anims, def.texture, { play: clip });
+    registerClips(anims, def.texture, { [state]: clip });
+  }
+  // The optional three. `hurt` and `slam` were never registered, so the Warden
+  // asked for animations that did not exist and silently kept standing there.
+  if (art.hurt) {
+    registerClips(anims, art.hurt.texture, {
+      hurt: { frames: art.hurt.frames, frameRate: art.hurt.frameRate, repeat: 0 },
+    });
+  }
+  if (art.slam) {
+    registerClips(anims, art.slam.texture, {
+      slam: { frames: art.slam.frames, frameRate: art.slam.frameRate, repeat: 0 },
+    });
   }
   // Effect sheets that came down with this family, if it has any: the same
   // rule as the body sheets -- registered once the textures are in the cache,
@@ -458,7 +528,7 @@ export function registerEnemyAnimations(
   // from there, so it must not loop back to standing.
   if (art.death) {
     registerClips(anims, art.death.texture, {
-      play: { frames: art.death.frames, frameRate: art.death.frameRate, repeat: 0 },
+      death: { frames: art.death.frames, frameRate: art.death.frameRate, repeat: 0 },
     });
   }
 }

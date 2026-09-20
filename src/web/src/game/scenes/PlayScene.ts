@@ -20,6 +20,8 @@ import { PickupView } from '../entities/PickupView';
 import { PlayerView } from '../entities/PlayerView';
 import { ProjectileView } from '../entities/ProjectileView';
 import { TwinView } from '../entities/TwinView';
+import { weaponSheetFor } from '../animation/weaponClips';
+import { ShieldOverlay } from '../entities/ShieldOverlay';
 import { WeaponOverlay } from '../entities/WeaponOverlay';
 import { eventBus } from '../EventBus';
 import { KeyboardIntentSource } from '../input/KeyboardIntentSource';
@@ -40,6 +42,19 @@ const ENEMY_COLOUR: Record<string, number> = {
   spitter: 0x9ad06a, sprout: 0x7fbf5a, warden: 0xf0c060,
 };
 
+/** What a beam reaches when the server did not say. Its own `range`. */
+const BEAM_REACH = 760;
+
+/**
+ * Where an effect leaves from: out along the facing by the muzzle distance the
+ * server resolved with, so the drawn thing starts where the staff's head is
+ * rather than inside the creature holding it.
+ */
+function muzzled(pos: Vec2, facing: Vec2, muzzle: unknown): Vec2 {
+  const out = typeof muzzle === 'number' ? muzzle : 0;
+  return { x: pos.x + facing.x * out, y: pos.y + facing.y * out };
+}
+
 export class PlayScene extends Phaser.Scene {
   static readonly KEY = 'play';
 
@@ -50,6 +65,7 @@ export class PlayScene extends Phaser.Scene {
   #vfx!: Vfx;
   #source!: KeyboardIntentSource;
   #weapon!: WeaponOverlay;
+  #shield!: ShieldOverlay;
   #enemyAtlases!: EnemyAtlasLoader;
   #player: PlayerView | null = null;
   #twin: TwinView | null = null;
@@ -67,6 +83,9 @@ export class PlayScene extends Phaser.Scene {
   #cameraBound = false;
   /** Highest event tick already turned into feedback; see `#onEvents`. */
   #lastEventTick = -1;
+  /** What the camera is following while a cutscene runs, or null when free. */
+  #cameraFocus: 'player' | 'twin' | null = null;
+  #cutscenePlaying = false;
 
   constructor() {
     super(PlayScene.KEY);
@@ -80,18 +99,22 @@ export class PlayScene extends Phaser.Scene {
     this.#ambient = new Ambient(this, this.#settings.quality);
     this.#vfx = new Vfx(this, this.#settings);
     this.#weapon = new WeaponOverlay(this);
+    this.#shield = new ShieldOverlay(this);
     // When a family's sheets land, every enemy of that family standing in with
     // the painted texture swaps to the real art in place.
     this.#enemyAtlases = new EnemyAtlasLoader(this, (sprites) => {
       const arrived = new Set<string>(sprites);
       for (const view of this.#enemies.values()) {
         if (view.painted && arrived.has(view.snap.sprite)) view.adoptArt();
+        // The dark weapon sheets ride in the same batch, and an enemy that was
+        // already armed when they landed is holding nothing until it is told.
+        view.armWeapon();
       }
     });
     this.#debug = this.add.graphics().setDepth(DEPTH.debug);
     this.#vignette = this.add.image(0, 0, 'fx:vignette').setDepth(DEPTH.vignette).setAlpha(0.8);
 
-    this.#source = new KeyboardIntentSource(this.input.keyboard!);
+    this.#source = new KeyboardIntentSource(this.input.keyboard!, this.input);
     this.cameras.main.setBackgroundColor(PALETTE.night);
     this.cameras.main.setZoom(RENDER_SCALE * this.#settings.zoom);
 
@@ -168,7 +191,11 @@ export class PlayScene extends Phaser.Scene {
     const dt = Math.min(deltaMs, 50) / 1000;
     const intent = this.#source.sample();
     const snap = this.#snapshot;
-    const playing = snap !== null && snap.phase === 'playing' && !snap.paused && !this.#modalOpen;
+    // A cutscene is as much a reason not to be playing as a menu is: the
+    // server is already dropping input, and sending it anyway would only make
+    // the client disagree about what the player is doing.
+    const playing = snap !== null && snap.phase === 'playing' && !snap.paused
+      && !this.#modalOpen && snap.cutscene === undefined;
 
     if (this.#player) {
       if (playing) this.#player.predict(dt, intent);
@@ -176,6 +203,7 @@ export class PlayScene extends Phaser.Scene {
       // Anyone standing in a village turns to watch you walk past.
       this.#world.facePeople({ x: this.#player.x, y: this.#player.y });
       this.#weapon.place({ x: this.#player.x, y: this.#player.y }, this.#player.facingVec);
+      this.#shield.place({ x: this.#player.x, y: this.#player.y }, this.#player.facingVec);
       const ui = this.#player.snapshot();
       if (!this.#lastUiSnapshot || ui.state !== this.#lastUiSnapshot.state || ui.facing !== this.#lastUiSnapshot.facing) {
         this.#lastUiSnapshot = ui;
@@ -207,7 +235,7 @@ export class PlayScene extends Phaser.Scene {
     this.#snapshot = snap;
 
     if (isRoomFull(snap.room)) {
-      if (!this.#room || this.#room.index !== snap.room.index || this.#room.seed !== snap.room.seed) {
+      if (!this.#room || this.#room.id !== snap.room.id || this.#room.seed !== snap.room.seed) {
         this.#enterRoom(snap.room);
       } else {
         this.#room = snap.room;
@@ -224,11 +252,25 @@ export class PlayScene extends Phaser.Scene {
       this.#player.setRoom(this.#room);
       this.#bindCamera();
     }
-    this.#player.applySnapshot(snap.player, snap.player.stats?.speed);
-    if (snap.player.currentWeapon !== this.#weapon.equipped) {
-      const weapon = snap.player.weapon;
-      this.#weapon.equip(weapon ? weapon.animation : this.#animationFor(snap.player.currentWeapon));
+    this.#player.applySnapshot(snap.player, snap.player.stats?.speed, snap.paused);
+    // Compare sheet to sheet, never id to sheet: `currentWeapon` is
+    // "iron_sword" and `equipped` is "sword", so the two were never equal and
+    // this re-equipped -- and `equip` hides the overlay -- twenty times a
+    // second, which blanked every swing within a frame of it starting.
+    const weapon = snap.player.weapon;
+    this.#weapon.equip(weapon ? weapon.animation : this.#animationFor(snap.player.currentWeapon));
+    this.#shield.setUp(snap.player.statusEffects.includes('shield'));
+    this.#followCutscene(snap);
+    const playing = snap.cutscene !== undefined;
+    if (playing !== this.#cutscenePlaying) {
+      this.#cutscenePlaying = playing;
+      eventBus.emit('cutscene:state', { playing });
     }
+    // Which slot the dash key fires. Weapons decide their own ability pairs, so
+    // this moves when the weapon does -- which is exactly why the dash has a
+    // key of its own rather than living on a fixed slot number.
+    const dash = snap.player.abilities.find((a) => a.id === 'shadow_dash');
+    this.#source.dashSlot = dash ? dash.slot : null;
 
     // A dormant twin is not in the world yet. The server still simulates an
     // entity for it -- it has a position and a health pool from the first tick
@@ -254,10 +296,37 @@ export class PlayScene extends Phaser.Scene {
   }
 
   #animationFor(weaponId: string): string {
-    if (weaponId.includes('bow')) return 'bow';
-    if (weaponId.includes('ember') || weaponId.includes('fire')) return 'fireStaff';
-    if (weaponId.includes('frost') || weaponId.includes('ice')) return 'iceStaff';
-    return 'sword';
+    return weaponSheetFor(weaponId) ?? '';
+  }
+
+  /**
+   * Point the camera where the scene says, and give it back when the scene ends.
+   *
+   * The camera follows a sprite rather than being driven to a position, so the
+   * handover is a `startFollow` on the other view and the existing lerp does
+   * the travel -- a cut would lose the player, and a tween would fight the
+   * follow that is already running.
+   */
+  #followCutscene(snap: GameSnapshot): void {
+    const focus = snap.cutscene?.focus ?? null;
+    if (focus === this.#cameraFocus) return;
+    this.#cameraFocus = focus;
+    const cam = this.cameras.main;
+    // The twin can be missing -- it goes dormant on the `hatch` beat, which is
+    // the point of the beat -- so the camera holds wherever it was rather than
+    // snapping back mid-transformation.
+    const target = focus === 'twin' ? this.#twin?.sprite : this.#player?.sprite;
+    if (!target) {
+      // The twin is destroyed on the `hatch` beat -- that is the beat's whole
+      // point -- and the camera was left following the destroyed sprite for
+      // the rest of the scene. Phaser does not complain: it keeps reading the
+      // dead object's last coordinates, so the camera silently stops being
+      // able to move at all. Let go of it and hold where it is instead, which
+      // is what the old comment claimed was happening.
+      cam.stopFollow();
+      return;
+    }
+    cam.startFollow(target, false, CAMERA.lerp, CAMERA.lerp, 0, focus === 'twin' ? 0 : 18);
   }
 
   #enterRoom(room: RoomFull): void {
@@ -308,6 +377,9 @@ export class PlayScene extends Phaser.Scene {
       if (view) view.applySnapshot(e);
       else this.#enemies.set(e.id, new EnemyView(this, e));
       if (this.#enemyAtlases.needs(e.sprite)) (unloaded ??= []).push(e.sprite);
+      // Something in this room is fighting with one of the player's weapons,
+      // so the blackened sheets are worth their download now. Idempotent.
+      if (e.weapon) this.#enemyAtlases.requestDarkWeapons();
     }
     if (unloaded) this.#enemyAtlases.request(unloaded);
     for (const [id, view] of this.#enemies) {
@@ -326,7 +398,13 @@ export class PlayScene extends Phaser.Scene {
       seen.add(p.id);
       const view = this.#projectiles.get(p.id);
       if (view) view.applySnapshot(p);
-      else this.#projectiles.set(p.id, new ProjectileView(this, p, this.#settings.quality === 'high'));
+      else {
+        // Thrown by something carrying one of the player's weapons? Then it is
+        // drawn in that weapon's colours, so the bolt and the staff agree.
+        const armed = this.#enemies.get(p.ownerId)?.armed ?? false;
+        this.#projectiles.set(p.id,
+          new ProjectileView(this, p, this.#settings.quality === 'high', armed));
+      }
     }
     for (const [id, view] of this.#projectiles) {
       if (!seen.has(id)) {
@@ -417,15 +495,20 @@ export class PlayScene extends Phaser.Scene {
         break;
       }
 
+      case 'CUTSCENE_LINE':
+        eventBus.emit('cutscene:line', { text: String(e.data.text ?? '') });
+        break;
       case 'PLAYER_ATTACKED': {
-        if (!player) break;
+        if (!player || e.data.channel) break;
         const facing = (e.data.facing as Vec2) ?? player.facingVec;
         const weapon = String(e.data.weapon ?? '');
         const finisher = String(e.data.action_token ?? '').endsWith('FINISHER');
         // A weapon that throws something plays the motion Logesh drew for the
-        // shot rather than its melee bash. Read off what is equipped rather
-        // than off `player.weapon`, which only rides on detail snapshots.
-        const thrown = this.#weapon.equipped !== null && this.#weapon.equipped !== 'sword';
+        // shot rather than its melee bash. The server's own token says which
+        // this was (`BOW_SHOT` against `STAFF_STRIKE`); the old test of "any
+        // sheet but the sword" made every staff play its cast, which is why a
+        // staff never appeared to bash.
+        const thrown = String(e.data.action_token ?? '').endsWith('_SHOT');
         this.#weapon.strike(Number(e.data.comboStep ?? 1), { x: player.x, y: player.y }, facing, thrown);
         if (weapon.includes('sword')) {
           this.#vfx.slash({ x: player.x, y: player.y }, facing, finisher ? PALETTE.pink : 0xffffff, finisher ? 1.35 : 1);
@@ -435,19 +518,37 @@ export class PlayScene extends Phaser.Scene {
         else audio.play('ice', { volume: 0.7 });
         break;
       }
-      case 'PLAYER_ABILITY_CAST': {
-        if (!player) break;
+      case 'PLAYER_ABILITY_CAST':
+      case 'PLAYER_ABILITY_RESOLVED': {
+        if (!player || e.data.channel) break;
         const facing = (e.data.facing as Vec2) ?? player.facingVec;
         const pos = { x: player.x, y: player.y };
         const abilityId = String(e.data.ability_id);
         // The weapon's own motion while the spell fires. Without one the staff
         // idles through the cast and the spell reads as arriving from nowhere.
         this.#weapon.castAbility(abilityId, pos, facing);
+        // Sized from the ability the server actually sent, not a literal: the
+        // nova's 150 and the burst's 170 were copied here by hand and would
+        // stop agreeing the first time either is retuned.
+        const area = typeof e.data.area === 'number' ? e.data.area : null;
         switch (abilityId) {
-          case 'arcane_bolt': this.#vfx.arcaneCast(pos, facing); audio.play('arcane'); break;
-          case 'flame_burst': this.#vfx.flameCone(pos, facing); audio.play('fire'); break;
+          // A lance from the staff's head, not a bolt from the goat's middle.
+          // The server sends the reach and the muzzle it resolved with, so the
+          // drawn beam and the line that actually hit are the same line.
+          case 'arcane_bolt': this.#vfx.beam(muzzled(pos, facing, e.data.muzzle), facing,
+            typeof e.data.reach === 'number' ? e.data.reach : BEAM_REACH);
+            audio.play('arcane'); break;
+          case 'flame_burst': this.#vfx.flameCone(pos, facing, area ?? 170); audio.play('fire'); break;
           case 'shadow_dash': this.#vfx.dash(pos, (e.data.direction as Vec2) ?? facing); audio.play('dash'); break;
-          case 'binding_nova': this.#vfx.nova(pos, 150); audio.play('nova'); break;
+          case 'binding_nova': this.#vfx.nova(pos, area ?? 150); audio.play('nova'); break;
+          // Had no case at all, so the one spell that spawns nothing in the
+          // world -- it damages a radius and is otherwise pure presentation --
+          // fired in complete silence.
+          case 'flame_pillar': this.#vfx.firePillar(pos, area ?? 120); audio.play('fire'); break;
+          // The two bolts throw a real projectile, so they are never invisible,
+          // but they were the only casts with nothing at the staff's head.
+          case 'ember_bolt': this.#vfx.hitSparks(pos, PALETTE.ember, 8); audio.play('fire'); break;
+          case 'frost_bolt': this.#vfx.hitSparks(pos, PALETTE.ice, 8); audio.play('ice'); break;
           default: break;
         }
         break;
@@ -466,6 +567,14 @@ export class PlayScene extends Phaser.Scene {
         audio.play('hit', { volume: 0.6, pitch: crit ? 0.8 : 1 });
         break;
       }
+      case 'PLAYER_PARRIED':
+        // The server says when a parry happened; the client no longer infers
+        // it from the mitigation list.
+        this.#shield.parry();
+        // No parry sound was ever synthesised; the sharp end of the hit sound
+        // is the nearest thing to a clang the kit has.
+        audio.play('hit', { pitch: 1.6, volume: 0.8 });
+        break;
       case 'DAMAGE_TAKEN':
         this.#vfx.hurtFlash();
         this.#vfx.damageNumber(this.#pos(e), Number(e.data.damage), false, '#ff8a8a');
@@ -550,6 +659,33 @@ export class PlayScene extends Phaser.Scene {
         audio.play('boss_counter', { volume: 0.6 });
         break;
       }
+      // What the boss is casting, drawn from the same sheets the player's own
+      // spells use -- it took the weapon, so it should look like the weapon.
+      case 'ENEMY_ABILITY_CHARGE':
+        this.#vfx.telegraphRing(this.#pos(e), Number(e.data.radius) || 120, Number(e.data.duration) || 0.5);
+        break;
+      case 'ENEMY_ABILITY_CAST': {
+        const pos = this.#pos(e);
+        const facing = (e.data.facing as Vec2) ?? { x: 1, y: 0 };
+        const area = typeof e.data.area === 'number' ? e.data.area : 0;
+        switch (String(e.data.ability_id)) {
+          case 'flame_burst': this.#vfx.flameCone(pos, facing, area || 170); audio.play('fire'); break;
+          case 'flame_pillar': this.#vfx.firePillar(pos, area || 120); audio.play('fire'); break;
+          case 'binding_nova': this.#vfx.nova(pos, area || 150); audio.play('nova'); break;
+          case 'ember_bolt': this.#vfx.hitSparks(pos, PALETTE.ember, 8); audio.play('fire'); break;
+          case 'frost_bolt': this.#vfx.hitSparks(pos, PALETTE.ice, 8); audio.play('ice'); break;
+          // A lance from the staff's head, not a bolt from the goat's middle.
+          // The server sends the reach and the muzzle it resolved with, so the
+          // drawn beam and the line that actually hit are the same line.
+          case 'arcane_bolt': this.#vfx.beam(muzzled(pos, facing, e.data.muzzle), facing,
+            typeof e.data.reach === 'number' ? e.data.reach : BEAM_REACH);
+            audio.play('arcane'); break;
+          // Its own volley and anything else it took: the shards are real
+          // projectiles, so the cast only needs a flash at the source.
+          default: this.#vfx.hitSparks(pos, PALETTE.magenta, 10); break;
+        }
+        break;
+      }
       case 'BOSS_NOVA_CHARGE':
         this.#vfx.telegraphRing(this.#pos(e), Number(e.data.radius), Number(e.data.duration));
         break;
@@ -558,8 +694,22 @@ export class PlayScene extends Phaser.Scene {
         this.#vfx.shake(CAMERA.shake.heavy, 300);
         audio.play('nova');
         break;
-      case 'ENEMY_ATTACKED':
+      case 'ENEMY_ATTACKED': {
         if (e.data.ranged) audio.play('arrow', { volume: 0.5, pitch: 0.8 });
+        // An armed enemy swings the weapon it is actually holding, on the tick
+        // the server says it struck -- not on a guess made from its own clip.
+        // `enemy_id`, not `attacker` -- the server passes this payload's keys
+        // through verbatim, and `ENEMY_KILLED` above reads the same field.
+        const attacker = this.#enemies.get(String(e.data.enemy_id ?? ''));
+        attacker?.strike(1, Boolean(e.data.ranged));
+        break;
+      }
+      case 'CHEST_OPENED':
+        // The loot is already on the floor by the time this lands -- the
+        // server bursts it the instant the room is entered -- so the lid
+        // coming up is what explains where it came from.
+        this.#world.openChest(this.#pos(e));
+        audio.play('pickup', { volume: 0.6, pitch: 0.8 });
         break;
       case 'SKILL_UNLOCKED':
         audio.play('levelup', { volume: 0.5 });
@@ -625,6 +775,12 @@ export class PlayScene extends Phaser.Scene {
       }
       g.lineStyle(1, 0xffffff, 0.15);
       g.strokeCircle(e.position.x, e.position.y, e.radius);
+    }
+    // Draw the exact server footprint, including scale and building anchor.
+    for (const d of this.#room?.decor ?? []) {
+      if (!d.blocking) continue;
+      g.lineStyle(1, 0xf5a4c0, .65);
+      g.strokeCircle(d.collisionX ?? d.x, d.collisionY ?? d.y, d.collisionRadius ?? d.radius * d.scale);
     }
     // Player facing.
     const p = snap.player;

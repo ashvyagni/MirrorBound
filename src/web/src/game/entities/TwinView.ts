@@ -14,7 +14,8 @@ import { GOAT_FRAME_SIZE } from '../animation/goatAtlas.generated';
 import { BRO_CLIPS, BRO_TEXTURE, broAnimationKey, type BroClipName } from '../animation/broClips';
 import { viewForDirection } from '../animation/clips';
 import { FX_TEXTURE, fxAnimationKey } from '../animation/fx';
-import { DEPTH, TWIN_DISPLAY_HEIGHT } from '../constants';
+import { weaponSheetFor, type WeaponId } from '../animation/weaponClips';
+import { DEPTH, PALETTE, TWIN_DISPLAY_HEIGHT } from '../constants';
 import type { TwinSnap, Vec2 } from '../contracts';
 import { EntityView } from './EntityView';
 
@@ -22,6 +23,38 @@ const INTENT_GLYPH: Record<string, string> = {
   ATTACK: '⚔', ASSIST: '⚔', INTERCEPT: '⛨', PROTECT: '⛨', DISTRACT: '!', FLANK: '↻', RETREAT: '↩',
   REPOSITION: '…', FOLLOW: '', EXPLORE: '✦', COMBO: '⚔', HEAL: '✚',
 };
+
+/** The shard's colour on the twin: the Mirror's own magenta, darkened. */
+const CORRUPT_BRIGHT = PALETTE.magenta;
+const CORRUPT_DIM = 0x7a1838;
+
+/**
+ * What the twin's strike is made of, by the weapon it is fighting with.
+ *
+ * The twin picks weapons on the server -- `currentWeapon` arrives every
+ * snapshot and its controller has opinions about which one it wants -- and
+ * none of that was visible. The obvious fix, drawing the weapon in its hands,
+ * is not available: it is a floating spirit with no arms, which is why its
+ * attack was drawn as a swirl in the first place. So the swirl carries the
+ * element instead. Ember reads warm, frost reads cold, a blade reads as plain
+ * bright steel, and an empty hand stays the sheet's own untinted white.
+ */
+const STRIKE_TINT: Record<WeaponId, number> = {
+  fireStaff: 0xff9a4d,
+  iceStaff: 0x9fe3ff,
+  bow: 0xd8e8a0,
+  sword: 0xf2e8df,
+};
+
+/** Blend two packed RGB colours. Phaser's own helper wants `Color` objects. */
+function mixTint(from: number, to: number, t: number): number {
+  const mix = (shift: number) => {
+    const a = (from >> shift) & 0xff;
+    const b = (to >> shift) & 0xff;
+    return Math.round(a + (b - a) * t) << shift;
+  };
+  return mix(16) | mix(8) | mix(0);
+}
 
 export class TwinView extends EntityView {
   readonly sprite: Phaser.GameObjects.Sprite;
@@ -57,6 +90,11 @@ export class TwinView extends EntityView {
     return this.#clip;
   }
 
+  /** True while the twin is carrying the Warden's shard. */
+  #corrupted = false;
+  /** Phase of the shard tint's slow breath. */
+  #corruptPhase = 0;
+
   applySnapshot(snap: TwinSnap): void {
     this.snap = snap;
     this.syncTarget(snap.position, snap.velocity);
@@ -65,11 +103,16 @@ export class TwinView extends EntityView {
       this.#lastIntent = intent;
       this.#showThought(intent, snap.intent.confidence);
     }
+    // Downed reads first: a downed twin carrying the shard is still downed,
+    // and grey-and-faded says the thing the player has to act on.
     if (snap.state === 'downed') {
       this.sprite.setTint(0x555566).setAlpha(0.5);
-    } else if (this.sprite.alpha !== 1) {
+    } else if (!snap.corrupted && (this.#corrupted || this.sprite.alpha !== 1)) {
       this.sprite.clearTint().setAlpha(1);
     }
+    // The tint itself is painted in `update`, where there is a real `dt` to
+    // breathe against; snapshots arrive at 20Hz and would make it stutter.
+    this.#corrupted = snap.corrupted === true;
   }
 
   #showThought(intent: string, confidence: number): void {
@@ -84,6 +127,12 @@ export class TwinView extends EntityView {
   /** Reactions to what happened in the world. */
   onAttack(): void {
     this.#perform('danceSpin');
+    // Cleared rather than left set: a twin that swapped from the ember staff
+    // to a sword must not keep swinging orange.
+    const sheet = this.snap ? weaponSheetFor(this.snap.currentWeapon) : null;
+    const tint = sheet ? STRIKE_TINT[sheet] : null;
+    if (tint === null) this.#swirl.clearTint();
+    else this.#swirl.setTint(tint);
     this.#swirl.setVisible(true).setFlipX(this.sprite.x > (this.snap?.intent.position?.x ?? this.sprite.x))
       .play(fxAnimationKey('swirl'), true);
   }
@@ -102,6 +151,13 @@ export class TwinView extends EntityView {
 
   update(dt: number): void {
     this.follow(dt, 16);
+    if (this.#corrupted && this.snap?.state !== 'downed') {
+      // A slow pull between two reds rather than a flat wash, so the shard
+      // reads as something working on the twin rather than a palette swap.
+      this.#corruptPhase += dt * 1.6;
+      const t = 0.5 + 0.5 * Math.sin(this.#corruptPhase);
+      this.sprite.setTint(mixTint(CORRUPT_DIM, CORRUPT_BRIGHT, t));
+    }
     this.#bobPhase += dt * 2.3;
     const bob = Math.sin(this.#bobPhase) * 3.5;
     // The twin hovers a little above its logical position so its shadow sits below.

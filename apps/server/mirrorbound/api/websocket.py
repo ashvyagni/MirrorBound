@@ -9,6 +9,7 @@ import logging
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from mirrorbound.api.session import GameSession
+from mirrorbound.game.world import save as save_system
 
 router = APIRouter()
 log = logging.getLogger("mirrorbound.ws")
@@ -22,7 +23,15 @@ class ConnectionManager:
 
     async def connect(self, websocket: WebSocket, session_id: str):
         await websocket.accept()
+        previous = self.active_connections.get(session_id)
         self.active_connections[session_id] = websocket
+        if previous is not None and previous is not websocket:
+            # Newest connection owns this save. The old browser must not retry
+            # forever and take it back; the client recognises this close code.
+            try:
+                await previous.close(code=4409, reason="Session opened in another tab")
+            except (RuntimeError, WebSocketDisconnect):
+                pass
 
     def disconnect(self, session_id: str, websocket: WebSocket | None = None):
         """Forget a connection.
@@ -35,10 +44,19 @@ class ConnectionManager:
         if websocket is None or current is websocket:
             self.active_connections.pop(session_id, None)
 
-    async def send_message(self, session_id: str, message: dict):
+    async def send_message(self, session_id: str, message: dict, owner: WebSocket | None = None):
         ws = self.active_connections.get(session_id)
-        if ws is not None:
+        if ws is not None and (owner is None or owner is ws):
             await ws.send_text(json.dumps(message, separators=(",", ":")))
+
+
+class ConnectionSender:
+    """Bind a simulation's output to its socket, never to a replacement socket."""
+    def __init__(self, manager: ConnectionManager, websocket: WebSocket):
+        self.manager, self.websocket = manager, websocket
+
+    async def send_message(self, session_id: str, message: dict):
+        await self.manager.send_message(session_id, message, owner=self.websocket)
 
 
 manager = ConnectionManager()
@@ -57,8 +75,12 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
     #
     # `?seed=` means "start this run over from a known seed", so it also means
     # do not resume -- otherwise the seed would be ignored by the save.
-    session = GameSession(session_id, seed=seed, load_save=seed is None)
-    game_task = asyncio.create_task(session.run_game_loop(manager))
+    # Resume the slot this profile was last playing, not always the autosave:
+    # a player who loaded a named save and closed the tab expects to come back
+    # to it.
+    slot = save_system.read_active_slot(session_id)
+    session = GameSession(session_id, seed=seed, load_save=seed is None, slot=slot)
+    game_task = asyncio.create_task(session.run_game_loop(ConnectionSender(manager, websocket)))
     log.info("session %s started (seed %s)", session_id, session.seed)
 
     try:
@@ -68,6 +90,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 message = json.loads(data)
             except json.JSONDecodeError:
                 continue
+            if manager.active_connections.get(session_id) is not websocket:
+                break
             if isinstance(message, dict):
                 session.handle_input(message)
     except WebSocketDisconnect:

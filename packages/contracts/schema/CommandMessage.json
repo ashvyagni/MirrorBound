@@ -18,7 +18,18 @@
         "RESUME",
         "RESTART",
         "REQUEST_ROOM",
-        "SET_TWIN_STANCE"
+        "SET_TWIN_STANCE",
+        "SWAP_WEAPON",
+        "SET_OFFHAND",
+        "TRAVEL",
+        "TALK",
+        "BUY_ITEM",
+        "SET_NAME",
+        "TWIN_REQUEST",
+        "TWIN_CALL",
+        "SAVE",
+        "RESPEC",
+        "SPAWN"
       ],
       "title": "Action",
       "type": "string"
@@ -108,6 +119,68 @@
       ],
       "default": null,
       "title": "Seed"
+    },
+    "areaId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Areaid"
+    },
+    "npcId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Npcid"
+    },
+    "playerName": {
+      "anyOf": [
+        {
+          "maxLength": 64,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Playername"
+    },
+    "twinName": {
+      "anyOf": [
+        {
+          "maxLength": 64,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Twinname"
+    },
+    "enemyType": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Enemytype"
     }
   },
   "required": [

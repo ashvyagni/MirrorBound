@@ -8,10 +8,11 @@ import { HATCH_TEXTURES, registerHatchAnimations } from '../entities/Hatch';
 import { GOAT_TEXTURES, registerGoatAnimations } from '../animation/goatClips';
 import { ITEMS_TEXTURE_KEY } from '../animation/itemsAtlas.generated';
 import { SKILLNODES_TEXTURE_KEY } from '../animation/skillNodesAtlas.generated';
+import { registerShieldAnimations, SHIELD_TEXTURES } from '../animation/shieldClips';
 import { registerWeaponAnimations, WEAPON_TEXTURES } from '../animation/weaponClips';
 import { PALETTE } from '../constants';
 import { HUD_TEXTURES } from '../hud/textures';
-import { WORLD_TEXTURES } from '../world/propArt';
+import { registerChestAnimation, WORLD_TEXTURES } from '../world/propArt';
 import { eventBus } from '../EventBus';
 import { TextureFactory } from '../world/TextureFactory';
 
@@ -74,7 +75,7 @@ export class PreloadScene extends Phaser.Scene {
     // De-duplicated: the weapon list and the effect list overlap on nothing
     // today, but both are built from tables that can grow.
     const textures = [...new Set([
-      ...GOAT_TEXTURES, BRO_TEXTURE, ...WEAPON_TEXTURES, ...EFFECT_TEXTURES,
+      ...GOAT_TEXTURES, BRO_TEXTURE, ...WEAPON_TEXTURES, ...SHIELD_TEXTURES, ...EFFECT_TEXTURES,
       ...SHARED_ENEMY_TEXTURES, ...UI_TEXTURES, ...HATCH_TEXTURES,
     ])];
     for (const texture of textures) {
@@ -90,12 +91,14 @@ export class PreloadScene extends Phaser.Scene {
     registerGoatAnimations(this.anims);
     registerBroAnimations(this.anims);
     registerWeaponAnimations(this.anims);
+    registerShieldAnimations(this.anims);
     // Only the shared mark: each enemy family's clips are registered by
     // `EnemyAtlasLoader` once its own sheets have arrived, because a clip whose
     // frames name an unloaded texture is a clip that draws nothing.
     registerAlertMarkAnimation(this.anims);
     registerEffectAnimations(this.anims);
     registerHatchAnimations(this.anims);
+    registerChestAnimation(this.anims);
     registerFxAnimations(this.anims);
     const registered = performance.now();
     // Paint the world once, up front, so the first room appears without a hitch.

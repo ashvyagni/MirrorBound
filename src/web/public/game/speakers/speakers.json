@@ -4,120 +4,120 @@
    "frame": {
     "x": 2,
     "y": 2,
-    "w": 166,
-    "h": 217
+    "w": 165,
+    "h": 218
    },
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 9,
+    "x": 24,
     "y": 0,
-    "w": 166,
-    "h": 217
+    "w": 165,
+    "h": 218
    },
    "sourceSize": {
-    "w": 184,
-    "h": 223
+    "w": 201,
+    "h": 221
    }
   },
   "smith_oren": {
    "frame": {
-    "x": 186,
-    "y": 221,
-    "w": 182,
-    "h": 204
+    "x": 688,
+    "y": 2,
+    "w": 189,
+    "h": 185
    },
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 2,
-    "y": 10,
-    "w": 182,
-    "h": 204
+    "x": 12,
+    "y": 32,
+    "w": 189,
+    "h": 185
    },
    "sourceSize": {
-    "w": 184,
-    "h": 223
+    "w": 201,
+    "h": 221
    }
   },
   "apothecary_siv": {
    "frame": {
-    "x": 170,
+    "x": 169,
     "y": 2,
-    "w": 162,
-    "h": 214
+    "w": 166,
+    "h": 200
    },
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
-    "x": 6,
-    "y": 9,
-    "w": 162,
-    "h": 214
+    "x": 18,
+    "y": 18,
+    "w": 166,
+    "h": 200
    },
    "sourceSize": {
-    "w": 184,
-    "h": 223
+    "w": 201,
+    "h": 221
    }
   },
   "hearth": {
    "frame": {
     "x": 2,
-    "y": 435,
-    "w": 172,
-    "h": 118
-   },
-   "rotated": false,
-   "trimmed": true,
-   "spriteSourceSize": {
-    "x": 1,
-    "y": 97,
-    "w": 172,
-    "h": 118
-   },
-   "sourceSize": {
-    "w": 184,
-    "h": 223
-   }
-  },
-  "twin": {
-   "frame": {
-    "x": 370,
-    "y": 221,
-    "w": 140,
-    "h": 184
-   },
-   "rotated": false,
-   "trimmed": true,
-   "spriteSourceSize": {
-    "x": 23,
-    "y": 32,
-    "w": 140,
-    "h": 184
-   },
-   "sourceSize": {
-    "w": 184,
-    "h": 223
-   }
-  },
-  "villager": {
-   "frame": {
-    "x": 2,
-    "y": 221,
-    "w": 182,
-    "h": 212
+    "y": 222,
+    "w": 192,
+    "h": 166
    },
    "rotated": false,
    "trimmed": true,
    "spriteSourceSize": {
     "x": 0,
-    "y": 6,
-    "w": 182,
-    "h": 212
+    "y": 54,
+    "w": 192,
+    "h": 166
    },
    "sourceSize": {
-    "w": 184,
-    "h": 223
+    "w": 201,
+    "h": 221
+   }
+  },
+  "twin": {
+   "frame": {
+    "x": 337,
+    "y": 2,
+    "w": 182,
+    "h": 190
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 16,
+    "y": 15,
+    "w": 182,
+    "h": 190
+   },
+   "sourceSize": {
+    "w": 201,
+    "h": 221
+   }
+  },
+  "villager": {
+   "frame": {
+    "x": 521,
+    "y": 2,
+    "w": 165,
+    "h": 188
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 26,
+    "y": 17,
+    "w": 165,
+    "h": 188
+   },
+   "sourceSize": {
+    "w": 201,
+    "h": 221
    }
   }
  },
@@ -126,8 +126,8 @@
   "image": "speakers.png",
   "format": "RGBA8888",
   "size": {
-   "w": 512,
-   "h": 555
+   "w": 1024,
+   "h": 390
   },
   "scale": "1"
  }

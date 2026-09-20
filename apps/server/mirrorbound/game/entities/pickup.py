@@ -6,7 +6,12 @@ from dataclasses import dataclass
 
 from mirrorbound.game.entities.entity import Entity, Vec2
 
-PICKUP_KINDS = ("essence", "shards", "gold", "health_potion", "mana_potion", "weapon", "relic")
+#: `mirror_shard` is not ordinary loot. The Warden leaves exactly one, only
+#: the twin may take it, and taking it is what turns the twin into the Mirror.
+#: It is a story beat wearing a pickup's clothes, which is why it is listed
+#: here but handled apart everywhere it appears.
+PICKUP_KINDS = ("essence", "shards", "gold", "health_potion", "mana_potion", "weapon", "relic",
+                "mirror_shard")
 
 
 @dataclass
@@ -26,10 +31,21 @@ class Pickup(Entity):
         self.health = 1
         self.max_health = 1
 
+    @property
+    def twin_only(self) -> bool:
+        """Whether the player is forbidden from taking this."""
+        return self.kind == "mirror_shard"
+
     def update(self, dt: float, player_pos: Vec2) -> None:
         self.age += dt
-        if self.age >= self.ttl:
+        # The shard waits. A story beat that expires because the player took
+        # too long to walk into the room is a beat that silently does not
+        # happen, and the Sanctum would then open on an uncorrupted twin.
+        if self.ttl > 0 and self.age >= self.ttl:
             self.active = False
+            return
+        # Nor is it dragged toward the player: it is the twin's to reach.
+        if self.twin_only:
             return
         to_player = player_pos - self.position
         dist = to_player.length()

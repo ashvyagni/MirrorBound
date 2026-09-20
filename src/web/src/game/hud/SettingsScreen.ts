@@ -5,8 +5,10 @@ import { GLYPHS_TEXTURE_KEY } from '../animation/glyphsAtlas.generated';
 import { HUD, PIXEL_FONT, RENDER_SCALE, VIEW } from '../constants';
 import { eventBus } from '../EventBus';
 import {
-  ACTIONS, keybinds, keyName, Keybinds, type Action, type ActionInfo,
+  ACTIONS, keybinds, keyName, Keybinds, mouseCode, type Action, type ActionInfo,
 } from '../state/Keybinds';
+import { saves, savedAgo } from '../state/Saves';
+import type { CommandMessage, SaveSlot } from '../contracts';
 import {
   getSettings, QUALITIES, updateSettings,
   type Quality,
@@ -36,13 +38,22 @@ const L = {
   pad: 40,
   controlW: 580,
   row: 84,
-  bindRow: 46,
+  bindRow: 36,
+  /** Height a section heading and its rule take before its first row. */
+  bindHead: 36,
+  /** Space between one group and the next heading. */
+  bindGap: 16,
   contentTop: -244,
   footer: 354,
 } as const;
 
-type Tab = 'Display' | 'Controls';
-const TABS: readonly Tab[] = ['Display', 'Controls'];
+/** Rows the Saves tab has vertical room for before the footer buttons. */
+const SAVE_ROWS = 5;
+/** Matches the server's own cap on `saveName`. */
+const SAVE_NAME_MAX = 48;
+
+type Tab = 'Display' | 'Controls' | 'Saves';
+const TABS: readonly Tab[] = ['Display', 'Controls', 'Saves'];
 
 export class SettingsScreen {
   #panel!: Panel;
@@ -53,11 +64,19 @@ export class SettingsScreen {
   #texts: Phaser.GameObjects.Text[] = [];
   /** The action waiting for a key, while a rebind is armed. */
   #listening: Action | null = null;
+  #onMouse: ((event: MouseEvent) => void) | null = null;
+  /** The name being typed for a new save, while one is being named. */
+  #saveName = '';
+  /** True between the first and second press of RESET ALL DATA. */
+  #resetArmed = false;
   #notice!: Phaser.GameObjects.Text;
   #onKey: ((event: KeyboardEvent) => void) | null = null;
   #escape: ((event: KeyboardEvent) => void) | null = null;
   #dragZoom: ((pointer: Phaser.Input.Pointer) => void) | null = null;
   #offSettings: (() => void) | null = null;
+  #offSaves: (() => void) | null = null;
+  /** `saves.revision` the Saves tab was last drawn from. */
+  #savesDrawn = -1;
 
   constructor(private readonly scene: Phaser.Scene) {}
 
@@ -95,6 +114,14 @@ export class SettingsScreen {
     this.#offSettings = eventBus.on('game:fullscreen', () => {
       if (this.open && this.#tab === 'Display') this.#render();
     });
+    // The list is the server's, so it redraws when the server's answer lands
+    // rather than when the button was pressed -- a delete that failed must not
+    // leave the row gone on screen.
+    this.#offSaves = eventBus.on('game:snapshot', () => {
+      if (!this.open || this.#tab !== 'Saves' || saves.revision === this.#savesDrawn) return;
+      this.#savesDrawn = saves.revision;
+      this.#render();
+    });
     this.scene.input.on('pointermove', this.#moveSlider, this);
     this.scene.input.on('pointerup', this.#releaseSlider, this);
     this.scene.input.on('gameout', this.#releaseSlider, this);
@@ -127,6 +154,7 @@ export class SettingsScreen {
           eventBus.emit('hud:pointer-used', {});
           this.#cancelListening();
           this.#notice.setText('');
+          this.#resetArmed = false;
           this.#tab = tab;
           this.#render();
         });
@@ -178,6 +206,7 @@ export class SettingsScreen {
     }
 
     if (this.#tab === 'Display') this.#renderDisplay();
+    else if (this.#tab === 'Saves') this.#renderSaves();
     else this.#renderControls();
   }
 
@@ -210,7 +239,7 @@ export class SettingsScreen {
     this.#toggle(y, this.scene.scale.isFullscreen, () => eventBus.emit('game:toggle-fullscreen', {}));
 
     this.#section(76, 'Sandbox');
-    this.#label(140, 'Show hitboxes');
+    this.#label(140, 'Show hitboxes and heat map');
     this.#toggle(140, settings.debugOverlay, (on) => {
       updateSettings({ debugOverlay: on });
       eventBus.emit('debug:toggle-bodies', { enabled: on });
@@ -221,11 +250,17 @@ export class SettingsScreen {
       eventBus.emit('debug:spawn-boss', {});
       eventBus.emit('settings:toggle', {});
     });
+    this.#label(308, 'The Proving');
+    this.#button(308, 'OPEN THE SANDBOX', 320, () => {
+      eventBus.emit('settings:toggle', {});
+      eventBus.emit('sandbox:toggle', {});
+    });
     this.#button(L.footer, 'RESET ZOOM', 250, () => {
       updateSettings({ zoom: 1 });
       this.#render();
     }, this.#right - 125);
-    this.#add(this.#text(this.#left, L.footer, 'Audio and extra effects are coming later.', 22, HUD.dimInk, 0));
+    this.#add(this.#text(this.#left, L.footer,
+      'The Proving is on the map too — travel there like anywhere else.', 22, HUD.dimInk, 0));
   }
 
   #slider(y: number, value: number): void {
@@ -321,6 +356,138 @@ export class SettingsScreen {
     this.#add(this.#text(x, y, caption, 23, HUD.ink));
   }
 
+  // --- saves ------------------------------------------------------------------
+
+  /**
+   * The save list.
+   *
+   * The server owns the slots; this only shows what the last detail snapshot
+   * said and sends commands. Nothing here decides that a save exists -- it
+   * asks, and the next snapshot answers, which is why every button re-renders
+   * off `saves.revision` rather than editing the list it just drew.
+   */
+  #renderSaves(): void {
+    this.#section(L.contentTop, 'Saves');
+    const slots = saves.slots;
+    let y = -188;
+
+    if (slots.length === 0) {
+      this.#add(this.#text(this.#left, y, 'No saves yet. Reaching a village writes one.', 24, HUD.dimInk, 0));
+    }
+    for (const slot of slots.slice(0, SAVE_ROWS)) {
+      this.#saveRow(y, slot);
+      y += L.row;
+    }
+
+    // Three different things, and the labels now say which is which. The
+    // middle one used to read NEW SAVE while sending SAVE_AS, so the only
+    // button that looked like "start again" copied the run you were in --
+    // level, gear, campaign progress and everything the twin had learned.
+    this.#button(L.footer - 74, 'SAVE HERE', 236, () => this.#command({ action: 'SAVE' }, 'Saved.'),
+                 this.#left + 118);
+    this.#button(L.footer - 74, 'COPY TO NEW SLOT', 300, () => this.#nameSave('SAVE_AS'),
+                 this.#left + 392);
+    this.#button(L.footer - 74, 'START A NEW RUN', 300, () => this.#nameSave('NEW_SAVE'),
+                 this.#left + 706);
+    this.#button(L.footer, 'RESET ALL DATA', 320, () => this.#confirmReset(), this.#right - 160);
+    this.#add(this.#text(this.#left, L.footer, this.#resetArmed
+      ? 'This erases every save. Press again to confirm.'
+      : 'Villages save on their own. A new run starts from nothing, in a slot of its own.',
+      22, this.#resetArmed ? HUD.activeInk : HUD.dimInk, 0));
+  }
+
+  #saveRow(y: number, slot: SaveSlot): void {
+    const playing = slot.id === saves.active;
+    this.#add(this.#text(this.#left, y - 12, slot.name, 26,
+      playing ? HUD.activeInk : HUD.ink, 0));
+    const where = [slot.area.replace(/_/g, ' '), `level ${slot.level}`, savedAgo(slot.savedAt)];
+    if (playing) where.push('playing');
+    this.#add(this.#text(this.#left, y + 16, where.join('  ·  '), 20, HUD.dimInk, 0));
+
+    this.#button(y, 'CONTINUE', 200, () => this.#command(
+      { action: 'LOAD_SAVE', saveId: slot.id }, `Loading ${slot.name}...`), this.#right - 330);
+    // The autosave is the village checkpoint itself; deleting it would be
+    // deleting the run rather than a save of it. Reset is how that is done.
+    if (!slot.auto) {
+      this.#button(y, 'DELETE', 180, () => this.#command(
+        { action: 'DELETE_SAVE', saveId: slot.id }, `Deleted ${slot.name}.`), this.#right - 100);
+    }
+  }
+
+  #command(message: Omit<CommandMessage, 'type'>, notice: string): void {
+    eventBus.emit('ui:command', { type: 'COMMAND', ...message });
+    this.#notice.setText(notice);
+    this.#resetArmed = false;
+    // The list redraws when the server's next snapshot says what happened.
+  }
+
+  /**
+   * Type a name for a new save.
+   *
+   * Captured off the window rather than through Phaser, for the same reason
+   * rebinding is: this has to accept keys the game has never asked for. Enter
+   * commits, Escape cancels, and an empty name still saves -- the server names
+   * the slot rather than refusing it.
+   */
+  #nameSave(action: 'SAVE_AS' | 'NEW_SAVE'): void {
+    this.#cancelListening();
+    this.#saveName = '';
+    this.#resetArmed = false;
+    const what = action === 'NEW_SAVE' ? 'Name your new run' : 'Name this save';
+    const paint = () => this.#notice.setText(
+      `${what}: ${this.#saveName}_    (Enter to confirm, Escape to cancel)`);
+    paint();
+
+    this.#onKey = (event: KeyboardEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.key === 'Escape') {
+        this.#notice.setText('');
+        this.#cancelListening();
+        return;
+      }
+      if (event.key === 'Enter') {
+        const name = this.#saveName.trim();
+        this.#cancelListening();
+        this.#command({ action, saveName: name }, action === 'NEW_SAVE'
+          ? `Starting a new run${name ? ` as ${name}` : ''}...`
+          : name ? `Saved as ${name}.` : 'Saved.');
+        return;
+      }
+      if (event.key === 'Backspace') {
+        this.#saveName = this.#saveName.slice(0, -1);
+        paint();
+        return;
+      }
+      // One printable character. `key` is already the composed character, so
+      // this takes accented letters without a dead-key table of its own.
+      if (event.key.length === 1 && this.#saveName.length < SAVE_NAME_MAX) {
+        this.#saveName += event.key;
+        paint();
+      }
+    };
+    window.addEventListener('keydown', this.#onKey, { capture: true });
+  }
+
+  /**
+   * Erase everything, on a second press.
+   *
+   * Two presses rather than a modal: this is the one button on the screen that
+   * cannot be undone, and it sits next to buttons that can. The armed state is
+   * dropped whenever anything else is touched, so it cannot be left primed.
+   */
+  #confirmReset(): void {
+    if (!this.#resetArmed) {
+      this.#resetArmed = true;
+      this.#render();
+      return;
+    }
+    this.#resetArmed = false;
+    eventBus.emit('ui:command', { type: 'COMMAND', action: 'RESET_DATA' });
+    this.#notice.setText('Everything erased. Starting over.');
+    this.#render();
+  }
+
   // --- controls ---------------------------------------------------------------
 
   #renderControls(): void {
@@ -334,12 +501,12 @@ export class SettingsScreen {
       let y = L.contentTop;
       for (const group of column) {
         this.#section(y, group, x, colWidth);
-        y += 44;
+        y += L.bindHead;
         for (const info of ACTIONS.filter((action) => action.group === group)) {
           this.#bindRow(x, y, colWidth, info);
           y += L.bindRow;
         }
-        y += 22;
+        y += L.bindGap;
       }
     });
     this.#button(L.footer, 'RESET TO DEFAULTS', 320, () => {
@@ -348,18 +515,19 @@ export class SettingsScreen {
       this.#notice.setText('Bindings reset to defaults.');
       this.#render();
     }, this.#right - 160);
-    this.#add(this.#text(this.#left, L.footer, 'Select a key to rebind. Escape cancels.', 22, HUD.dimInk, 0));
+    this.#add(this.#text(this.#left, L.footer,
+      'Select a row, then press a key or a mouse button. Escape cancels.', 22, HUD.dimInk, 0));
   }
 
   #bindRow(x: number, y: number, colWidth: number, info: ActionInfo): void {
     const binding = keybinds.get(info.action);
     const armed = this.#listening === info.action;
 
-    this.#add(this.#text(x, y, info.label, 23, HUD.ink, 0));
+    this.#add(this.#text(x, y, info.label, 21, HUD.ink, 0));
 
-    const capWidth = 210;
+    const capWidth = 200;
     const capX = x + colWidth - capWidth / 2;
-    const cap = this.#plate(capX, y, armed ? 'buttonPress' : 'button', capWidth, 40);
+    const cap = this.#plate(capX, y, armed ? 'buttonPress' : 'button', capWidth, 32);
     cap.setInteractive({ useHandCursor: true })
       .on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => {
         eventBus.emit('hud:pointer-used', {});
@@ -367,11 +535,11 @@ export class SettingsScreen {
       });
     this.#add(cap);
 
-    const caption = armed ? 'PRESS KEY'
+    const caption = armed ? 'PRESS ANY'
       : binding.primary < 0 ? '—'
       : keyName(binding.primary)
         + (binding.secondary !== undefined ? ` / ${keyName(binding.secondary)}` : '');
-    this.#add(this.#text(capX, y, caption, 22,
+    this.#add(this.#text(capX, y, caption, 20,
       armed ? HUD.activeInk : binding.primary < 0 ? HUD.dimInk : HUD.ink));
   }
 
@@ -386,19 +554,9 @@ export class SettingsScreen {
     this.#cancelListening();
     this.#listening = action;
     this.#notice.setText('Press a key, or Escape to cancel.');
-    eventBus.emit('input:suspend', { suspended: true });
     this.#render();
 
-    this.#onKey = (event: KeyboardEvent) => {
-      event.preventDefault();
-      event.stopPropagation();
-      const code = event.keyCode;
-      if (code === Phaser.Input.Keyboard.KeyCodes.ESC) {
-        this.#notice.setText('');
-        this.#cancelListening();
-        this.#render();
-        return;
-      }
+    const bind = (code: number) => {
       if (Keybinds.reserved(code)) {
         this.#notice.setText(`${keyName(code)} is reserved and cannot be bound.`);
         return;
@@ -410,7 +568,32 @@ export class SettingsScreen {
       this.#cancelListening();
       this.#render();
     };
+
+    this.#onKey = (event: KeyboardEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.keyCode === Phaser.Input.Keyboard.KeyCodes.ESC) {
+        this.#notice.setText('');
+        this.#cancelListening();
+        this.#render();
+        return;
+      }
+      bind(event.keyCode);
+    };
+    // A mouse button binds like a key. Listened for on the window at capture
+    // depth, because the click that arms a row is still travelling through
+    // Phaser's own handlers and would otherwise press the button underneath.
+    this.#onMouse = (event: MouseEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      bind(mouseCode(event.button));
+    };
     window.addEventListener('keydown', this.#onKey, { capture: true });
+    // Armed on the next frame, so the click that armed this row is not the
+    // click that binds it.
+    this.scene.time.delayedCall(0, () => {
+      if (this.#onMouse) window.addEventListener('mousedown', this.#onMouse, { capture: true });
+    });
   }
 
   #cancelListening(): void {
@@ -418,9 +601,13 @@ export class SettingsScreen {
       window.removeEventListener('keydown', this.#onKey, { capture: true });
       this.#onKey = null;
     }
+    if (this.#onMouse) {
+      window.removeEventListener('mousedown', this.#onMouse, { capture: true });
+      this.#onMouse = null;
+    }
+    this.#saveName = '';
     if (this.#listening !== null) {
       this.#listening = null;
-      eventBus.emit('input:suspend', { suspended: this.open });
     }
   }
 
@@ -434,14 +621,12 @@ export class SettingsScreen {
     this.#panel.setVisible(next);
     if (next) {
       this.#notice.setText('');
+      this.#resetArmed = false;
       this.#render();
-      this.#watchEscape();
-      eventBus.emit('input:suspend', { suspended: true });
     } else {
       this.#cancelListening();
       this.#unwatchEscape();
       this.#dragZoom = null;
-      eventBus.emit('input:suspend', { suspended: false });
     }
     return next;
   }
@@ -453,17 +638,6 @@ export class SettingsScreen {
    * traps anyone whose mouse has left the canvas -- and this one covers the
    * game, so being trapped in it means being unable to play.
    */
-  #watchEscape(): void {
-    if (this.#escape) return;
-    this.#escape = (event: KeyboardEvent) => {
-      // A rebind waiting for a key owns Escape first, to cancel itself.
-      if (this.#listening !== null) return;
-      if (event.keyCode !== Phaser.Input.Keyboard.KeyCodes.ESC) return;
-      event.preventDefault();
-      eventBus.emit('settings:toggle', {});
-    };
-    window.addEventListener('keydown', this.#escape);
-  }
 
   #unwatchEscape(): void {
     if (!this.#escape) return;
@@ -475,17 +649,19 @@ export class SettingsScreen {
     return this.#panel.visible;
   }
 
-  close(): void {
+  close(notify = true): void {
     this.#cancelListening();
+    this.#resetArmed = false;
     this.#unwatchEscape();
     const wasOpen = this.open;
     this.#panel.setVisible(false);
     this.#dragZoom = null;
-    if (wasOpen) eventBus.emit('input:suspend', { suspended: false });
+    if (wasOpen && notify) eventBus.emit('ui:screen-close', { screen: 'settings' });
   }
 
   destroy(): void {
     this.#offSettings?.();
+    this.#offSaves?.();
     this.scene.input.off('pointermove', this.#moveSlider, this);
     this.scene.input.off('pointerup', this.#releaseSlider, this);
     this.scene.input.off('gameout', this.#releaseSlider, this);

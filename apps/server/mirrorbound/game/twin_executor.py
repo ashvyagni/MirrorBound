@@ -15,6 +15,7 @@ from mirrorbound.game.entities.enemy import Enemy
 from mirrorbound.game.entities.entity import Vec2
 from mirrorbound.game.entities.twin import TwinIntent
 from mirrorbound.game.state import GameState
+from mirrorbound.game.movement.navigation import Navigator
 
 OFFENSIVE = {"ATTACK", "ASSIST", "INTERCEPT", "PROTECT", "DISTRACT", "FLANK", "COMBO"}
 MAX_INTENT_SECONDS = 4.0
@@ -33,6 +34,7 @@ class _Open:
 class TwinExecutor:
     def __init__(self) -> None:
         self._open: _Open | None = None
+        self.navigator = Navigator()
 
     # --- intent lifecycle -------------------------------------------------------
 
@@ -112,7 +114,7 @@ class TwinExecutor:
     def apply(self, dt: float, state: GameState, combat: CombatSystem) -> None:
         twin = state.twin
         intent = twin.intent
-        if twin.downed:
+        if not twin.available:
             twin.velocity = Vec2()
             return
 
@@ -152,7 +154,7 @@ class TwinExecutor:
             twin.velocity = Vec2()
             return
         speed = min(twin.speed * twin.slow_factor, dist / max(dt, 1e-3))
-        twin.velocity = diff.normalized() * speed
+        twin.velocity = self.navigator.velocity(state.room, twin, goal, speed)
         twin.face(diff)
 
     def _engage(self, dt: float, state: GameState, combat: CombatSystem, target: Enemy,

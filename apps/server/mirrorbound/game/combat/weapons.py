@@ -76,7 +76,15 @@ class WeaponDef:
 
     @property
     def is_melee(self) -> bool:
-        return self.type is WeaponType.MELEE
+        """Whether the basic attack swings rather than shoots.
+
+        Read off the projectile, not the type. A staff is a MAGIC weapon whose
+        M1 is a physical bash -- its element lives in the three spells it
+        grants, not in poking someone with it -- so keying this to the type
+        would make every staff shoot on M1 and would tell the twin's controller
+        to hold ranged distance while holding a stick.
+        """
+        return self.projectile is None
 
     def to_dict(self) -> dict:
         return {
@@ -146,20 +154,25 @@ EMBER_STAFF = WeaponDef(
     name="Ember Staff",
     type=WeaponType.MAGIC,
     family="staff",
-    damage=20,
-    cooldown=0.85,
-    range=320,
-    resource_cost=6,
-    knockback=120,
-    tags=("RANGED", "MAGIC", "SPELL", "AOE", "BURST"),
-    projectile=ProjectileSpec(kind="fire_bolt", speed=380, radius=9, lifetime=1.2, aoe_radius=56),
-    # Both fire: a cone in front, and a column around you when they have closed.
-    abilities=("flame_burst", "flame_pillar"),
+    # The bash, not the bolt. The bolt is `ember_bolt` and costs mana like the
+    # other two spells, so a staff is three spells and a way to keep something
+    # off you while they recharge -- rather than a wand you hold down.
+    damage=16,
+    cooldown=0.62,
+    range=74,
+    resource_cost=0,
+    knockback=150,
+    tags=("MELEE", "MAGIC", "HEAVY"),
+    combo_chain=(1.0,),
+    arc_angle=1.9,
+    # Everything the staff actually does: the bolt, a cone in front, and a
+    # column around you when they have closed.
+    abilities=("ember_bolt", "flame_burst", "flame_pillar"),
     animation="fireStaff",
     vfx="fire",
     sound="fire",
     rarity=Rarity.RARE,
-    description="Slow fireballs that burst on impact and hurt everything nearby.",
+    description="Smashes up close. Its fire is in the three spells it grants.",
 )
 
 FROST_STAFF = WeaponDef(
@@ -167,20 +180,22 @@ FROST_STAFF = WeaponDef(
     name="Frost Staff",
     type=WeaponType.MAGIC,
     family="staff",
-    damage=11,
-    cooldown=0.5,
-    range=340,
-    resource_cost=4,
-    knockback=40,
-    tags=("RANGED", "MAGIC", "SPELL", "FAST"),
-    projectile=ProjectileSpec(kind="ice_bolt", speed=440, radius=6, lifetime=1.1, slow=0.55, slow_duration=1.6),
-    # Hold them still, then punch a hole through the line.
-    abilities=("binding_nova", "arcane_bolt"),
+    # A lighter, faster sweep than the ember staff's overhead smash.
+    damage=12,
+    cooldown=0.48,
+    range=78,
+    resource_cost=0,
+    knockback=70,
+    tags=("MELEE", "MAGIC", "FAST"),
+    combo_chain=(1.0,),
+    arc_angle=2.2,
+    # The bolt, something to hold them still, and a hole through the line.
+    abilities=("frost_bolt", "binding_nova", "arcane_bolt"),
     animation="iceStaff",
     vfx="ice",
     sound="ice",
     rarity=Rarity.RARE,
-    description="Rapid frost bolts that slow whatever they touch.",
+    description="Sweeps up close. Its frost is in the three spells it grants.",
 )
 
 BARE_HANDS = WeaponDef(
@@ -200,16 +215,56 @@ BARE_HANDS = WeaponDef(
     # No abilities at all. Empty hands fall back to the dash, which is the one
     # thing you can always do -- see `Inventory.ability_slots`.
     abilities=(),
-    animation="sword",
+    # Nothing is drawn in an empty hand. This is the sheet the *client* would
+    # hang on the player, not the family the swipe belongs to -- naming "sword"
+    # here put a full iron blade in the hands of a player who has not found one
+    # yet, through the whole opening village.
+    animation="",
     vfx="slash",
     sound="slash",
     description="Two quick swipes. Short reach, and it will not carry you far.",
 )
 
 
+ADMIN_STICK = WeaponDef(
+    # A testing tool, not a weapon. It exists so that "does this enemy's death
+    # do the right thing" can be answered in one swing instead of a fight, and
+    # so the sandbox does not need a separate kill command for every archetype.
+    #
+    # The reach and the arc are wide rather than infinite: the point is to be
+    # able to delete something you are standing in front of, not to clear a
+    # room by facing it.
+    id="admin_stick",
+    name="Admin Stick",
+    type=WeaponType.MELEE,
+    family="sword",
+    damage=1_000_000,
+    cooldown=0.18,
+    range=160,
+    resource_cost=0,
+    knockback=0,
+    tags=("MELEE", "ADMIN"),
+    combo_chain=(1.0,),
+    combo_window=0.5,
+    arc_angle=2.6,
+    abilities=("aegis", "shadow_dash"),
+    animation="sword",
+    vfx="slash",
+    sound="slash",
+    description="Deletes what it touches. For testing, not for playing.",
+)
+
 WEAPONS: dict[str, WeaponDef] = {
-    w.id: w for w in (BARE_HANDS, IRON_SWORD, HUNTER_BOW, EMBER_STAFF, FROST_STAFF)
+    w.id: w for w in (BARE_HANDS, IRON_SWORD, HUNTER_BOW, EMBER_STAFF, FROST_STAFF,
+                      ADMIN_STICK)
 }
+
+#: Weapons that are testing tools rather than loot.
+#:
+#: Kept out of shops, out of drop tables and out of the twin's hands. The
+#: `canonical_weapon_ids` list is what those read, so this is the one place the
+#: distinction has to be made.
+ADMIN_WEAPONS: frozenset[str] = frozenset({ADMIN_STICK.id})
 
 # Backwards-compatible aliases for callers written against the earlier names.
 WEAPONS["sword"] = IRON_SWORD
@@ -241,9 +296,18 @@ def get_weapon(name: str) -> WeaponDef:
     return WEAPONS[name]
 
 
-def canonical_weapon_ids() -> list[str]:
+def canonical_weapon_ids(include_admin: bool = False) -> list[str]:
+    """Every weapon once, aliases collapsed.
+
+    Testing tools are excluded by default: this list is what shops, drop tables
+    and the twin's loadout read, and none of them should ever be handed the
+    admin stick.
+    """
     seen: list[str] = []
     for w in WEAPONS.values():
-        if w.id not in seen:
-            seen.append(w.id)
+        if w.id in seen:
+            continue
+        if not include_admin and w.id in ADMIN_WEAPONS:
+            continue
+        seen.append(w.id)
     return seen

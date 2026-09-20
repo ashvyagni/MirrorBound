@@ -24,8 +24,18 @@ import { artHeight, fitWidth } from './fit';
 /** How much of the bubble's drawn height is the tail under its body. */
 const TAIL = 0.22;
 
-/** How far above the target the bubble floats, in HUD pixels. */
-const LIFT = 46;
+/**
+ * How tall the thing being pointed at is, in world units.
+ *
+ * A target is anchored at its *base* -- an NPC's feet, a pickup's resting spot
+ * -- so the prompt has to clear the whole thing or it sits on the face of
+ * whoever you are about to talk to. Measured against the tallest of them, the
+ * villagers; floating a little high over a potion costs nothing, and a prompt
+ * over someone's head costs you the sight of them.
+ */
+const TARGET_HEIGHT = 68;
+/** Clear air between the top of the target and the bottom of the bubble. */
+const HEAD_ROOM = 12;
 
 export class InteractPrompt {
   #plate!: Phaser.GameObjects.Image;
@@ -33,7 +43,9 @@ export class InteractPrompt {
   #label!: Phaser.GameObjects.Text;
   #group!: Phaser.GameObjects.Container;
   #texts: Phaser.GameObjects.Text[] = [];
-  #target: { label: string; x: number; y: number } | null = null;
+  #target: { label: string; x: number; y: number; action?: 'walk' | 'collect' } | null = null;
+  /** True while a conversation owns the space over the target's head. */
+  #suppressed = false;
 
   constructor(private readonly scene: Phaser.Scene) {}
 
@@ -64,15 +76,15 @@ export class InteractPrompt {
     return t;
   }
 
-  set(target: { label: string; x: number; y: number } | null): void {
+  set(target: { label: string; x: number; y: number; action?: 'walk' | 'collect' } | null): void {
     this.#target = target;
-    if (!target) {
+    if (!target || this.#suppressed) {
       this.#group.setVisible(false);
       return;
     }
 
     const key = keyName(keybinds.get('interact').primary);
-    this.#cap.setText(key.toUpperCase());
+    this.#cap.setText(target.action === 'walk' ? 'WALK INTO' : target.action === 'collect' ? 'WALK OVER' : key.toUpperCase());
     this.#label.setText(target.label.toUpperCase());
 
     // Laid out from the two texts' measured widths, so a short key and a long
@@ -91,11 +103,26 @@ export class InteractPrompt {
     this.#group.setVisible(true);
   }
 
+  /**
+   * Stop offering to talk to someone you are already talking to.
+   *
+   * The speech bubble takes the space over their head, so leaving this up puts
+   * two plates on one person -- and the offer is moot once it has been taken.
+   */
+  setSuppressed(suppressed: boolean): void {
+    this.#suppressed = suppressed;
+    if (suppressed) this.#group.setVisible(false);
+    else if (this.#target) this.set(this.#target);
+  }
+
   /** Follow the target. Called every frame the prompt is up. */
   step(): void {
-    if (!this.#target) return;
+    if (!this.#target || this.#suppressed) return;
+    const cam = this.scene.scene.get('play')?.cameras?.main;
+    const zoom = cam?.zoom ?? RENDER_SCALE;
     const p = this.#toScreen(this.#target.x, this.#target.y);
-    this.#group.setPosition(p.x, p.y - LIFT);
+    const lift = TARGET_HEIGHT * zoom + HEAD_ROOM + artHeight(this.#plate) / 2;
+    this.#group.setPosition(p.x, p.y - lift);
     // Hidden rather than clamped when it leaves the view: a prompt pinned to
     // the edge points at something you cannot see.
     this.#group.setVisible(

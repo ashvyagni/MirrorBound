@@ -46,6 +46,8 @@ type PlayState = EnemyStateName | 'slam' | 'hurt';
 const HURT_SECONDS = 0.45;
 import { animationKey } from '../animation/clips';
 import { GOAT_BODY_RATIO } from '../animation/goatAtlas.generated';
+import { darkTexture, WEAPONS, weaponSheetFor } from '../animation/weaponClips';
+import { WeaponOverlay } from './WeaponOverlay';
 import { DEPTH, PALETTE, PLAYER_DISPLAY_HEIGHT } from '../constants';
 import type { EnemySnap, Vec2 } from '../contracts';
 import { EntityView } from './EntityView';
@@ -91,6 +93,14 @@ export class EnemyView extends EntityView {
   #bodyHeight: number;
   #lastHealth: number;
   #dying = false;
+  /**
+   * The player weapon this enemy fights with, drawn blackened.
+   *
+   * Only ever built for an enemy the server says is armed -- the Mirror, which
+   * is `armed_with` one of your weapons and takes its reach and cadence
+   * verbatim. Everything else keeps its own art and pays for none of this.
+   */
+  #weapon: WeaponOverlay | null = null;
 
   constructor(scene: Phaser.Scene, snap: EnemySnap) {
     super(scene, snap.id, snap.position, snap.boss ? 1.4 : snap.elite ? 1.1 : 0.85);
@@ -118,10 +128,54 @@ export class EnemyView extends EntityView {
         .setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.35).setScale(1.6).setDepth(DEPTH.shadow + 1);
       scene.tweens.add({ targets: this.#aura, alpha: { from: 0.25, to: 0.5 }, scale: { from: 1.5, to: 1.8 }, duration: 1300, yoyo: true, repeat: -1 });
     }
+    this.armWeapon();
+  }
+
+  /**
+   * Put the server's weapon in this enemy's hands, from the dark sheets.
+   *
+   * Idempotent, and re-checked on every snapshot rather than only at birth:
+   * the Mirror can be re-armed mid-fight from the sandbox, and a lite snapshot
+   * carries no weapon field at all -- which must leave the weapon alone rather
+   * than disarm it.
+   *
+   * Public because the sheets arrive after the enemy does: the loader calls
+   * this again once they land, the same way `adoptArt` upgrades the body.
+   */
+  armWeapon(): void {
+    const id = this.snap.weapon;
+    if (id === undefined) return;
+    const sheet = id ? weaponSheetFor(id) : null;
+    if (!sheet) {
+      this.#weapon?.destroy();
+      this.#weapon = null;
+      return;
+    }
+    // The blackened sheets are fetched only once something needs them, so they
+    // are usually still in flight when the enemy first appears. Wait rather
+    // than arm: a sprite pointed at a texture that has not arrived draws
+    // Phaser's missing-texture box, which is worse than an empty hand. The
+    // loader calls this again the moment they land.
+    const rest = WEAPONS[sheet].idle;
+    if (rest && !this.scene.textures.exists(darkTexture(rest.texture))) return;
+    // `dark: true` -- the Mirror's copies, not the player's own sheets.
+    this.#weapon ??= new WeaponOverlay(this.scene, true);
+    this.#weapon.equip(sheet);
   }
 
   get sprite(): Phaser.GameObjects.Sprite | Phaser.GameObjects.Image {
     return this.#sprite;
+  }
+
+  /**
+   * Whether this enemy is fighting with one of the player's weapons.
+   *
+   * Read off the snapshot rather than off the overlay: the sheets load lazily,
+   * so a boss can be armed for a second or two before there is anything to
+   * draw -- and a bolt it throws in that second should still be its own colour.
+   */
+  get armed(): boolean {
+    return Boolean(this.snap.weapon);
   }
 
   /** Whether this enemy is still standing in with the painted texture. */
@@ -161,8 +215,11 @@ export class EnemyView extends EntityView {
     // Anchored on the sheet's own measured feet, so the creature stands on its
     // position instead of hovering over it.
     sprite.setOrigin(sheet.anchor.x, sheet.anchor.y).setScale(this.#baseScale);
-    sprite.setDepth(old.depth).setFlipX(old.flipX).setAlpha(old.alpha);
-    sprite.play(animationKey(sheet.texture, 'play'));
+    // `visible` too. Without it a creature hidden by something else -- the
+    // Mirror is hidden for the whole hatch cinematic -- reappeared the instant
+    // its sheets finished downloading, which is mid-transformation.
+    sprite.setDepth(old.depth).setFlipX(old.flipX).setAlpha(old.alpha).setVisible(old.visible);
+    sprite.play(animationKey(sheet.texture, 'idle'));
     this.#sprite = sprite;
     old.destroy();
     // Pick up whatever the enemy is actually doing this instant, rather than
@@ -234,7 +291,9 @@ export class EnemyView extends EntityView {
     const sprite = this.sprite as Phaser.GameObjects.Sprite;
     sprite.setOrigin(sheet.anchor.x, sheet.anchor.y);
     sprite.setScale(this.#baseScale);
-    sprite.play(animationKey(sheet.texture, 'play'), true);
+    // Keyed by the state, not just by the sheet: a family can point several
+    // states at one sheet, and the dummy points all of them at its only one.
+    sprite.play(animationKey(sheet.texture, state), true);
   }
 
   applySnapshot(snap: EnemySnap): void {
@@ -251,6 +310,18 @@ export class EnemyView extends EntityView {
     if (Math.abs(snap.facing.x) > 0.2) this.sprite.setFlipX(snap.facing.x < 0);
     if (snap.windingUp && !wasWinding) this.#showMark();
     else if (!snap.windingUp && wasWinding) this.#hideMark();
+    this.armWeapon();
+  }
+
+  /**
+   * Swing the held weapon, if this enemy is holding one.
+   *
+   * Driven by the same server event that drives the player's swing, so the
+   * Mirror's blade moves on the tick the damage lands rather than on a guess
+   * made from its animation.
+   */
+  strike(comboStep = 1, thrown = false): void {
+    this.#weapon?.strike(comboStep, { x: this.x, y: this.y - this.#hover() }, this.snap.facing, thrown);
   }
 
   hit(): void {
@@ -313,6 +384,11 @@ export class EnemyView extends EntityView {
     this.#ring?.setPosition(this.x, this.y);
     this.#aura?.setPosition(this.x, this.y - 30);
     if (this.#mark?.visible) this.#mark.setPosition(this.x, this.y - this.#bodyHeight - this.#hover() - 14);
+    // Follows the body's hover rather than its bob: the weapon hangs from a
+    // hand, and a blade bouncing out of time with the arm reads as two
+    // separate things on screen.
+    this.#weapon?.place({ x: this.x, y: this.y - this.#hover() }, this.snap.facing);
+    this.#weapon?.setDepth(this.depthFor(this.y) + 1);
 
     // Wind-up telegraph.
     this.#telegraph.clear();
@@ -385,7 +461,7 @@ export class EnemyView extends EntityView {
       sprite.clearTint().setTintMode(Phaser.TintModes.MULTIPLY);
       const scale = this.#scaleFor(drawn);
       sprite.setOrigin(drawn.anchor.x, drawn.anchor.y).setScale(scale);
-      sprite.play(animationKey(drawn.texture, 'play'), true);
+      sprite.play(animationKey(drawn.texture, 'death'), true);
       // Held on the last frame, then faded: the clip does not loop, so the
       // hold is what the fade runs over rather than a second pass of it.
       sprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
@@ -408,6 +484,8 @@ export class EnemyView extends EntityView {
 
   override destroy(): void {
     super.destroy();
+    this.#weapon?.destroy();
+    this.#weapon = null;
     this.sprite.destroy();
     this.#bar.destroy();
     this.#telegraph.destroy();
