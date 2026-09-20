@@ -1,13 +1,12 @@
 # Art prompts
 
-**Nothing is outstanding. Every sheet the game asks for has been drawn.**
+**One sheet outstanding: job 4, the level bar and the twin's vitals.**
 
-The last three landed together: the floor tiles for all three biomes, the four
-ability icons, and the speaker portraits redrawn as the animals they actually
-are. What is kept below is the two style blocks and the three prompts that made
-them, because a sheet that is ever regenerated must be regenerated from the
-prompt it was drawn to -- a fresh description of the same object is how thirty
-sheets stop looking like one game.
+Jobs 1 to 3 are made and in the game -- the floor tiles, the ability icons and
+the speaker portraits redrawn as the animals they actually are. Their prompts
+are kept below because a sheet that is ever regenerated must be regenerated
+from the prompt it was drawn to: a fresh description of the same object is how
+thirty sheets stop looking like one game.
 
 | sheet | where it went |
 | --- | --- |
@@ -143,7 +142,7 @@ Reply "ready" and wait for my first sheet.
 
 ---
 
-### Block 0-UI — use for job 2
+### Block 0-UI — use for jobs 2 and 4
 
 Paste this on its own, once per chat, before the sheet.
 
@@ -540,6 +539,84 @@ change at all. The dialogue screen composes `dialogue.plate` +
 `dialogue.speakerFrame` + this portrait + `dialogue.nameTab`.
 
 ---
+
+---
+
+## Job 4 — the level bar and the twin's vitals
+
+### 92. Level and companion bars — `assets/ui/vitals.png`
+
+The portrait corner shows health and mana and nothing else. Two things are
+missing from it: what level you are and how far through it you are, and --
+once the twin is actually with you -- how the twin is doing.
+
+`status-bars.png` already holds the two you have: a long violet capsule with a
+square gem socket at its left end and an arrowhead point at its right, pink
+teardrop for health and cyan diamond for mana. **The level bar must not be a
+third one of those.** It is a different kind of information -- progress toward
+something rather than a resource being spent -- and reading it should not mean
+checking which gem is in the socket. The twin's two, by contrast, *should*
+echo the player's, because they mean the same thing about someone else.
+
+Paste **Block 0-UI** first. Flat on to the screen, dark violet chrome, hard
+pixel grid, chroma green background.
+
+```
+Sheet 92: SIX INTERFACE PIECES, one per cell, on a 1536 x 1024 canvas in a
+strict 4 x 2 grid of 384 x 512 cells: four across the top row, TWO in the
+bottom row at the left. The last two cells stay plain empty green.
+
+Every piece is EMPTY. The game draws its own fill, its own numbers and its own
+colour inside these -- do not draw a bar that is partly full, and do not draw
+any digits.
+
+TOP ROW.
+1. LEVEL TROUGH. A long, low, horizontal bar about 5 times as wide as it is
+   tall, centred in its cell. Not a capsule and not arrow-tipped -- both ends
+   are cut square with a small stepped notch taken out of each corner, so its
+   silhouette reads as a plate rather than as the health bar's tapered
+   capsule. Its opening is divided into TEN equal segments by nine thin
+   vertical dividers in the frame colour #53456a, each divider the full height
+   of the opening. The segments are what makes it read as progress rather than
+   as a pool. Dark violet #191322 inside, #53456a rim, one thin #cfc3d4
+   highlight along the top edge only.
+2. LEVEL PLAQUE. A small six-sided plate, slightly wider than tall, that the
+   level number is drawn inside. Flat #241d2e face, #53456a rim, and one short
+   #d62e6c chevron sitting across the bottom point. Its middle is EMPTY -- no
+   digits, no zero, nothing. About a third the height of the cell.
+3. TWIN HEALTH TROUGH. The player's health bar shrunk and simplified: the same
+   long capsule shape with the same arrowhead at its right end, but HALF the
+   height and with NO gem socket at the left -- its left end is simply rounded
+   off. Dark violet inside, #53456a rim. This sits under the player's own
+   health bar and has to read as the same kind of thing at a glance, which is
+   why the silhouette is kept and only the size changes.
+4. TWIN MANA TROUGH. Identical to piece 3 in every way. Drawn as its own cell
+   rather than reused so the two can be told apart if either is ever retuned.
+
+BOTTOM ROW, FIRST TWO CELLS ONLY.
+5. TWIN MARK. A small diamond about a sixth of the cell across, drawn as a
+   simple faceted gem in pale blue-white #a0cae4 with a #14111a outline. It is
+   set at the left end of the twin's pair of bars to say whose they are. One
+   mark for both bars, not one each.
+6. LEVEL-UP FLASH. The level trough's shape again, but as a solid filled
+   plate in bone white #f2e8df with no opening and no dividers -- a silhouette
+   of piece 1. The game lays this over the bar for a few frames when you
+   level, so it must line up with piece 1 exactly: same width, same height,
+   same corner notches.
+
+The other two cells: nothing at all. Plain green.
+```
+
+**Wiring.** Frame names: `levelTrough`, `levelPlate`, `twinHealth`, `twinMana`,
+`twinMark`, `levelFlash`. They go in `_ui(...)` in `sheets.py` beside
+`STATUS_BARS` at the same downscale, and `HUD_ART.bars` gains the rows below
+the existing two. The fills are drawn rectangles inside the art the way the
+health bar's already is, so the `inset` fractions have to be measured off
+pieces 1, 3 and 4 rather than guessed -- `Portrait.#buildBar` reads them.
+
+The twin's two are only drawn while `snapshot.twin.dormant` is false. Before
+the twin is found there is nobody to have vitals, and two empty troughs under
+the player's would be asking a question the game has not raised yet.
 
 ---
 

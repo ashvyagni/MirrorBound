@@ -215,6 +215,17 @@ export class HudScene extends Phaser.Scene {
       eventBus.on('cutscene:state', ({ playing }) => {
         if (playing) this.#cinematic.begin();
         else this.#cinematic.end();
+        // Everything that says "you are playing" goes away for the scene. A
+        // hotbar, a minimap and a health bar over a cinematic are three things
+        // asking to be read at the one moment the game wants you watching --
+        // and the letterbox bars are drawn over half of them anyway.
+        for (const piece of [this.#portrait, this.#minimap, this.#hotbar,
+                             this.#rail, this.#settings]) {
+          piece.setVisible(!playing);
+        }
+        // The prompt has its own switch: it is suppressed during conversations
+        // too, and a second flag would let the two disagree.
+        this.#prompt.setSuppressed(playing);
       }),
       eventBus.on('cutscene:line', ({ text }) => this.#cinematic.say(text)),
       eventBus.on('run:ended', (ended) => {
