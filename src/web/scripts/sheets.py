@@ -474,6 +474,19 @@ STATUS_BARS = _ui("statusBars", "status-bars.png", (
     Band("mp", 512, 1024, 0, 1536, 1, names=("mp",)),
 ), 0.25)
 
+#: Sheet 92. The level bar, the plate its number sits in, and the twin's pair.
+#:
+#: `grid_cols=4` on both rows: every piece is centred in its own cell, and the
+#: level trough and the flash laid over it have to register exactly -- anchoring
+#: each on its own bounds would offset the flash by the difference between a
+#: segmented outline and a solid plate.
+VITALS = _ui("vitals", "vitals.png", (
+    Band("bar", 0, 512, 0, 1536, 4, grid_cols=4,
+         names=("levelTrough", "levelPlate", "twinHealth", "twinMana")),
+    Band("mark", 512, 1024, 0, 768, 2, grid_cols=2,
+         names=("twinMark", "levelFlash")),
+), 0.25)
+
 MINIMAP_RING = _ui("minimapRing", "minimap-ring.png", (
     Band("ring", 0, 1254, 0, 1254, 1, names=("ring",)),
 ), 0.25)
@@ -956,6 +969,6 @@ SPEAKERS = _ui("speakers", "speakers.png", (
 ), 0.5)
 
 SHEETS = (GOAT, BRO, DUMMY, *FACINGS, *WEAPONS, *CASTS, *SHIELDS, *SPELLS,
-          ICONS, ABILITY_ICONS, *UI, *SCREENS, *ENEMIES, *CORRUPTED,
+          ICONS, ABILITY_ICONS, VITALS, *UI, *SCREENS, *ENEMIES, *CORRUPTED,
           *MIRROR, *HATCH, *BOSS_SPELLS, *WORLD, SPEAKERS,
           *WARDEN_BOSS)

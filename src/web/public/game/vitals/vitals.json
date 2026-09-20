@@ -1,0 +1,134 @@
+{
+ "frames": {
+  "levelTrough": {
+   "frame": {
+    "x": 88,
+    "y": 2,
+    "w": 92,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 12,
+    "w": 92,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 93,
+    "h": 47
+   }
+  },
+  "levelPlate": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 52,
+    "h": 46
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 20,
+    "y": 0,
+    "w": 52,
+    "h": 46
+   },
+   "sourceSize": {
+    "w": 93,
+    "h": 47
+   }
+  },
+  "twinHealth": {
+   "frame": {
+    "x": 182,
+    "y": 2,
+    "w": 90,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 1,
+    "y": 12,
+    "w": 90,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 93,
+    "h": 47
+   }
+  },
+  "twinMana": {
+   "frame": {
+    "x": 274,
+    "y": 2,
+    "w": 90,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 1,
+    "y": 12,
+    "w": 90,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 93,
+    "h": 47
+   }
+  },
+  "twinMark": {
+   "frame": {
+    "x": 56,
+    "y": 2,
+    "w": 30,
+    "h": 36
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 31,
+    "y": 5,
+    "w": 30,
+    "h": 36
+   },
+   "sourceSize": {
+    "w": 93,
+    "h": 47
+   }
+  },
+  "levelFlash": {
+   "frame": {
+    "x": 366,
+    "y": 2,
+    "w": 92,
+    "h": 21
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 12,
+    "w": 92,
+    "h": 21
+   },
+   "sourceSize": {
+    "w": 93,
+    "h": 47
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "vitals.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 512,
+   "h": 50
+  },
+  "scale": "1"
+ }
+}
