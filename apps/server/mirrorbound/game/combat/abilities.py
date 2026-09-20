@@ -20,6 +20,13 @@ class AbilityType(Enum):
     NOVA = "nova"
     HEAL = "heal"
     SHIELD = "shield"
+    #: A line out from the caster, resolved instantly, hitting everything on it.
+    #:
+    #: Not a fast projectile. `arcane_bolt` was one of those and threw a violet
+    #: thorn, while its icon and its cast animation were both the ice beam --
+    #: which is a lance that grows from the staff and retracts, and cannot fly
+    #: across a room without reading as the wrong thing entirely.
+    BEAM = "beam"
 
 
 @dataclass(frozen=True)
@@ -39,6 +46,13 @@ class AbilityDef:
     effect_tags: tuple[str, ...] = ()
     projectile: ProjectileSpec | None = None
     cone_angle: float = 1.2    # radians, CONE only
+    #: How far out from the caster the effect starts, along their facing.
+    #:
+    #: A beam leaves the *tip of the staff*, not the middle of the creature
+    #: holding it, and the staff is held out in front during the cast. Without
+    #: this the hitbox starts inside the caster and the drawn lance starts
+    #: somewhere the staff is not.
+    muzzle: float = 0.0
     duration: float = 0.0      # effect duration (slow, invulnerability)
     effect_value: float = 0.0  # dash distance, slow factor, heal amount
     vfx: str = ""
@@ -67,20 +81,27 @@ class AbilityDef:
 ARCANE_BOLT = AbilityDef(
     id="arcane_bolt",
     name="Arcane Bolt",
-    type=AbilityType.PROJECTILE,
+    type=AbilityType.BEAM,
     slot=1,
     icon="arcane_bolt",
     cooldown=1.2,
     cost=8,
     cast_time=0.0,
-    range=420,
+    # Long. It is the one attack in the game that crosses a room, which is
+    # what a beam is for and what pays for having to aim it -- the view is 960
+    # units wide, so this reaches most of the way across whatever you can see.
+    range=760,
     damage=22,
-    area=0,
+    # The beam's half-width. A line with no thickness is a line nothing is ever
+    # quite standing on, so this is what makes aiming forgiving enough to use.
+    area=26,
+    # Measured off the cast animation: the staff is held out and forward, and
+    # its head sits about this far along the facing when the lance appears.
+    muzzle=52,
     tags=("RANGED", "SPELL", "MAGIC"),
-    projectile=ProjectileSpec(kind="arcane_bolt", speed=560, radius=7, lifetime=0.9, pierce=True),
     vfx="arcane",
     sound="arcane",
-    description="A piercing bolt of violet light fired in your facing direction.",
+    description="A lance of light that spears everything in front of you.",
 )
 
 FLAME_BURST = AbilityDef(

@@ -179,6 +179,24 @@ class CombatSystem:
                     if "BURN" in ability.effect_tags:
                         enemy.apply_status("burn", 1.5)
                     hits.append(enemy.id)
+        elif ability.type is AbilityType.BEAM:
+            # A line out from the caster, resolved the instant it is cast. It
+            # pierces by construction: everything standing on the line is hit,
+            # and there is no first target to stop at.
+            # From the staff's head, not from the middle of the goat holding it.
+            origin = player.position + facing * ability.muzzle
+            beam = Hitbox(shape=HitboxShape.LINE, position=origin,
+                          size=ability.range, direction=facing.angle())
+            for enemy in state.get_active_enemies():
+                # `area` is the beam's half-width. `overlaps_circle` on a LINE
+                # measures to the segment and knows nothing of thickness, so it
+                # is added to the target's own radius here.
+                if beam.overlaps_circle(enemy.position, enemy.radius + ability.area):
+                    dmg = ability.damage * player.spell_damage_multiplier()
+                    knock = (enemy.position - origin).normalized()
+                    self.damage_enemy(state, enemy, dmg, player.id, list(ability.tags), knock,
+                                      110, ability.id)
+                    hits.append(enemy.id)
         elif ability.type is AbilityType.DASH:
             direction = player.last_move_dir if not player.velocity.is_zero() else player.facing
             invuln = ability.duration + player.mods.dash_invuln_bonus
@@ -223,6 +241,10 @@ class CombatSystem:
             # copied out of `abilities.py` by hand, so retuning a spell retunes
             # the thing that draws it.
             area=ability.area,
+            # A beam needs its reach and where it starts, or the drawn lance
+            # and the thing that hit you are two different lines.
+            reach=ability.range,
+            muzzle=ability.muzzle,
             position=player.position.to_dict(),
             facing=facing.to_dict(),
             targets=hits,
@@ -282,6 +304,13 @@ class CombatSystem:
             for ally in self._allies(state):
                 if (ally.position - enemy.position).length() <= ability.area + ally.radius:
                     hits.append(self._hit_ally(state, enemy, ally, ability, 120))
+        elif ability.type is AbilityType.BEAM:
+            origin = enemy.position + direction * ability.muzzle
+            beam = Hitbox(shape=HitboxShape.LINE, position=origin,
+                          size=ability.range, direction=direction.angle())
+            for ally in self._allies(state):
+                if beam.overlaps_circle(ally.position, ally.radius + ability.area):
+                    hits.append(self._hit_ally(state, enemy, ally, ability, 110))
         elif ability.type is AbilityType.HEAL:
             enemy.health = min(enemy.max_health, enemy.health + ability.effect_value)
         elif ability.type is AbilityType.SHIELD:
@@ -295,8 +324,8 @@ class CombatSystem:
 
         state.emit("ENEMY_ABILITY_CAST", enemy_id=enemy.id, enemy_type=enemy.enemy_def.id,
                    ability=ability.id.upper(), ability_id=ability.id, tags=list(ability.tags),
-                   area=ability.area, position=enemy.position.to_dict(),
-                   facing=direction.to_dict(), targets=[h for h in hits if h],
+                   area=ability.area, reach=ability.range, muzzle=ability.muzzle,
+                   position=enemy.position.to_dict(), facing=direction.to_dict(), targets=[h for h in hits if h],
                    hitCount=len([h for h in hits if h]))
         return True
 

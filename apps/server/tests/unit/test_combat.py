@@ -1,7 +1,7 @@
 from mirrorbound.api.session import GameSession
 from mirrorbound.game.entities.entity import Vec2
 from mirrorbound.game.entities.player import PlayerInput
-from tests.conftest import arm, DT, events_of, run_ticks
+from tests.conftest import DT, arm, events_of, run_ticks
 
 
 def fresh() -> GameSession:
@@ -135,9 +135,16 @@ def test_arcane_bolt_and_flame_burst_and_nova():
     assert around.health < around.max_health
     assert "slow" in around.status_effects and around.slow_factor < 1
     p.state = "idle"
-    # Arcane bolt: a projectile appears. Key six, the frost staff's third.
+    # Rimelance: a beam, resolved the instant it is cast. Key six, the frost
+    # staff's third. It used to be a fast projectile that threw a violet thorn
+    # while its icon and its cast animation were both the ice beam.
+    p.face(Vec2(1, 0))
+    before = near.health
     assert s.combat.process_ability(s.state, 6)
-    assert any(pr.kind == "arcane_bolt" for pr in s.state.projectiles)
+    assert not any(pr.kind == "arcane_bolt" for pr in s.state.projectiles), "it still throws something"
+    assert near.health < before, "the enemy in front of it was not hit"
+    cast = events_of(s, "PLAYER_ABILITY_CAST")[-1]
+    assert cast.data["ability"] == "ARCANE_BOLT" and near.id in cast.data["targets"]
 
 
 def test_shadow_dash_emits_dash_and_dodge_telemetry():
@@ -266,3 +273,81 @@ def test_buffered_attack_expires_rather_than_queueing_up():
         s.step(DT)
     run_ticks(s, 60)
     assert len(events_of(s, "PLAYER_ATTACKED")) == 2
+
+
+# --- the beam ----------------------------------------------------------------
+#
+# Reported from play: "why the hell is frost staff's 3 some sort of thorn
+# instead of the ice beam". It was a fast piercing *projectile* whose art
+# resolved to `thorn` tinted violet, while its icon and its cast animation were
+# both the ice beam -- which is a lance that grows from the staff and retracts
+# and cannot fly across a room without reading as something else entirely.
+
+
+#: The frost staff's third spell. Armed alone it fills keys one to three, so
+#: the beam is on three -- not on six, which is where it sits only when the
+#: ember staff is in the other hand.
+BEAM_SLOT = 3
+
+
+def beam_session():
+    """A session with the frost staff in hand, facing east."""
+    s = fresh()
+    arm(s, "frost_staff")
+    s.state.player.face(Vec2(1, 0))
+    return s
+
+
+def test_the_beam_hits_everything_along_the_line():
+    """It pierces by construction: there is no first target to stop at."""
+    s = beam_session()
+    near = place_enemy(s, "skeleton", Vec2(120, 0))
+    far = place_enemy(s, "skeleton", Vec2(500, 0))
+    assert s.combat.process_ability(s.state, BEAM_SLOT)
+    assert near.health < near.max_health
+    assert far.health < far.max_health, "it stopped at the first thing it hit"
+
+
+def test_it_misses_what_is_not_in_front_of_it():
+    s = beam_session()
+    behind = place_enemy(s, "skeleton", Vec2(-200, 0))
+    aside = place_enemy(s, "skeleton", Vec2(300, 260))
+    assert s.combat.process_ability(s.state, BEAM_SLOT)
+    assert behind.health == behind.max_health, "it fired backwards"
+    assert aside.health == aside.max_health, "its line is far too wide"
+
+
+def test_it_reaches_most_of_the_way_across_what_you_can_see():
+    """The one attack in the game that crosses a room."""
+    s = beam_session()
+    far = place_enemy(s, "skeleton", Vec2(700, 0))
+    assert s.combat.process_ability(s.state, BEAM_SLOT)
+    assert far.health < far.max_health
+
+
+def test_it_stops_at_its_own_range():
+    s = beam_session()
+    beyond = place_enemy(s, "skeleton", Vec2(900, 0))
+    assert s.combat.process_ability(s.state, BEAM_SLOT)
+    assert beyond.health == beyond.max_health, "it has no end"
+
+
+def test_it_leaves_from_the_staff_rather_than_the_goat():
+    """The cast holds the staff out in front; the lance starts at its head.
+
+    The event carries the same muzzle and reach the hitbox used, so the drawn
+    beam and the line that hit are one line rather than two.
+    """
+    s = beam_session()
+    place_enemy(s, "skeleton", Vec2(120, 0))
+    assert s.combat.process_ability(s.state, BEAM_SLOT)
+    cast = events_of(s, "PLAYER_ABILITY_CAST")[-1]
+    assert cast.data["muzzle"] > 0
+    assert cast.data["reach"] == 760
+
+
+def test_it_throws_nothing():
+    s = beam_session()
+    place_enemy(s, "skeleton", Vec2(120, 0))
+    assert s.combat.process_ability(s.state, BEAM_SLOT)
+    assert not s.state.projectiles, "a beam that spawns a projectile is not a beam"
