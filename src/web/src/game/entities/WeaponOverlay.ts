@@ -10,7 +10,10 @@
 import Phaser from 'phaser';
 
 import { GOAT_BODY_RATIO } from '../animation/goatAtlas.generated';
-import { ABILITY_CASTS, swingKey, WEAPONS, type SwingDef, type WeaponDef, type WeaponId } from '../animation/weaponClips';
+import {
+  ABILITY_CASTS, darkSwing, idleKey, swingKey, WEAPONS,
+  type SwingDef, type WeaponDef, type WeaponId,
+} from '../animation/weaponClips';
 import { DEPTH, PLAYER_DISPLAY_HEIGHT } from '../constants';
 import type { Vec2 } from '../contracts';
 
@@ -19,22 +22,68 @@ const RATIO = PLAYER_DISPLAY_HEIGHT / 190; // Logesh tuned offsets for a 190-uni
 export class WeaponOverlay extends Phaser.GameObjects.Sprite {
   #weapon: WeaponDef | null = null;
   #active: SwingDef | null = null;
+  /** True while the weapon is looping its rest clip rather than a one-shot. */
+  #resting = false;
+  /**
+   * Draw from the blackened sheets instead of the light ones.
+   *
+   * Set once, at construction, by whoever owns the overlay -- the player's is
+   * light and the Mirror's is dark, and neither ever changes its mind. The
+   * geometry is identical either way, so this only chooses a texture: every
+   * offset, length ratio and frame order below is shared with the player's.
+   */
+  readonly #dark: boolean;
 
-  constructor(scene: Phaser.Scene) {
+  constructor(scene: Phaser.Scene, dark = false) {
     super(scene, 0, 0, WEAPONS.sword.swings[0]!.texture, WEAPONS.sword.swings[0]!.frames[0]);
+    this.#dark = dark;
     scene.add.existing(this);
     this.setVisible(false).setActive(false).setDepth(DEPTH.fxLow);
-    this.on(Phaser.Animations.Events.ANIMATION_COMPLETE, () => this.setVisible(false).setActive(false));
+    // A finished swing falls back to the weapon at rest rather than to nothing:
+    // the hand does not empty between clicks.
+    this.on(Phaser.Animations.Events.ANIMATION_COMPLETE, () => this.#rest());
   }
 
   get equipped(): WeaponId | null {
     return this.#weapon?.id ?? null;
   }
 
+  /**
+   * Put a weapon in the hand, by sheet name -- `null` or an unknown name is an
+   * empty hand.
+   *
+   * A no-op when the same weapon is already held. Callers run this off every
+   * snapshot, and hiding the overlay on the way past would cut every swing
+   * short: a swing lasts about eight frames and snapshots arrive at 20Hz.
+   */
   equip(id: string | null): void {
     const known = id && id in WEAPONS ? (id as WeaponId) : null;
-    this.#weapon = known ? WEAPONS[known] : null;
-    this.setVisible(false).setActive(false);
+    const weapon = known ? WEAPONS[known] : null;
+    if (weapon === this.#weapon) return;
+    this.#weapon = weapon;
+    this.#rest();
+  }
+
+  /**
+   * Hold the weapon at rest, or show nothing if it has no drawn rest pose.
+   *
+   * This is where the overlay sits whenever it is not mid-swing, which is most
+   * of the time -- so it is also what makes an equipped weapon visible at all
+   * while the player is just standing there.
+   */
+  #rest(): void {
+    const idle = this.#weapon?.idle;
+    if (!idle) {
+      this.#active = null;
+      this.#resting = false;
+      this.setVisible(false).setActive(false);
+      return;
+    }
+    this.#resting = true;
+    this.#show(idle);
+    // Off `#active` rather than off `idle`: `#show` is what resolves which
+    // sheet this overlay actually draws, and the clip has to name the same one.
+    this.play(idleKey(this.#active!.texture), true);
   }
 
   /**
@@ -69,9 +118,16 @@ export class WeaponOverlay extends Phaser.GameObjects.Sprite {
     return true;
   }
 
-  #playSheet(def: SwingDef, host: Vec2, facing: Vec2): void {
+  /** The sheet as this overlay draws it: light for the player, dark for the Mirror. */
+  #sheet(def: SwingDef): SwingDef {
+    return this.#dark ? darkSwing(def) : def;
+  }
+
+  /** Point the sprite at a sheet and size it. Shared by rest and one-shots. */
+  #show(raw: SwingDef): void {
     const weapon = this.#weapon;
     if (!weapon) return;
+    const def = this.#sheet(raw);
     this.#active = def;
     this.setTexture(def.texture, def.frames[0]);
     this.setOrigin(def.anchor.x, def.anchor.y);
@@ -82,11 +138,17 @@ export class WeaponOverlay extends Phaser.GameObjects.Sprite {
     // trails by wildly different amounts.
     this.setScale((body * ratio) / (def.frameSize.height * def.bodyRatio));
     this.setVisible(true).setActive(true);
-    this.place(host, facing);
-    this.play(swingKey(def.texture), true);
   }
 
-  /** Follow the host while a swing is on screen. */
+  #playSheet(def: SwingDef, host: Vec2, facing: Vec2): void {
+    if (!this.#weapon) return;
+    this.#resting = false;
+    this.#show(def);
+    this.place(host, facing);
+    this.play(swingKey(this.#active!.texture), true);
+  }
+
+  /** Follow the host, whether swinging or at rest. */
   place(host: Vec2, facing: Vec2): void {
     const weapon = this.#weapon;
     if (!weapon || !this.visible) return;
@@ -98,7 +160,10 @@ export class WeaponOverlay extends Phaser.GameObjects.Sprite {
     this.setPosition(host.x + offset.x * RATIO * sign * (vertical ? 0.35 : 1), host.y + offset.y * RATIO);
     const facingLeft = !right;
     this.setFlipX(def?.mirror ? !facingLeft : facingLeft);
-    // Tilt toward the vertical facing so an upward strike doesn't sweep sideways.
-    this.setAngle(vertical ? (facing.y < 0 ? -70 : 70) * sign : 0);
+    // Tilt toward the vertical facing so an upward strike doesn't sweep
+    // sideways. A weapon at rest is never tilted: a sheathed sword swinging to
+    // seventy degrees because the player faced north reads as a glitch, not as
+    // aim.
+    this.setAngle(!this.#resting && vertical ? (facing.y < 0 ? -70 : 70) * sign : 0);
   }
 }

@@ -9,7 +9,7 @@
 import Phaser from 'phaser';
 
 import {
-  EFFECTS, effectKey, PROJECTILE_ART, PROJECTILE_TINT, type EffectDef,
+  darkEffect, EFFECTS, effectKey, PROJECTILE_ART, PROJECTILE_TINT, type EffectDef,
 } from '../animation/abilityClips';
 import { GOAT_BODY_RATIO } from '../animation/goatAtlas.generated';
 import { DEPTH, PLAYER_DISPLAY_HEIGHT } from '../constants';
@@ -18,6 +18,7 @@ import { EntityView } from './EntityView';
 
 const TRAIL_TINT: Record<string, number> = {
   fire_bolt: 0xff7a3d, ice_bolt: 0x9fe3ff, arcane_bolt: 0xb48cff, mirror_bolt: 0xd62e6c,
+  spore_pod: 0x9fbf5a, shell_shard: 0xe0733a,
 };
 
 const PLAYER_BODY = PLAYER_DISPLAY_HEIGHT * GOAT_BODY_RATIO;
@@ -25,7 +26,7 @@ const PLAYER_BODY = PLAYER_DISPLAY_HEIGHT * GOAT_BODY_RATIO;
 /** Kinds the server sent that no sheet covers. Logged once each. */
 const reportedMissing = new Set<string>();
 
-function artFor(scene: Phaser.Scene, kind: string): EffectDef | null {
+function artFor(scene: Phaser.Scene, kind: string, dark: boolean): EffectDef | null {
   const id = PROJECTILE_ART[kind];
   if (!id) {
     if (!reportedMissing.has(kind)) {
@@ -34,8 +35,12 @@ function artFor(scene: Phaser.Scene, kind: string): EffectDef | null {
     }
     return null;
   }
-  const def = EFFECTS[id];
-  return scene.textures.exists(def.texture) ? def : null;
+  const def = dark ? darkEffect(EFFECTS[id]) : EFFECTS[id];
+  // Falls back to the light sheet rather than to nothing: the dark bundle is
+  // fetched lazily, and the first bolt can outrun it.
+  if (scene.textures.exists(def.texture)) return def;
+  const light = EFFECTS[id];
+  return scene.textures.exists(light.texture) ? light : null;
 }
 
 export class ProjectileView extends EntityView {
@@ -45,10 +50,15 @@ export class ProjectileView extends EntityView {
   readonly #turns: boolean;
   kind: string;
 
-  constructor(scene: Phaser.Scene, snap: ProjectileSnap, particles: boolean) {
+  /**
+   * `dark` draws the blackened sheet: this was thrown by something fighting
+   * with one of the player's own weapons, so it should match what is in its
+   * hands. Ordinary enemies keep their own colours.
+   */
+  constructor(scene: Phaser.Scene, snap: ProjectileSnap, particles: boolean, dark = false) {
     super(scene, snap.id, snap.position, 0);
     this.kind = snap.kind;
-    const art = artFor(scene, snap.kind);
+    const art = artFor(scene, snap.kind, dark);
     // Anything thrown turns to point along its travel. A `ground` effect never
     // does: a flame pillar tipped forty degrees is a pillar falling over.
     this.#turns = art === null || !art.ground;

@@ -97,8 +97,80 @@ it.each([1, 2, 3])('places a prompt above the world target at camera zoom %s', (
   prompt.step();
   const [x, y] = group.setPosition.mock.lastCall!;
   expect(x).toBeCloseTo(960);
-  expect(y).toBeCloseTo(540 - 46);
+  // The lift clears the target's own drawn height, so it scales with the
+  // camera: a fixed offset sat on an NPC's face at any zoom above one.
+  // 68 world units of target, 12 of head room, plus half the plate (80 tall).
+  expect(y).toBeCloseTo(540 - (68 * zoom + 12 + 40));
+  expect(y).toBeLessThan(540 - 46);
   expect(group.setVisible).toHaveBeenLastCalledWith(true);
   prompt.set(null);
   expect(group.setVisible).toHaveBeenLastCalledWith(false);
+});
+
+it('hides the prompt while a conversation owns the space over their head', () => {
+  const object = () => ({
+    width: 40, frame: { width: 200, height: 80 }, scaleY: 1,
+    setVisible: vi.fn().mockReturnThis(), setPosition: vi.fn().mockReturnThis(),
+    setOrigin: vi.fn().mockReturnThis(), setText: vi.fn().mockReturnThis(),
+    setScale: vi.fn().mockReturnThis(), add: vi.fn(), destroy: vi.fn(),
+  });
+  const group = object();
+  const scene = {
+    add: { container: () => group, image: object, text: object },
+    scene: { get: () => ({ cameras: { main: {
+      scrollX: 100, scrollY: 100, zoom: 2,
+      worldView: { x: 100 + 960 * 0.5, y: 100 + 540 * 0.5 },
+    } } }) },
+  };
+  const prompt = new InteractPrompt(scene as unknown as Phaser.Scene);
+  prompt.build();
+  prompt.set({ label: 'Oren the Smith', x: 1060, y: 640 });
+  expect(group.setVisible).toHaveBeenLastCalledWith(true);
+
+  prompt.setSuppressed(true);
+  expect(group.setVisible).toHaveBeenLastCalledWith(false);
+  // A target arriving while suppressed is remembered but not shown.
+  prompt.set({ label: 'Siv the Apothecary', x: 1060, y: 640 });
+  expect(group.setVisible).toHaveBeenLastCalledWith(false);
+
+  // And it comes back, on the target it was last given.
+  prompt.setSuppressed(false);
+  expect(group.setVisible).toHaveBeenLastCalledWith(true);
+});
+
+describe('map snapshot continuity', () => {
+  it('moves markers on lite frames while retaining NPCs, travel and respec rules', () => {
+    const bridge = new Bridge();
+    const map = vi.fn(), campaign = vi.fn(), skills = vi.fn();
+    cleanup.push(eventBus.on('map:changed', map),eventBus.on('campaign:changed',campaign),eventBus.on('skills:changed',skills));
+    bridge.start(); cleanup.push(()=>bridge.stop());
+    const snap=full();
+    snap.player.skillTree![0]!.unlocked=true;
+    eventBus.emit('game:snapshot',snap);
+    const moving=lite(snap);
+    moving.player.position.x+=100;
+    delete moving.campaign;
+    eventBus.emit('game:snapshot',moving);
+    expect(map).toHaveBeenCalledTimes(2);
+    expect(map.mock.lastCall![0].player).toEqual(moving.player.position);
+    expect(map.mock.lastCall![0].marks).toEqual(snap.npcs!.map(n=>n.position));
+    expect(campaign).toHaveBeenCalledTimes(1);
+    expect(campaign.mock.lastCall![0].canTravel).toBe(true);
+    expect(skills).toHaveBeenCalledTimes(1);
+    expect(skills.mock.lastCall![0].respecBlockedBy).toBe('');
+  });
+  it('describes contact actions without suggesting the talk key', () => {
+    const bridge=new Bridge(), targets=vi.fn();
+    cleanup.push(eventBus.on('interact:target', targets)); bridge.start(); cleanup.push(()=>bridge.stop());
+    const snap=full(); snap.npcs=[];
+    if (!('portals' in snap.room)) throw new Error('fixture needs room');
+    const portal=snap.room.portals[0]!;
+    snap.player.position={x:portal.x,y:portal.y};
+    eventBus.emit('game:snapshot',snap);
+    expect(targets.mock.lastCall![0].action).toBe('walk');
+    snap.room.portals=[];
+    snap.pickups=[{id:'pickup',kind:'health_potion',position:snap.player.position,radius:8} as GameSnapshot['pickups'][number]];
+    eventBus.emit('game:snapshot',snap);
+    expect(targets.mock.lastCall![0].action).toBe('collect');
+  });
 });

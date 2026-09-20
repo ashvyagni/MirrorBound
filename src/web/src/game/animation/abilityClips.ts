@@ -135,12 +135,21 @@ export const PROJECTILE_ART: Readonly<Record<string, EffectId>> = {
   ice_bolt: 'iceShards',
   arcane_bolt: 'thorn',
   mirror_bolt: 'mirrorBolt',
+  // The Fen Spitter's pod and the Kiln Shardling's shell fragments. Both
+  // borrow a sheet whose *shape* is right -- a thrown seed and a hard chip --
+  // and take their own colour from the tint table below, which is the same
+  // trade the bone arrow makes.
+  spore_pod: 'thorn',
+  shell_shard: 'coal',
 };
 
 /** Extra tint for a sheet standing in for a kind it was not drawn as. */
 export const PROJECTILE_TINT: Readonly<Record<string, number>> = {
   bone_arrow: 0xd8d2c2,
   arcane_bolt: 0xb48cff,
+  // Sickly plant green, and the shardling's own kiln orange.
+  spore_pod: 0x9fbf5a,
+  shell_shard: 0xe0733a,
   // `mirror_bolt` is no longer here: it was tinted because `coal` was standing
   // in for it, and its own sheet is already the colour it should be.
 };
@@ -183,4 +192,39 @@ export function registerEffectAnimations(anims: Phaser.Animations.AnimationManag
 /** Register the boss's, once `EnemyAtlasLoader` has its sheets. */
 export function registerBossEffectAnimations(anims: Phaser.Animations.AnimationManager): void {
   for (const id of BOSS_EFFECT_IDS) registerEffect(anims, EFFECTS[id]);
+}
+
+// --- the Mirror's copies -----------------------------------------------------
+
+/**
+ * The same effects, drawn blackened, for a boss fighting with your weapons.
+ *
+ * The companion to `darkSwing` in `weaponClips`: that puts your sword in the
+ * Mirror's hands, and this makes what leaves the staff match it. A Mirror
+ * holding a blackened staff that throws a bright orange fireball reads as two
+ * different fights happening at once.
+ *
+ * Seven of the effect sheets were drawn dark; the rest -- the thorn, the coal,
+ * the boss's own bolt and ring -- were not, and fall through to their originals
+ * rather than to a wrong colour.
+ */
+const DARK_EFFECTS: ReadonlySet<string> = new Set([
+  ARROW_TEXTURE_KEY, FIREBALL_TEXTURE_KEY, ICESHARDS_TEXTURE_KEY,
+  FIREPILLAR_TEXTURE_KEY, FIREWAVE_TEXTURE_KEY, ICENOVA_TEXTURE_KEY, ICEBEAM_TEXTURE_KEY,
+]);
+
+/** The blackened sheet for an effect, or the same effect back. */
+export function darkEffect(def: EffectDef): EffectDef {
+  if (!DARK_EFFECTS.has(def.texture)) return def;
+  return { ...def, texture: `${def.texture}Dark` };
+}
+
+/** Fetched with the dark weapon sheets, and only when something is armed. */
+export const DARK_EFFECT_TEXTURES: readonly string[] = [...DARK_EFFECTS].map((t) => `${t}Dark`);
+
+export function registerDarkEffectAnimations(anims: Phaser.Animations.AnimationManager): void {
+  for (const def of Object.values(EFFECTS)) {
+    const dark = darkEffect(def);
+    if (dark.texture !== def.texture) registerEffect(anims, dark);
+  }
 }

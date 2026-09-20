@@ -108,6 +108,9 @@ export type PlayerState =
 export interface PlayerSnap extends EntityBase {
   type: 'player';
   state: PlayerState;
+  /** Effective server movement rates, including slows and casting/drinking. */
+  moveSpeed?: number;
+  runSpeed?: number;
   mana: number;
   maxMana: number;
   xp: number;
@@ -154,6 +157,8 @@ export interface TwinSnap extends EntityBase {
   state: 'idle' | 'walk' | 'attack' | 'cast' | 'downed';
   /** True before the twin has been found: not in the world, not drawn. */
   dormant: boolean;
+  /** Carrying the Warden's mirror shard. Cleared on the Sanctum's threshold. */
+  corrupted: boolean;
   name: string;
   mana: number;
   maxMana: number;
@@ -181,6 +186,14 @@ export interface EnemySnap extends EntityBase {
   targetId: string | null;
   windingUp: boolean;
   windup: number;
+  /**
+   * The player weapon this enemy is fighting with, if it was armed with one.
+   *
+   * Only the Mirror is, today. Its stats are already folded into the fields
+   * above by the server -- this is here so the weapon can be *drawn* in its
+   * hands, from the blackened sheets.
+   */
+  weapon?: string | null;
 }
 
 export interface ProjectileSnap {
@@ -203,6 +216,10 @@ export interface PickupSnap {
 }
 
 export interface DecorSnap {
+  /** Authoritative, scaled foundation footprint. Optional for old recordings. */
+  collisionX?: number;
+  collisionY?: number;
+  collisionRadius?: number;
   kind: string;
   x: number;
   y: number;
@@ -241,7 +258,7 @@ export interface RoomFull {
   index: number;
   roomType: string;
   name: string;
-  biome: 'grove' | 'ruins' | 'crypt';
+  biome: 'grove' | 'ruins' | 'crypt' | 'sandbox';
   width: number;
   height: number;
   tileSize: number;
@@ -391,11 +408,41 @@ export interface BossDebug {
   countersUsed: Record<string, number>;
 }
 
+/** One save slot, as the Saves screen lists it. */
+export interface SaveSlot {
+  id: string;
+  name: string;
+  /** The village checkpoint's own slot. There is exactly one, and it is not
+   *  deletable in the way a save the player made is. */
+  auto: boolean;
+  /** Unix seconds. */
+  savedAt: number;
+  area: string;
+  level: number;
+  gold: number;
+}
+
+/**
+ * The Sanctum's opening while it plays, absent otherwise.
+ *
+ * Its presence is the instruction: hold the player's input and point the
+ * camera at `focus` for as long as this is in the snapshot. The server decides
+ * when each beat ends -- the client never advances it on its own clock.
+ */
+export interface CutsceneSnap {
+  beat: 'focus' | 'approach' | 'cleanse' | 'hatch' | 'speak' | 'release' | string;
+  elapsed: number;
+  duration: number;
+  focus: 'player' | 'twin';
+}
+
 export interface GameSnapshot {
   type: 'SNAPSHOT';
   tick: number;
   seed: number;
-  phase: 'playing' | 'dead' | 'victory';
+  /** `dead` is the ordinary setback and respawns; `defeat` is the run over,
+   *  which only the Sanctum does. */
+  phase: 'playing' | 'dead' | 'defeat' | 'victory';
   paused: boolean;
   transition: number;
   roomFull: boolean;
@@ -415,6 +462,13 @@ export interface GameSnapshot {
   twinModel: TwinModel;
   boss: BossDebug | null;
   lastError: string | null;
+  /** Detail snapshots only, and only after a save was written or removed:
+   *  the list is a directory read, not something to re-send at 20Hz. */
+  saves?: SaveSlot[];
+  /** Which slot the run is writing to. Arrives with `saves`. */
+  saveSlot?: string;
+  /** Present only while a cutscene is playing. */
+  cutscene?: CutsceneSnap;
 }
 
 export function isRoomFull(room: RoomFull | RoomLite): room is RoomFull {
@@ -440,7 +494,15 @@ export type CommandAction =
   | 'EQUIP_WEAPON' | 'TWIN_EQUIP' | 'UNLOCK_SKILL' | 'USE_ITEM' | 'SET_ABILITY_SLOT'
   | 'PAUSE' | 'RESUME' | 'RESTART' | 'REQUEST_ROOM' | 'SET_TWIN_STANCE'
   | 'SWAP_WEAPON' | 'SET_OFFHAND' | 'TRAVEL' | 'TALK' | 'BUY_ITEM' | 'SET_NAME'
-  | 'TWIN_REQUEST' | 'SAVE' | 'RESPEC'
+  | 'TWIN_REQUEST' | 'TWIN_CALL' | 'SAVE' | 'RESPEC'
+  // Save slots. SAVE writes the slot the run is already playing; SAVE_AS makes
+  // a new named one, LOAD_SAVE restarts the run from one, DELETE_SAVE throws
+  // one away and RESET_DATA throws away every slot this profile has.
+  | 'SAVE_AS' | 'LOAD_SAVE' | 'DELETE_SAVE' | 'RESET_DATA'
+  // Sandbox tools. GIVE drops a weapon on the ground in front of the player
+  // rather than putting it in a bag; CONFIGURE_BOSS arms the Mirror and sets
+  // how much of the player it starts out already knowing.
+  | 'GIVE' | 'CONFIGURE_BOSS'
   // Debug, from the console. Spawns a real enemy through the ordinary path, so
   // what arrives is driven by the ordinary AI and is hostile in the ordinary
   // way -- a summoned Mirror hunts you exactly as the one at the end does.
@@ -461,4 +523,10 @@ export interface CommandMessage {
   playerName?: string;
   twinName?: string;
   enemyType?: string;
+  saveId?: string;
+  saveName?: string;
+  bossWeapon?: string;
+  bossOffhand?: string;
+  /** 0..1: how much of the player the Mirror starts out having learned. */
+  bossSkill?: number;
 }

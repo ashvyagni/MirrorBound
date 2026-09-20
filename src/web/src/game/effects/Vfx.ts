@@ -16,6 +16,16 @@ import type { Settings } from '../../ui/settings';
 
 const PLAYER_BODY = PLAYER_DISPLAY_HEIGHT * GOAT_BODY_RATIO;
 
+/**
+ * How far Flame Burst's wave is swept, and over how long.
+ *
+ * The reach is the ability's own `area` on the server (170 units); it is
+ * repeated rather than imported because `Vfx` knows nothing about ability
+ * definitions, and the caller passes the real number when it has it.
+ */
+const FLAME_BURST_REACH = 170;
+const FLAME_BURST_TRAVEL = 260;
+
 export class Vfx {
   #settings: Settings;
 
@@ -51,8 +61,21 @@ export class Vfx {
    * particles rather than silently dropping the feedback.
    */
   groundEffect(id: EffectId, pos: Vec2, sizeMult = 1, facing?: Vec2): boolean {
+    return this.groundEffectSprite(id, pos, sizeMult, facing) !== null;
+  }
+
+  /**
+   * The same, handing back the sprite so a caller can move it.
+   *
+   * Only Flame Burst needs this: its sheet is a wave that rolls, so the sprite
+   * has to travel while it plays. Everything else stays where it is put and
+   * uses the boolean form above.
+   */
+  groundEffectSprite(
+    id: EffectId, pos: Vec2, sizeMult = 1, facing?: Vec2,
+  ): Phaser.GameObjects.Sprite | null {
     const def: EffectDef = EFFECTS[id];
-    if (!this.scene.textures.exists(def.texture)) return false;
+    if (!this.scene.textures.exists(def.texture)) return null;
     const sprite = this.scene.add.sprite(pos.x, pos.y, def.texture, def.frames[0]);
     // Uniform scale solved from the artwork, not `setDisplaySize`: that reads
     // the untrimmed source box, which these sheets pad by wildly different
@@ -63,6 +86,9 @@ export class Vfx {
     sprite.setDepth(def.ground ? DEPTH.fxLow : DEPTH.entityTop);
     if (def.ground) {
       this.#standOnFloor(sprite);
+      // Re-planted each frame because the sheet's artwork shifts within its
+      // box; `#standOnFloor` reads the *current* frame, so a moving effect
+      // keeps its feet on the floor as it travels rather than sliding up it.
       sprite.on(Phaser.Animations.Events.ANIMATION_UPDATE, () => this.#standOnFloor(sprite));
     } else if (facing && (facing.x !== 0 || facing.y !== 0)) {
       // Mirror first, then turn by the mirrored angle, so the effect's own "up"
@@ -75,7 +101,7 @@ export class Vfx {
     }
     sprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => sprite.destroy());
     sprite.play(effectKey(def));
-    return true;
+    return sprite;
   }
 
   /**
@@ -154,17 +180,66 @@ export class Vfx {
 
   // --- abilities -------------------------------------------------------------------
 
-  flameCone(pos: Vec2, facing: Vec2): void {
+  /**
+   * Flame Burst: a wave that rolls out along the cone it damages.
+   *
+   * The damage is instant -- the server resolves a 170-unit arc the moment the
+   * key goes down -- but the art is a *rolling* wave, and drawing it parked at
+   * the caster's feet made the one spell whose sheet shows travel the one that
+   * visibly did not. So the sprite is swept outward across the cone's real
+   * reach while its own animation plays.
+   *
+   * The sweep is deliberately shorter than the clip: the wave should still be
+   * expanding when it reaches the edge of what it hit, not arrive and stop.
+   */
+  flameCone(pos: Vec2, facing: Vec2, reach = FLAME_BURST_REACH): void {
     const angle = Phaser.Math.RadToDeg(Math.atan2(facing.y, facing.x));
-    // The wave rolls along the floor, so it stays upright at every angle --
-    // only its placement follows the facing.
-    this.groundEffect('fireWave', { x: pos.x + facing.x * 34, y: pos.y + facing.y * 22 }, 1);
+    const from = { x: pos.x + facing.x * 34, y: pos.y + facing.y * 22 };
+    const wave = this.groundEffectSprite('fireWave', from, 1);
+    if (wave) {
+      this.scene.tweens.add({
+        targets: wave,
+        x: pos.x + facing.x * reach,
+        y: pos.y + facing.y * reach * 0.62,   // the floor is foreshortened
+        duration: FLAME_BURST_TRAVEL,
+        ease: 'Quad.easeOut',
+      });
+    }
     this.#burst(pos.x + facing.x * 20, pos.y - 12 + facing.y * 14, 'fx:soft', 46, {
       lifespan: { min: 300, max: 620 }, speed: { min: 220, max: 420 }, angle: { min: angle - 38, max: angle + 38 },
       scale: { start: 0.9, end: 0.1 }, alpha: { start: 0.95, end: 0 }, tint: [0xfff1a8, 0xffb13d, 0xff7a3d, 0xd62e6c],
       blendMode: 'ADD',
     });
     this.shake(CAMERA.shake.hit, 150);
+  }
+
+  /**
+   * Flame Pillar: a column of fire where the caster stands.
+   *
+   * It had no case in the client's ability switch at all, so the one spell
+   * that is *only* a visual -- it damages in a radius and spawns nothing --
+   * fired silently. The sheet had been drawn, sliced and never played.
+   */
+  firePillar(pos: Vec2, radius: number): void {
+    // Sized off the server's own radius, like the nova, rather than a number
+    // chosen to look right against one particular arena.
+    if (!this.groundEffect('firePillar', pos, Math.max(0.7, radius / 120))) {
+      // No sheet: still say something happened, or the spell reads as a
+      // mis-press. Same rule the boss nova follows.
+      this.hitSparks(pos, PALETTE.ember, 18);
+    }
+    const ring = this.scene.add.image(pos.x, pos.y - 6, 'fx:ring').setTint(PALETTE.ember)
+      .setScale(0.1).setAlpha(0.9).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.fxLow);
+    this.scene.tweens.add({
+      targets: ring, scale: (radius * 2) / 84, alpha: 0, duration: 420, ease: 'Quad.easeOut',
+      onComplete: () => ring.destroy(),
+    });
+    this.#burst(pos.x, pos.y - 10, 'fx:soft', 30, {
+      lifespan: { min: 380, max: 760 }, speed: { min: radius * 0.5, max: radius * 1.2 },
+      scale: { start: 0.9, end: 0 }, alpha: { start: 1, end: 0 },
+      tint: [0xfff1a8, 0xffb13d, 0xff7a3d], blendMode: 'ADD',
+    });
+    this.shake(CAMERA.shake.hit, 170);
   }
 
   nova(pos: Vec2, radius: number): void {

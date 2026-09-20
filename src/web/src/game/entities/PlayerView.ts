@@ -35,6 +35,16 @@ export class PlayerView extends EntityView {
   readonly sprite: Phaser.Physics.Arcade.Sprite | Phaser.GameObjects.Sprite;
   #facing: Facing = 1;
   facingVec: Vec2 = { x: 1, y: 0 };
+  /**
+   * The last direction the goat actually travelled in.
+   *
+   * Kept apart from `facingVec`, which points at the cursor. Which sheet the
+   * *legs* are drawn on is a question about movement: aiming right while
+   * walking north is a walk north, and picking the view off the aim meant the
+   * front and back sheets essentially never played -- a player with a mouse
+   * is nearly always aiming sideways.
+   */
+  #moveDir: Vec2 = { x: 0, y: 1 };
   #clip: ClipName = 'idle';
   #view: GoatView = 'side';
   snap: PlayerSnap | null = null;
@@ -69,7 +79,7 @@ export class PlayerView extends EntityView {
   }
 
   /** Server snapshot: reconcile prediction and apply state. */
-  applySnapshot(snap: PlayerSnap, speed: number | undefined): void {
+  applySnapshot(snap: PlayerSnap, speed: number | undefined, paused = false): void {
     const prev = this.snap;
     this.snap = snap;
     if (speed) this.#speed = speed;
@@ -86,8 +96,16 @@ export class PlayerView extends EntityView {
     this.target = { ...snap.position };
     this.velocity = { ...snap.velocity };
     this.facingVec = snap.facing;
+    this.#noteMovement(snap.velocity.x, snap.velocity.y);
     if (Math.abs(snap.facing.x) > 0.2) this.#face(snap.facing.x > 0 ? 1 : -1);
-    const clip = STATE_CLIP[snap.state];
+    // Standing still while the world is stopped.
+    //
+    // A pause freezes the simulation, so `snap.state` keeps whatever it was at
+    // the instant everything stopped -- walk into an NPC and start talking and
+    // the player jogs on the spot behind the speech bubble for the whole
+    // conversation, which reads as the game having glitched rather than
+    // paused. Death is exempt: a corpse should stay a corpse.
+    const clip = paused && snap.state !== 'dead' ? 'idle' : STATE_CLIP[snap.state];
     // The view can change without the clip changing -- turning from walking
     // east to walking north is the same clip on a different sheet.
     if (clip !== this.#clip || this.#viewFor(clip) !== this.#view) {
@@ -109,9 +127,16 @@ export class PlayerView extends EntityView {
       mx /= len;
       my /= len;
       let speed = intent.run ? this.#speed * (290 / 175) : this.#speed;
-      if (snap.state === 'attack' || snap.state === 'cast') speed *= 0.45;
+      if (snap.moveSpeed !== undefined && snap.runSpeed !== undefined) {
+        speed = intent.run ? snap.runSpeed : snap.moveSpeed;
+      } else if (snap.state === 'attack' || snap.state === 'cast' || snap.state === 'drink') speed *= 0.45;
+      else if (snap.state === 'channel') speed *= 0.35;
       this.x += mx * speed * dt;
       this.y += my * speed * dt;
+      // Predicted locally as well as read off the snapshot, so turning to walk
+      // north swaps the sheet on the frame the key goes down rather than on
+      // the next snapshot.
+      this.#noteMovement(mx, my);
       if (Math.abs(mx) > 0.2) this.#face(mx > 0 ? 1 : -1);
     }
     if (this.#room) {
@@ -165,7 +190,19 @@ export class PlayerView extends EntityView {
    * being faked from a walk pose.
    */
   #viewFor(clip: ClipName): GoatView {
-    return isVerticalClip(clip) ? goatViewFor(this.facingVec) : 'side';
+    return isVerticalClip(clip) ? goatViewFor(this.#moveDir) : 'side';
+  }
+
+  /** Remember a real movement direction; standing still keeps the last one. */
+  #noteMovement(x: number, y: number): void {
+    if (Math.hypot(x, y) < 1e-3) return;
+    const previous = this.#moveDir;
+    this.#moveDir = { x, y };
+    // Turning from east to north is the same clip on a different sheet, and
+    // nothing else in `applySnapshot` would notice that the sheet has to swap.
+    if (isVerticalClip(this.#clip) && goatViewFor(previous) !== goatViewFor(this.#moveDir)) {
+      this.#play(this.#clip);
+    }
   }
 
   /**

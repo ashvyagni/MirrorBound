@@ -122,6 +122,30 @@ export const BIOMES = {
     ambient: 'dust',
     fog: 0x24201c,
   },
+  /**
+   * The Proving: flat, cold and obviously unreal.
+   *
+   * Deliberately the one biome that does not look like a place. Every variant
+   * is the same value, so the floor reads as a grid rather than as ground, and
+   * nothing here suggests cover or a route -- which is the whole point of
+   * testing in it.
+   */
+  sandbox: {
+    grass: ['#3a2f55', '#3a2f55', '#3a2f55'],
+    grassDark: '#2c2442',
+    grassLight: '#4a3d6b',
+    dirt: '#3a2f55',
+    dirtLight: '#4a3d6b',
+    path: '#4a3d6b',
+    stone: '#3a2f55',
+    stoneLight: '#5a4b80',
+    wall: '#191428',
+    wallTop: '#4a3d6b',
+    water: '#2c2f52',
+    waterLight: '#5b5fa0',
+    ambient: 'dust',
+    fog: 0x191428,
+  },
   crypt: {
     grass: ['#3b3b49', '#3c3c4a', '#3a3a48'],
     grassDark: '#2c2c38',

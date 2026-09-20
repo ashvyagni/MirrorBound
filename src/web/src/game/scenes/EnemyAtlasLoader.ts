@@ -26,6 +26,16 @@ import Phaser from 'phaser';
 import {
   enemyTextures, hasEnemyArt, registerEnemyAnimations, type EnemySpriteName,
 } from '../animation/enemyClips';
+import { DARK_WEAPON_TEXTURES, registerDarkWeaponAnimations } from '../animation/weaponClips';
+import { DARK_EFFECT_TEXTURES, registerDarkEffectAnimations } from '../animation/abilityClips';
+
+/**
+ * Everything an armed boss needs drawn in its own colours: the weapons in its
+ * hands and whatever leaves them. One bundle, because they are wanted at the
+ * same instant and splitting them would show a black staff throwing an orange
+ * fireball for as long as the second fetch took.
+ */
+const DARK_BUNDLE: readonly string[] = [...DARK_WEAPON_TEXTURES, ...DARK_EFFECT_TEXTURES];
 
 export class EnemyAtlasLoader {
   readonly #scene: Phaser.Scene;
@@ -37,6 +47,17 @@ export class EnemyAtlasLoader {
   readonly #failed = new Set<EnemySpriteName>();
   #busy = false;
   #stopped = false;
+  /**
+   * The Mirror's copies of the player's weapons -- twenty-six sheets that are
+   * needed only once something in the room is armed with one.
+   *
+   * Not a creature and so not a `family`, but it wants exactly the same
+   * treatment: fetched at most once, registered only after its textures have
+   * actually arrived, and never retried if they do not. It rides along in the
+   * same batch rather than starting a second load, because a scene has one
+   * loader and two `COMPLETE` listeners on it race.
+   */
+  #darkWeapons: 'idle' | 'queued' | 'ready' | 'failed' = 'idle';
   readonly #onReady: (sprites: readonly EnemySpriteName[]) => void;
 
   constructor(scene: Phaser.Scene, onReady: (sprites: readonly EnemySpriteName[]) => void) {
@@ -58,6 +79,25 @@ export class EnemyAtlasLoader {
   needs(sprite: string): boolean {
     return hasEnemyArt(sprite)
       && !this.#ready.has(sprite) && !this.#failed.has(sprite) && !this.#queue.includes(sprite);
+  }
+
+  /**
+   * Fetch the blackened weapon sheets, once, the first time anything needs one.
+   *
+   * Driven off the snapshot rather than off the room, because which enemies
+   * are armed is not known when the room arrives -- the sandbox can arm any
+   * boss standing in it at any moment. Until these land the weapon simply is
+   * not drawn, the same way a creature waits on the painted stand-in.
+   */
+  requestDarkWeapons(): void {
+    if (this.#stopped || this.#darkWeapons !== 'idle') return;
+    this.#darkWeapons = 'queued';
+    this.#pump();
+  }
+
+  /** Whether the dark sheets are loaded and their clips registered. */
+  get darkWeaponsReady(): boolean {
+    return this.#darkWeapons === 'ready';
   }
 
   /**
@@ -92,14 +132,19 @@ export class EnemyAtlasLoader {
   }
 
   #pump(): void {
-    if (this.#stopped || this.#busy || this.#queue.length === 0) return;
+    if (this.#stopped || this.#busy) return;
+    const wantsDark = this.#darkWeapons === 'queued';
+    if (this.#queue.length === 0 && !wantsDark) return;
     const batch = this.#queue.splice(0, this.#queue.length);
 
     // Anything already in the texture cache -- a scene restart keeps it --
     // needs registering but no fetch.
     const toFetch = batch.filter((sprite) => !this.#present(sprite));
-    if (toFetch.length === 0) {
-      this.#settle(batch);
+    const darkToFetch = wantsDark
+      ? DARK_BUNDLE.filter((key) => !this.#scene.textures.exists(key))
+      : [];
+    if (toFetch.length === 0 && darkToFetch.length === 0) {
+      this.#settle(batch, wantsDark);
       return;
     }
 
@@ -112,6 +157,10 @@ export class EnemyAtlasLoader {
         this.#scene.load.atlas(texture, `${texture}.png`, `${texture}.json`);
       }
     }
+    for (const texture of darkToFetch) {
+      this.#scene.load.setPath(`game/${texture}`);
+      this.#scene.load.atlas(texture, `${texture}.png`, `${texture}.json`);
+    }
     this.#scene.load.setPath();
     // COMPLETE fires whether or not every file arrived, so `#settle` checks the
     // texture cache rather than trusting it.
@@ -121,15 +170,25 @@ export class EnemyAtlasLoader {
         `[mirrorbound] loaded ${toFetch.length} enemy ${toFetch.length === 1 ? 'family' : 'families'} `
         + `(${toFetch.join(', ')}) in ${Math.round(performance.now() - started)}ms`,
       );
-      this.#settle(batch);
+      this.#settle(batch, wantsDark);
       // A room entered while the last batch was in flight queued behind it.
       this.#pump();
     });
     this.#scene.load.start();
   }
 
-  #settle(batch: readonly EnemySpriteName[]): void {
+  #settle(batch: readonly EnemySpriteName[], dark: boolean): void {
     if (this.#stopped) return;
+    if (dark) {
+      if (DARK_BUNDLE.every((key) => this.#scene.textures.exists(key))) {
+        registerDarkWeaponAnimations(this.#scene.anims);
+        registerDarkEffectAnimations(this.#scene.anims);
+        this.#darkWeapons = 'ready';
+      } else {
+        this.#darkWeapons = 'failed';
+        console.warn('[mirrorbound] the Mirror\'s weapon sheets did not load; it fights bare-handed');
+      }
+    }
     const ready: EnemySpriteName[] = [];
     for (const sprite of batch) {
       if (!this.#present(sprite)) {
