@@ -78,6 +78,7 @@ class CombatSystem:
             targets=[e.id for e in hits],
             hitCount=len(hits),
             nearestEnemyDistance=self._nearest_enemy_distance(state, player.position),
+            healthFraction=round(player.health / max(1.0, player.max_health), 3),
         )
         return True
 

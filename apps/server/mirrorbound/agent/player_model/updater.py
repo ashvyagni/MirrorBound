@@ -5,7 +5,14 @@
 
 from __future__ import annotations
 
-from mirrorbound.agent.features.combat_features import aggression_signal, combo_signal, dependency_signals
+from mirrorbound.agent.features.combat_features import (
+    aggression_signal,
+    combo_signal,
+    defensive_signal,
+    dependency_signals,
+    preferred_range_signal,
+    risk_tolerance_signal,
+)
 from mirrorbound.agent.features.movement_features import mobility_signal
 from mirrorbound.agent.player_model.traits import PlayerTraitModel
 from mirrorbound.game.core.events import Event
@@ -26,3 +33,15 @@ def apply_event(traits: PlayerTraitModel, event: Event) -> None:
     mobility = mobility_signal(event)
     if mobility is not None:
         traits.observe("mobility", mobility)
+
+    preferred_range = preferred_range_signal(event)
+    if preferred_range is not None:
+        traits.observe("preferred_range", preferred_range)
+
+    risk = risk_tolerance_signal(event)
+    if risk is not None:
+        traits.observe("risk_tolerance", risk)
+
+    defensive = defensive_signal(event)
+    if defensive is not None:
+        traits.observe("defensive_tendency", defensive)

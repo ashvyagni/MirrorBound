@@ -27,7 +27,8 @@ rather than guessing.**
 | `data["tags"]` | `list[str]` | aggression, dependencies, zone layers, twin style | `MELEE RANGED SPELL MAGIC AOE BURST MOBILITY DEFENSIVE FAST HEAVY HIGH_RISK`. |
 | `data["distance"]` | `float` | mobility | World units moved. Normalised by `MOBILITY_DISTANCE_NORM` (95). Only on movement events — never put weapon range here. |
 | `data["position"]` | `{"x","y"}` or `[x, y]` | spatial heatmaps | The *actor's* position for player actions; the target's for damage events. |
-| `data["healthFraction"]` | `float` | twin risk_tolerance | On `PLAYER_ATTACKED`. |
+| `data["healthFraction"]` | `float` | `risk_tolerance` (player model and twin style) | On `PLAYER_ATTACKED`: the player's health / max health at swing time, 0..1. `PLAYER_RETREATED` carries the same value spelled `health_fraction`; both spellings are read. |
+| `data["nearestEnemyDistance"]` | `float` or absent | `preferred_range` | On `PLAYER_ATTACKED` and `PLAYER_ABILITY_CAST`: distance to the nearest enemy, not necessarily the one being fought. |
 | `data["target_type"]` | `str` | twin target_preference | On `TARGET_CHANGE`. |
 | `data["comboStep"]` | `int` | `combo_dependency` | On `PLAYER_ATTACKED`, 1-indexed (`Player.start_attack`/`weapon.combo_window`). `>= 2` means this hit chained off the previous one within the weapon's own combo window; `1` is an opening hit. Read directly rather than re-derived from tick deltas — the game already computes it per weapon. |
 
@@ -80,6 +81,16 @@ rather than guessing.**
   (an opening hit), no observation when `comboStep` is absent. Deliberately separate from
   `aggression`: a player who attacks constantly but never chains reads as aggressive without reading
   as combo-heavy, and vice versa.
+- **preferred_range** — `0.0` at sword reach, `1.0` at staff reach, linear between `48` and `320` world units,
+  read from `nearestEnemyDistance` on `PLAYER_ATTACKED` and offensive casts (a combat tag, no `DEFENSIVE`).
+  No observation when the distance is absent or beyond `450` (nothing engaged: a swing at air).
+- **risk_tolerance** — `PLAYER_ATTACKED`: `1 - 0.8 * healthFraction` (attacking while hurt is risk-tolerant;
+  the same mapping the twin style model uses). `PLAYER_RETREATED`: `1 - health fraction` (retreating early
+  is cautious, retreating nearly dead is not). No observation when health is absent.
+- **defensive_tendency** — `1.0` for `PLAYER_DODGED`, `PLAYER_BLOCKED`, `PLAYER_RETREATED`, a `DEFENSIVE`
+  cast, or an `ITEM_USED` with `healed > 0`; `0.0` for an offensive attack or cast; no observation for
+  mobility-only casts, mana items or anything else. Not the mirror image of `aggression`: dodges and
+  healing items count here and not there. It reads as the share of decisions that were defensive.
 
 ## Zone layers (spatial)
 
