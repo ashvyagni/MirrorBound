@@ -164,3 +164,61 @@ Frontend tests 54 (+1 file).
 - The level bar's dividers are the art's own. The client does not know where
   they fall, so a fill does not snap to segment boundaries — it stops wherever
   the fraction lands.
+
+---
+
+## 2026-09-20 (later still) — the frost staff's third spell
+
+Server tests 434 (+6 cases).
+
+### What was wrong
+
+Reported from play: *"why the hell is frost staff's 3 some sort of thorn
+instead of the ice beam"*.
+
+`arcane_bolt` was `AbilityType.PROJECTILE` throwing a projectile of kind
+`arcane_bolt`, and `PROJECTILE_ART` mapped that to **`thorn`** tinted violet.
+Meanwhile its icon was the ice beam and its cast motion was `CASTS.iceBeam`.
+So the wind-up said ice beam, the icon said ice beam, and what left the staff
+was a violet thorn.
+
+The `iceBeam` sheet is not a projectile and never could be: eight frames of a
+lance growing out of the staff and retracting, classed `burst` and anchored at
+its source. Flying it across a room would read as the wrong thing entirely.
+Everything else about the ability already said beam -- including `pierce=True`
+on the projectile spec it no longer has.
+
+### What changed
+
+- `AbilityType.BEAM`, resolved instantly along a `HitboxShape.LINE`. That shape
+  already existed in `hitbox.py`, correctly bounded by its length, and had
+  never been used by anything.
+- Range 420 → **760**. It is the one attack in the game that crosses a room,
+  which is what pays for having to aim it; the view is 960 units wide.
+- `AbilityDef.muzzle` (52 here): a beam leaves the *tip of the staff*, not the
+  middle of the creature holding it. The hitbox starts there and the cast event
+  carries the number, so the drawn lance and the line that hit are one line.
+- `area` is re-purposed as the beam's half-width (26). A line with no thickness
+  is a line nothing is ever quite standing on.
+- The boss gets it too -- `resolve_enemy_ability` grew the same branch, so a
+  Mirror that takes the frost staff fires the beam rather than nothing.
+
+### Defects found, and the evidence
+
+- **The drawn beam was 110 units shorter than the one that hit you.** I scaled
+  the sprite against `frameSize.width`, which is the *untrimmed* source box, so
+  it drew 650 units ahead of a 760-unit hitbox. Anything standing in that last
+  stretch took damage from a beam that was not there. Solved against the widest
+  trimmed frame instead: measured in-game at **737 of 760**, the remainder being
+  the art's own margin.
+
+### Corrections to my own work
+
+- **I renamed the ability to "Rimelance" and reverted it.** Sheet 85's icon for
+  that slot is explicitly the *arcane bolt* dart, drawn to that name. Renaming
+  game content that was not asked for would have left the name fighting the
+  icon; only the effect needed to change.
+- **The first six tests all failed on the wrong hotbar slot.** The frost staff's
+  third spell is key six only when the ember staff is in the other hand; armed
+  alone it fills keys one to three. Named `BEAM_SLOT` so the next reader does
+  not have to rediscover it.
