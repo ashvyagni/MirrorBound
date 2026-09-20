@@ -36,7 +36,7 @@ CommandAction = Literal[
     # Save slots. SAVE writes the slot the run is already playing; SAVE_AS
     # makes a new named one, LOAD_SAVE restarts the run from one, DELETE_SAVE
     # throws one away and RESET_DATA throws away every slot this profile has.
-    "SAVE_AS", "LOAD_SAVE", "DELETE_SAVE", "RESET_DATA",
+    "SAVE_AS", "NEW_SAVE", "LOAD_SAVE", "DELETE_SAVE", "RESET_DATA",
     # Debug. Puts a real enemy in the room -- not a prop: it spawns through the
     # ordinary spawn path, so it is driven by the ordinary AI and is hostile in
     # the ordinary way. The console is the only thing that sends it.

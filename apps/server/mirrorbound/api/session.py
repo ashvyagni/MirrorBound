@@ -87,7 +87,7 @@ CLIENT_EVENT_TYPES = {
     "TARGET_CHANGE", "ITEM_USE_STARTED", "ABILITY_INTERRUPTED", "TWIN_WEAPON_SWITCH", "GOLD_GAINED",
     "SHOP_PURCHASE", "NPC_TALK", "QUEST_UPDATED", "CHECKPOINT_SAVED", "AREA_ENTER", "ABILITY_SLOT_CHANGED",
     "TWIN_ITEM_GIVEN", "AREA_DISCOVERED", "TWIN_TAKEN", "TWIN_CALLED",
-    "SAVE_LOADED", "SAVE_DELETED", "DATA_RESET", "RUN_FAILED", "PLAYER_PARRIED",
+    "SAVE_LOADED", "SAVE_CREATED", "SAVE_DELETED", "DATA_RESET", "RUN_FAILED", "PLAYER_PARRIED",
     "ITEM_DROPPED", "BOSS_CONFIGURED",
     "SHARD_DROPPED", "TWIN_CORRUPTED", "TWIN_CLEANSED",
     "CUTSCENE_BEGIN", "CUTSCENE_BEAT", "CUTSCENE_LINE", "CUTSCENE_END",
@@ -250,43 +250,23 @@ class GameSession:
             self.state.emit("ACTION_REJECTED", actor=self.state.player.id, action="TRAVEL",
                             area=portal_target, reason="unknown area")
             return
-        # Gated areas are skipped into rather than refused: the map lets you
-        # jump ahead, and anything jumped over is granted as though you had
-        # walked it. Refusing instead would make the map a list of places you
-        # cannot go, and a player who wants to see the Mirror should not have
-        # to grind two dungeons to look at it.
-        self._grant_skipped(portal_target)
+        # Gated areas are refused, and nothing is granted for skipping one.
+        #
+        # This used to work the other way: the map let you jump anywhere and
+        # quietly completed every area you had jumped over, seals and gold and
+        # all. That made the campaign a menu -- the Mirror was two clicks from
+        # the opening village, and finishing a dungeon was something the game
+        # did for you rather than something you did.
+        #
+        # The chain is the progression now: one area at a time, each opened by
+        # finishing the one before it. `is_open` already knew the rule; nothing
+        # was asking it.
+        open_now, reason = self.campaign.is_open(portal_target)
+        if not open_now:
+            self.state.emit("ACTION_REJECTED", actor=self.state.player.id, action="TRAVEL",
+                            area=portal_target, reason=reason)
+            return
         self._enter_area(portal_target)
-
-    def _grant_skipped(self, area_id: str) -> None:
-        """Complete every area standing between here and `area_id`.
-
-        Walks the `requires` chain back to the root, then completes it forward,
-        so each area's unlocks land in order and every seal and every purse of
-        gold is handed over exactly once -- `Campaign.complete` returns False
-        the second time, which is what keeps this idempotent.
-
-        Nothing is skipped silently: one event per area, so the client can say
-        what it just gave you.
-        """
-        chain: list[str] = []
-        cursor = AREAS[area_id].requires
-        seen: set[str] = set()
-        while cursor and cursor in AREAS and cursor not in seen:
-            seen.add(cursor)
-            if cursor not in self.campaign.completed_areas:
-                chain.append(cursor)
-            cursor = AREAS[cursor].requires
-
-        for skipped in reversed(chain):
-            area = AREAS[skipped]
-            if not self.campaign.complete(skipped):
-                continue
-            if area.completion_gold:
-                self.state.player.inventory.add_gold(area.completion_gold)
-            self.state.emit("QUEST_UPDATED", area=skipped, name=area.name, first=True,
-                            skipped=True, gold=area.completion_gold,
-                            seal=area.completion_seal, seals=list(self.campaign.seals))
 
     def _complete_area(self) -> None:
         """A dungeon's last room is cleared. Rewards land exactly once."""
@@ -651,6 +631,9 @@ class GameSession:
                 self._checkpoint()
             elif action == "SAVE_AS":
                 self._save_as(cmd.saveName or "")
+            elif action == "NEW_SAVE":
+                self._new_save(cmd.saveName or "")
+                return
             elif action == "LOAD_SAVE" and cmd.saveId:
                 self._load_slot(cmd.saveId)
                 return
@@ -682,6 +665,41 @@ class GameSession:
         # the one they saved away from.
         self.slot = slot
         save_system.write_active_slot(self.session_id, slot)
+
+    def _new_save(self, name: str) -> None:
+        """Start a fresh run in a slot of its own.
+
+        The one thing the save system could not do. `SAVE_AS` *copies* the run
+        you are in, so every slot a player could make already knew their level,
+        their gear, how far through the campaign they were and -- worst of it --
+        what the twin had learned about them. The only route to a blank
+        campaign was RESET_DATA, which deletes every save they have.
+
+        So this allocates an empty slot and rebuilds the world from nothing
+        rather than from a save. The name is asked for by the client once the
+        fresh campaign arrives, the same way it is on a first run.
+        """
+        player = self.state.player
+        slot = save_system.new_slot_id(self.session_id)
+        if slot is None:
+            self.state.emit("ACTION_REJECTED", actor=player.id, action="NEW_SAVE",
+                            reason=f"no room for another save (limit {save_system.MAX_SLOTS})")
+            return
+        self.slot = slot
+        save_system.write_active_slot(self.session_id, slot)
+        # Rebuilt without a save, which is what makes it new: `load_save` is
+        # the flag `_build_world` reads to decide whether to apply one.
+        self.load_save = False
+        self.restart()
+        if name:
+            self.campaign.player_name = sanitise_name(name, self.campaign.player_name)
+        # Written immediately so the slot exists on disk before the player has
+        # done anything in it. A new save that only appears in the list after
+        # the first village is a new save the player thinks failed.
+        self._checkpoint(slot=slot, name=name)
+        self.saves_dirty = True
+        self.state.emit("SAVE_CREATED", slot=slot, area=self.campaign.current_area,
+                        named=bool(name))
 
     def _load_slot(self, slot: str) -> None:
         """Restart the run from a slot. A fresh world, then the save onto it."""
@@ -1171,12 +1189,30 @@ class GameSession:
                 self._leave_area(portal.target_area)
 
     def _open_exit_portal(self, room) -> None:
-        """The way back to the village, opened in place once a dungeon is done."""
+        """The way back to the village, opened in place once a dungeon is done.
+
+        At the far end of the room rather than in the middle of it. The middle
+        is where the fight just happened and where the player already is, so a
+        road home drawn there is not a way out that you walk to -- it is a tile
+        you are standing on, and the last thing a finished dungeon should do is
+        end without a step.
+
+        Placed opposite the way in, mirrored through the room's centre, so it
+        reads as the far side whichever door the player arrived through. Inset
+        by a tile and a half: a portal flush against the wall is one the
+        collision hull will not let you reach the middle of.
+        """
         home = HOME_VILLAGE.get(self.campaign.current_area, START_AREA)
         if any(p.target_area == home for p in room.portals):
             return
+        entered = room.player_spawn
+        inset = TILE * 1.5
+        far = Vec2(
+            min(max(room.width - entered.x, inset), room.width - inset),
+            min(max(room.height - entered.y, inset), room.height - inset),
+        )
         room.portals.append(Portal(
-            id=f"{room.id}_home", x=room.width / 2, y=room.height / 2,
+            id=f"{room.id}_home", x=far.x, y=far.y,
             target_area=home, label=AREAS[home].name, kind="road",
         ))
         self.room_dirty = True

@@ -498,7 +498,7 @@ export type CommandAction =
   // Save slots. SAVE writes the slot the run is already playing; SAVE_AS makes
   // a new named one, LOAD_SAVE restarts the run from one, DELETE_SAVE throws
   // one away and RESET_DATA throws away every slot this profile has.
-  | 'SAVE_AS' | 'LOAD_SAVE' | 'DELETE_SAVE' | 'RESET_DATA'
+  | 'SAVE_AS' | 'NEW_SAVE' | 'LOAD_SAVE' | 'DELETE_SAVE' | 'RESET_DATA'
   // Sandbox tools. GIVE drops a weapon on the ground in front of the player
   // rather than putting it in a bag; CONFIGURE_BOSS arms the Mirror and sets
   // how much of the player it starts out already knowing.

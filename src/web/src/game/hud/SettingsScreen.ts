@@ -379,15 +379,20 @@ export class SettingsScreen {
       y += L.row;
     }
 
-    // Making a save and throwing everything away are different kinds of
-    // action, so they do not sit in the same row of buttons.
-    this.#button(L.footer - 74, 'SAVE HERE', 250, () => this.#command({ action: 'SAVE' }, 'Saved.'),
-                 this.#left + 125);
-    this.#button(L.footer - 74, 'NEW SAVE', 250, () => this.#nameSave(), this.#left + 396);
+    // Three different things, and the labels now say which is which. The
+    // middle one used to read NEW SAVE while sending SAVE_AS, so the only
+    // button that looked like "start again" copied the run you were in --
+    // level, gear, campaign progress and everything the twin had learned.
+    this.#button(L.footer - 74, 'SAVE HERE', 236, () => this.#command({ action: 'SAVE' }, 'Saved.'),
+                 this.#left + 118);
+    this.#button(L.footer - 74, 'COPY TO NEW SLOT', 300, () => this.#nameSave('SAVE_AS'),
+                 this.#left + 392);
+    this.#button(L.footer - 74, 'START A NEW RUN', 300, () => this.#nameSave('NEW_SAVE'),
+                 this.#left + 706);
     this.#button(L.footer, 'RESET ALL DATA', 320, () => this.#confirmReset(), this.#right - 160);
     this.#add(this.#text(this.#left, L.footer, this.#resetArmed
       ? 'This erases every save. Press again to confirm.'
-      : 'Villages save on their own. Named saves are yours to keep.',
+      : 'Villages save on their own. A new run starts from nothing, in a slot of its own.',
       22, this.#resetArmed ? HUD.activeInk : HUD.dimInk, 0));
   }
 
@@ -424,12 +429,13 @@ export class SettingsScreen {
    * commits, Escape cancels, and an empty name still saves -- the server names
    * the slot rather than refusing it.
    */
-  #nameSave(): void {
+  #nameSave(action: 'SAVE_AS' | 'NEW_SAVE'): void {
     this.#cancelListening();
     this.#saveName = '';
     this.#resetArmed = false;
+    const what = action === 'NEW_SAVE' ? 'Name your new run' : 'Name this save';
     const paint = () => this.#notice.setText(
-      `Name this save: ${this.#saveName}_    (Enter to save, Escape to cancel)`);
+      `${what}: ${this.#saveName}_    (Enter to confirm, Escape to cancel)`);
     paint();
 
     this.#onKey = (event: KeyboardEvent) => {
@@ -443,7 +449,9 @@ export class SettingsScreen {
       if (event.key === 'Enter') {
         const name = this.#saveName.trim();
         this.#cancelListening();
-        this.#command({ action: 'SAVE_AS', saveName: name }, name ? `Saved as ${name}.` : 'Saved.');
+        this.#command({ action, saveName: name }, action === 'NEW_SAVE'
+          ? `Starting a new run${name ? ` as ${name}` : ''}...`
+          : name ? `Saved as ${name}.` : 'Saved.');
         return;
       }
       if (event.key === 'Backspace') {

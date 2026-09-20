@@ -336,6 +336,19 @@ eventBus.on('game:events', (events) => {
         // says so, and promising a respawn there would be a lie.
         if (!e.data.final) pushToast('warn', 'You fell', 'Respawning at the room entrance.');
         break;
+      case 'SAVE_CREATED':
+        // A new run is a new character, so the game has to be willing to ask
+        // for a name again. `askedForName` is a module-level latch that only
+        // ever went one way, which is why every slot after the first arrived
+        // nameless and was never asked -- the same latch the reset below had
+        // to reload the page to escape.
+        //
+        // Cleared rather than forced: if a name was typed into the new-run
+        // prompt the server has already taken it, the campaign is no longer
+        // called Wanderer, and the condition below will not fire.
+        askedForName = false;
+        pushToast('good', 'A new run', e.data.named ? 'Saved and ready.' : 'Name yourself when you land.');
+        break;
       case 'DATA_RESET':
         // Reload rather than patch the page back to its opening state.
         //

@@ -147,3 +147,73 @@ def test_a_pre_slot_save_is_still_readable_as_the_autosave():
     assert [e["id"] for e in save_system.list_saves("old")] == ["auto"]
     resumed = session("old", load_save=True)
     assert resumed.state.player.level == 4
+
+
+# --- starting over -----------------------------------------------------------
+#
+# Reported from play: "i cant make a completely brand new save which i can load
+# into and set name and everything." There was no route to one. Every way of
+# creating a slot went through SAVE_AS, which *copies* the run you are in -- so
+# a new save arrived already carrying your level, your gear, how far through the
+# campaign you were, and what the twin had learned about you. The only path to a
+# blank campaign was RESET_DATA, which deletes every save you own.
+
+
+def test_a_new_save_starts_from_nothing_rather_than_copying_the_run():
+    s = session("newsave")
+    s.campaign.player_name = "Someone"
+    s.state.player.level = 7
+    s.state.player.inventory.add_weapon("ember_staff")
+    s.campaign.complete("hollow_reach")
+
+    apply(s, "NEW_SAVE", saveName="Second")
+
+    assert s.campaign.player_name == "Second", "the name typed for the new run was not taken"
+    assert s.state.player.level == 1, "it inherited the old run's level"
+    assert "ember_staff" not in s.state.player.inventory.weapons, "it inherited the old gear"
+    assert not s.campaign.completed_areas, "it inherited the old progress"
+
+
+def test_a_new_save_gets_its_own_slot_and_leaves_the_old_one_alone():
+    s = session("newslot")
+    s.state.player.level = 9
+    apply(s, "SAVE_AS", saveName="First")
+    first = s.slot
+    apply(s, "NEW_SAVE", saveName="Second")
+
+    assert s.slot != first, "it wrote over the save it was started from"
+    kept = save_system.read_save(s.session_id, first)
+    assert kept is not None and kept["player"]["level"] == 9, "the old run was not preserved"
+
+
+def test_a_new_save_exists_on_disk_immediately():
+    """A save that only appears after the first village reads as a failure."""
+    s = session("newdisk")
+    apply(s, "NEW_SAVE", saveName="Third")
+    assert save_system.read_save(s.session_id, s.slot) is not None
+    assert any(row["id"] == s.slot for row in save_system.list_saves(s.session_id))
+
+
+def test_a_new_save_forgets_what_the_twin_had_learned():
+    """The one thing a fresh character must not inherit.
+
+    Run the session long enough that the model has an opinion, then start over
+    and check the opinion did not come with it.
+    """
+    s = session("newmodel")
+    for _ in range(240):
+        s.step(1 / 60)
+    before = s.snapshot()["playerModel"]["traits"]
+    assert before, "nothing was learned, so this proves nothing"
+
+    apply(s, "NEW_SAVE", saveName="Fourth")
+    after = s.snapshot()["playerModel"]["traits"]
+    assert all(t["confidence"] == 0.0 for t in after.values()), after
+
+
+def test_the_profile_still_has_a_ceiling():
+    s = session("newfull")
+    for _ in range(save_system.MAX_SLOTS + 2):
+        apply(s, "NEW_SAVE", saveName="x")
+    rows = [r for r in save_system.list_saves(s.session_id) if r["id"] != save_system.AUTO_SLOT]
+    assert len(rows) <= save_system.MAX_SLOTS
