@@ -194,6 +194,9 @@ export interface EnemySnap extends EntityBase {
    * hands, from the blackened sheets.
    */
   weapon?: string | null;
+  /** What a hit is tested against. Bigger than `radius` for the wide
+   *  silhouettes, whose bodies a single physics circle cannot describe. */
+  hitRadius: number;
 }
 
 export interface ProjectileSnap {
