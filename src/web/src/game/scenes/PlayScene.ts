@@ -42,6 +42,19 @@ const ENEMY_COLOUR: Record<string, number> = {
   spitter: 0x9ad06a, sprout: 0x7fbf5a, warden: 0xf0c060,
 };
 
+/** What a beam reaches when the server did not say. Its own `range`. */
+const BEAM_REACH = 760;
+
+/**
+ * Where an effect leaves from: out along the facing by the muzzle distance the
+ * server resolved with, so the drawn thing starts where the staff's head is
+ * rather than inside the creature holding it.
+ */
+function muzzled(pos: Vec2, facing: Vec2, muzzle: unknown): Vec2 {
+  const out = typeof muzzle === 'number' ? muzzle : 0;
+  return { x: pos.x + facing.x * out, y: pos.y + facing.y * out };
+}
+
 export class PlayScene extends Phaser.Scene {
   static readonly KEY = 'play';
 
@@ -519,7 +532,12 @@ export class PlayScene extends Phaser.Scene {
         // stop agreeing the first time either is retuned.
         const area = typeof e.data.area === 'number' ? e.data.area : null;
         switch (abilityId) {
-          case 'arcane_bolt': this.#vfx.arcaneCast(pos, facing); audio.play('arcane'); break;
+          // A lance from the staff's head, not a bolt from the goat's middle.
+          // The server sends the reach and the muzzle it resolved with, so the
+          // drawn beam and the line that actually hit are the same line.
+          case 'arcane_bolt': this.#vfx.beam(muzzled(pos, facing, e.data.muzzle), facing,
+            typeof e.data.reach === 'number' ? e.data.reach : BEAM_REACH);
+            audio.play('arcane'); break;
           case 'flame_burst': this.#vfx.flameCone(pos, facing, area ?? 170); audio.play('fire'); break;
           case 'shadow_dash': this.#vfx.dash(pos, (e.data.direction as Vec2) ?? facing); audio.play('dash'); break;
           case 'binding_nova': this.#vfx.nova(pos, area ?? 150); audio.play('nova'); break;
@@ -656,7 +674,12 @@ export class PlayScene extends Phaser.Scene {
           case 'binding_nova': this.#vfx.nova(pos, area || 150); audio.play('nova'); break;
           case 'ember_bolt': this.#vfx.hitSparks(pos, PALETTE.ember, 8); audio.play('fire'); break;
           case 'frost_bolt': this.#vfx.hitSparks(pos, PALETTE.ice, 8); audio.play('ice'); break;
-          case 'arcane_bolt': this.#vfx.arcaneCast(pos, facing); audio.play('arcane'); break;
+          // A lance from the staff's head, not a bolt from the goat's middle.
+          // The server sends the reach and the muzzle it resolved with, so the
+          // drawn beam and the line that actually hit are the same line.
+          case 'arcane_bolt': this.#vfx.beam(muzzled(pos, facing, e.data.muzzle), facing,
+            typeof e.data.reach === 'number' ? e.data.reach : BEAM_REACH);
+            audio.play('arcane'); break;
           // Its own volley and anything else it took: the shards are real
           // projectiles, so the cast only needs a flash at the source.
           default: this.#vfx.hitSparks(pos, PALETTE.magenta, 10); break;

@@ -133,7 +133,6 @@ export const PROJECTILE_ART: Readonly<Record<string, EffectId>> = {
   bone_arrow: 'arrow',
   fire_bolt: 'fireBall',
   ice_bolt: 'iceShards',
-  arcane_bolt: 'thorn',
   mirror_bolt: 'mirrorBolt',
   // The Fen Spitter's pod and the Kiln Shardling's shell fragments. Both
   // borrow a sheet whose *shape* is right -- a thrown seed and a hard chip --
@@ -146,7 +145,6 @@ export const PROJECTILE_ART: Readonly<Record<string, EffectId>> = {
 /** Extra tint for a sheet standing in for a kind it was not drawn as. */
 export const PROJECTILE_TINT: Readonly<Record<string, number>> = {
   bone_arrow: 0xd8d2c2,
-  arcane_bolt: 0xb48cff,
   // Sickly plant green, and the shardling's own kiln orange.
   spore_pod: 0x9fbf5a,
   shell_shard: 0xe0733a,

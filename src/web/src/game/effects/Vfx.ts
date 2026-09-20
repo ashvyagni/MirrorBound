@@ -242,6 +242,47 @@ export class Vfx {
     this.shake(CAMERA.shake.hit, 170);
   }
 
+  /**
+   * A lance of ice out from the staff's head.
+   *
+   * Stretched along its length rather than scaled uniformly: the sheet draws a
+   * bright star at the beam's source and a shaft running off to the right, and
+   * scaling the whole thing to a 760-unit reach would make the star enormous.
+   * So the height is the sheet's own and only X is stretched, which is exactly
+   * what a lance getting longer looks like.
+   *
+   * `from` is the staff's head, not the caster: the server resolves the hitbox
+   * from the same point, so what is drawn and what hit you are one line.
+   */
+  beam(from: Vec2, facing: Vec2, reach: number): void {
+    const def = EFFECTS.iceBeam;
+    if (!this.scene.textures.exists(def.texture)) {
+      this.arcaneCast(from, facing);
+      return;
+    }
+    const sprite = this.scene.add.sprite(from.x, from.y, def.texture, def.frames[0]);
+    // Anchored on its source so it grows outward from the staff rather than
+    // from its own middle.
+    sprite.setOrigin(def.anchorX ?? 0.03, def.anchor.y);
+    sprite.setDepth(DEPTH.fxHigh);
+
+    const height = (PLAYER_BODY * def.sizeRatio) / (def.frameSize.height * def.bodyRatio);
+    // The drawn shaft is most of the frame; solving X against the full frame
+    // width would fall short of the reach by the star's own margin.
+    sprite.setScale(reach / def.frameSize.width, height);
+    sprite.setRotation(Math.atan2(facing.y, facing.x));
+    sprite.setBlendMode(Phaser.BlendModes.ADD);
+    sprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => sprite.destroy());
+    sprite.play(effectKey(def));
+
+    this.#burst(from.x, from.y, 'fx:spark', 14, {
+      lifespan: { min: 180, max: 420 }, speed: { min: 40, max: 160 },
+      scale: { start: 0.5, end: 0 }, alpha: { start: 0.9, end: 0 },
+      tint: [PALETTE.ice, 0xffffff], blendMode: 'ADD',
+    });
+    this.shake(CAMERA.shake.hit, 120);
+  }
+
   nova(pos: Vec2, radius: number): void {
     // Erupts from the ground, so its base belongs on the floor line. Sized off
     // the server's own radius rather than a number picked to look right.
