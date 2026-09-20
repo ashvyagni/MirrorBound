@@ -12,6 +12,13 @@ import { SettingsButton } from '../hud/SettingsButton';
 import { SettingsScreen } from '../hud/SettingsScreen';
 import { Console } from '../hud/Console';
 import { InteractPrompt } from '../hud/InteractPrompt';
+import { Cinematic } from '../hud/Cinematic';
+import { DialogueScreen } from '../hud/DialogueScreen';
+import { Notifications } from '../hud/Notifications';
+import { EndScreen } from '../hud/EndScreen';
+import type { ServerEvent } from '../contracts';
+import { AgentScreen } from '../hud/AgentScreen';
+import { SandboxScreen } from '../hud/SandboxScreen';
 import { PauseScreen } from '../hud/PauseScreen';
 import { Toast } from '../hud/Toast';
 import { Bridge } from '../hud/Bridge';
@@ -35,6 +42,15 @@ import { FX } from '../world/textures';
  * timers -- so no view here can disagree with the game about what is in hand,
  * how hurt the goat is, or what is ready to cast.
  */
+/**
+ * How many recent server events the agent view keeps.
+ *
+ * Enough for its three short history lists to survive a quiet second, small
+ * enough that it is never worth thinking about: this is a debug window, not a
+ * telemetry buffer.
+ */
+const AGENT_EVENT_TAIL = 120;
+
 export class HudScene extends Phaser.Scene {
   static readonly KEY = 'hud';
 
@@ -47,6 +63,14 @@ export class HudScene extends Phaser.Scene {
   readonly #flourish = new Flourish(this);
   readonly #settingsScreen = new SettingsScreen(this);
   readonly #pause = new PauseScreen(this);
+  readonly #end = new EndScreen(this);
+  readonly #cinematic = new Cinematic(this);
+  readonly #sandbox = new SandboxScreen(this);
+  readonly #agent = new AgentScreen(this);
+  /** Recent server events, for the agent view's history lists. */
+  #agentEvents: ServerEvent[] = [];
+  readonly #notices = new Notifications(this);
+  readonly #dialogue = new DialogueScreen(this);
   readonly #prompt = new InteractPrompt(this);
   readonly #toast = new Toast(this);
   readonly #bridge = new Bridge();
@@ -89,6 +113,12 @@ export class HudScene extends Phaser.Scene {
     this.#toast.build();
     this.#skills.build();
     this.#inventory.build();
+    this.#end.build();
+    this.#sandbox.build();
+    this.#agent.build();
+    this.#dialogue.build();
+    this.#notices.build();
+    this.#cinematic.build();
 
     // The console runs its commands against the play scene, which is the only
     // thing that can actually put something in the room.
@@ -131,7 +161,8 @@ export class HudScene extends Phaser.Scene {
         for (const text of [
           ...this.#hotbar.texts, ...this.#rail.texts,
           ...this.#settings.texts, ...this.#map.texts,
-          ...this.#settingsScreen.texts, ...this.#pause.texts,
+          ...this.#settingsScreen.texts, ...this.#pause.texts, ...this.#end.texts,
+          ...this.#sandbox.texts, ...this.#agent.texts, ...this.#notices.texts, ...this.#dialogue.texts,
           ...this.#prompt.texts, ...this.#console.texts, ...this.#toast.texts,
           ...this.#skills.texts, ...this.#inventory.texts,
         ]) {
@@ -141,23 +172,55 @@ export class HudScene extends Phaser.Scene {
       .catch(() => { /* the fallback stack is still readable */ });
   }
 
-  /**
-   * Shut every other screen.
-   *
-   * One at a time, because two scrims stack into an unreadable murk and the
-   * one underneath still takes clicks. Called by each opener rather than by a
-   * screen manager: there are five of them and a manager would be more
-   * machinery than the rule needs.
-   */
-  #closeScreens(): void {
-    this.#map.close();
-    this.#settingsScreen.close();
-    this.#skills.close();
-    this.#inventory.close();
+  #showScreen(screen: string): void {
+    const panels = { map: this.#map, settings: this.#settingsScreen,
+      skills: this.#skills, inventory: this.#inventory, console: this.#console,
+      sandbox: this.#sandbox, agent: this.#agent };
+    // Dialogue is opened by an NPC rather than by a key, so it is not in the
+    // toggle list -- but anything else opening has to close it.
+    if (screen !== 'dialogue') this.#dialogue.close(false);
+    for (const [name, panel] of Object.entries(panels)) {
+      if (name === screen) { if (!panel.open) panel.toggle(); }
+      else panel.close(false);
+    }
   }
 
   #listen(): void {
     this.#teardown.push(
+      eventBus.on('ui:screen', ({ screen }) => this.#showScreen(screen)),
+
+      // The agent view reads the raw snapshot rather than a translated one:
+      // it is a window onto the model itself, so anything `Bridge` distilled
+      // on the way past would be the wrong thing to show in it.
+      eventBus.on('game:snapshot', (snapshot) => this.#agent.setSnapshot(snapshot)),
+      eventBus.on('game:events', (events) => {
+        // A rolling tail, because the three "what just happened" lists want
+        // more than one snapshot's worth and a snapshot only carries its own.
+        this.#agentEvents = [...this.#agentEvents, ...events].slice(-AGENT_EVENT_TAIL);
+        this.#agent.setEvents(this.#agentEvents);
+      }),
+
+      eventBus.on('hud:notice', ({ kind, title, detail }) => this.#notices.show(kind, title, detail)),
+      eventBus.on('hud:conversation', ({ conversation, gold, owned }) => {
+        this.#dialogue.show(conversation, gold, owned);
+        // The offer to talk is moot once it has been taken, and the bubble
+        // wants the same air over their head.
+        this.#prompt.setSuppressed(true);
+      }),
+      eventBus.on('hud:purse', ({ gold, owned }) => this.#dialogue.refresh(gold, owned)),
+      eventBus.on('hud:speaker', ({ at }) => this.#dialogue.moveSpeaker(at)),
+      eventBus.on('ui:screen-close', ({ screen }) => {
+        if (screen === 'dialogue') this.#prompt.setSuppressed(false);
+      }),
+      eventBus.on('cutscene:state', ({ playing }) => {
+        if (playing) this.#cinematic.begin();
+        else this.#cinematic.end();
+      }),
+      eventBus.on('cutscene:line', ({ text }) => this.#cinematic.say(text)),
+      eventBus.on('run:ended', (ended) => {
+        if (ended.ending === null) this.#end.hide();
+        else this.#end.show(ended.ending, ended.stats);
+      }),
       eventBus.on('vitals:changed', (vitals) => this.#portrait.set(vitals)),
       eventBus.on('loadout:changed', (loadout) => this.#hotbar.set(loadout)),
       eventBus.on('weapon:cooldowns', ({ active }) => this.#rail.set(active)),
@@ -167,28 +230,10 @@ export class HudScene extends Phaser.Scene {
       eventBus.on('campaign:changed', ({ areas, canTravel }) => this.#map.setCampaign(areas, canTravel)),
       eventBus.on('skills:changed', ({ nodes, points, respecBlockedBy }) =>
         this.#skills.set(nodes, points, respecBlockedBy)),
-      eventBus.on('skills:toggle', () => {
-        this.#closeScreens();
-        this.#skills.toggle();
-      }),
       eventBus.on('inventory:changed', ({ inventory, abilities }) =>
         this.#inventory.set(inventory, abilities)),
-      eventBus.on('inventory:toggle', () => {
-        this.#closeScreens();
-        this.#inventory.toggle();
-      }),
-      eventBus.on('map:toggle', () => {
-        const wasOpen = this.#map.open;
-        this.#closeScreens();
-        if (!wasOpen) this.#map.toggle();
-      }),
       // Only one screen at a time: two scrims stack into an unreadable murk,
       // and the one underneath still takes clicks.
-      eventBus.on('console:toggle', () => {
-        this.#map.close();
-        this.#settingsScreen.close();
-        this.#console.toggle();
-      }),
       // The pause SCREEN and the world being paused are not the same thing.
       // Every DOM screen asks the server to pause while it is open -- that is
       // how the skill tree stops the world behind it -- so showing this panel
@@ -204,10 +249,6 @@ export class HudScene extends Phaser.Scene {
       }),
       eventBus.on('pause:stats', (stats) => this.#pause.set(stats)),
       eventBus.on('interact:target', (target) => this.#prompt.set(target)),
-      eventBus.on('settings:toggle', () => {
-        this.#map.close();
-        this.#settingsScreen.toggle();
-      }),
       eventBus.on('flourish', ({ name }) => this.#flourish.show(name)),
       eventBus.on('flourish:clear', () => this.#flourish.clear()),
 
@@ -231,6 +272,10 @@ export class HudScene extends Phaser.Scene {
     this.#minimap.draw();
     this.#console.step(dt);
     this.#prompt.step();
+    this.#dialogue.step();
+    // The bubble moves with whoever is speaking, so what the notice column has
+    // to dodge changes every frame.
+    this.#notices.avoid(this.#dialogue.bubbleBand);
   }
 
   #dispose(): void {
@@ -243,6 +288,12 @@ export class HudScene extends Phaser.Scene {
     this.#settings.destroy();
     this.#map.destroy();
     this.#settingsScreen.destroy();
+    this.#end.destroy();
+    this.#sandbox.destroy();
+    this.#agent.destroy();
+    this.#dialogue.destroy();
+    this.#notices.destroy();
+    this.#cinematic.destroy();
     this.#pause.destroy();
     this.#prompt.destroy();
     this.#toast.destroy();

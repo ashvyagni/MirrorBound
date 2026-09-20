@@ -125,19 +125,19 @@ export class Console {
 
     // The game stops reading the keyboard while this is up, or typing "spawn"
     // also swings a sword and drinks a potion.
-    eventBus.emit('input:suspend', { suspended: true });
 
     this.#onKey = (event: KeyboardEvent) => this.#key(event);
     window.addEventListener('keydown', this.#onKey, { capture: true });
   }
 
-  close(): void {
+  close(notify = true): void {
+    const wasOpen = this.open;
     if (this.#onKey) {
       window.removeEventListener('keydown', this.#onKey, { capture: true });
       this.#onKey = null;
     }
     this.#panel.setVisible(false);
-    eventBus.emit('input:suspend', { suspended: false });
+    if (wasOpen && notify) eventBus.emit('ui:screen-close', { screen: 'console' });
   }
 
   #key(event: KeyboardEvent): void {

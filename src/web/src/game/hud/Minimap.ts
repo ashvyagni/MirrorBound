@@ -20,6 +20,7 @@ export interface MapView {
   biome: BiomeName;
   /** Changes when the room does. The floor is only repainted when it moves. */
   roomId: string;
+  roomSeed?: number;
   player: Vec2;
   marks: readonly Vec2[];
 }
@@ -81,7 +82,7 @@ export class Minimap {
 
   set(view: MapView): void {
     this.#view = view;
-    if (view.roomId !== this.#painted) this.#paintFloor(view);
+    if (`${view.roomId}:${view.roomSeed ?? 0}` !== this.#painted) this.#paintFloor(view);
   }
 
   /**
@@ -103,7 +104,9 @@ export class Minimap {
     if (!rows || !cols) return;
 
     const size = Math.round(this.#inner);
-    const key = `minimap:floor:${view.roomId}`;
+    const identity = `${view.roomId}:${view.roomSeed ?? 0}`;
+    const key = `minimap:floor:${identity}`;
+    if (this.#painted) this.scene.textures.remove(`minimap:floor:${this.#painted}`);
     if (this.scene.textures.exists(key)) this.scene.textures.remove(key);
 
     const canvas = this.scene.textures.createCanvas(key, size, size);
@@ -154,7 +157,7 @@ export class Minimap {
     this.#floor.setTexture(key);
     this.#floor.setDisplaySize(size, size);
     this.#floor.setVisible(true);
-    this.#painted = view.roomId;
+    this.#painted = identity;
   }
 
   /** Repaint the marks. The floor underneath is already drawn. */

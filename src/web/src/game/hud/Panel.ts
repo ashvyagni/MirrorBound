@@ -124,6 +124,8 @@ export class Panel {
   readonly body: Phaser.GameObjects.Container;
   readonly inset: number;
   #texts: Phaser.GameObjects.Text[] = [];
+  /** The heading, when the panel was given one. */
+  #title: Phaser.GameObjects.Text | null = null;
 
   constructor(scene: Phaser.Scene, x: number, y: number, opts: PanelOptions) {
     // The border the art actually has, not the one the brief asked for.
@@ -167,6 +169,7 @@ export class Panel {
         .setOrigin(0.5, 0.5);
       this.container.add(title);
       this.#texts.push(title);
+      this.#title = title;
     }
 
     // Everything a screen puts inside goes here, so a caller never has to know
@@ -177,6 +180,11 @@ export class Panel {
 
   get texts(): readonly Phaser.GameObjects.Text[] {
     return this.#texts;
+  }
+
+  /** Retitle a panel whose heading depends on what it is showing. */
+  setTitle(title: string): void {
+    this.#title?.setText(title.toUpperCase());
   }
 
   /** Usable space inside the border. */

@@ -130,12 +130,16 @@ export function CharacterScreen() {
             <p className="dialog__muted sheet__hint">Two weapons at a time. <Key of="swapWeapon" /> swaps them.</p>
             <div className="gearlist">
               {weapons.map((w) => (
+                <div key={w.id}>
                 <WeaponCard
-                  key={w.id}
                   weapon={w}
                   held={w.id === equipped ? 'main' : w.id === offhand ? 'off' : null}
                   onEquip={() => command({ action: 'EQUIP_WEAPON', weaponId: w.id })}
                 />
+                {!snap.twin.dormant && <button type="button" className="btn btn--small"
+                  disabled={snap.twin.state === 'downed'}
+                  onClick={() => command({ action: 'TWIN_EQUIP', weaponId: w.id })}>Give to twin</button>}
+                </div>
               ))}
               {weapons.length === 0 && <p className="dialog__muted">Nothing but your hands.</p>}
             </div>

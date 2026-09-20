@@ -6,8 +6,11 @@ import type { Settings } from '../ui/settings';
 import type { BroClipName } from './animation/broClips';
 import type { ClipName } from './animation/goatClips';
 import type { WeaponId } from './animation/weaponClips';
-import type { IconName } from './animation/icons';
+import type { EndStats } from './hud/EndScreen';
+import type { Recharging } from './hud/CooldownRail';
+import type { Conversation } from './hud/DialogueScreen';
 import type { MapView } from './hud/Minimap';
+import type { NoticeKind } from './hud/Notifications';
 import type { PauseStats as PauseSnapshot } from './hud/PauseScreen';
 import type { LoadoutSnapshot } from './state/Loadout';
 import type { VitalsSnapshot } from './state/Vitals';
@@ -48,6 +51,8 @@ export interface GameEventMap {
   'ui:command': CommandMessage;
   /** UI opened or closed a screen; the game stops sending movement while open. */
   'ui:modal': { open: boolean };
+  'ui:screen': { screen: string };
+  'ui:screen-close': { screen: string };
   /** Settings changed (volume, zoom, quality, debug overlay). */
   'ui:settings': Settings;
   /** Ask the game to enter or leave fullscreen. Must originate from a click. */
@@ -93,7 +98,7 @@ export interface GameEventMap {
    * time and `performance.now()` does not, and the two then disagree about
    * whether a spell is ready.
    */
-  'weapon:cooldowns': { active: Partial<Record<IconName, { left: number; total: number }>> };
+  'weapon:cooldowns': { active: Recharging[] };
   /** The in-game bar handled this frame's click, so nothing else should also
    *  act on it -- clicking a weapon slot must not swing the weapon too. */
   'hud:pointer-used': Record<string, never>;
@@ -136,16 +141,30 @@ export interface GameEventMap {
   'run:changed': RunSnapshot;
   /** Mark a moment: death, a room cleared, a level gained. */
   'flourish': { name: 'death' | 'victory' | 'levelUp' };
+  /** A server-run cutscene starting, speaking, or ending. */
+  /** Someone is talking. The canvas draws it; the store parses NPC_TALK. */
+  'hud:conversation': { conversation: Conversation; gold: number; owned: string[] };
+  /** Where the speaker is standing, while a conversation is open. */
+  'hud:speaker': { at: { x: number; y: number } };
+  /** What the player can afford now, so an open shop stays honest. */
+  'hud:purse': { gold: number; owned: string[] };
+  /** Something worth a line over the world. Drawn by the canvas HUD. */
+  'hud:notice': { kind: NoticeKind; title: string; detail?: string };
+  'cutscene:state': { playing: boolean };
+  'cutscene:line': { text: string };
+  /** The run is over. `null` clears the screen on a restart. */
+  'run:ended': { ending: 'victory' | 'defeat'; stats: EndStats } | { ending: null };
   /** Take the held mark down. Only death holds, so only death needs this. */
   'flourish:clear': Record<string, never>;
   /** Open or close the settings screen. */
   'settings:toggle': Record<string, never>;
-  /** Stop the game reading the keyboard, while a key is being rebound. */
-  'input:suspend': { suspended: boolean };
   /** Put the Mirror in the room, for testing. */
   'debug:spawn-boss': Record<string, never>;
   /** Open or close the console. */
   'console:toggle': Record<string, never>;
+  'sandbox:toggle': Record<string, never>;
+  /** The agent view: what the model believes, and what acts on it. */
+  'agent:toggle': Record<string, never>;
   /** Open or close the skill tree. */
   'skills:toggle': Record<string, never>;
   /** Open or close what you are carrying. */
@@ -164,7 +183,7 @@ export interface GameEventMap {
   /** What the pause screen shows. Pushed when it opens. */
   'pause:stats': PauseSnapshot;
   /** What the goat is standing next to, or null. Drives the prompt. */
-  'interact:target': { label: string; x: number; y: number } | null;
+  'interact:target': { label: string; x: number; y: number; action?: 'walk' | 'collect' } | null;
   /** Toggle physics body overlays. */
   'debug:toggle-bodies': { enabled: boolean };
 }

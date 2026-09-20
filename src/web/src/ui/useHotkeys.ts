@@ -3,8 +3,7 @@ import { useEffect } from 'react';
 import { eventBus } from '@/game/EventBus';
 import { eventKeyCode, keybinds } from '@/game/state/Keybinds';
 
-import { getSettings, updateSettings } from './settings';
-import { closeConversation, command, getUiState, openScreen, toggleScreen } from './store';
+import { closeConversation, command, getUiState, isPauseRequested, openScreen, toggleScreen } from './store';
 
 /**
  * Menu and world keys. Movement and combat belong to Phaser's input, which
@@ -22,7 +21,7 @@ export function useHotkeys(): void {
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA')) return;
       // Held keys must not fire a discrete action once per repeat.
-      if (e.repeat) return;
+      if (e.repeat || e.defaultPrevented) return;
       // The Controls screen is listening for the next key press so it can bind
       // it; nothing else may act on that press.
       if (getUiState().rebinding) return;
@@ -40,7 +39,7 @@ export function useHotkeys(): void {
         // the canvas answers.
         if (screen === 'dialogue') closeConversation();
         else if (screen !== 'none') openScreen('none');
-        else command({ action: snapshot?.paused ? 'RESUME' : 'PAUSE' });
+        else command({ action: isPauseRequested() ? 'RESUME' : 'PAUSE' });
         return;
       }
       if (e.key === 'Enter') {
@@ -61,7 +60,8 @@ export function useHotkeys(): void {
           // first -- otherwise pausing behind an open conversation leaves you
           // reading a dead one.
           if (screen === 'dialogue') closeConversation();
-          else command({ action: snapshot?.paused ? 'RESUME' : 'PAUSE' });
+          else if (inMenu) openScreen('none');
+          else command({ action: isPauseRequested() ? 'RESUME' : 'PAUSE' });
           break;
         case 'map':
           e.preventDefault();
@@ -78,7 +78,7 @@ export function useHotkeys(): void {
           if (!inMenu) eventBus.emit('loadout:use-potion', {});
           break;
         case 'companion':
-          if (!inMenu) command({ action: 'TWIN_REQUEST' });
+          if (!inMenu) command({ action: 'TWIN_CALL' });
           break;
         case 'inventory':
           e.preventDefault();
@@ -94,7 +94,13 @@ export function useHotkeys(): void {
           break;
         case 'debug':
           e.preventDefault();
-          updateSettings({ debugOverlay: !getSettings().debugOverlay });
+          // The agent view, drawn on the canvas like every other screen. This
+          // used to flip the `debugOverlay` setting, which both raised a DOM
+          // sidebar and painted hot cells on the floor -- two unrelated things
+          // on one switch. The floor overlay keeps that setting; the panel is
+          // a screen now, so it opens, closes on Escape and shuts whatever
+          // else was open, exactly like the inventory does.
+          eventBus.emit('agent:toggle', {});
           break;
         case 'healthPotion':
           if (!inMenu) command({ action: 'USE_ITEM', itemId: 'health_potion' });
