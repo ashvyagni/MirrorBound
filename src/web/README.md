@@ -48,6 +48,7 @@ them above about 34 px.
 
 ```
 scripts/build_atlas.py     asset pipeline: character sheet -> texture atlas
+scripts/build_tiles.py     floor tiles: a full-bleed grid sliced to TILE, no keying
 public/game/<name>/         generated atlas (png + phaser json), one per sheet
 src/game/                  everything Phaser. Never imported by React directly.
   animation/               clip tables + the generated frame manifests

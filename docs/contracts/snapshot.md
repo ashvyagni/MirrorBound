@@ -53,7 +53,7 @@ One JSON object per snapshot, 20 per second, from server to client. TypeScript m
   },
 
   "enemies":[{"...EntityBase","type":"skeleton","name":"Bone Knight","role":"melee","sprite":"skeleton","elite":false,"boss":false,
-              "state":"attack","targetId":"player_1","windingUp":true,"windup":0.3}],
+              "state":"attack","targetId":"player_1","windingUp":true,"windup":0.3,"weapon":null}],
   "projectiles":[{"id":"projectile_4","kind":"ice_bolt","ownerId":"twin_1","faction":"ally","position":{..},"velocity":{..},"radius":6}],
   "pickups":[{"id":"pickup_2","kind":"essence","itemId":"","amount":3,"position":{..},"age":1.2}],
 
@@ -77,6 +77,11 @@ Rules:
 - `events` is filtered to `CLIENT_EVENT_TYPES` and capped at 60 per snapshot.
 - The client must tolerate a lite `room` and missing detail blocks by caching the last full ones.
 - Field names are camelCase on the wire, snake_case inside event `data` (they are the telemetry events verbatim).
+- `enemies[].weapon` is the player weapon this creature was armed with (`armed_with`),
+  or `null`. It is **presentational only** -- every number the weapon dictates (reach,
+  cadence, cooldown, projectile, damage scale) has already been folded into the
+  archetype's own fields server-side. The client reads it solely to draw the weapon in
+  the creature's hands from the blackened sheets, and to draw what it throws to match.
 
 ## NPC interactions and weapon-derived abilities (0.1.0)
 
@@ -94,3 +99,31 @@ Rules:
 - Player ability slots derive from the equipped weapon pair, and may number fewer than four.
   Legacy `SET_ABILITY_SLOT` remains a recognized command for compatibility but returns
   `ACTION_REJECTED` with `abilities are determined by equipped weapons`.
+
+
+## Gameplay hardening contracts (2026-09-20)
+
+- `TWIN_CALL` has no payload. Python validates that the twin is available, installs FOLLOW for
+  three seconds of unpaused simulation time and emits `TWIN_CALLED` with `duration`/`position`.
+  Dormant/downed twins receive `ACTION_REJECTED`. `TWIN_REQUEST` still requires `weaponId`.
+- `TWIN_EQUIP` equips a weapon already held by the twin, or transfers an owned player weapon
+  into the twin's inventory before equipping. `TWIN_REQUEST` transfers in the reverse direction.
+  Both repair main/offhand references; an empty inventory resolves to `bare_hands`.
+  Transfers emit `TWIN_ITEM_GIVEN` with `weapon`, destination actor `to`, `twinWeapon`, `position`.
+- `BUY_ITEM` checks the same inclusive NPC distance as TALK on every request, before gold or
+  inventory mutation. It works while paused; pausing is not an exemption from validation.
+- A restored ending emits `TWIN_REVIVED` with `restored: true`; the twin snapshot is available
+  and campaign flags contain `twin_restored` instead of `twin_taken`. The checkpoint includes it.
+- Nonzero `castTime` starts an interruptible channel. `PLAYER_ABILITY_CAST` reports `channel`
+  at acceptance; `PLAYER_ABILITY_RESOLVED` reports targets and effects only when completed.
+  Mana/cooldowns are paid once at acceptance. An interruption emits `ABILITY_INTERRUPTED` and
+  prevents resolution. Instant abilities retain the existing PLAYER_ABILITY_CAST event.
+- Player lite snapshots include `moveSpeed` and `runSpeed`: current effective input rates after
+  state/slow modifiers. They are prediction hints, never authority for client-side outcomes.
+- Decor `radius` is the unscaled base radius; `scale` scales it once. `collisionX`, `collisionY`,
+  `collisionRadius` describe the final authoritative foundation circle. Building foundations
+  sit above the bottom sprite anchor; debug drawing uses the transmitted circle.
+- Room geometry is cached by `room.id` (not just index), terrain by ID and seed. Lite room packets
+  update clearance/doors but do not remove full-room safety, portals, tiles or cached NPCs.
+- WebSocket close code **4409** means another tab took this save. The old client stops automatic
+  reconnects. Each simulation's snapshots are bound to its own socket, preventing mixed states.

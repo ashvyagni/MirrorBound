@@ -19,8 +19,13 @@ Run these in separate terminals from the repository root:
 ```bash
 cd apps/server
 uv sync
-uv run uvicorn mirrorbound.api.app:create_app --factory --host 127.0.0.1 --port 8000
+uv run uvicorn mirrorbound.api.app:create_app --factory --host 127.0.0.1 --port 8000 --reload
 ```
+
+`--reload` matters more than it looks. The browser is only a view, so a server
+running yesterday's code answers today's client perfectly politely -- it just
+rejects every command it has never heard of as an unknown action, which reads
+in the game as a button that does nothing rather than as a stale process.
 
 ```bash
 cd src/web
@@ -28,14 +33,17 @@ npm ci
 npm run dev
 ```
 
-Open [the game](http://localhost:5173/?session=player). Use a stable `?session=player` to return
-to that session's checkpoint. Without `session`, the browser generates a new session on page load.
+Open [the game](http://127.0.0.1:5173/). The browser remembers its default checkpoint identity
+and adds it to the URL; reloading keeps the same save. Use `?session=player` to select a named save.
+If two tabs open the same session, the newest tab takes over and the older one stops reconnecting.
 `?seed=1234&session=test` starts a fresh reproducible run and deliberately ignores checkpoints.
 An alternate server can be selected with `?server=ws://127.0.0.1:8000` (use `wss://` for TLS).
 
 Saves live in `apps/server/saves/`; replay recordings live in `apps/server/runs/`. Both are local,
 gitignored data. Checkpoints preserve progression, not the exact fight or learned AI model.
 This repository does not currently include a packaged executable or a hosted game service.
+
+Menus pause the simulation and suppress gameplay input; closing preserves any earlier manual pause.
 
 ## Controls
 
@@ -50,6 +58,7 @@ This repository does not currently include a packaged executable or a hosted gam
 | `E` | Talk to a nearby NPC; click dialogue to advance, `Esc` to leave |
 | `F` / `G` | Health / mana potion |
 | `R`, then `H` | Cycle the potion dial, then drink the selected potion |
+| `T` | Call the available twin to regroup/follow for three seconds |
 | `I` / `K` / `C` / `M` | Inventory / skills / character / map |
 | `P` / `Esc` | Pause or resume; Escape also closes menus |
 | `F3` | AI debug overlay |
@@ -99,6 +108,7 @@ uv run python ../../tools/replay/replay.py runs/<recording>.jsonl
 ## Code and design
 
 - [FEATURE_STATUS.md](FEATURE_STATUS.md) — release inventory and remaining work.
+- [PLAYTEST_RESULTS.md](PLAYTEST_RESULTS.md) — repeatable combat probes and measured limits.
 - [ARCHITECTURE.md](ARCHITECTURE.md) — system design.
 - [AI_ARCHITECTURE.md](AI_ARCHITECTURE.md) — modeling, utility decisions and boss counters.
 - [GAMEPLAY.md](GAMEPLAY.md) — gameplay design; some older descriptions need updating.

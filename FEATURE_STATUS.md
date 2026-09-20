@@ -1,6 +1,6 @@
 # Mirrorbound 0.1.0 — feature inventory and release audit
 
-Reviewed 2026-09-19. This is the initial playable development release, not a claim that every
+Reviewed 2026-09-20 after the gameplay hardening pass. This is the initial playable development release, not a claim that every
 menu, campaign edge case or platform has been fully playtested. Status below is based on the
 current executable paths, not on older roadmap text or the presence of unused art.
 
@@ -29,31 +29,31 @@ current executable paths, not on older roadmap text or the presence of unused ar
 | Feature | What is implemented | Limits / follow-up |
 |---|---|---|
 | Campaign | Hollow Reach and Emberfall villages; Wakewood Crypt (5 rooms), Ashen Deep (6), Mirror Sanctum (2). | Compact authored campaign; no larger overworld or additional chapters. |
-| Dungeon generation | Handcrafted templates selected and decorated by seeded RNG; grove, ruins, crypt biomes. | Balance and navigability need more multi-seed playtesting. |
+| Dungeon generation | Handcrafted templates selected and decorated by seeded RNG; grove, ruins, crypt biomes. | Deterministic route tests cover both villages across five seeds; combat probes cover three seeds and four encounters. See PLAYTEST_RESULTS.md. |
 | Tutorial opening | Start unarmed; guaranteed iron sword at a dungeon entrance; authored first combat room. | Teaching remains mostly implicit; no guided interactive tutorial. |
 | Room progression | Combat gates, room clear rewards, backtracking, exit portals and area discovery. | Map travel intentionally auto-completes skipped prerequisites and grants their rewards. Decide whether that shortcut belongs in the public gameplay design. |
 | NPCs | Elder Mara, Oren, Siv and the Hearth; proximity interaction and server-authored dialogue. | Linear click-through conversations, not branching conversations. |
 | Quest state | Elder starts the crypt quest; rescue/completion flags change authored lines. | No general quest journal, side-quest system or branching quest graph. |
 | Naming | Player/twin naming, sanitization, dialogue substitutions, rename from Character. | Naming feedback and styling still span React and Phaser. |
-| Shops | Gold prices; sword/bow/staves, potions and two relics; affordability and duplicate checks. | No sell/buyback, stock depletion, crafting or shop economy simulation. Server purchase proximity needs tightening. |
-| Hearth | Restores health/mana, clears player statuses, restores an awakened twin and saves. | Checkpoint durability depends on a stable session ID. |
-| Movement | Walk/run, normalized directional input, room/decor collision and knockback. | AI movement steers directly; no obstacle-routing pathfinder. Presentation prediction can disagree temporarily with collision. |
+| Shops | Gold prices; sword/bow/staves, potions and two relics; affordability and duplicate checks. | No sell/buyback, stock depletion, crafting or shop economy simulation. Purchase range is checked on every request. |
+| Hearth | Restores health/mana, clears player statuses, restores an awakened twin and saves. | Default browser identity now persists and appears in the URL; explicit session links select other checkpoints. |
+| Movement | Walk/run, normalized directional input, room/decor collision and knockback. | AI uses deterministic cached grid routes around server collision geometry. Presentation prediction can still briefly disagree with authoritative position under latency. |
 | Aiming | Mouse-directed attack/cast intent, server-controlled facing and outcomes. | No controller or touch input. |
-| Basic combat | Unarmed swipes, three-hit sword chain, bow arrows, explosive fire bolts and slowing frost bolts. | Needs sustained balance, hit-feel and latency playtesting. |
+| Basic combat | Unarmed swipes, three-hit sword chain, bow arrows, explosive fire bolts and slowing frost bolts. | A 60-case repeatable combat probe and browser smoke tests are available. Human difficulty and latency testing remain ongoing. |
 | Carried equipment | Four equipable weapons; main/offhand selection and swapping; first pickups equip automatically. | No armor equipment, durability, randomized affixes or expanded weapon progression. |
 | Abilities | Sword: Aegis + Shadow Dash. Bow: Arrow Volley + Mending Light. Ember staff: Flame Burst + Flame Pillar. Frost staff: Binding Nova + Arcane Bolt. | Two abilities per weapon; four keys with two weapons. Empty hands provide dash. Free slot reassignment is obsolete. |
-| Resource rules | Mana costs/regeneration, cooldowns, dash invulnerability, slow/burn/shield effects, interrupted healing channel. | Flame Pillar's configured cast time does not delay its damage; ability feedback coverage is uneven. |
-| Potions | Health/mana potions, timed drinking, shared cooldown, consumption after completion. | Default F binding collides with potion-dial use; H works for the selected dial potion. |
-| Damage mitigation | Shield and nearby twin PROTECT, capped additive reduction; player stat modifiers. | Dormant twin eligibility is inconsistent across combat paths. |
+| Resource rules | Mana costs/regeneration, cooldowns, dash invulnerability, slow/burn/shield effects, interrupted healing channel. | Flame Pillar resolves after its interruptible wind-up; burn can finish enemies through the normal reward pipeline. Bespoke visual feedback remains uneven. |
+| Potions | Health/mana potions, timed drinking, shared cooldown, consumption after completion. | F/G are direct health/mana, R cycles and H uses the dial. Legacy conflicting saved bindings migrate. |
+| Damage mitigation | Shield and nearby twin PROTECT, capped additive reduction; player stat modifiers. | Only an available twin can target, collide, attack or protect. |
 | Enemies | Bone Knight, Hollow Archer, Gloom Hound, Mire Slime, Ash Acolyte, Crypt Brute, Husk Scarab; elite variants. | `spitter`, `sprout`, `shardling` have art but no server archetypes. |
-| Enemy behavior | Aggro/threat targeting, telegraphs, melee charges, ranged spacing, strafing, darting, retreat, crowd separation. | Direct steering can stick on props; dormant twin still appears in some candidate lists. |
+| Enemy behavior | Aggro/threat targeting, telegraphs, melee charges, ranged spacing, strafing, darting, retreat, crowd separation. | Deterministic obstacle routing and dormant-twin exclusion are implemented; crowd tuning can continue. |
 | Guardian | Ashen Warden at the end of Ashen Deep. | Its underlying policy is the tank state machine, not a separate multi-phase encounter. |
-| Mirror | Three health phases, melee/ranged attacks, telegraphed nova; kite, rush, AoE dodge, riposte, predictive dash shots, zone denial. | Adaptive mechanics exist; difficulty/fairness across real play styles needs broader evaluation. |
-| Twin transformation | Companion becomes dormant on the boss-room threshold; server emits transformation event; client has hatch animation. | Event delivery fixed in this release. Ending does not yet restore the twin as the narrative comment promises. |
-| Loot | Seeded gold/essence/shards/potions/weapons/relics, pickup scatter/magnetism and contact collection. | No interact-key pickup action; existing pickup prompts suggest one. |
-| Loot ownership | Weapons go to the collecting player/twin; shared resources go to player; duplicates become shards. | `TWIN_EQUIP` can copy an owned weapon; request-back actually transfers it. Ownership semantics need one consistent rule. |
+| Mirror | Three health phases, melee/ranged attacks, telegraphed nova; kite, rush, AoE dodge, riposte, predictive dash shots, zone denial. It now spawns **armed with the weapon the player is carrying** and draws it from the blackened sheets — `armed_with` existed and was tested but was only ever reached by the sandbox's `CONFIGURE_BOSS`, so until now every campaign Mirror fought with its own archetype. An explicit sandbox loadout still wins. | Adaptive mechanics exist. Riposte has a 0.30-second minimum wind-up. The baseline unskilled scripted bot struggles with the final fight; see measured results. |
+| Twin transformation | Companion becomes dormant on the boss-room threshold; server emits transformation event; client has hatch animation. | Victory restores the companion before checkpointing, clears twin_taken and records twin_restored; reload does not take it again. |
+| Loot | Seeded gold/essence/shards/potions/weapons/relics, pickup scatter/magnetism and contact collection. | Contact collection/travel is described by WALK OVER / WALK INTO; E labels only NPC talk. |
+| Loot ownership | Weapons go to the collecting player/twin; shared resources go to player; duplicates become shards. | Both give/equip and request-back move inventory ownership. Empty-handed twins use bare hands, including after reload. |
 | Progression | XP, levels, skill points, 12 nodes across Mobility/Combat/Magic/Survival. | No level-cap/endgame progression loop established. |
-| Respec | Village-only skill refund with derived-stat recomputation. | Canvas availability messaging can drift between full and lite snapshots. |
+| Respec | Village-only skill refund with derived-stat recomputation. | Availability retains authoritative room safety through lite snapshots. |
 | Relics | Ember Heart (+spell damage), Wolf Fang (+weapon damage), Mirror Eye (+twin learning). | Three passives only; essence/shards have no spending/crafting sink yet. |
 | Death/victory | Timed player respawn at room entrance, surviving enemies persist; twin down/recovery; victory state and replay/restart commands. | Full React victory statistics/restart buttons are no longer mounted; canvas flourish and Enter restart remain. |
 
@@ -71,8 +71,8 @@ current executable paths, not on older roadmap text or the presence of unused ar
 | Twin execution | Validated targets/equipment, movement, attacks, cover fire, loot exploration and outcome reporting. | No independent full spell-casting policy or pathfinding. |
 | Authority | Python owns gameplay; client sends intents/commands and renders snapshots. | Existing gameplay in `api/session.py` exceeds AGENTS.md's intended thin API layer; extraction remains work. |
 | Determinism | Seeded per-system RNG, stable IDs, immutable event payloads, fixed step, whole-session tests. | Passing tests cover tested inputs; do not assume all checkpoint/reconnect/restart replay paths are covered. |
-| Networking | JSON WebSockets, 20 Hz snapshots, lighter frequent packets, reconnect/backoff and silence watchdog. | A reconnect creates a new simulation from a checkpoint, not an exact in-memory resume; duplicate-session socket races need hardening. |
-| Persistence | Versioned JSON checkpoint files and atomic replacement; progression/equipment/campaign restored. | No save-slot UI, stable default browser identity, learned-model persistence, exact combat restore or cross-device sync. |
+| Networking | JSON WebSockets, 20 Hz snapshots, lighter frequent packets, reconnect/backoff and silence watchdog. | A reconnect creates a new simulation from a checkpoint, not an exact in-memory resume; replacement sockets are isolated from old simulation output; the newest tab owns the session. |
+| Persistence | Versioned JSON checkpoint files and atomic replacement; progression/equipment/campaign restored. | Stable default browser identity is implemented. No save-slot UI, learned-model persistence, exact combat restore or cross-device sync. |
 | Replay | Tick-stamped JSONL commands/inputs/events and first-divergence CLI. | Metadata lacks checkpoint initial state; restarting/reconnecting may overwrite recordings with the same session/seed. Paused input ordering deserves dedicated tests. |
 | Contracts | Pydantic input validation, TypeScript types and generated input schemas. | Snapshot types/documentation are manually maintained; no automated end-to-end schema drift check in CI. |
 | Tests | Broad server units, scenarios and deterministic sessions; frontend NPC/dialogue regressions added here. | No checked-in browser automation suite or GitHub Actions workflow. |
@@ -82,8 +82,8 @@ current executable paths, not on older roadmap text or the presence of unused ar
 
 | Feature | Status |
 |---|---|
-| Character/enemy art | Player directional movement, twin art, weapon overlays, enemy family atlases, Mirror animations; enemies loaded per room. |
-| World art | Drawn flora/stone/ruins/crypt/buildings/doors/lights/NPC atlases with procedural fallbacks; consistent light direction, shadows and depth sorting. |
+| Character/enemy art | Player directional movement, twin art, weapon overlays, enemy family atlases, Mirror animations; enemies loaded per room. An enemy the server armed with a player weapon (`enemies[].weapon`) draws that weapon from the blackened sheets, and its projectiles match; the bundle is fetched the first time anything in the room is armed. |
+| World art | Drawn flora/stone/ruins/crypt/buildings/doors/lights/NPC atlases with procedural fallbacks; consistent light direction, shadows and depth sorting. Floors are drawn tiles (sheets 82–84, one atlas per biome) composed in three passes — hashed tile variants, irregular fringes where two materials meet, and slow mottling across the room — so a floor does not read as a grid of stamps. The procedural painter remains as the fallback for any biome with no sheet. |
 | Living environment | Sway, torches, particles, water, motes/embers and ambient creatures. Cosmetic randomness is separate from game truth. |
 | Combat feedback | Attack/cast animations, projectiles, hit/death feedback, damage numbers, shake and boss effects. Some sheets remain unused and some server abilities lack bespoke feedback. |
 | HUD | Canvas portrait/vitals, weapon/potion hotbar, cooldown rail, minimap, settings button and prompt. Missing or incorrect feedback is listed below. |
@@ -114,35 +114,61 @@ current executable paths, not on older roadmap text or the presence of unused ar
 These changes cross frontend and API integration boundaries. They do not move authoritative
 combat, movement, purchases or quest outcomes into the browser, or make the agent mutate game state.
 
-## Prioritized remaining issues
+## Gameplay hardening pass (2026-09-20)
 
-These are code-confirmed integration gaps unless explicitly described as a testing need.
+All ten requested areas received implementation or a concrete testing pass:
 
-| Priority | Issue and concrete consequence | Main locations |
-|---|---|---|
-| High | **Canvas modal ownership is inconsistent.** Inventory/skills/map don't use the React modal store; `input:suspend` from settings/console has no play-scene subscriber. The world/input can continue under menus, Escape can also pause, and pressing I/K closes then immediately reopens the same panel. | `HudScene.ts`, `PlayScene.ts`, `hud/*Screen.ts`, `useHotkeys.ts` |
-| High | **Ordinary gameplay toasts are invisible.** `store.ts` queues notifications, but App no longer mounts `Toasts`; the canvas toast only displays console responses. Quest/rejection/save/level notices are therefore missing. | `ui/store.ts`, `App.tsx`, `HudScene.ts` |
-| High | **Default reload loses the save identity.** A random browser session ID is created on each page load unless `?session=` is supplied. Saves exist, but reopening the default URL selects a different one. | `network/WebSocketClient.ts` |
-| High | **Dormant twin remains eligible in some combat systems.** Enemy targeting, projectile collision, crowd separation and PROTECT mitigation check downed/alive but not consistently dormant. This can create an invisible target/blocker before rescue or during the final fight. | `enemy_ai/*`, `movement/*`, `combat/mitigation.py` |
-| Medium | **Travel and respec availability flicker.** `Bridge` computes `canTravel` and village restrictions from full snapshots only; lite frames temporarily lose room type/safety. | `hud/Bridge.ts` |
-| Medium | **Minimap motion is stale.** Map updates are emitted only on full room snapshots, so markers lag the 20 Hz world. | `hud/Bridge.ts::#emitRoom` |
-| Medium | **Pause labels report the wrong measures.** Enemies killed populate “hits landed”; rooms cleared populate “potions drunk.” Lite snapshots may show missing room/biome text. | `hud/Bridge.ts::#emitPause`, `hud/PauseScreen.ts` |
-| Medium | **F has two default actions.** Binding lookup selects health potion before the dial's selected-potion action. R+H works; rebinding/conflict cleanup needs a migration for saved bindings. | `state/Keybinds.ts` |
-| Medium | **T has no effect.** It sends `TWIN_REQUEST` without the required weapon ID. Character's explicit weapon request includes the ID and works. | `ui/useHotkeys.ts`, `api/session.py` |
-| Medium | **Pickup/portal prompts imply E.** Their real actions are automatic contact collection/travel; E only talks to NPCs. Use action-specific captions. | `hud/Bridge.ts`, `InteractPrompt.ts`, `game/loot.py`, `api/session.py` |
-| Medium | **Shop proximity isn't validated for BUY_ITEM.** TALK checks range, but a direct purchase command can buy from any NPC in the current room. | `api/session.py::_buy` |
-| Medium | **Companion ownership and ending need polish.** TWIN_EQUIP duplicates a player-owned weapon, while request-back moves it; winning never performs the promised twin restoration. | `api/session.py::_apply_commands`, `_room_logic` |
-| Medium | **Prediction and telegraph fidelity.** Flame Pillar damage lands before its configured cast time; some feedback mappings are still the old four-ability set; movement prediction omits some slow/drink/channel constraints. | `combat/combat.py`, `PlayScene.ts`, `PlayerView.ts` |
-| Medium | **Presentation art is larger than collision.** Large trees/buildings/NPC frames use much smaller circular collision footprints; appearance and navigation need a deliberate pass. | `world/village.py`, `WorldRenderer.ts`, `propArt.ts` |
-| Medium | **Persistence/replay scope is incomplete.** Learned models, initial checkpoint state and exact encounter state are not recorded/restored as a complete session. | `world/save.py`, `replay/recorder.py`, `tools/replay/replay.py` |
-| Medium | **Hosting is not production-ready.** No auth/session ownership, connection limits, WebSocket-origin policy, production debug-command gating or packaged deployment. Local single-player use is the tested scope. | `api/app.py`, `api/websocket.py`, `api/session.py` |
-| Low | **Cleanup and product polish.** Legacy unmounted React HUD/menus, stale comments/docs, missing code license decision, asset budget/loading optimizations, broader accessibility and cross-browser testing. | `ui/`, root docs, `assets/`, `public/game/` |
+1. Canvas and React menus share one modal coordinator. Switching does not resume the world;
+   closing restores the prior manual-pause state, including commands awaiting a snapshot.
+   Keyboard input is muted/reset and rebinding removes the old Phaser key registrations.
+2. Gameplay toasts are mounted, announced through aria-live, deduplicated and expired.
+   Refused abilities/items/companion requests now explain why; save/quest/transfer notices display.
+3. A default session is saved in browser storage and reflected in the URL. Reload keeps it;
+   explicit session/seed URLs retain their existing semantics. Newest-tab ownership prevents
+   an older simulation sending snapshots into its replacement connection.
+4. The twin's availability predicate gates enemy targeting, projectiles, crowd collision,
+   attacking and PROTECT. Dormant companions cannot absorb projectiles or shield the player.
+5. Full-room data is retained by room ID. Minimap positions update on lite packets, terrain
+   changes with the room seed, and campaign/respec availability no longer flips between packets.
+   Pause labels now report kills and cleared rooms rather than incorrectly naming hits/potions.
+6. F/G drink health/mana, R/H operate the dial, and T asks the game for three seconds of FOLLOW.
+   Menus explain unavailable twins; saved duplicate bindings migrate. E is no longer shown as
+   the second weapon hand's shortcut.
+7. NPC prompts show the talk binding; portals and loot describe contact actions.
+8. Purchases revalidate the NPC distance while paused too. Giving and requesting twin weapons
+   are transfers, repair both equipment slots, and survive save/reload. Character exposes Give.
+9. Victory awakens and heals the twin before saving, restores FOLLOW and records restoration.
+10. Flame Pillar uses its 0.25-second interruptible channel; cast effects occur on completion.
+    Movement snapshots publish effective rates for slow/drink/channel prediction. AI routes
+    around props, dash/knockback movement uses substeps, scaled foundation footprints drive
+    physics/debug drawing, and burn can award a final kill. Mirror riposte gives at least
+    0.30 seconds to react. The repeatable combat and route test results are in
+    [PLAYTEST_RESULTS.md](PLAYTEST_RESULTS.md).
+
+These changes cross client rendering/input, contracts, API orchestration, game simulation and
+save boundaries. Vendor and companion transaction rules were extracted into game/world/actions.py;
+Python still owns outcomes and no agent directly mutates game state.
+
+## Remaining product and engineering work
+
+- **Difficulty tuning:** the scripted player is a baseline, not a human playtest population.
+  Compare learned builds, two-weapon combinations, potions, latency and full campaign pacing.
+  The Mirror remains substantially harder than the opening/Warden probes.
+- **Presentation:** some abilities lack bespoke VFX; canvas keyboard/focus accessibility,
+  end-screen statistics/buttons and controller/touch support need their own product pass.
+- **Persistence/replay scope:** checkpoints preserve progression, not learned models or exact
+  fights. Recording metadata lacks checkpoint initial state; same session/seed recordings
+  overwrite earlier ones and paused command ordering is not fully represented.
+- **Architecture/deployment:** more gameplay remains in api/session.py than the intended thin
+  transport layer. Production auth/origin/rate/debug-command policy, packaging and CI are absent.
+- **General polish:** legacy unmounted React menus, settings validation, asset load budget,
+  cross-browser testing and a code-license decision remain.
 
 ## Not implemented, versus deliberately out of scope
 
 Missing product/gameplay work: crafting/resource sinks, armor and richer equipment, selling,
-side quests/journal, branching dialogue, more campaign content, tactical twin commands,
-pathfinding, durable learned-model saves, save-slot management, full end-screen flow,
+side quests/journal, branching dialogue, more campaign content, richer tactical twin commands beyond
+the implemented three-second regroup, durable learned-model saves, save-slot management, full end-screen flow,
 controller/touch support, localization, accessibility pass, CI/browser tests, executable packaging
 and hosted deployment. These are options for future work, not promises that they are all necessary.
 
@@ -151,7 +177,7 @@ combat loop, per-player neural training, a traditional RL pipeline, full ECS, mi
 Redis/Kafka/Postgres/Kubernetes and a custom binary network protocol. They are not missing
 requirements for this slice.
 
-## Validation for the release commit
+## Validation for the initial release commit (historical)
 
 - Server: **299 tests passed**, including whole-session determinism, all four NPC roles at the
   advertised range boundary, paused shopping, legacy-command rejection and transformation delivery.
@@ -162,3 +188,11 @@ requirements for this slice.
 - Replay: a fresh 900-tick seed-2024 run reproduced **all 114 recorded events exactly**.
 - Repository scan: no missing generated atlas JSON/PNG references and no game-layer imports of
   agent/API/FastAPI. Existing session-layer gameplay ownership debt is documented above.
+
+## Validation for the gameplay hardening commit
+
+- **338 server tests** and **24 frontend tests** pass; TypeScript, ESLint and production build pass.
+- Route tests cover both villages at seeds 1, 5, 19, 42 and 2024, plus a deterministic blocked route.
+- Isolated integration tests cover vendor range, dormant twin exclusion, transferred/empty-handed
+  equipment saves, timed regroup, ending restoration, delayed/interrupted damage and collision substeps.
+- The 60-case combat probe and its reproducible invocation are recorded in PLAYTEST_RESULTS.md.
