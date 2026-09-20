@@ -125,3 +125,50 @@ def test_an_uninterrupted_channel_heals():
         s.step(DT)
     assert player.health == 85
     assert any(e.type == "PLAYER_HEALED" for e in s.state.pending_events)
+
+
+def test_a_parry_refreshes_the_ward_without_refunding_it():
+    """Blocking makes the ward ready again; it does not make it free.
+
+    The status still runs out on its own timer and raising it again still
+    costs mana, so mana -- not the cooldown -- is what stops a player who is
+    being hit constantly from holding a shield forever.
+    """
+    from mirrorbound.game.entities.entity import Vec2
+    from tests.conftest import combat_session, events_of
+
+    s = combat_session("parry", seed=3)
+    p = s.state.player
+    enemy = s.state.spawn_enemy("skeleton", p.position + Vec2(40, 0))
+    s.state.pending_events.clear()
+
+    # The ward is applied directly rather than cast: empty hands put the dash
+    # in slot 1, and dashing would make the player invulnerable to the very hit
+    # this test is about.
+    p.mana = p.max_mana
+    p.apply_status("shield", 5.0)
+    p.ability_cooldowns["aegis"] = 14.0
+    p.ability_cooldown_max["aegis"] = 14.0
+    mana_after_raising = p.mana
+    duration_before = p.status_effects["shield"]
+
+    s.combat.damage_player(s.state, 40, enemy.id, Vec2(1, 0), 0)
+
+    parried = events_of(s, "PLAYER_PARRIED")
+    assert parried and "aegis" in parried[0].data["refreshed"]
+    assert "aegis" not in p.ability_cooldowns, "the ward is ready again"
+    assert p.mana == mana_after_raising, "but the mana is not handed back"
+    assert p.status_effects["shield"] == duration_before, "nor is the ward extended"
+
+
+def test_an_unshielded_hit_is_not_a_parry():
+    from mirrorbound.game.entities.entity import Vec2
+    from tests.conftest import combat_session, events_of
+
+    s = combat_session("noparry", seed=3)
+    enemy = s.state.spawn_enemy("skeleton", s.state.player.position + Vec2(40, 0))
+    s.state.player.ability_cooldowns["aegis"] = 14.0
+    s.state.pending_events.clear()
+    s.combat.damage_player(s.state, 40, enemy.id, Vec2(1, 0), 0)
+    assert not events_of(s, "PLAYER_PARRIED")
+    assert s.state.player.ability_cooldowns["aegis"] == 14.0

@@ -80,16 +80,35 @@ def test_bow_fires_a_projectile_in_facing_direction_that_damages():
     assert events_of(s, "PROJECTILE_HIT")
 
 
-def test_ember_staff_costs_mana_and_bursts_on_impact():
+def test_the_ember_staff_bashes_on_m1_and_costs_nothing():
+    """M1 is the bash. The fire is in the three spells the staff grants."""
     s = fresh()
     p = s.state.player
     p.inventory.add_weapon("ember_staff")
     p.inventory.equip("ember_staff")
     p.face(Vec2(1, 0))
+    close = place_enemy(s, "skeleton", Vec2(50, 0))
+    far = place_enemy(s, "skeleton", Vec2(220, 0))
+    mana = p.mana
+
+    assert s.combat.process_player_attack(s.state)
+    assert p.mana == mana, "a bash is not a spell"
+    assert not s.state.projectiles, "and it throws nothing"
+    assert close.health < close.max_health
+    assert far.health == far.max_health, "it only reaches what it can touch"
+    assert events_of(s, "PLAYER_ATTACKED")[-1].data["action_token"] == "STAFF_STRIKE"
+
+
+def test_the_ember_bolt_is_a_spell_now_and_still_bursts_on_impact():
+    s = fresh()
+    p = s.state.player
+    arm(s, "ember_staff")
+    p.face(Vec2(1, 0))
     a = place_enemy(s, "skeleton", Vec2(160, 0))
     b = place_enemy(s, "skeleton", Vec2(160, 40))
     mana = p.mana
-    assert s.combat.process_player_attack(s.state)
+    # Key one, the staff's first spell.
+    assert s.combat.process_ability(s.state, 1)
     assert p.mana < mana
     for _ in range(60):
         s.movement.update(DT, s.state)
@@ -100,24 +119,24 @@ def test_ember_staff_costs_mana_and_bursts_on_impact():
 def test_arcane_bolt_and_flame_burst_and_nova():
     s = fresh()
     p = s.state.player
-    # Both staves: fire fills keys one and two, frost fills three and four.
+    # Both staves: fire fills keys one to three, frost fills four to six.
     arm(s, "ember_staff", "frost_staff")
     p.face(Vec2(1, 0))
     near = place_enemy(s, "skeleton", Vec2(90, 10))
     around = place_enemy(s, "skeleton", Vec2(-80, 60))
-    # Flame burst: cone in front only. Key one, from the staff in hand.
-    assert s.combat.process_ability(s.state, 1)
+    # Flame burst: cone in front only. Key two, the ember staff's second.
+    assert s.combat.process_ability(s.state, 2)
     assert near.health < near.max_health and around.health == around.max_health
     cast = events_of(s, "PLAYER_ABILITY_CAST")[-1]
     assert cast.data["ability"] == "FLAME_BURST" and near.id in cast.data["targets"]
     p.state = "idle"
-    # Nova: radial, slows. Key three -- the frost staff's first.
-    assert s.combat.process_ability(s.state, 3)
+    # Nova: radial, slows. Key five -- the frost staff's second.
+    assert s.combat.process_ability(s.state, 5)
     assert around.health < around.max_health
     assert "slow" in around.status_effects and around.slow_factor < 1
     p.state = "idle"
-    # Arcane bolt: a projectile appears. Key four, the frost staff's second.
-    assert s.combat.process_ability(s.state, 4)
+    # Arcane bolt: a projectile appears. Key six, the frost staff's third.
+    assert s.combat.process_ability(s.state, 6)
     assert any(pr.kind == "arcane_bolt" for pr in s.state.projectiles)
 
 
@@ -198,3 +217,52 @@ def test_loot_is_collected_into_inventory_and_emits_pickup():
     assert "hunter_bow" in p.inventory.weapons
     assert p.inventory.consumables["health_potion"] == 1
     assert len(events_of(s, "ITEM_PICKUP")) == 3
+
+
+def _mash(s: GameSession, seconds: float, gap_seconds: float = 0.2) -> None:
+    """Press attack every `gap_seconds` for `seconds`, through real ticks."""
+    gap = max(1, round(gap_seconds / DT))
+    for tick in range(round(seconds / DT)):
+        s.pending_input = PlayerInput(attack=(tick % gap == 0))
+        s.step(DT)
+
+
+def test_combo_chain_advances_at_a_human_click_rate():
+    """Clicking faster than the weapon swings must still chain.
+
+    The chain needs its next press between the 0.42s cooldown and the 0.9s
+    combo window. Presses used to be dropped outright if they arrived during
+    the cooldown, so anyone clicking at a natural rate -- which is faster than
+    that -- landed hit one over and over and never reached the finisher.
+    """
+    s = fresh()
+    arm(s, "iron_sword")
+    s.state.player.face(Vec2(1, 0))
+    e = place_enemy(s, "slime", Vec2(40, 0))
+    e.max_health = e.health = 10_000
+
+    _mash(s, seconds=1.0)      # five clicks a second for a second
+
+    attacks = events_of(s, "PLAYER_ATTACKED")
+    assert [ev.data["comboStep"] for ev in attacks] == [1, 2, 3]
+    assert attacks[-1].data["action_token"] == "SWORD_FINISHER"
+
+
+def test_buffered_attack_expires_rather_than_queueing_up():
+    """A press held in the buffer is forgotten if the weapon stays busy.
+
+    Otherwise a player mashing during a long channel would empty a queue of
+    swings the moment it ended.
+    """
+    s = fresh()
+    arm(s, "iron_sword")
+    place_enemy(s, "slime", Vec2(40, 0))
+    s.pending_input = PlayerInput(attack=True)
+    s.step(DT)
+    assert len(events_of(s, "PLAYER_ATTACKED")) == 1
+    # Three more presses inside the cooldown collapse into one buffered swing.
+    for _ in range(3):
+        s.pending_input = PlayerInput(attack=True)
+        s.step(DT)
+    run_ticks(s, 60)
+    assert len(events_of(s, "PLAYER_ATTACKED")) == 2

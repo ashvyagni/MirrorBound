@@ -65,6 +65,11 @@ class LootSystem:
             if not pickup.active:
                 continue
             for who in collectors:
+                # The Warden's shard is the twin's alone. Letting the player
+                # scoop it up on the way past would quietly cancel the
+                # Sanctum's opening, and the player has no way to know that.
+                if pickup.twin_only and who is not state.twin:
+                    continue
                 if (pickup.position - who.position).length() <= pickup.radius + who.radius + 4:
                     self._apply(state, pickup, who)
                     break
@@ -102,6 +107,12 @@ class LootSystem:
                 inv.add_relic(pickup.item_id)
             else:
                 inv.add_resource("shards", 2)
+        elif pickup.kind == "mirror_shard":
+            # Nothing enters an inventory. What the twin picked up changes what
+            # the twin *is*, and the session reads the flag on the next tick.
+            state.twin.corrupted = True
+            state.emit("TWIN_CORRUPTED", twin=state.twin.name, position=pickup.position.to_dict(),
+                       room_id=state.room.id)
         pickup.active = False
         state.emit("ITEM_PICKUP", actor=who.id, kind=pickup.kind, item_id=pickup.item_id, amount=pickup.amount,
                    position=pickup.position.to_dict(), room_id=state.room.id, **detail)

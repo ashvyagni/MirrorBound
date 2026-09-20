@@ -226,9 +226,107 @@ FLAME_PILLAR = AbilityDef(
 )
 
 
+#: The two bolts the staves used to fire on M1.
+#:
+#: Moved off the basic attack and onto a key, which is what turns a staff from
+#: a wand you hold down into three spells with a bash to buy time between them.
+#: Cheap and short-cooldown compared with the other two each staff grants --
+#: this is the spell you open with, not the one you save.
+EMBER_BOLT = AbilityDef(
+    id="ember_bolt",
+    name="Ember Bolt",
+    type=AbilityType.PROJECTILE,
+    slot=1,
+    icon="ember_bolt",
+    cooldown=0.85,
+    cost=6,
+    cast_time=0.0,
+    range=320,
+    damage=20,
+    area=0,
+    tags=("RANGED", "SPELL", "MAGIC", "AOE", "BURST"),
+    projectile=ProjectileSpec(kind="fire_bolt", speed=380, radius=9, lifetime=1.2, aoe_radius=56),
+    vfx="fire",
+    sound="fire",
+    description="A slow fireball that bursts on impact and hurts everything nearby.",
+)
+
+FROST_BOLT = AbilityDef(
+    id="frost_bolt",
+    name="Frost Bolt",
+    type=AbilityType.PROJECTILE,
+    slot=1,
+    icon="frost_bolt",
+    cooldown=0.5,
+    cost=4,
+    cast_time=0.0,
+    range=340,
+    damage=11,
+    area=0,
+    tags=("RANGED", "SPELL", "MAGIC", "FAST"),
+    projectile=ProjectileSpec(kind="ice_bolt", speed=440, radius=6, lifetime=1.1,
+                              slow=0.55, slow_duration=1.6),
+    vfx="ice",
+    sound="ice",
+    description="A rapid frost bolt that slows whatever it touches.",
+)
+
+# --- the Mirror's own -------------------------------------------------------
+#
+# Its two, as data rather than as special cases in the controller. The nova was
+# already in the fight -- hard-coded in `MirrorController._nova` with its radius
+# and damage as module constants -- and the shard volley was not in it at all.
+# Writing both as abilities is what lets the boss run one selection routine over
+# its own kit and the kit it took from you, instead of one branch per move.
+#
+# Neither is on any weapon and neither has a slot, because nothing the player
+# can hold grants them: these are the Mirror's.
+
+MIRROR_NOVA = AbilityDef(
+    id="mirror_nova",
+    name="Sundering",
+    type=AbilityType.NOVA,
+    slot=0,
+    icon="binding_nova",
+    cooldown=7.0,
+    cost=0,
+    # The telegraph *is* the mechanic: the whole encounter is built on having
+    # time to read a wind-up and leave. Kept at the value the hard-coded
+    # version charged for.
+    cast_time=0.9,
+    range=0,
+    damage=22,
+    area=150,
+    tags=("SPELL", "AOE", "BOSS"),
+    description="A ring of force that breaks outward from the Mirror.",
+)
+
+MIRROR_VOLLEY = AbilityDef(
+    id="mirror_volley",
+    name="Shardfall",
+    type=AbilityType.PROJECTILE,
+    slot=0,
+    icon="arcane_bolt",
+    cooldown=4.5,
+    cost=0,
+    cast_time=0.0,
+    range=420,
+    damage=13,
+    area=0,
+    tags=("RANGED", "SPELL", "BOSS"),
+    # Three at once, spread wide enough to punish standing still at range but
+    # not so wide that closing the gap is impossible. The Mirror's answer to a
+    # player who has learned to keep away from it.
+    projectile=ProjectileSpec(kind="mirror_bolt", speed=400, radius=7, lifetime=1.5,
+                              count=3, spread=0.22),
+    description="Three shards of the broken mirror, thrown at once.",
+)
+
+
 ABILITIES: dict[str, AbilityDef] = {
     a.id: a for a in (ARCANE_BOLT, FLAME_BURST, SHADOW_DASH, BINDING_NOVA, MENDING_LIGHT, AEGIS,
-                      ARROW_VOLLEY, FLAME_PILLAR)
+                      ARROW_VOLLEY, FLAME_PILLAR, EMBER_BOLT, FROST_BOLT,
+                      MIRROR_NOVA, MIRROR_VOLLEY)
 }
 
 #: What you hold when nothing is equipped.

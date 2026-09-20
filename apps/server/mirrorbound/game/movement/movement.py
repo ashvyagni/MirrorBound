@@ -5,6 +5,8 @@ enemies, and emits sampled movement telemetry.
 
 from __future__ import annotations
 
+from math import ceil
+
 from mirrorbound.game.core.events import EventBus
 from mirrorbound.game.entities.enemy import Enemy
 from mirrorbound.game.entities.entity import Entity, Vec2
@@ -30,7 +32,7 @@ class MovementSystem:
         player = state.player
 
         self._move(dt, player, state)
-        if not state.twin.downed:
+        if state.twin.available:
             self._move(dt, state.twin, state)
         enemies = state.get_active_enemies()
         for enemy in enemies:
@@ -46,7 +48,7 @@ class MovementSystem:
                                position=projectile.position.to_dict(), reason="wall")
                 else:
                     for d in room.decor:
-                        if d.blocking and d.kind != "pond" and (projectile.position - Vec2(d.x, d.y)).length() < d.radius * 0.7:
+                        if d.blocking and d.kind != "pond" and (projectile.position - d.collision_center).length() < d.collision_radius + projectile.radius:
                             projectile.active = False
                             state.emit("PROJECTILE_EXPIRED", projectile=projectile.id, kind=projectile.kind,
                                        position=projectile.position.to_dict(), reason="decor")
@@ -61,10 +63,15 @@ class MovementSystem:
         motion = (entity.velocity + entity.knockback) * dt
         if motion.is_zero():
             return
-        new_pos = entity.position + motion
-        new_pos = room.clamp(new_pos, entity.radius)
-        new_pos = room.resolve_decor_collision(new_pos, entity.radius)
-        new_pos = room.clamp(new_pos, entity.radius)
+        # Substeps stop fast dashes and knockback tunnelling through small props.
+        steps = max(1, ceil(motion.length() / max(4.0, entity.radius * .5)))
+        new_pos = entity.position
+        for _ in range(steps):
+            candidate = room.clamp(new_pos + motion * (1 / steps), entity.radius)
+            candidate = room.resolve_decor_collision(candidate, entity.radius)
+            candidate = room.clamp(candidate, entity.radius)
+            if not room.is_blocked(candidate, entity.radius - .001):
+                new_pos = candidate
         if entity.id == state.player.id:
             self._moved_since_sample += (new_pos - entity.position).length()
         entity.position = new_pos
@@ -85,7 +92,7 @@ class MovementSystem:
                     b.position = state.room.clamp(b.position + push, b.radius)
         # Keep enemies from standing inside the player/twin as well.
         for who in (state.player, state.twin):
-            if who.id == state.twin.id and state.twin.downed:
+            if who.id == state.twin.id and not state.twin.available:
                 continue
             for e in enemies:
                 diff = e.position - who.position

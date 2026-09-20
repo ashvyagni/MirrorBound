@@ -34,7 +34,7 @@ class CollisionSystem:
                 for target in (state.player, state.twin):
                     if target.id in projectile.hit_ids:
                         continue
-                    if target.id == state.twin.id and state.twin.downed:
+                    if target.id == state.twin.id and not state.twin.available:
                         continue
                     if target.id == state.player.id and state.player.state == "dead":
                         continue

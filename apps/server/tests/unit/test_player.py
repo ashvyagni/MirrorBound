@@ -48,12 +48,13 @@ def test_ability_gating_cooldown_and_mana():
         p.update(DT)
     assert p.ability_cooldowns.get("arcane_bolt", 0) == 0 or p.ability_cooldowns["arcane_bolt"] < bolt.cooldown
     # The bar is exactly as long as what is in your hands: bare-handed it is
-    # the dash alone, and a weapon in each hand fills all four keys.
+    # the dash alone, a sword adds its pair, and a staff adds three more --
+    # which is why the bar runs to six keys rather than four.
     assert [s["slot"] for s in p.abilities_to_dict()] == [1]
     p.inventory.add_weapon("iron_sword")
     assert [s["slot"] for s in p.abilities_to_dict()] == [1, 2]
     p.inventory.add_weapon("frost_staff")
-    assert [s["slot"] for s in p.abilities_to_dict()] == [1, 2, 3, 4]
+    assert [s["slot"] for s in p.abilities_to_dict()] == [1, 2, 3, 4, 5]
 
 
 def test_dash_moves_in_facing_direction_and_grants_invulnerability():
