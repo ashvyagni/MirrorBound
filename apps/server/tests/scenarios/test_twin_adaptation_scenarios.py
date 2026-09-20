@@ -96,18 +96,31 @@ def test_aggressive_player_produces_a_more_aggressive_twin():
 
 
 def test_ranged_player_shifts_the_twin_toward_flank_and_off_a_melee_weapon():
+    """The bow, not a staff.
+
+    A staff bashes on M1 -- its element is on its ability keys, and the twin
+    has no autonomous spell policy -- so the bow is the only weapon that gives
+    it a ranged *basic attack*, which is what a range-leaning style is asking
+    for.
+    """
     ranged_style = TwinStyleModel()
     _feed(ranged_style, [_ranged_attack(t) for t in range(40)])
-    obs = _observation(owned_weapons=("iron_sword", "frost_staff"), weapon_id="iron_sword")
+    obs = _observation(owned_weapons=("iron_sword", "hunter_bow"), weapon_id="iron_sword")
 
     ranged_intent = TwinV0Controller(ranged_style).decide(obs)
     neutral_intent = TwinV0Controller(TwinStyleModel()).decide(obs)
 
     assert ranged_intent.utilities["FLANK"] > neutral_intent.utilities["FLANK"]
-    assert ranged_intent.desired_weapon == "frost_staff"
+    assert ranged_intent.desired_weapon == "hunter_bow"
 
 
 def test_spell_heavy_player_shifts_the_twin_toward_flank_and_a_spell_weapon():
+    """A staff is still the spell weapon, even though its M1 is a bash.
+
+    What makes it one is the three spells it grants, which is why the
+    controller scores this off the weapon's type rather than off the tags its
+    basic attack happens to carry.
+    """
     spell_style = TwinStyleModel()
     _feed(spell_style, [_spell_cast(t) for t in range(40)])
     obs = _observation(owned_weapons=("hunter_bow", "frost_staff"), weapon_id="hunter_bow")
@@ -134,7 +147,7 @@ def test_dodge_heavy_player_produces_a_more_defensive_twin():
 def test_twin_disposition_swings_when_player_strategy_changes_midrun():
     style = TwinStyleModel()
     controller = TwinV0Controller(style)
-    obs = _observation(owned_weapons=("iron_sword", "frost_staff"), weapon_id="iron_sword")
+    obs = _observation(owned_weapons=("iron_sword", "hunter_bow"), weapon_id="iron_sword")
 
     _feed(style, [_melee_attack(t) for t in range(40)])
     early_intent = controller.decide(obs)
@@ -142,7 +155,7 @@ def test_twin_disposition_swings_when_player_strategy_changes_midrun():
 
     _feed(style, [_ranged_attack(t) for t in range(40, 100)])
     late_intent = controller.decide(obs)
-    assert late_intent.desired_weapon == "frost_staff"  # now prefers ranged
+    assert late_intent.desired_weapon == "hunter_bow"  # now prefers ranged
     assert late_intent.utilities["FLANK"] > early_intent.utilities["FLANK"]
 
 

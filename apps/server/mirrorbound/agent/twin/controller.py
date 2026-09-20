@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 
 from mirrorbound.agent.observation import AgentObservation, EntitySnapshot
 from mirrorbound.agent.twin.style import TwinStyleModel
-from mirrorbound.game.combat.weapons import get_weapon
+from mirrorbound.game.combat.weapons import WeaponType, get_weapon
 from mirrorbound.game.entities.entity import Vec2
 from mirrorbound.game.entities.twin import TwinIntent
 
@@ -126,8 +126,16 @@ class TwinV0Controller:
         than the one currently equipped -- or None to keep the current one.
 
         Scoring is deliberately coarse: (range_lean - 0.5) rewards a ranged
-        weapon and penalizes a melee one; spell_lean does the same for the
-        SPELL tag. Honest limit: iron_sword (the only melee weapon) isn't in
+        weapon and penalizes a melee one; spell_lean does the same for a magic
+        one.
+
+        The spell term reads the weapon's *type*, not its tags. Tags describe
+        what the basic attack is -- and a staff's basic attack is a bash, so it
+        is tagged MELEE and feeds melee_dependency, which is correct. What makes
+        a staff a spell weapon is the three spells it grants, and `type` is the
+        field that says so whatever its M1 happens to do.
+
+        Honest limit: iron_sword (the only melee weapon) isn't in
         loot.py's WEAPON_DROPS, so in practice the twin only ever owns
         ranged/magic weapons unless a player manually equips it a sword via
         the TWIN_EQUIP command -- the melee term still exists for that case,
@@ -142,7 +150,7 @@ class TwinV0Controller:
         def score(weapon_id: str) -> float:
             w = get_weapon(weapon_id)
             s = (range_lean - 0.5) * (-1.0 if w.is_melee else 1.0)
-            if "SPELL" in w.tags:
+            if w.type is WeaponType.MAGIC:
                 s += spell_lean - 0.5
             return s
 

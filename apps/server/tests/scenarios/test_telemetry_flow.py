@@ -32,8 +32,11 @@ def test_repeated_ability_sequence_becomes_a_prediction():
     s = GameSession("seq", seed=21, record=False)
     st = s.state
     st.enemies = []
-    # Three abilities to repeat, which means two weapons: abilities come from
-    # what is carried and the player starts with nothing.
+    # Three abilities to repeat. One staff grants exactly three, so this needs
+    # only one weapon now -- but two are carried to keep the sequence spanning
+    # both hands, which is the harder thing for the predictor to learn.
+    # Keys: 1 ember_bolt, 2 flame_burst, 3 flame_pillar, then the frost staff's
+    # 4 frost_bolt, 5 binding_nova, 6 arcane_bolt.
     inv = st.player.inventory
     inv.weapons = ["ember_staff", "frost_staff"]
     inv.equipped_weapon, inv.offhand_weapon = "ember_staff", "frost_staff"
@@ -54,7 +57,7 @@ def test_repeated_ability_sequence_becomes_a_prediction():
         s.combat.process_ability(st, slot)
         st.tick += 1
     # Primed with keys three and one, the habit says key two comes next --
-    # which on this pair of staves is the flame pillar.
+    # which on this pair of staves is the flame burst.
     preds = s.pipeline.snapshot().to_json_dict()["predictions"]
-    assert preds and preds[0]["token"] == "FLAME_PILLAR"
+    assert preds and preds[0]["token"] == "FLAME_BURST"
     assert preds[0]["confidence"] > 0.5
