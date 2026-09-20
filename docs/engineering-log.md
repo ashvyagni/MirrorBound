@@ -107,3 +107,60 @@ The rule for this file: a defect is only listed once it has been reproduced.
   but the sheet does not exist yet.
 - The fourteen commits are thematic slices of one working tree. The final tree
   is verified; no intermediate commit was checked out and tested on its own.
+
+---
+
+## 2026-09-20 (later) — vitals wired, `7dc678f..`
+
+Sheet 92 arrived, so the level bar and the twin's health and mana are drawn.
+Frontend tests 54 (+1 file).
+
+### What shipped
+
+- `vitals` atlas built from `assets/ui/vitals.png`: `levelTrough`,
+  `levelPlate`, `twinHealth`, `twinMana`, `twinMark`, `levelFlash`.
+- `VitalsSnapshot` carries the level, its progress, and the twin's pair or
+  `null`. `Bridge` fills it; `Portrait` draws it.
+- The twin's bars are built once and hidden, not created when the twin appears:
+  it is dormant before the crypt, taken at the Sanctum, and downed in between,
+  and building art on each of those is three chances to leak a sprite.
+
+### Defects found, and the evidence
+
+- **The new troughs have opaque interiors.** `hp` and `mp` are transparent
+  where the fill shows through (121 of 121 samples); sheet 92's three are
+  painted in (0 of 31). Drawing the fill behind them, the way the existing bars
+  work, hid it completely. They are composited art-first with the fill over the
+  top — which also lets the level bar's ten dividers read as darker lines
+  across the filled part rather than vanishing under it.
+- **Every bar in the stack overlapped its neighbour.** Measured on the live
+  HUD: hp `75..109`, twin health `103..132`, mp `121..156`. The gap between the
+  player's two bars was eleven pixels and the companion trough is nineteen.
+  `bars.gap` went 46 → 58 and the twin bars were sized to half the player's
+  height. Re-measured: `75..109`, `113..131`, `133..167`, `171..189`,
+  `192..240` — no overlap left.
+- **The atlas was built but never loaded.** `VITALS_TEXTURE_KEY` was missing
+  from `hud/textures.ts`, so the portrait corner drew Phaser's green
+  missing-texture box over the health bars. That list exists to stop exactly
+  this and had to be told.
+
+### Corrections to my own work
+
+- **The first test file counted fourteen emits instead of one.** Each
+  `beforeEach` started a `Bridge` and never stopped it, so every test after the
+  first was counting the emits of every Bridge before it. It only surfaced
+  because two of the tests assert a count; the other six would have passed for
+  the wrong reason indefinitely.
+- **I measured the troughs' openings by pixel classification and got nonsense**
+  — the outline and the interior are both dark, so "dark and opaque" matched
+  the frame as well as the window. Mocking the whole corner at real coordinates
+  and looking at it settled the insets in one pass.
+
+### Known gaps
+
+- `levelFlash` is sliced and loaded but nothing plays it. It is the overlay for
+  the moment the level changes, and there is no level-up hook in the portrait
+  yet.
+- The level bar's dividers are the art's own. The client does not know where
+  they fall, so a fill does not snap to segment boundaries — it stops wherever
+  the fraction lands.

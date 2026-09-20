@@ -1,8 +1,8 @@
 # Art prompts
 
-**One sheet outstanding: job 4, the level bar and the twin's vitals.**
+**Nothing outstanding. Every sheet the game asks for has been drawn.**
 
-Jobs 1 to 3 are made and in the game -- the floor tiles, the ability icons and
+Jobs 1 to 4 are made and in the game -- the floor tiles, the ability icons and
 the speaker portraits redrawn as the animals they actually are. Their prompts
 are kept below because a sheet that is ever regenerated must be regenerated
 from the prompt it was drawn to: a fresh description of the same object is how
@@ -13,6 +13,7 @@ thirty sheets stop looking like one game.
 | **82–84** floor tiles | `build_tiles.py` → `tilesGrove`/`tilesRuins`/`tilesCrypt`, sliced by `TextureFactory.#sliceTiles` |
 | **85** ability icons | `abilityIcons` atlas; the dash, ward, heal and arcane bolt stopped borrowing |
 | **87** speaker portraits | `speakers` atlas, six frames named for the NPC ids |
+| **92** level bar and twin vitals | `vitals` atlas; `Portrait` draws the level bar, the plate and the twin's pair |
 
 If a sheet has to be redrawn, paste its style block and its prompt from below
 unchanged. **One style block per chat, never two** -- `Block 0-WORLD` is a
