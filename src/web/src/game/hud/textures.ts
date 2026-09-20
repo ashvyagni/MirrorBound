@@ -4,6 +4,7 @@ import { DIALOGUE_TEXTURE_KEY } from '../animation/dialogueAtlas.generated';
 import { GLYPHS_TEXTURE_KEY } from '../animation/glyphsAtlas.generated';
 import { ABILITYICONS_TEXTURE_KEY } from '../animation/abilityIconsAtlas.generated';
 import { ICONS_TEXTURE_KEY } from '../animation/iconsAtlas.generated';
+import { VITALS_TEXTURE_KEY } from '../animation/vitalsAtlas.generated';
 import { ITEMS_TEXTURE_KEY } from '../animation/itemsAtlas.generated';
 import { SKILLNODES_TEXTURE_KEY } from '../animation/skillNodesAtlas.generated';
 import { SPEAKERS_TEXTURE_KEY } from '../animation/speakersAtlas.generated';
@@ -59,4 +60,8 @@ export const HUD_TEXTURES: readonly string[] = [
   // Sheet 85's four: the dash, the ward, the heal and the arcane bolt, which
   // until now wore an arrow, a sword and an ice beam between them.
   ABILITYICONS_TEXTURE_KEY,
+  // Sheet 92: the level bar and the twin's pair. This list exists so a piece
+  // of chrome cannot quietly miss its texture -- which it did, and the portrait
+  // corner drew Phaser's green missing-texture box over the health bars.
+  VITALS_TEXTURE_KEY,
 ];

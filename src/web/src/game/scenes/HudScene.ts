@@ -159,7 +159,7 @@ export class HudScene extends Phaser.Scene {
     )
       .then(() => {
         for (const text of [
-          ...this.#hotbar.texts, ...this.#rail.texts,
+          ...this.#portrait.texts, ...this.#hotbar.texts, ...this.#rail.texts,
           ...this.#settings.texts, ...this.#map.texts,
           ...this.#settingsScreen.texts, ...this.#pause.texts, ...this.#end.texts,
           ...this.#sandbox.texts, ...this.#agent.texts, ...this.#notices.texts, ...this.#dialogue.texts,

@@ -107,7 +107,7 @@ export class Bridge {
     saves.update(snap);
     const p = snap.player;
     this.#learnWeapons(p);
-    this.#emitVitals(p);
+    this.#emitVitals(p, snap);
     this.#emitLoadout(p);
     this.#emitCooldowns(p);
     this.#emitRoom(snap);
@@ -135,12 +135,22 @@ export class Bridge {
     return this.#animations.get(weaponId) ?? null;
   }
 
-  #emitVitals(p: PlayerSnap): void {
-    const key = `${p.health}/${p.maxHealth}/${p.mana}/${p.maxMana}`;
+  #emitVitals(p: PlayerSnap, snap: GameSnapshot): void {
+    // A dormant twin contributes nothing to the key, so finding it is a change
+    // and losing it is a change -- without that the bars would appear only on
+    // the next time the player took damage.
+    const t = snap.twin.dormant ? null : snap.twin;
+    const key = `${p.health}/${p.maxHealth}/${p.mana}/${p.maxMana}/${p.level}/${p.xp}/${p.xpToNext}`
+      + `/${t ? `${t.health}/${t.maxHealth}/${t.mana}/${t.maxMana}` : 'none'}`;
     if (key === this.#vitals) return;
     this.#vitals = key;
     eventBus.emit('vitals:changed', {
       health: p.health, maxHealth: p.maxHealth, mana: p.mana, maxMana: p.maxMana,
+      level: p.level,
+      // `xpToNext` is what the level costs, not what is left of it, so the
+      // fraction is a plain division rather than one minus anything.
+      levelProgress: p.xpToNext > 0 ? Math.min(1, Math.max(0, p.xp / p.xpToNext)) : 0,
+      twin: t ? { health: t.health, maxHealth: t.maxHealth, mana: t.mana, maxMana: t.maxMana } : null,
     });
   }
 

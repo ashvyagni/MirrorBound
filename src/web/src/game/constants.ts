@@ -344,12 +344,48 @@ export const HUD_ART = {
     /** Left edge, measured from the portrait ring's centre. */
     x: 214, y: 92,
     width: 268,
-    /** Centre-to-centre of the health and mana troughs. */
-    gap: 46,
+    /**
+     * Centre-to-centre of the health and mana troughs.
+     *
+     * Widened from 46 to make room for the twin's bar between them. At 46 the
+     * clear space between the two was eleven pixels and the companion trough
+     * is nineteen, so every bar in the stack overlapped its neighbour.
+     */
+    gap: 58,
     /** The trough's inner opening, as a fraction of the drawn piece. The fill
      *  is a rectangle inside the art, so it has to know where the art's own
      *  walls are. */
     inset: { left: 0.108, right: 0.028, top: 0.3, bottom: 0.3 },
+  },
+  /**
+   * The twin's pair, tucked under the player's own.
+   *
+   * Narrower and indented so the two stacks read as "yours" and "theirs" at a
+   * glance rather than as four bars of equal weight. Sheet 92's troughs are
+   * chunkier than the player's (aspect 4.1 against 7.7), so matching the
+   * player's height means a much shorter bar -- which is the right read for a
+   * companion's vitals anyway.
+   */
+  twinBars: {
+    /** Indent from the player's own bar, and how far below it. */
+    indent: 20, drop: 30, width: 74,
+    /** Where the mark sits, measured from the player's bar left edge. */
+    markX: 2, markSize: 12,
+    /** The opening inside the drawn trough. Measured off the art. */
+    inset: { left: 0.05, right: 0.10, top: 0.26, bottom: 0.26 },
+  },
+  /**
+   * The level bar, under everything.
+   *
+   * Deliberately not a third health bar: ten drawn segments rather than one
+   * smooth capsule, because progress toward something is a different kind of
+   * fact from a resource being spent.
+   */
+  level: {
+    y: 216, width: 200,
+    /** The hexagonal plate the number sits in, and where it overlaps the bar. */
+    plateX: 200, plateSize: 42,
+    inset: { left: 0.045, right: 0.045, top: 0.26, bottom: 0.26 },
   },
   minimap: {
     x: 1920 - 150, y: 150, size: 228,

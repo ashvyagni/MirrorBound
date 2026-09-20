@@ -3,7 +3,8 @@ import Phaser from 'phaser';
 import { GOAT_FRAMES, GOAT_TEXTURE_KEY } from '../animation/goatAtlas.generated';
 import { PORTRAITRING_TEXTURE_KEY } from '../animation/portraitRingAtlas.generated';
 import { STATUSBARS_TEXTURE_KEY } from '../animation/statusBarsAtlas.generated';
-import { HUD_ART, PALETTE } from '../constants';
+import { VITALS_TEXTURE_KEY } from '../animation/vitalsAtlas.generated';
+import { HUD, HUD_ART, PALETTE, PIXEL_FONT } from '../constants';
 import type { VitalsSnapshot } from '../state/Vitals';
 import { fitWidth } from './fit';
 
@@ -11,12 +12,46 @@ import { fitWidth } from './fit';
 interface Bar {
   fill: Phaser.GameObjects.Rectangle;
   chase: Phaser.GameObjects.Rectangle;
+  art: Phaser.GameObjects.Image;
   left: number;
   width: number;
   /** Where the fill is heading, 0..1, and where its trailing edge still is. */
   target: number;
   trail: number;
 }
+
+/** Everything `#buildBar` needs to know that differs between the two sheets. */
+type BarFrame = 'hp' | 'mp' | 'twinHealth' | 'twinMana' | 'levelTrough';
+
+/**
+ * Which sheet each trough comes from, and which way round it is composited.
+ *
+ * The player's own two are drawn with a transparent window, so the fill sits
+ * *behind* the art and shows through it. Sheet 92's three came back with their
+ * interiors painted in, so the same arrangement would hide the fill entirely --
+ * they are drawn art-first with the fill laid over the top, which also lets the
+ * level bar's ten dividers read as darker lines across the filled part rather
+ * than disappearing under it.
+ */
+const BAR_ART: Record<BarFrame, { texture: string; fillOver: boolean }> = {
+  hp: { texture: STATUSBARS_TEXTURE_KEY, fillOver: false },
+  mp: { texture: STATUSBARS_TEXTURE_KEY, fillOver: false },
+  twinHealth: { texture: VITALS_TEXTURE_KEY, fillOver: true },
+  twinMana: { texture: VITALS_TEXTURE_KEY, fillOver: true },
+  levelTrough: { texture: VITALS_TEXTURE_KEY, fillOver: true },
+};
+
+/** The colour each trough fills with. */
+const BAR_TINT: Record<BarFrame, number> = {
+  hp: PALETTE.magenta,
+  mp: PALETTE.ice,
+  twinHealth: PALETTE.magenta,
+  twinMana: PALETTE.ice,
+  // The level bar takes the interface's own accent rather than a vital's
+  // colour: it is not a resource, and reading it should not mean checking
+  // which of the two above it is not.
+  levelTrough: PALETTE.arcane,
+};
 
 /**
  * The goat's face in its ring, with health and mana beside it.
@@ -38,6 +73,12 @@ const CHASE_TIME = 0.18;
 export class Portrait {
   #face!: Phaser.GameObjects.Sprite;
   #bars: Bar[] = [];
+  /** The twin's pair, built once and hidden until there is a twin. */
+  #twinBars: Bar[] = [];
+  #twinArt: Phaser.GameObjects.GameObject[] = [];
+  #level!: Bar;
+  #levelText!: Phaser.GameObjects.Text;
+  #texts: Phaser.GameObjects.Text[] = [];
   #expression = 0;
   #hold = 0;
   #objects: Phaser.GameObjects.GameObject[] = [];
@@ -68,6 +109,64 @@ export class Portrait {
     for (const [i, frame] of (['hp', 'mp'] as const).entries()) {
       this.#bars.push(this.#buildBar(bars.x, bars.y + i * bars.gap, frame));
     }
+    this.#buildTwinBars();
+    this.#buildLevel();
+  }
+
+  get texts(): readonly Phaser.GameObjects.Text[] { return this.#texts; }
+
+  /**
+   * The twin's health and mana, under the player's own.
+   *
+   * Built once and hidden, rather than created when the twin is found: the
+   * twin comes and goes -- it is dormant before the crypt, taken at the
+   * Sanctum's threshold, and downed in between -- and building art on each of
+   * those is three chances to leak a sprite.
+   */
+  #buildTwinBars(): void {
+    const { bars, twinBars } = HUD_ART;
+    for (const [i, frame] of (['twinHealth', 'twinMana'] as const).entries()) {
+      const x = bars.x + twinBars.indent;
+      const y = bars.y + i * bars.gap + twinBars.drop;
+      this.#twinBars.push(this.#buildBar(x, y, frame, twinBars.width));
+    }
+    const { bars: b, twinBars: t } = HUD_ART;
+    const mark = this.scene.add
+      .image(b.x + t.markX, b.y + t.drop, VITALS_TEXTURE_KEY, 'twinMark')
+      .setOrigin(0, 0.5);
+    fitWidth(mark, t.markSize);
+    this.#objects.push(mark);
+    this.#twinArt.push(mark);
+    this.#showTwin(false);
+  }
+
+  /** The level bar and the plate its number sits in. */
+  #buildLevel(): void {
+    const { bars, level } = HUD_ART;
+    this.#level = this.#buildBar(bars.x, level.y, 'levelTrough', level.width);
+
+    const plate = this.scene.add
+      .image(level.plateX, level.y, VITALS_TEXTURE_KEY, 'levelPlate')
+      .setOrigin(0.5, 0.5);
+    fitWidth(plate, level.plateSize);
+    this.#levelText = this.scene.add
+      .text(level.plateX, level.y - 2, '1', {
+        fontFamily: PIXEL_FONT.stack, fontSize: `${HUD.labelSize}px`, color: HUD.ink,
+      })
+      .setOrigin(0.5, 0.5);
+    this.#objects.push(plate, this.#levelText);
+    this.#texts.push(this.#levelText);
+  }
+
+  #showTwin(on: boolean): void {
+    for (const bar of this.#twinBars) {
+      bar.fill.setVisible(on);
+      bar.chase.setVisible(on);
+      bar.art.setVisible(on);
+    }
+    for (const o of this.#twinArt) {
+      (o as unknown as Partial<Phaser.GameObjects.Components.Visible>).setVisible?.(on);
+    }
   }
 
   /**
@@ -92,36 +191,56 @@ export class Portrait {
     this.#face.setScale(Math.min(box / widest, box / tallest));
   }
 
-  #buildBar(x: number, y: number, frame: 'hp' | 'mp'): Bar {
-    const { bars } = HUD_ART;
-    // The troughs share a shape, so one frame's aspect is every frame's.
-    const probe = this.scene.textures.get(STATUSBARS_TEXTURE_KEY).get(frame);
-    const height = bars.width * (probe.height / probe.width);
+  #buildBar(x: number, y: number, frame: BarFrame, drawnWidth?: number): Bar {
+    const { bars, twinBars, level } = HUD_ART;
+    const art = BAR_ART[frame];
+    const width = drawnWidth ?? bars.width;
+    const inset = frame === 'levelTrough' ? level.inset
+      : art.texture === VITALS_TEXTURE_KEY ? twinBars.inset
+      : bars.inset;
+    const probe = this.scene.textures.get(art.texture).get(frame);
+    const height = width * (probe.height / probe.width);
 
     // The fill sits inside the trough drawn on the art, so its box is the
     // piece's box pulled in by where the art's own walls are. Measured as
     // fractions in `HUD_ART.bars.inset`, so redrawing the trough at a
     // different size does not move the fill off it.
-    const left = x + bars.width * bars.inset.left;
-    const width = bars.width * (1 - bars.inset.left - bars.inset.right);
-    const inner = height * (1 - bars.inset.top - bars.inset.bottom);
-    const colour = frame === 'hp' ? PALETTE.magenta : PALETTE.ice;
+    const left = x + width * inset.left;
+    const span = width * (1 - inset.left - inset.right);
+    const inner = height * (1 - inset.top - inset.bottom);
+    const colour = BAR_TINT[frame];
 
-    // Chase first: it is the pale edge left behind by a change, and it has to
-    // sit under the fill so a gain covers it rather than the other way round.
-    const chase = this.scene.add
-      .rectangle(left, y, width, inner, PALETTE.cream, 0.5)
-      .setOrigin(0, 0.5);
-    const fill = this.scene.add
-      .rectangle(left, y, width, inner, colour, 1)
-      .setOrigin(0, 0.5);
-    const art = this.scene.add
-      .image(x, y, STATUSBARS_TEXTURE_KEY, frame)
-      .setOrigin(0, 0.5);
-    fitWidth(art, bars.width);
+    // Creation order is depth order in this scene, so "fill over" and "fill
+    // behind" is simply which of the two is added first.
+    const make = {
+      chase: () => this.scene.add
+        .rectangle(left, y, span, inner, PALETTE.cream, 0.5).setOrigin(0, 0.5),
+      fill: () => this.scene.add
+        .rectangle(left, y, span, inner, colour, 1).setOrigin(0, 0.5),
+      art: () => {
+        const image = this.scene.add.image(x, y, art.texture, frame).setOrigin(0, 0.5);
+        fitWidth(image, width);
+        return image;
+      },
+    };
 
-    this.#objects.push(chase, fill, art);
-    return { fill, chase, left, width, target: 1, trail: 1 };
+    let chase: Phaser.GameObjects.Rectangle;
+    let fill: Phaser.GameObjects.Rectangle;
+    let image: Phaser.GameObjects.Image;
+    if (art.fillOver) {
+      image = make.art();
+      chase = make.chase();
+      fill = make.fill();
+    } else {
+      // Chase first: it is the pale edge left behind by a change, and it has to
+      // sit under the fill so a gain covers it rather than the other way round.
+      chase = make.chase();
+      fill = make.fill();
+      image = make.art();
+    }
+
+    this.#objects.push(chase, fill, image);
+    return { fill, chase, art: image, left, width: span, target: 1, trail: 1 };
   }
 
   /** Point the bars at new values. They travel there over the next few frames. */
@@ -131,12 +250,26 @@ export class Portrait {
       vitals.maxMana > 0 ? vitals.mana / vitals.maxMana : 0,
     ];
     this.#bars.forEach((bar, i) => { bar.target = Phaser.Math.Clamp(ratios[i]!, 0, 1); });
+
+    this.#level.target = Phaser.Math.Clamp(vitals.levelProgress, 0, 1);
+    const level = String(Math.max(1, Math.round(vitals.level)));
+    if (this.#levelText.text !== level) this.#levelText.setText(level);
+
+    const twin = vitals.twin;
+    this.#showTwin(twin !== null);
+    if (twin) {
+      const theirs = [
+        twin.maxHealth > 0 ? twin.health / twin.maxHealth : 0,
+        twin.maxMana > 0 ? twin.mana / twin.maxMana : 0,
+      ];
+      this.#twinBars.forEach((bar, i) => { bar.target = Phaser.Math.Clamp(theirs[i]!, 0, 1); });
+    }
   }
 
   step(deltaSeconds: number): void {
     this.#stepFace(deltaSeconds);
 
-    for (const bar of this.#bars) {
+    for (const bar of [...this.#bars, ...this.#twinBars, this.#level]) {
       // The fill snaps to the truth; only the pale edge lags. A fill that
       // lagged too would leave the bar disagreeing with the game about whether
       // there is any health left.
@@ -192,5 +325,8 @@ export class Portrait {
     for (const object of this.#objects) object.destroy();
     this.#objects = [];
     this.#bars = [];
+    this.#twinBars = [];
+    this.#twinArt = [];
+    this.#texts = [];
   }
 }
