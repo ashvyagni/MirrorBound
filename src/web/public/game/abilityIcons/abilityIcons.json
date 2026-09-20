@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "arcane_bolt": {
+   "frame": {
+    "x": 397,
+    "y": 2,
+    "w": 114,
+    "h": 111
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 8,
+    "y": 17,
+    "w": 114,
+    "h": 111
+   },
+   "sourceSize": {
+    "w": 123,
+    "h": 132
+   }
+  },
+  "shadow_dash": {
+   "frame": {
+    "x": 97,
+    "y": 135,
+    "w": 115,
+    "h": 99
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 1,
+    "y": 24,
+    "w": 115,
+    "h": 99
+   },
+   "sourceSize": {
+    "w": 123,
+    "h": 132
+   }
+  },
+  "mending_light": {
+   "frame": {
+    "x": 93,
+    "y": 2,
+    "w": 98,
+    "h": 125
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 9,
+    "y": 3,
+    "w": 98,
+    "h": 125
+   },
+   "sourceSize": {
+    "w": 123,
+    "h": 132
+   }
+  },
+  "aegis": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 89,
+    "h": 131
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 13,
+    "y": 1,
+    "w": 89,
+    "h": 131
+   },
+   "sourceSize": {
+    "w": 123,
+    "h": 132
+   }
+  },
+  "fist": {
+   "frame": {
+    "x": 2,
+    "y": 135,
+    "w": 93,
+    "h": 108
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 14,
+    "y": 16,
+    "w": 93,
+    "h": 108
+   },
+   "sourceSize": {
+    "w": 123,
+    "h": 132
+   }
+  },
+  "daggers": {
+   "frame": {
+    "x": 284,
+    "y": 2,
+    "w": 111,
+    "h": 113
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 4,
+    "y": 10,
+    "w": 111,
+    "h": 113
+   },
+   "sourceSize": {
+    "w": 123,
+    "h": 132
+   }
+  },
+  "eye": {
+   "frame": {
+    "x": 214,
+    "y": 135,
+    "w": 104,
+    "h": 85
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 6,
+    "y": 19,
+    "w": 104,
+    "h": 85
+   },
+   "sourceSize": {
+    "w": 123,
+    "h": 132
+   }
+  },
+  "hourglass": {
+   "frame": {
+    "x": 193,
+    "y": 2,
+    "w": 89,
+    "h": 124
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 13,
+    "y": 4,
+    "w": 89,
+    "h": 124
+   },
+   "sourceSize": {
+    "w": 123,
+    "h": 132
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "abilityIcons.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 512,
+   "h": 245
+  },
+  "scale": "1"
+ }
+}
