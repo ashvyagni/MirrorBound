@@ -11,7 +11,9 @@ import Phaser from 'phaser';
 import { DIALOGUE_TEXTURE_KEY } from '../animation/dialogueAtlas.generated';
 import { DOORS_TEXTURE_KEY } from '../animation/doorsAtlas.generated';
 import { BIOMES, DEPTH, HUD, LIGHT_ANGLE, PIXEL_FONT, TILE, type BiomeName } from '../constants';
-import { isPerson, propArt, propArtSide } from './propArt';
+import { CHEST_TEXTURE_KEY } from '../animation/chestAtlas.generated';
+import { featherEdges, mottle, tileVariant } from './floor';
+import { CHEST_OPEN_KEY, isPerson, propArt, propArtSide } from './propArt';
 import type { DecorSnap, DoorSnap, RoomFull } from '../contracts';
 import type { Quality } from '../../ui/settings';
 import { T, TextureFactory } from './TextureFactory';
@@ -61,6 +63,8 @@ export class WorldRenderer {
   torches: TorchLight[] = [];
   /** Villagers and shopkeepers, so they can turn toward the player. */
   people: Person[] = [];
+  /** Chests in this room, so the server can tell one to open. */
+  #chests: Phaser.GameObjects.Sprite[] = [];
 
   constructor(private readonly scene: Phaser.Scene, private readonly textures: TextureFactory, private quality: Quality) {}
 
@@ -95,15 +99,22 @@ export class WorldRenderer {
     if (this.scene.textures.exists(floorKey)) this.scene.textures.remove(floorKey);
     const canvas = this.scene.textures.createCanvas(floorKey, room.width, room.height);
     if (canvas) {
+      // Three passes, and the order is the whole point: the tiles are laid
+      // down, the seams between different materials are broken up, and only
+      // then is the light varied over the lot -- so the mottling falls across
+      // a boundary rather than stopping at one.
       for (let y = 0; y < rows; y++) {
         const row = room.tiles[y];
         if (!row) continue;
         for (let x = 0; x < cols; x++) {
           const tile = row[x] ?? T.GRASS;
-          const variant = ((x * 7 + y * 13 + seed) >>> 0) % 3;
-          canvas.drawFrame(TextureFactory.tileKey(biome, tile, variant), undefined, x * TILE, y * TILE, false);
+          canvas.drawFrame(TextureFactory.tileKey(biome, tile, tileVariant(x, y, seed)),
+                           undefined, x * TILE, y * TILE, false);
         }
       }
+      const ctx = canvas.context;
+      featherEdges(ctx, room.tiles, biome, seed);
+      mottle(ctx, room.width, room.height, biome, seed);
       canvas.refresh();
       const floor = this.scene.add.image(0, 0, floorKey).setOrigin(0, 0).setDepth(DEPTH.floor);
       this.#objects.push(floor);
@@ -179,8 +190,31 @@ export class WorldRenderer {
     img.setScale((height / drawn) * scale);
   }
 
+  /**
+   * Open the chest nearest a point, once.
+   *
+   * Matched by position rather than by id because decor has no id -- the
+   * server sends a chest as a kind and a coordinate. A generous radius, since
+   * the event carries the treasure's anchor and the prop is placed on it.
+   *
+   * Idempotent per chest: a chest already playing or already open is left
+   * alone, so a replayed event cannot snap a lid shut and lift it again.
+   */
+  openChest(at: { x: number; y: number }): void {
+    let best: Phaser.GameObjects.Sprite | null = null;
+    let bestDist = 64;
+    for (const chest of this.#chests) {
+      const dist = Math.hypot(chest.x - at.x, chest.y - at.y);
+      if (dist < bestDist) { best = chest; bestDist = dist; }
+    }
+    if (!best || best.getData('open') === true) return;
+    best.setData('open', true);
+    best.play(CHEST_OPEN_KEY);
+  }
+
   #buildDecor(room: RoomFull, biome: BiomeName): void {
     this.torches = [];
+    this.#chests = [];
     const ambient = BIOMES[biome];
     for (const d of room.decor) {
       if (d.kind === 'pond') continue; // water is drawn by tiles
@@ -190,8 +224,16 @@ export class WorldRenderer {
       }
       const art = this.#artFor(d);
       if (!art) continue;
-      const img = this.scene.add.image(d.x, d.y, art.texture, art.frame)
+      // A chest is the one prop that moves, so it is the one prop that is a
+      // Sprite: its sheet is eight frames of the lid coming up and `chest0` is
+      // that sequence closed. Everything else stays an Image, which cannot
+      // hold an animation and does not need to.
+      const chest = d.kind === 'chest' && this.scene.textures.exists(CHEST_TEXTURE_KEY);
+      const img = (chest
+        ? this.scene.add.sprite(d.x, d.y, art.texture, art.frame)
+        : this.scene.add.image(d.x, d.y, art.texture, art.frame))
         .setOrigin(0.5, 1).setFlipX(d.flip);
+      if (chest) this.#chests.push(img as Phaser.GameObjects.Sprite);
       WorldRenderer.#fit(img, art.height, d.scale);
       img.setDepth(DEPTH.entityBase + d.y * 0.01);
       this.#objects.push(img);

@@ -28,6 +28,7 @@ export const AREAS: readonly { id: string; name: string }[] = [
   { id: 'emberfall', name: 'village · ruins' },
   { id: 'ashen_deep', name: 'dungeon · ruins · the Warden' },
   { id: 'mirror_sanctum', name: 'dungeon · crypt · the Mirror' },
+  { id: 'the_proving', name: 'sandbox · empty, and nothing here counts' },
 ];
 
 /** The four weapons the server ships with. */
@@ -36,6 +37,18 @@ export const WEAPON_IDS: readonly { id: string; name: string }[] = [
   { id: 'hunter_bow', name: 'bow' },
   { id: 'ember_staff', name: 'fire staff' },
   { id: 'frost_staff', name: 'ice staff' },
+];
+
+/**
+ * What `give` offers, which is the four plus the testing tool.
+ *
+ * Kept apart from `WEAPON_IDS` so the admin stick cannot be completed anywhere
+ * that stands for something a player earns -- `equip` only lists what you can
+ * actually own, and the stick is not loot.
+ */
+export const GIVEABLE: readonly { id: string; name: string }[] = [
+  ...WEAPON_IDS,
+  { id: 'admin_stick', name: 'admin stick · deletes what it touches' },
 ];
 
 interface Verb {
@@ -87,6 +100,26 @@ const VERBS: readonly Verb[] = [
     token: 'use', hint: 'drink or consume',
     options: ITEM_NAMES.map((id) => ({ id, name: id.replace(/_/g, ' ') })),
     build: (itemId) => (itemId ? { action: 'USE_ITEM', itemId } : 'use what?'),
+  },
+  {
+    token: 'give', hint: 'drop a weapon in front of you', options: GIVEABLE,
+    build: (weaponId) => (weaponId ? { action: 'GIVE', weaponId } : 'give what?'),
+  },
+  {
+    // `arm mirror <weapon>` would need two arguments and the console takes one,
+    // so the weapon is the argument and the Mirror is implied -- it is the only
+    // thing there is to arm.
+    token: 'arm', hint: 'give the Mirror a weapon', options: GIVEABLE,
+    build: (weaponId) => (weaponId ? { action: 'CONFIGURE_BOSS', bossWeapon: weaponId } : 'arm it with what?'),
+  },
+  {
+    token: 'skill', hint: 'how much of you the Mirror already knows',
+    options: [
+      { id: '0', name: 'none · generic boss until it watches you' },
+      { id: '0.5', name: 'half' },
+      { id: '1', name: 'everything · counters from the first second' },
+    ],
+    build: (value) => (value ? { action: 'CONFIGURE_BOSS', bossSkill: Number(value) } : 'skill how much? 0 to 1.'),
   },
   { token: 'swap', hint: 'trade the two carried weapons', build: () => ({ action: 'SWAP_WEAPON' }) },
   { token: 'respec', hint: 'refund every skill point', build: () => ({ action: 'RESPEC' }) },

@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "typecheck": "tsc -b --noEmit",
-    "assets": "python3 scripts/build_atlas.py && python3 scripts/build_cursor.py",
+    "assets": "python3 scripts/build_atlas.py && python3 scripts/build_tiles.py && python3 scripts/build_cursor.py",
     "assets:cursor": "python3 scripts/build_cursor.py",
     "test": "vitest run"
   },

@@ -29,6 +29,7 @@ export class Interactions {
     }
     if (snap.npcs !== undefined) this.npcs = snap.npcs;
     if (isRoomFull(snap.room)) this.room = snap.room;
+    else if (this.room) this.room = { ...this.room, cleared: snap.room.cleared, doors: snap.room.doors };
     return nearbyNpc(this.npcs, snap.player);
   }
 }

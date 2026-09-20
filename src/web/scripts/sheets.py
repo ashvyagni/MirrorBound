@@ -400,6 +400,35 @@ ICONS = SheetSpec(
 )
 
 
+#: Sheet 85: the four marks the game had to borrow for, plus four spares.
+#:
+#: A second icon sheet rather than a redraw of the first, because the first is
+#: still correct -- its eight frames are the staves' six spells and the sword,
+#: and every one of them is the icon that ability should have. These are the
+#: four that had nothing: the dash wore the arrow, the heal wore the ice beam
+#: and the ward wore the sword.
+#:
+#: Chroma green rather than the first sheet's clean alpha, which is the only
+#: reason this cannot simply be more bands on `ICONS`.
+ABILITY_ICONS = SheetSpec(
+    name="abilityIcons",
+    source=ASSETS / "ui" / "ability-icons.png",
+    # The same test the first icon sheet uses: once the green is keyed out the
+    # alpha is the whole answer.
+    body=_icon_body,
+    anchor="center",
+    key="green",
+    body_min_area=200,
+    downscale=128 / 374,
+    bands=(
+        Band("icon", 0, 512, 0, 1536, 4, grid_cols=4,
+             names=("arcane_bolt", "shadow_dash", "mending_light", "aegis")),
+        Band("icon_b", 512, 1024, 0, 1536, 4, grid_cols=4,
+             names=("fist", "daggers", "eye", "hourglass")),
+    ),
+)
+
+
 # --- HUD chrome -------------------------------------------------------------
 
 def _ui_body(rgb: np.ndarray, alpha: np.ndarray) -> np.ndarray:
@@ -877,8 +906,46 @@ VILLAGERS_SIDE = _prop("villagersSide", "villagers-side.png", (
          names=("villager0", "villager1", "villager2", "villager3")),
 ), 0.5)
 
+#: Grove clutter: the small stuff that makes a clearing look lived in.
+GROVE_PROPS = _prop("groveProps", "grove-props.png", (
+    Band("a", 0, 512, 0, 1536, 4, grid_cols=4,
+         names=("fallenTrunk0", "stump0", "berryBush0", "reeds0")),
+    Band("b", 512, 1024, 0, 1536, 4, grid_cols=4,
+         names=("fernClump0", "mossRock0", "fencePost0", "cartWheel0")),
+), 0.5)
+
+#: More ruined stonework, for rooms that had five kinds and two of them pillars.
+RUINS_PROPS = _prop("ruinsProps", "ruins-props.png", (
+    Band("a", 0, 512, 0, 1536, 4, grid_cols=4,
+         names=("archBroken0", "columnFallen0", "stoneBench0", "urnCracked0")),
+    Band("b", 512, 1024, 0, 1536, 4, grid_cols=4,
+         names=("stairFragment0", "runeStone0", "sarcophagus0", "banneredRubble0")),
+), 0.5)
+
+#: More crypt dressing. The candles are drawn cold; the game lights them.
+CRYPT_PROPS = _prop("cryptProps", "crypt-props.png", (
+    Band("a", 0, 512, 0, 1536, 4, grid_cols=4,
+         names=("bonePile0", "skullStack0", "cobweb0", "hangingChain0")),
+    Band("b", 512, 1024, 0, 1536, 4, grid_cols=4,
+         names=("coffinCracked0", "candleCluster0", "ironCage0", "rootIntrusion0")),
+), 0.5)
+
+#: The one animated prop: eight frames of a chest opening.
+#:
+#: Still a `_prop`, because it is anchored the same way -- the chest stands on
+#: the floor and grows upward as the lid rises, so each frame is anchored by its
+#: own base. The names are sequential rather than descriptive because these are
+#: frames, and `chestClips.ts` plays them in order.
+CHEST = _prop("chest", "chest.png", (
+    Band("a", 0, 512, 0, 1536, 4, grid_cols=4,
+         names=("chest0", "chest1", "chest2", "chest3")),
+    Band("b", 512, 1024, 0, 1536, 4, grid_cols=4,
+         names=("chest4", "chest5", "chest6", "chest7")),
+), 0.5)
+
 WORLD = (FLORA, GROUNDCOVER, STONE, RUINS, CRYPT, LIGHTS, DOORS,
-         BUILDINGS, VILLAGERS, VILLAGERS_SIDE)
+         BUILDINGS, VILLAGERS, VILLAGERS_SIDE,
+         GROVE_PROPS, RUINS_PROPS, CRYPT_PROPS, CHEST)
 
 #: Who is talking. Sits in the dialogue plate's portrait window.
 SPEAKERS = _ui("speakers", "speakers.png", (
@@ -889,6 +956,6 @@ SPEAKERS = _ui("speakers", "speakers.png", (
 ), 0.5)
 
 SHEETS = (GOAT, BRO, DUMMY, *FACINGS, *WEAPONS, *CASTS, *SHIELDS, *SPELLS,
-          ICONS, *UI, *SCREENS, *ENEMIES, *CORRUPTED,
+          ICONS, ABILITY_ICONS, *UI, *SCREENS, *ENEMIES, *CORRUPTED,
           *MIRROR, *HATCH, *BOSS_SPELLS, *WORLD, SPEAKERS,
           *WARDEN_BOSS)
