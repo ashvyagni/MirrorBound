@@ -13,7 +13,7 @@ from mirrorbound.api.session import GameSession
 from mirrorbound.game.entities.entity import Vec2
 from mirrorbound.game.world import save as save_system
 from mirrorbound.game.world.campaign import AREAS, CampaignState, sanitise_name
-from tests.conftest import DT, combat_session
+from tests.conftest import DT, combat_session, play_cutscene
 
 
 def fresh_village(name="world") -> GameSession:
@@ -522,6 +522,9 @@ def test_the_twin_becomes_the_mirror_on_the_threshold():
     s = GameSession("taken", seed=5, record=False, start_area="mirror_sanctum")
     s.state.twin.dormant = False
     _walk_to_boss_room(s)
+    # Walking in starts the scene; the twin is taken on its `hatch` beat.
+    assert s.cutscene is not None, "the threshold opens the Sanctum's scene"
+    play_cutscene(s)
 
     assert s.state.twin.dormant, "the twin leaves the world"
     assert "twin_taken" in s.campaign.flags
@@ -538,6 +541,7 @@ def test_a_twin_that_was_never_found_is_not_taken():
     s = GameSession("never", seed=5, record=False, start_area="mirror_sanctum")
     assert s.state.twin.dormant
     _walk_to_boss_room(s)
+    assert s.cutscene is None, "no companion, no scene to play"
     assert not any(e.type == "TWIN_TAKEN" for e in s.state.pending_events)
 
 

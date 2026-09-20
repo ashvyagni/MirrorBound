@@ -45,6 +45,20 @@
       "default": null,
       "title": "Ability"
     },
+    "aimX": {
+      "default": 0.0,
+      "maximum": 1.0,
+      "minimum": -1.0,
+      "title": "Aimx",
+      "type": "number"
+    },
+    "aimY": {
+      "default": 0.0,
+      "maximum": 1.0,
+      "minimum": -1.0,
+      "title": "Aimy",
+      "type": "number"
+    },
     "seq": {
       "anyOf": [
         {

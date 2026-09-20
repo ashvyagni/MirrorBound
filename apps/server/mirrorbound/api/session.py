@@ -15,22 +15,31 @@ import asyncio
 import logging
 import time
 import zlib
-from typing import Any
 
 from mirrorbound.agent.observation_builder import build_observation
+from mirrorbound.agent.persistence import (
+    dump_player_model,
+    dump_twin_style,
+    load_player_model,
+    load_twin_style,
+)
 from mirrorbound.agent.pipeline import PlayerModelPipeline
 from mirrorbound.agent.twin import TwinStyleModel, TwinV0Controller
-from mirrorbound.contracts.messages import CommandMessage, InputMessage, parse_client_message
+from mirrorbound.contracts.messages import (
+    CommandMessage,
+    InputMessage,
+    parse_client_message,
+)
 from mirrorbound.game.combat.combat import CombatSystem
+from mirrorbound.game.combat.weapons import STARTING_BLADE, WEAPONS
 from mirrorbound.game.core.clock import SIM_HZ, SNAPSHOT_HZ
 from mirrorbound.game.core.events import Event
 from mirrorbound.game.core.rng import DeterministicRNG
 from mirrorbound.game.dungeon.generation import DungeonGenerator, DungeonRun
 from mirrorbound.game.dungeon.room import TILE, Portal, Room
-from mirrorbound.game.combat.weapons import STARTING_BLADE
-from mirrorbound.game.entities.enemy import ARCHETYPES
 from mirrorbound.game.enemy_ai.controller import BasicEnemyController
 from mirrorbound.game.enemy_ai.mirror import MirrorController
+from mirrorbound.game.entities.enemy import ARCHETYPES, armed_with
 from mirrorbound.game.entities.entity import Vec2
 from mirrorbound.game.entities.player import PlayerInput
 from mirrorbound.game.inventory import CONSUMABLES
@@ -39,6 +48,13 @@ from mirrorbound.game.movement.movement import MovementSystem
 from mirrorbound.game.state import GameState
 from mirrorbound.game.twin_executor import TwinExecutor
 from mirrorbound.game.world import save as save_system
+from mirrorbound.game.world.actions import (
+    buy_item,
+    call_twin,
+    restore_twin,
+    shard_rush,
+    transfer_weapon,
+)
 from mirrorbound.game.world.campaign import (
     AREAS,
     HOME_VILLAGE,
@@ -46,7 +62,9 @@ from mirrorbound.game.world.campaign import (
     CampaignState,
     sanitise_name,
 )
+from mirrorbound.game.world.cutscene import BEATS, LINE_SECONDS, LINES, Cutscene
 from mirrorbound.game.world.npc import TALK_RADIUS
+from mirrorbound.game.world.sandbox import build_sandbox
 from mirrorbound.game.world.village import build_village
 from mirrorbound.replay.recorder import ReplayRecorder
 
@@ -60,10 +78,19 @@ CLIENT_EVENT_TYPES = {
     "ROOM_CLEARED", "ITEM_PICKUP", "WEAPON_CHANGED", "SKILL_UNLOCKED", "LEVEL_UP", "ITEM_USED",
     "TWIN_ACTION", "TWIN_OUTCOME", "TWIN_ATTACKED", "TWIN_DAMAGED", "TWIN_DOWNED", "TWIN_REVIVED",
     "ENEMY_ATTACKED", "ENEMY_SPAWNED", "PROJECTILE_HIT", "PROJECTILE_EXPIRED", "BOSS_COUNTER",
-    "BOSS_NOVA_CHARGE", "BOSS_NOVA", "BOSS_DEFEATED", "RUN_COMPLETE", "ACTION_REJECTED", "PLAYER_HEALED",
+    "CHEST_OPENED",
+    # What the boss casts, and its wind-up. Without these on the list the
+    # Mirror's whole spell kit resolves server-side and the client draws none
+    # of it -- which is how you get a boss that damages you from an empty room.
+    "ENEMY_ABILITY_CAST", "ENEMY_ABILITY_CHARGE",
+    "PLAYER_ABILITY_RESOLVED", "BOSS_NOVA_CHARGE", "BOSS_NOVA", "BOSS_DEFEATED", "RUN_COMPLETE", "ACTION_REJECTED", "PLAYER_HEALED",
     "TARGET_CHANGE", "ITEM_USE_STARTED", "ABILITY_INTERRUPTED", "TWIN_WEAPON_SWITCH", "GOLD_GAINED",
     "SHOP_PURCHASE", "NPC_TALK", "QUEST_UPDATED", "CHECKPOINT_SAVED", "AREA_ENTER", "ABILITY_SLOT_CHANGED",
-    "TWIN_ITEM_GIVEN", "AREA_DISCOVERED", "TWIN_TAKEN",
+    "TWIN_ITEM_GIVEN", "AREA_DISCOVERED", "TWIN_TAKEN", "TWIN_CALLED",
+    "SAVE_LOADED", "SAVE_DELETED", "DATA_RESET", "RUN_FAILED", "PLAYER_PARRIED",
+    "ITEM_DROPPED", "BOSS_CONFIGURED",
+    "SHARD_DROPPED", "TWIN_CORRUPTED", "TWIN_CLEANSED",
+    "CUTSCENE_BEGIN", "CUTSCENE_BEAT", "CUTSCENE_LINE", "CUTSCENE_END",
 }
 
 # Spatial heatmap cell size in world units. Rooms are 1280-1600 wide, so 64 gives
@@ -80,8 +107,13 @@ class GameSession:
     """Manages a single game session."""
 
     def __init__(self, session_id: str, seed: int | None = None, record: bool = True, room_count: int = 7,
-                 load_save: bool = False, start_area: str | None = None):
+                 load_save: bool = False, start_area: str | None = None,
+                 slot: str = save_system.AUTO_SLOT):
         self.session_id = session_id
+        # Which slot this run reads and writes. The village checkpoint follows
+        # the run, so playing a named slot keeps checkpointing into that slot
+        # rather than quietly diverting the player's progress into `auto`.
+        self.slot = slot
         self.running = True
         self.seed = seed if seed is not None else seed_from_session(session_id)
         self.room_count = room_count
@@ -96,6 +128,7 @@ class GameSession:
         self.snapshots_sent = 0
         self.room_dirty = True
         self.last_error: str | None = None
+        self.saves_dirty = True
         self._build_world()
 
     # ------------------------------------------------------------- world setup
@@ -104,6 +137,11 @@ class GameSession:
         self.state = GameState(seed=self.seed)
         self.campaign = CampaignState()
         self.dungeon: DungeonRun | None = None
+        #: The Sanctum's opening while it plays, and None the rest of the time.
+        self.cutscene: Cutscene | None = None
+        #: Sandbox: what a summoned boss is armed with, as (main, offhand).
+        self.boss_loadout: tuple[str, str] = ("", "")
+        self._first_visit_to_sanctum = False
 
         self.movement = MovementSystem(self.state.bus)
         self.combat = CombatSystem(self.state.bus, self.state.rng)
@@ -126,6 +164,8 @@ class GameSession:
         self.state.bus.subscribe_all(self._track_player_action)
         # Inventory / skill / weapon blocks are only re-sent after something changed them.
         self.detail_dirty = True
+        # A rebuilt world is a loaded or reset one, so the slot list is stale.
+        self.saves_dirty = True
         for kind in ("ITEM_PICKUP", "WEAPON_CHANGED", "SKILL_UNLOCKED", "LEVEL_UP", "ITEM_USED",
                      "ABILITY_SLOT_CHANGED", "PLAYER_RESPAWNED", "ROOM_ENTER", "GOLD_GAINED",
                      "SHOP_PURCHASE", "NPC_TALK", "QUEST_UPDATED", "AREA_ENTER", "TWIN_ITEM_GIVEN"):
@@ -136,13 +176,18 @@ class GameSession:
         # caller (a test, a debug link) asked for somewhere specific.
         opening_area = self.start_area
         if self.load_save:
-            saved = save_system.read_save(self.session_id)
+            saved = save_system.read_save(self.session_id, self.slot)
             if saved is not None:
                 self.campaign = CampaignState.from_save(saved.get("campaign", {}))
                 save_system.apply_save(saved, self.state.player, self.state.twin)
                 if self.campaign.twin_rescued:
                     self.state.twin.dormant = False
                     self.state.twin.name = self.campaign.twin_name
+                # The twin the player trained in this slot, not a blank one and
+                # not the one from whatever slot was open a moment ago.
+                agent = saved.get("agent") or {}
+                load_player_model(self.pipeline, agent.get("playerModel"))
+                load_twin_style(self.style, agent.get("twinStyle"))
                 opening_area = self.campaign.current_area
         self.state.campaign = self.campaign
         self._enter_area(opening_area, announce=False)
@@ -164,7 +209,13 @@ class GameSession:
         # always produces the same Ashen Deep whether or not you detoured.
         rng = DeterministicRNG(self.seed).spawn(f"area:{area_id}")
 
-        if area.kind == "village":
+        if area.kind == "sandbox":
+            # Not a checkpoint. Nothing that happens here is written down, so
+            # walking in cannot overwrite the save the player was playing.
+            self.dungeon = None
+            state.dungeon = None
+            self._enter_room(build_sandbox(area_id, rng), from_side=None)
+        elif area.kind == "village":
             # Standing in a village is what puts the roads out of it on the
             # map. Gated areas stay unknown, so the map fills in as you do.
             for found in self.campaign.reveal_open():
@@ -252,15 +303,37 @@ class GameSession:
                         seals=list(self.campaign.seals))
         self._checkpoint()
 
-    def _checkpoint(self) -> None:
-        data = save_system.build_save(self.session_id, self.campaign, self.state.player, self.state.twin)
-        if save_system.write_save(self.session_id, data):
+    def _checkpoint(self, slot: str | None = None, name: str = "") -> None:
+        target = slot or self.slot
+        # Keep whatever the slot was already called unless a new name is given,
+        # so an autosave into a named slot does not rename it to "Autosave".
+        if not name:
+            existing = save_system.read_save(self.session_id, target)
+            name = str(existing.get("name", "")) if existing else ""
+        data = save_system.build_save(self.session_id, self.campaign, self.state.player,
+                                      self.state.twin, name=name, agent=self._agent_save())
+        if save_system.write_save(self.session_id, data, target):
             # `safe` says whether this was the village kind of checkpoint or
             # one taken because something happened; the client says different
             # things about them, and "the village remembers" in a crypt reads
             # as a bug.
+            self.saves_dirty = True
             self.state.emit("CHECKPOINT_SAVED", area=self.campaign.current_area,
+                            slot=target, name=name,
                             safe=self.state.room.room_type == "village")
+
+    def _agent_save(self) -> dict:
+        """What this run has learned, for the slot it is being written to.
+
+        Kept beside the checkpoint rather than in a file of its own so a slot is
+        one file: deleting a save deletes the twin that was trained in it, and
+        there is no way for the two to drift apart or for a stale model to
+        attach itself to a save that never produced it.
+        """
+        return {
+            "playerModel": dump_player_model(self.pipeline, self.state.tick),
+            "twinStyle": dump_twin_style(self.style),
+        }
 
     def _mark_detail_dirty(self, _event: Event) -> None:
         self.detail_dirty = True
@@ -319,6 +392,9 @@ class GameSession:
         room.visited = True
         if first_visit:
             state.spawn_enemies_for_room(room)
+            # Anything boss-shaped that just spawned takes the player's weapon,
+            # so the Mirror meets you holding your own.
+            self._arm_boss()
             self._maybe_leave_a_blade(room)
             if not room.looted:
                 state.spawn_room_treasure(room)
@@ -371,28 +447,117 @@ class GameSession:
         Up to here the twin has followed you, learned from you and fought
         beside you. The boss room takes it: the twin leaves the world, and the
         thing that comes out of it is the Mirror -- which is why the Mirror
-        fights the way you do. The client plays the hatch on `TWIN_TAKEN`,
-        cracking the companion sprite open into the boss.
+        fights the way you do.
 
-        Done on entering rather than on the Warden's death so the two beats do
-        not land on top of each other: the Warden is the end of the Ashen Deep,
-        and this is the opening of the Sanctum.
+        Entering the room starts the scene rather than doing the deed outright;
+        `_advance_cutscene` walks it through its beats and takes the twin on the
+        `hatch` one. Done on entering rather than on the Warden's death so the
+        two beats do not land on top of each other: the Warden is the end of the
+        Ashen Deep, and this is the opening of the Sanctum.
 
         The twin goes dormant rather than dying. It is not dead -- it is in
         front of you, and killing the Mirror is what gets it back.
         """
         state = self.state
-        if room.room_type != "boss" or state.twin.dormant:
+        if room.room_type != "boss" or state.twin.dormant or "twin_restored" in self.campaign.flags:
             return
         if not any(e.enemy_def.boss for e in state.enemies):
             return
+        if self.cutscene is not None or "twin_taken" in self.campaign.flags:
+            return
 
-        where = state.twin.position.copy()
-        state.twin.dormant = True
-        state.twin.velocity = Vec2()
-        self.campaign.flags.add("twin_taken")
-        state.emit("TWIN_TAKEN", twin=self.campaign.twin_name, position=where.to_dict(),
-                   room_id=room.id, first_visit=first_visit)
+        self.cutscene = Cutscene(centre=Vec2(room.width / 2, room.height / 2))
+        self._first_visit_to_sanctum = first_visit
+        state.emit("CUTSCENE_BEGIN", scene="sanctum", beat=BEATS[0].name,
+                   twin=self.campaign.twin_name, room_id=room.id, first_visit=first_visit)
+
+    # ------------------------------------------------------------ the cutscene
+
+    #: How close to the middle counts as arrived, so the `approach` beat can end
+    #: early rather than always running its full ceiling.
+    CENTRE_TOLERANCE = 26.0
+
+    def _advance_cutscene(self, dt: float) -> None:
+        """Run the Sanctum scene. Nothing else in the tick runs while it does.
+
+        The player does not move, the Mirror does not act and the twin is moved
+        by this rather than by its controller: a scene the boss can interrupt is
+        not a scene.
+        """
+        scene = self.cutscene
+        state = self.state
+        if scene is None:
+            return
+        twin = state.twin
+        beat = scene.beat.name
+
+        if beat == "approach":
+            # Walked, not placed. The twin arriving by teleport is the one thing
+            # that would make the whole sequence read as a bug.
+            to_centre = scene.centre - twin.position
+            distance = to_centre.length()
+            if distance > self.CENTRE_TOLERANCE:
+                step = to_centre.normalized() * min(twin.speed * dt, distance)
+                twin.position = twin.position + step
+                twin.facing = to_centre.normalized()
+                twin.set_state("walk")
+            else:
+                twin.velocity = Vec2()
+                twin.set_state("idle")
+                scene.next_beat()
+                self._begin_beat()
+                return
+        elif beat == "speak":
+            due = int(scene.elapsed / LINE_SECONDS) + 1
+            while scene.lines_sent < min(due, len(LINES)):
+                line = LINES[scene.lines_sent].format(
+                    player=self.campaign.player_name, twin=self.campaign.twin_name)
+                state.emit("CUTSCENE_LINE", scene="sanctum", index=scene.lines_sent, text=line)
+                scene.lines_sent += 1
+
+        if not scene.advance(dt):
+            return
+        scene.next_beat()
+        if scene.done:
+            self.cutscene = None
+            state.emit("CUTSCENE_END", scene="sanctum")
+            return
+        self._begin_beat()
+
+    def _begin_beat(self) -> None:
+        """Do whatever a beat does the moment it starts, then announce it."""
+        scene = self.cutscene
+        state = self.state
+        if scene is None or scene.done:
+            return
+        beat = scene.beat.name
+        if beat == "cleanse":
+            # The shard is finished with it. The red going out is the only
+            # moment the player sees the twin as itself again.
+            state.twin.corrupted = False
+            state.emit("TWIN_CLEANSED", twin=self.campaign.twin_name,
+                       position=state.twin.position.to_dict())
+        elif beat == "hatch":
+            where = state.twin.position.copy()
+            # The boss is put where the shell opens.
+            #
+            # It was spawned by the room's own table at (0.50, 0.34) and left
+            # there, while the twin walked to the centre and cracked open two
+            # hundred units away from it. The scene's whole promise is that the
+            # thing following you around all game *becomes* the boss, and it
+            # cannot read that way while the two are in different places.
+            for enemy in state.enemies:
+                if enemy.enemy_def.boss and enemy.active:
+                    enemy.position = where.copy()
+                    enemy.home = where.copy()
+            state.twin.dormant = True
+            state.twin.corrupted = False
+            state.twin.velocity = Vec2()
+            self.campaign.flags.add("twin_taken")
+            state.emit("TWIN_TAKEN", twin=self.campaign.twin_name, position=where.to_dict(),
+                       room_id=state.room.id, first_visit=self._first_visit_to_sanctum)
+        state.emit("CUTSCENE_BEAT", scene="sanctum", beat=beat,
+                   duration=round(scene.duration(), 2))
 
     # ---------------------------------------------------------------- messages
 
@@ -438,13 +603,9 @@ class GameSession:
                 else:
                     state.emit("ACTION_REJECTED", actor=player.id, action=action, reason="not owned")
             elif action == "TWIN_EQUIP" and cmd.weaponId:
-                if cmd.weaponId in player.inventory.weapons or cmd.weaponId in state.twin.inventory.weapons:
-                    state.twin.inventory.add_weapon(cmd.weaponId)
-                    state.twin.inventory.equip(cmd.weaponId)
-                    state.emit("WEAPON_CHANGED", actor=state.twin.id, weapon=cmd.weaponId,
-                               position=state.twin.position.to_dict())
-                else:
-                    state.emit("ACTION_REJECTED", actor=state.twin.id, action=action, reason="not owned")
+                transfer_weapon(state, cmd.weaponId, to_twin=True)
+            elif action == "TWIN_CALL":
+                call_twin(state, self.twin_executor)
             elif action == "UNLOCK_SKILL" and cmd.skillId:
                 ok, reason = player.unlock_skill(cmd.skillId)
                 if ok:
@@ -488,15 +649,85 @@ class GameSession:
                 self._request_from_twin(cmd.weaponId)
             elif action == "SAVE":
                 self._checkpoint()
+            elif action == "SAVE_AS":
+                self._save_as(cmd.saveName or "")
+            elif action == "LOAD_SAVE" and cmd.saveId:
+                self._load_slot(cmd.saveId)
+                return
+            elif action == "DELETE_SAVE" and cmd.saveId:
+                self._delete_slot(cmd.saveId)
+            elif action == "RESET_DATA":
+                self._reset_data()
+                return
+            elif action == "GIVE" and cmd.weaponId:
+                self._give(cmd.weaponId)
+            elif action == "CONFIGURE_BOSS":
+                self._configure_boss(cmd.bossWeapon, cmd.bossOffhand, cmd.bossSkill)
         self.pending_commands.clear()
+
+    # ------------------------------------------------------------- save slots
+
+    def _save_as(self, name: str) -> None:
+        """Copy the run into a new named slot, leaving the current one alone."""
+        player = self.state.player
+        slot = save_system.new_slot_id(self.session_id)
+        if slot is None:
+            self.state.emit("ACTION_REJECTED", actor=player.id, action="SAVE_AS",
+                            reason=f"no room for another save (limit {save_system.MAX_SLOTS})")
+            return
+        clean = sanitise_name(name, f"Save {slot.removeprefix('slot-')}")
+        self._checkpoint(slot=slot, name=clean)
+        # The run continues in the slot it was just written to, so the next
+        # village checkpoint updates the save the player just made rather than
+        # the one they saved away from.
+        self.slot = slot
+        save_system.write_active_slot(self.session_id, slot)
+
+    def _load_slot(self, slot: str) -> None:
+        """Restart the run from a slot. A fresh world, then the save onto it."""
+        player_id = self.state.player.id
+        if save_system.read_save(self.session_id, slot) is None:
+            self.state.emit("ACTION_REJECTED", actor=player_id, action="LOAD_SAVE", reason="no such save")
+            return
+        self.slot = slot
+        save_system.write_active_slot(self.session_id, slot)
+        self.load_save = True
+        self.restart()
+        self.saves_dirty = True
+        self.state.emit("SAVE_LOADED", slot=slot, area=self.campaign.current_area)
+
+    def _delete_slot(self, slot: str) -> None:
+        save_system.delete_save(self.session_id, slot)
+        self.saves_dirty = True
+        # Deleting the slot being played drops the run back onto the autosave,
+        # so the next checkpoint has somewhere real to go.
+        if slot == self.slot:
+            self.slot = save_system.AUTO_SLOT
+            save_system.write_active_slot(self.session_id, self.slot)
+        self.state.emit("SAVE_DELETED", slot=slot)
+
+    def _reset_data(self) -> None:
+        """Throw away every save and start the campaign over from nothing."""
+        save_system.delete_profile(self.session_id)
+        self.slot = save_system.AUTO_SLOT
+        self.load_save = False
+        self.restart()
+        self.saves_dirty = True
+        self.state.emit("DATA_RESET")
 
     # ----------------------------------------------------------- world commands
 
     def _travel(self, area_id: str) -> None:
-        """Travel from a village. Only ever from a village: leaving a dungeon
-        means walking out of it, which is what makes going in a decision."""
+        """Travel from a village, or out of the sandbox.
+
+        Only ever from those two: leaving a dungeon means walking out of it,
+        which is what makes going in a decision. The sandbox is exempt because
+        it is not part of the campaign -- being unable to leave it without a
+        portal walk would make it a worse place to test in, which is its only
+        purpose.
+        """
         state = self.state
-        if state.room.room_type != "village":
+        if state.room.room_type not in ("village", "sandbox"):
             state.emit("ACTION_REJECTED", actor=state.player.id, action="TRAVEL", area=area_id,
                        reason="only from a village")
             return
@@ -540,6 +771,85 @@ class GameSession:
                    lines=list(lines), stock=[e.to_dict() for e in npc.definition.stock],
                    position=player.position.to_dict())
 
+    # ---------------------------------------------------------- sandbox tools
+
+    def _give(self, weapon_id: str) -> None:
+        """Drop a weapon on the ground in front of the player.
+
+        Dropped rather than granted, deliberately. A weapon that appears in the
+        bag skips the pickup -- the scatter, the walk over it, the first-pickup
+        auto-equip -- and those are exactly the paths worth being able to test.
+        It goes through `spawn_pickup` like any other drop, so what lands is a
+        real pickup and not a special case.
+        """
+        state, player = self.state, self.state.player
+        if weapon_id not in WEAPONS:
+            state.emit("ACTION_REJECTED", actor=player.id, action="GIVE",
+                       reason=f"no such weapon: {weapon_id}")
+            return
+        facing = player.facing
+        offset = Vec2(facing.x, facing.y)
+        if offset.length() < 0.01:
+            offset = Vec2(0.0, 1.0)
+        # Clear of the pickup magnet (90 units), or the drop is snatched back
+        # the instant it lands and "drop it in front of me" becomes "put it in
+        # my bag" -- which is the thing GIVE exists not to do.
+        where = state.room.clamp(player.position + offset.normalized() * 170.0, 24.0)
+        pickup = state.spawn_pickup("weapon", where, item_id=weapon_id)
+        # It waits. A dropped test weapon expiring while you walk back to look
+        # at something else is only ever an annoyance.
+        pickup.ttl = 0.0
+        state.emit("ITEM_DROPPED", actor=player.id, kind="weapon", item_id=weapon_id,
+                   position=where.to_dict(), room_id=state.room.id)
+
+    def _configure_boss(self, weapon: str | None, offhand: str | None, skill: float | None) -> None:
+        """Arm the Mirror and set how much of you it already knows.
+
+        Takes effect on the boss standing in the room now *and* is remembered,
+        so a Mirror summoned afterwards arrives configured the same way -- the
+        point is to change one variable and summon it again, not to re-enter
+        the whole setup between attempts.
+        """
+        state, player = self.state, self.state.player
+        for wid in (weapon, offhand):
+            if wid and wid not in WEAPONS:
+                state.emit("ACTION_REJECTED", actor=player.id, action="CONFIGURE_BOSS",
+                           reason=f"no such weapon: {wid}")
+                return
+        if weapon is not None:
+            self.boss_loadout = (weapon, offhand or "")
+        if skill is not None:
+            self.mirror_controller.skill_floor = max(0.0, min(1.0, skill))
+        self._arm_boss()
+        state.emit("BOSS_CONFIGURED", weapon=self.boss_loadout[0], offhand=self.boss_loadout[1],
+                   skill=round(self.mirror_controller.skill_floor, 2))
+
+    def _arm_boss(self) -> None:
+        """Put a weapon in the hands of any boss in the room.
+
+        An enemy carries no inventory, so this swaps the def it fights from --
+        see `armed_with`. Every boss in the room, because the sandbox can have
+        more than one standing in it.
+
+        With nothing configured it falls back to **whatever the player is
+        carrying**, which is the whole point of the fight: the Mirror is meant
+        to fight the way you do, and for the entire campaign it was fighting
+        with its own archetype instead. `boss_loadout` is only ever set by the
+        sandbox's CONFIGURE_BOSS, so before this every real playthrough met an
+        unarmed Mirror -- the mechanism existed, was tested, and was never
+        reached. An explicit configuration still wins, so the sandbox is
+        unaffected.
+        """
+        weapon, _ = self.boss_loadout
+        if not weapon:
+            weapon = self.state.player.current_weapon
+        # Bare hands arm nothing: there is no def to copy and nothing to draw.
+        if not weapon or weapon == "bare_hands":
+            return
+        for enemy in self.state.enemies:
+            if enemy.enemy_def.boss and enemy.active:
+                enemy.enemy_def = armed_with(ARCHETYPES[enemy.enemy_def.id], weapon)
+
     def _spawn_debug(self, enemy_type: str) -> None:
         """Put one enemy in front of the player, from the console.
 
@@ -578,6 +888,11 @@ class GameSession:
             min(max(state.player.position.y + offset.y, margin), state.room.height - margin),
         )
         enemy = state.spawn_enemy(enemy_type, position)
+        # A boss summoned after a CONFIGURE_BOSS arrives already armed, so the
+        # sandbox loop is "change one thing, summon again" rather than "summon,
+        # then remember to re-arm".
+        if enemy.enemy_def.boss:
+            self._arm_boss()
         state.emit("DEBUG_SPAWNED", enemy_id=enemy.id, enemy_type=enemy_type,
                    position=position.to_dict())
 
@@ -606,34 +921,7 @@ class GameSession:
         self._checkpoint()
 
     def _buy(self, npc_id: str, item_id: str) -> None:
-        state, player = self.state, self.state.player
-        npc = self._npc_at(npc_id)
-        if npc is None:
-            state.emit("ACTION_REJECTED", actor=player.id, action="BUY_ITEM", reason="not here")
-            return
-        entry = next((e for e in npc.definition.stock if e.item_id == item_id), None)
-        if entry is None:
-            state.emit("ACTION_REJECTED", actor=player.id, action="BUY_ITEM", item=item_id, reason="not stocked")
-            return
-        inv = player.inventory
-        # Refuse before taking the gold, never after.
-        if entry.kind == "weapon" and item_id in inv.weapons:
-            state.emit("ACTION_REJECTED", actor=player.id, action="BUY_ITEM", item=item_id, reason="already owned")
-            return
-        if entry.kind == "relic" and item_id in inv.relics:
-            state.emit("ACTION_REJECTED", actor=player.id, action="BUY_ITEM", item=item_id, reason="already owned")
-            return
-        if not inv.spend_gold(entry.price):
-            state.emit("ACTION_REJECTED", actor=player.id, action="BUY_ITEM", item=item_id, reason="not enough gold")
-            return
-        if entry.kind == "weapon":
-            inv.add_weapon(item_id)
-        elif entry.kind == "consumable":
-            inv.add_consumable(item_id)
-        else:
-            inv.add_relic(item_id)
-        state.emit("SHOP_PURCHASE", npc=npc_id, item=item_id, kind=entry.kind, price=entry.price,
-                   gold=inv.gold, position=player.position.to_dict())
+        buy_item(self.state, npc_id, item_id)
 
     def _set_names(self, player_name: str | None, twin_name: str | None) -> None:
         state = self.state
@@ -653,27 +941,7 @@ class GameSession:
             self._checkpoint()
 
     def _request_from_twin(self, weapon_id: str) -> None:
-        """Ask the twin to hand a weapon over. Authoritative move, not a copy:
-        the weapon leaves the twin's inventory as it enters the player's, so a
-        request can never mint a second one."""
-        state, player = self.state, self.state.player
-        twin = state.twin
-        if twin.dormant or weapon_id not in twin.inventory.weapons:
-            state.emit("ACTION_REJECTED", actor=player.id, action="TWIN_REQUEST", weapon=weapon_id,
-                       reason="twin does not carry it")
-            return
-        if weapon_id in player.inventory.weapons:
-            state.emit("ACTION_REJECTED", actor=player.id, action="TWIN_REQUEST", weapon=weapon_id,
-                       reason="already owned")
-            return
-        twin.inventory.weapons.remove(weapon_id)
-        if twin.inventory.equipped_weapon == weapon_id:
-            twin.inventory.equipped_weapon = twin.inventory.weapons[0] if twin.inventory.weapons else ""
-        if twin.inventory.offhand_weapon == weapon_id:
-            twin.inventory.offhand_weapon = ""
-        player.inventory.add_weapon(weapon_id)
-        state.emit("TWIN_ITEM_GIVEN", weapon=weapon_id, to=player.id,
-                   twinWeapon=twin.inventory.equipped_weapon, position=twin.position.to_dict())
+        transfer_weapon(self.state, weapon_id, to_twin=False)
 
     def _use_item(self, item_id: str) -> None:
         """Begin drinking. Nothing is consumed and nothing is restored yet --
@@ -711,11 +979,7 @@ class GameSession:
     def _finish_channel(self, ability_id: str) -> None:
         from mirrorbound.game.combat.abilities import get_ability
 
-        state, player = self.state, self.state.player
-        ability = get_ability(ability_id)
-        healed = player.heal(ability.effect_value)
-        state.emit("PLAYER_HEALED", amount=round(healed, 1), remaining=round(player.health, 1), source=ability_id,
-                   position=player.position.to_dict())
+        self.combat.resolve_ability(self.state, get_ability(ability_id), completed=True)
 
     def restart(self, seed: int | None = None) -> None:
         self.recorder.close()
@@ -739,14 +1003,14 @@ class GameSession:
             start = time.perf_counter()
             try:
                 self.step(dt)
-            except Exception:  # noqa: BLE001 - a crashed tick must not silently kill the loop
+            except Exception:
                 log.exception("tick %s failed", self.state.tick)
                 self.last_error = f"tick {self.state.tick} failed; see server log"
             now = time.perf_counter()
             if now - self.last_snapshot_time >= self.snapshot_interval:
                 try:
                     await manager.send_message(self.session_id, self.snapshot())
-                except Exception:  # noqa: BLE001
+                except Exception:
                     log.exception("snapshot failed")
                 self.last_snapshot_time = now
             elapsed = time.perf_counter() - start
@@ -754,8 +1018,8 @@ class GameSession:
 
     def step(self, dt: float) -> None:
         """Advance the simulation by one tick. Public so tests and replay can drive it."""
-        state = self.state
         self._apply_commands()
+        state = self.state
         if not self.running:
             return
         if state.paused:
@@ -777,9 +1041,17 @@ class GameSession:
             if player.respawn_timer <= 0:
                 self._respawn()
             return
-        if state.phase == "victory":
+        if state.phase in ("victory", "defeat"):
             player.update(dt)
             state.twin.update(dt)
+            return
+        # The scene owns the tick. The player's own input is dropped rather
+        # than buffered -- a swing queued during the cutscene coming out on the
+        # first frame of the fight is not what anyone pressed it for.
+        if self.cutscene is not None:
+            player.update(dt)
+            player.attack_buffer = 0.0
+            self._advance_cutscene(dt)
             return
 
         # 1. player intent
@@ -789,7 +1061,12 @@ class GameSession:
         if player.finished_channel:
             self._finish_channel(player.finished_channel)
         player.apply_input(dt, inp)
+        # A press is remembered, not spent: the swing fires on the first tick
+        # the weapon is free, so clicking faster than the cooldown chains the
+        # combo instead of throwing the extra presses away.
         if inp.attack:
+            player.buffer_attack()
+        if player.take_buffered_attack():
             self.combat.process_player_attack(state)
         if inp.ability:
             self.combat.process_ability(state, inp.ability)
@@ -829,6 +1106,15 @@ class GameSession:
                 twin.revive(state.player.position)
                 state.emit("TWIN_REVIVED", position=twin.position.to_dict())
             return
+        if twin.call_remaining > 0:
+            twin.call_remaining = max(0.0, twin.call_remaining - dt)
+            self.twin_executor.apply(dt, state, self.combat)
+            return
+        # The shard outranks being called and outranks the controller: once it
+        # is on the ground the twin is going for it and nothing else.
+        if shard_rush(state):
+            self.twin_executor.apply(dt, state, self.combat)
+            return
         self._ticks_since_decision += 1
         if self._ticks_since_decision >= twin.decision_interval:
             observation = build_observation(
@@ -860,6 +1146,7 @@ class GameSession:
             state.emit("ROOM_CLEARED", room_id=room.id, room_type=room.room_type, room_index=room.index,
                        position=state.player.position.to_dict(), healed=heal)
             if room.room_type == "boss" and not state.boss_alive():
+                restore_twin(state, self.campaign)
                 self._complete_area()
                 state.phase = "victory"
                 state.emit("RUN_COMPLETE", stats=state.stats.to_dict(), seed=self.seed)
@@ -923,7 +1210,19 @@ class GameSession:
         snap["playerModel"]["cellSize"] = SPATIAL_CELL
         snap["twinModel"] = self.style.snapshot()
         snap["boss"] = self.mirror_controller.debug() if state.boss_alive() else None
+        # Present only while the scene runs; the client holds input and points
+        # the camera off whatever this says, so its absence means "play on".
+        if self.cutscene is not None:
+            snap["cutscene"] = self.cutscene.to_dict()
         snap["lastError"] = self.last_error
+        # The slot list only changes when a save is written or thrown away, so
+        # it rides the detail snapshot rather than going out twenty times a
+        # second -- it is a directory listing, and hitting the disk at 20Hz to
+        # tell the player nothing changed would be the expensive kind of wrong.
+        if detail and self.saves_dirty:
+            snap["saves"] = save_system.list_saves(self.session_id)
+            snap["saveSlot"] = self.slot
+            self.saves_dirty = False
         self.room_dirty = False
         self.snapshots_sent += 1
         return snap
