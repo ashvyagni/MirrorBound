@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "fireBall": {
+   "frame": {
+    "x": 238,
+    "y": 132,
+    "w": 110,
+    "h": 81
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 10,
+    "y": 29,
+    "w": 110,
+    "h": 81
+   },
+   "sourceSize": {
+    "w": 128,
+    "h": 128
+   }
+  },
+  "firePillar": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 111,
+    "h": 128
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 8,
+    "y": 0,
+    "w": 111,
+    "h": 128
+   },
+   "sourceSize": {
+    "w": 128,
+    "h": 128
+   }
+  },
+  "fireWave": {
+   "frame": {
+    "x": 111,
+    "y": 132,
+    "w": 125,
+    "h": 92
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 31,
+    "w": 125,
+    "h": 92
+   },
+   "sourceSize": {
+    "w": 128,
+    "h": 128
+   }
+  },
+  "arrow": {
+   "frame": {
+    "x": 2,
+    "y": 132,
+    "w": 107,
+    "h": 105
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 5,
+    "y": 16,
+    "w": 107,
+    "h": 105
+   },
+   "sourceSize": {
+    "w": 128,
+    "h": 128
+   }
+  },
+  "iceNova": {
+   "frame": {
+    "x": 229,
+    "y": 2,
+    "w": 119,
+    "h": 113
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 6,
+    "y": 8,
+    "w": 119,
+    "h": 113
+   },
+   "sourceSize": {
+    "w": 128,
+    "h": 128
+   }
+  },
+  "iceShards": {
+   "frame": {
+    "x": 350,
+    "y": 2,
+    "w": 104,
+    "h": 110
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 12,
+    "y": 8,
+    "w": 104,
+    "h": 110
+   },
+   "sourceSize": {
+    "w": 128,
+    "h": 128
+   }
+  },
+  "iceBeam": {
+   "frame": {
+    "x": 350,
+    "y": 132,
+    "w": 127,
+    "h": 76
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 29,
+    "w": 127,
+    "h": 76
+   },
+   "sourceSize": {
+    "w": 128,
+    "h": 128
+   }
+  },
+  "sword": {
+   "frame": {
+    "x": 115,
+    "y": 2,
+    "w": 112,
+    "h": 114
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 6,
+    "y": 7,
+    "w": 112,
+    "h": 114
+   },
+   "sourceSize": {
+    "w": 128,
+    "h": 128
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "icons.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 512,
+   "h": 239
+  },
+  "scale": "1"
+ }
+}

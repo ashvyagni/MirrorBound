@@ -1,0 +1,74 @@
+{
+ "frames": {
+  "death": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 173,
+    "h": 182
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 6,
+    "w": 173,
+    "h": 182
+   },
+   "sourceSize": {
+    "w": 193,
+    "h": 188
+   }
+  },
+  "victory": {
+   "frame": {
+    "x": 177,
+    "y": 2,
+    "w": 182,
+    "h": 179
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 10,
+    "y": 0,
+    "w": 182,
+    "h": 179
+   },
+   "sourceSize": {
+    "w": 193,
+    "h": 188
+   }
+  },
+  "levelUp": {
+   "frame": {
+    "x": 361,
+    "y": 2,
+    "w": 130,
+    "h": 178
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 30,
+    "y": 6,
+    "w": 130,
+    "h": 178
+   },
+   "sourceSize": {
+    "w": 193,
+    "h": 188
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "flourishes.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 512,
+   "h": 186
+  },
+  "scale": "1"
+ }
+}

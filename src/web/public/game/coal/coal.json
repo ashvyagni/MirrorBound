@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "cast-00": {
+   "frame": {
+    "x": 590,
+    "y": 2,
+    "w": 199,
+    "h": 272
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 15,
+    "y": 9,
+    "w": 199,
+    "h": 272
+   },
+   "sourceSize": {
+    "w": 222,
+    "h": 288
+   }
+  },
+  "cast-01": {
+   "frame": {
+    "x": 406,
+    "y": 287,
+    "w": 222,
+    "h": 258
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 16,
+    "w": 222,
+    "h": 258
+   },
+   "sourceSize": {
+    "w": 222,
+    "h": 288
+   }
+  },
+  "cast-02": {
+   "frame": {
+    "x": 200,
+    "y": 2,
+    "w": 186,
+    "h": 281
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 13,
+    "y": 1,
+    "w": 186,
+    "h": 281
+   },
+   "sourceSize": {
+    "w": 222,
+    "h": 288
+   }
+  },
+  "cast-03": {
+   "frame": {
+    "x": 202,
+    "y": 287,
+    "w": 202,
+    "h": 261
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 8,
+    "y": 11,
+    "w": 202,
+    "h": 261
+   },
+   "sourceSize": {
+    "w": 222,
+    "h": 288
+   }
+  },
+  "cast-04": {
+   "frame": {
+    "x": 791,
+    "y": 2,
+    "w": 204,
+    "h": 268
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 14,
+    "y": 10,
+    "w": 204,
+    "h": 268
+   },
+   "sourceSize": {
+    "w": 222,
+    "h": 288
+   }
+  },
+  "cast-05": {
+   "frame": {
+    "x": 2,
+    "y": 287,
+    "w": 198,
+    "h": 267
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 17,
+    "y": 16,
+    "w": 198,
+    "h": 267
+   },
+   "sourceSize": {
+    "w": 222,
+    "h": 288
+   }
+  },
+  "cast-06": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 196,
+    "h": 283
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 10,
+    "y": 0,
+    "w": 196,
+    "h": 283
+   },
+   "sourceSize": {
+    "w": 222,
+    "h": 288
+   }
+  },
+  "cast-07": {
+   "frame": {
+    "x": 388,
+    "y": 2,
+    "w": 200,
+    "h": 273
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 14,
+    "y": 15,
+    "w": 200,
+    "h": 273
+   },
+   "sourceSize": {
+    "w": 222,
+    "h": 288
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "coal.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 1024,
+   "h": 556
+  },
+  "scale": "1"
+ }
+}

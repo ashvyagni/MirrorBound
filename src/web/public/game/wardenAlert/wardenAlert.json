@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "f-00": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 304,
+    "h": 496
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 19,
+    "y": 11,
+    "w": 304,
+    "h": 496
+   },
+   "sourceSize": {
+    "w": 351,
+    "h": 507
+   }
+  },
+  "f-01": {
+   "frame": {
+    "x": 308,
+    "y": 2,
+    "w": 304,
+    "h": 496
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 19,
+    "y": 11,
+    "w": 304,
+    "h": 496
+   },
+   "sourceSize": {
+    "w": 351,
+    "h": 507
+   }
+  },
+  "f-02": {
+   "frame": {
+    "x": 1296,
+    "y": 2,
+    "w": 304,
+    "h": 480
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 19,
+    "y": 11,
+    "w": 304,
+    "h": 480
+   },
+   "sourceSize": {
+    "w": 351,
+    "h": 507
+   }
+  },
+  "f-03": {
+   "frame": {
+    "x": 1602,
+    "y": 2,
+    "w": 305,
+    "h": 478
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 19,
+    "y": 13,
+    "w": 305,
+    "h": 478
+   },
+   "sourceSize": {
+    "w": 351,
+    "h": 507
+   }
+  },
+  "f-04": {
+   "frame": {
+    "x": 614,
+    "y": 2,
+    "w": 327,
+    "h": 492
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 15,
+    "y": 0,
+    "w": 327,
+    "h": 492
+   },
+   "sourceSize": {
+    "w": 351,
+    "h": 507
+   }
+  },
+  "f-05": {
+   "frame": {
+    "x": 943,
+    "y": 2,
+    "w": 351,
+    "h": 492
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 351,
+    "h": 492
+   },
+   "sourceSize": {
+    "w": 351,
+    "h": 507
+   }
+  },
+  "f-06": {
+   "frame": {
+    "x": 2,
+    "y": 500,
+    "w": 329,
+    "h": 454
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 17,
+    "y": 38,
+    "w": 329,
+    "h": 454
+   },
+   "sourceSize": {
+    "w": 351,
+    "h": 507
+   }
+  },
+  "f-07": {
+   "frame": {
+    "x": 333,
+    "y": 500,
+    "w": 328,
+    "h": 454
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 16,
+    "y": 38,
+    "w": 328,
+    "h": 454
+   },
+   "sourceSize": {
+    "w": 351,
+    "h": 507
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "wardenAlert.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 2048,
+   "h": 956
+  },
+  "scale": "1"
+ }
+}

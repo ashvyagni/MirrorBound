@@ -1,0 +1,94 @@
+{
+ "frames": {
+  "gateClosed": {
+   "frame": {
+    "x": 2,
+    "y": 151,
+    "w": 232,
+    "h": 146
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 4,
+    "y": 0,
+    "w": 232,
+    "h": 146
+   },
+   "sourceSize": {
+    "w": 237,
+    "h": 147
+   }
+  },
+  "gateOpen": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 231,
+    "h": 147
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 2,
+    "y": 0,
+    "w": 231,
+    "h": 147
+   },
+   "sourceSize": {
+    "w": 237,
+    "h": 147
+   }
+  },
+  "arch": {
+   "frame": {
+    "x": 235,
+    "y": 2,
+    "w": 231,
+    "h": 147
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 231,
+    "h": 147
+   },
+   "sourceSize": {
+    "w": 237,
+    "h": 147
+   }
+  },
+  "sealed": {
+   "frame": {
+    "x": 236,
+    "y": 151,
+    "w": 230,
+    "h": 146
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 2,
+    "y": 0,
+    "w": 230,
+    "h": 146
+   },
+   "sourceSize": {
+    "w": 237,
+    "h": 147
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "doors.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 512,
+   "h": 299
+  },
+  "scale": "1"
+ }
+}

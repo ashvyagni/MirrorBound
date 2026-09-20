@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "flowers0": {
+   "frame": {
+    "x": 83,
+    "y": 2,
+    "w": 64,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 10,
+    "y": 6,
+    "w": 64,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 82,
+    "h": 71
+   }
+  },
+  "flowers1": {
+   "frame": {
+    "x": 149,
+    "y": 2,
+    "w": 64,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 10,
+    "y": 6,
+    "w": 64,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 82,
+    "h": 71
+   }
+  },
+  "flowers2": {
+   "frame": {
+    "x": 215,
+    "y": 2,
+    "w": 64,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 10,
+    "y": 6,
+    "w": 64,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 82,
+    "h": 71
+   }
+  },
+  "flowers3": {
+   "frame": {
+    "x": 281,
+    "y": 2,
+    "w": 64,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 10,
+    "y": 6,
+    "w": 64,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 82,
+    "h": 71
+   }
+  },
+  "grassTuft0": {
+   "frame": {
+    "x": 347,
+    "y": 2,
+    "w": 75,
+    "h": 61
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 6,
+    "y": 9,
+    "w": 75,
+    "h": 61
+   },
+   "sourceSize": {
+    "w": 82,
+    "h": 71
+   }
+  },
+  "grassTuft1": {
+   "frame": {
+    "x": 424,
+    "y": 2,
+    "w": 64,
+    "h": 53
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 11,
+    "y": 17,
+    "w": 64,
+    "h": 53
+   },
+   "sourceSize": {
+    "w": 82,
+    "h": 71
+   }
+  },
+  "grassTuft2": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 79,
+    "h": 70
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 2,
+    "y": 0,
+    "w": 79,
+    "h": 70
+   },
+   "sourceSize": {
+    "w": 82,
+    "h": 71
+   }
+  },
+  "log0": {
+   "frame": {
+    "x": 2,
+    "y": 74,
+    "w": 82,
+    "h": 45
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 25,
+    "w": 82,
+    "h": 45
+   },
+   "sourceSize": {
+    "w": 82,
+    "h": 71
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "groundcover.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 512,
+   "h": 121
+  },
+  "scale": "1"
+ }
+}

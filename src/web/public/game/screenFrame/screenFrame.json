@@ -1,0 +1,34 @@
+{
+ "frames": {
+  "frame": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 506,
+    "h": 506
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 506,
+    "h": 506
+   },
+   "sourceSize": {
+    "w": 506,
+    "h": 506
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "screenFrame.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 1024,
+   "h": 510
+  },
+  "scale": "1"
+ }
+}

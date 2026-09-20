@@ -1,0 +1,154 @@
+{
+ "frames": {
+  "xpTrough": {
+   "frame": {
+    "x": 2,
+    "y": 202,
+    "w": 174,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 1,
+    "y": 87,
+    "w": 174,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 177,
+    "h": 198
+   }
+  },
+  "toast": {
+   "frame": {
+    "x": 297,
+    "y": 2,
+    "w": 168,
+    "h": 69
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 4,
+    "y": 64,
+    "w": 168,
+    "h": 69
+   },
+   "sourceSize": {
+    "w": 177,
+    "h": 198
+   }
+  },
+  "slot": {
+   "frame": {
+    "x": 148,
+    "y": 2,
+    "w": 108,
+    "h": 109
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 34,
+    "y": 44,
+    "w": 108,
+    "h": 109
+   },
+   "sourceSize": {
+    "w": 177,
+    "h": 198
+   }
+  },
+  "slotSelected": {
+   "frame": {
+    "x": 32,
+    "y": 2,
+    "w": 114,
+    "h": 115
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 31,
+    "y": 42,
+    "w": 114,
+    "h": 115
+   },
+   "sourceSize": {
+    "w": 177,
+    "h": 198
+   }
+  },
+  "scrollTrack": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 28,
+    "h": 198
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 74,
+    "y": 0,
+    "w": 28,
+    "h": 198
+   },
+   "sourceSize": {
+    "w": 177,
+    "h": 198
+   }
+  },
+  "scrollThumb": {
+   "frame": {
+    "x": 258,
+    "y": 2,
+    "w": 37,
+    "h": 94
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 70,
+    "y": 52,
+    "w": 37,
+    "h": 94
+   },
+   "sourceSize": {
+    "w": 177,
+    "h": 198
+   }
+  },
+  "divider": {
+   "frame": {
+    "x": 178,
+    "y": 202,
+    "w": 176,
+    "h": 10
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 92,
+    "w": 176,
+    "h": 10
+   },
+   "sourceSize": {
+    "w": 177,
+    "h": 198
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "barsPlates.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 512,
+   "h": 226
+  },
+  "scale": "1"
+ }
+}

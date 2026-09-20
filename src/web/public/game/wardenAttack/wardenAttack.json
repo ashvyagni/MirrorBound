@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "f-00": {
+   "frame": {
+    "x": 967,
+    "y": 2,
+    "w": 301,
+    "h": 440
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 19,
+    "y": 18,
+    "w": 301,
+    "h": 440
+   },
+   "sourceSize": {
+    "w": 361,
+    "h": 458
+   }
+  },
+  "f-01": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 319,
+    "h": 458
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 319,
+    "h": 458
+   },
+   "sourceSize": {
+    "w": 361,
+    "h": 458
+   }
+  },
+  "f-02": {
+   "frame": {
+    "x": 323,
+    "y": 2,
+    "w": 313,
+    "h": 458
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 7,
+    "y": 0,
+    "w": 313,
+    "h": 458
+   },
+   "sourceSize": {
+    "w": 361,
+    "h": 458
+   }
+  },
+  "f-03": {
+   "frame": {
+    "x": 638,
+    "y": 2,
+    "w": 327,
+    "h": 458
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 1,
+    "y": 0,
+    "w": 327,
+    "h": 458
+   },
+   "sourceSize": {
+    "w": 361,
+    "h": 458
+   }
+  },
+  "f-04": {
+   "frame": {
+    "x": 1572,
+    "y": 2,
+    "w": 359,
+    "h": 419
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 2,
+    "y": 38,
+    "w": 359,
+    "h": 419
+   },
+   "sourceSize": {
+    "w": 361,
+    "h": 458
+   }
+  },
+  "f-05": {
+   "frame": {
+    "x": 363,
+    "y": 462,
+    "w": 348,
+    "h": 378
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 5,
+    "y": 79,
+    "w": 348,
+    "h": 378
+   },
+   "sourceSize": {
+    "w": 361,
+    "h": 458
+   }
+  },
+  "f-06": {
+   "frame": {
+    "x": 2,
+    "y": 462,
+    "w": 359,
+    "h": 382
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 2,
+    "y": 75,
+    "w": 359,
+    "h": 382
+   },
+   "sourceSize": {
+    "w": 361,
+    "h": 458
+   }
+  },
+  "f-07": {
+   "frame": {
+    "x": 1270,
+    "y": 2,
+    "w": 300,
+    "h": 437
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 20,
+    "y": 20,
+    "w": 300,
+    "h": 437
+   },
+   "sourceSize": {
+    "w": 361,
+    "h": 458
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "wardenAttack.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 2048,
+   "h": 846
+  },
+  "scale": "1"
+ }
+}

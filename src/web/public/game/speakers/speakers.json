@@ -1,0 +1,134 @@
+{
+ "frames": {
+  "elder_mara": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 166,
+    "h": 217
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 9,
+    "y": 0,
+    "w": 166,
+    "h": 217
+   },
+   "sourceSize": {
+    "w": 184,
+    "h": 223
+   }
+  },
+  "smith_oren": {
+   "frame": {
+    "x": 186,
+    "y": 221,
+    "w": 182,
+    "h": 204
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 2,
+    "y": 10,
+    "w": 182,
+    "h": 204
+   },
+   "sourceSize": {
+    "w": 184,
+    "h": 223
+   }
+  },
+  "apothecary_siv": {
+   "frame": {
+    "x": 170,
+    "y": 2,
+    "w": 162,
+    "h": 214
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 6,
+    "y": 9,
+    "w": 162,
+    "h": 214
+   },
+   "sourceSize": {
+    "w": 184,
+    "h": 223
+   }
+  },
+  "hearth": {
+   "frame": {
+    "x": 2,
+    "y": 435,
+    "w": 172,
+    "h": 118
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 1,
+    "y": 97,
+    "w": 172,
+    "h": 118
+   },
+   "sourceSize": {
+    "w": 184,
+    "h": 223
+   }
+  },
+  "twin": {
+   "frame": {
+    "x": 370,
+    "y": 221,
+    "w": 140,
+    "h": 184
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 23,
+    "y": 32,
+    "w": 140,
+    "h": 184
+   },
+   "sourceSize": {
+    "w": 184,
+    "h": 223
+   }
+  },
+  "villager": {
+   "frame": {
+    "x": 2,
+    "y": 221,
+    "w": 182,
+    "h": 212
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 6,
+    "w": 182,
+    "h": 212
+   },
+   "sourceSize": {
+    "w": 184,
+    "h": 223
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "speakers.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 512,
+   "h": 555
+  },
+  "scale": "1"
+ }
+}

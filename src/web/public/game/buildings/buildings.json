@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "hut0": {
+   "frame": {
+    "x": 485,
+    "y": 2,
+    "w": 168,
+    "h": 185
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 26,
+    "y": 30,
+    "w": 168,
+    "h": 185
+   },
+   "sourceSize": {
+    "w": 248,
+    "h": 216
+   }
+  },
+  "hut1": {
+   "frame": {
+    "x": 841,
+    "y": 2,
+    "w": 174,
+    "h": 156
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 20,
+    "y": 16,
+    "w": 174,
+    "h": 156
+   },
+   "sourceSize": {
+    "w": 248,
+    "h": 216
+   }
+  },
+  "hut2": {
+   "frame": {
+    "x": 188,
+    "y": 210,
+    "w": 165,
+    "h": 140
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 14,
+    "y": 32,
+    "w": 165,
+    "h": 140
+   },
+   "sourceSize": {
+    "w": 248,
+    "h": 216
+   }
+  },
+  "forge0": {
+   "frame": {
+    "x": 655,
+    "y": 2,
+    "w": 184,
+    "h": 177
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 184,
+    "h": 177
+   },
+   "sourceSize": {
+    "w": 248,
+    "h": 216
+   }
+  },
+  "hutBig0": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 208,
+    "h": 206
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 20,
+    "y": 6,
+    "w": 208,
+    "h": 206
+   },
+   "sourceSize": {
+    "w": 248,
+    "h": 216
+   }
+  },
+  "hutBig1": {
+   "frame": {
+    "x": 295,
+    "y": 2,
+    "w": 188,
+    "h": 194
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 45,
+    "y": 22,
+    "w": 188,
+    "h": 194
+   },
+   "sourceSize": {
+    "w": 248,
+    "h": 216
+   }
+  },
+  "stall0": {
+   "frame": {
+    "x": 2,
+    "y": 210,
+    "w": 184,
+    "h": 154
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 64,
+    "y": 62,
+    "w": 184,
+    "h": 154
+   },
+   "sourceSize": {
+    "w": 248,
+    "h": 216
+   }
+  },
+  "banner0": {
+   "frame": {
+    "x": 212,
+    "y": 2,
+    "w": 81,
+    "h": 204
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 92,
+    "y": 10,
+    "w": 81,
+    "h": 204
+   },
+   "sourceSize": {
+    "w": 248,
+    "h": 216
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "buildings.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 1024,
+   "h": 366
+  },
+  "scale": "1"
+ }
+}

@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "f-00": {
+   "frame": {
+    "x": 357,
+    "y": 2,
+    "w": 292,
+    "h": 468
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 21,
+    "y": 16,
+    "w": 292,
+    "h": 468
+   },
+   "sourceSize": {
+    "w": 361,
+    "h": 497
+   }
+  },
+  "f-01": {
+   "frame": {
+    "x": 2,
+    "y": 501,
+    "w": 345,
+    "h": 425
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 59,
+    "w": 345,
+    "h": 425
+   },
+   "sourceSize": {
+    "w": 361,
+    "h": 497
+   }
+  },
+  "f-02": {
+   "frame": {
+    "x": 349,
+    "y": 501,
+    "w": 347,
+    "h": 413
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 2,
+    "y": 62,
+    "w": 347,
+    "h": 413
+   },
+   "sourceSize": {
+    "w": 361,
+    "h": 497
+   }
+  },
+  "f-03": {
+   "frame": {
+    "x": 651,
+    "y": 2,
+    "w": 330,
+    "h": 464
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 12,
+    "y": 21,
+    "w": 330,
+    "h": 464
+   },
+   "sourceSize": {
+    "w": 361,
+    "h": 497
+   }
+  },
+  "f-04": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 353,
+    "h": 497
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 8,
+    "y": 0,
+    "w": 353,
+    "h": 497
+   },
+   "sourceSize": {
+    "w": 361,
+    "h": 497
+   }
+  },
+  "f-05": {
+   "frame": {
+    "x": 1297,
+    "y": 2,
+    "w": 324,
+    "h": 447
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 24,
+    "y": 33,
+    "w": 324,
+    "h": 447
+   },
+   "sourceSize": {
+    "w": 361,
+    "h": 497
+   }
+  },
+  "f-06": {
+   "frame": {
+    "x": 1623,
+    "y": 2,
+    "w": 312,
+    "h": 437
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 27,
+    "y": 40,
+    "w": 312,
+    "h": 437
+   },
+   "sourceSize": {
+    "w": 361,
+    "h": 497
+   }
+  },
+  "f-07": {
+   "frame": {
+    "x": 983,
+    "y": 2,
+    "w": 312,
+    "h": 448
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 22,
+    "y": 31,
+    "w": 312,
+    "h": 448
+   },
+   "sourceSize": {
+    "w": 361,
+    "h": 497
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "mirrorHurt.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 2048,
+   "h": 928
+  },
+  "scale": "1"
+ }
+}

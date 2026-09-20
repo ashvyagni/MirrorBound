@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "roomUnvisited": {
+   "frame": {
+    "x": 2,
+    "y": 138,
+    "w": 155,
+    "h": 133
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 1,
+    "w": 155,
+    "h": 133
+   },
+   "sourceSize": {
+    "w": 156,
+    "h": 135
+   }
+  },
+  "roomVisited": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 155,
+    "h": 134
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 155,
+    "h": 134
+   },
+   "sourceSize": {
+    "w": 156,
+    "h": 135
+   }
+  },
+  "roomCleared": {
+   "frame": {
+    "x": 159,
+    "y": 2,
+    "w": 155,
+    "h": 134
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 155,
+    "h": 134
+   },
+   "sourceSize": {
+    "w": 156,
+    "h": 135
+   }
+  },
+  "roomCurrent": {
+   "frame": {
+    "x": 316,
+    "y": 2,
+    "w": 154,
+    "h": 134
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 1,
+    "y": 0,
+    "w": 154,
+    "h": 134
+   },
+   "sourceSize": {
+    "w": 156,
+    "h": 135
+   }
+  },
+  "treasure": {
+   "frame": {
+    "x": 265,
+    "y": 138,
+    "w": 114,
+    "h": 90
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 21,
+    "y": 25,
+    "w": 114,
+    "h": 90
+   },
+   "sourceSize": {
+    "w": 156,
+    "h": 135
+   }
+  },
+  "elite": {
+   "frame": {
+    "x": 381,
+    "y": 138,
+    "w": 113,
+    "h": 86
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 22,
+    "y": 25,
+    "w": 113,
+    "h": 86
+   },
+   "sourceSize": {
+    "w": 156,
+    "h": 135
+   }
+  },
+  "boss": {
+   "frame": {
+    "x": 159,
+    "y": 138,
+    "w": 104,
+    "h": 106
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 26,
+    "y": 14,
+    "w": 104,
+    "h": 106
+   },
+   "sourceSize": {
+    "w": 156,
+    "h": 135
+   }
+  },
+  "corridor": {
+   "frame": {
+    "x": 2,
+    "y": 273,
+    "w": 154,
+    "h": 36
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 1,
+    "y": 50,
+    "w": 154,
+    "h": 36
+   },
+   "sourceSize": {
+    "w": 156,
+    "h": 135
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "mapTokens.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 512,
+   "h": 311
+  },
+  "scale": "1"
+ }
+}
