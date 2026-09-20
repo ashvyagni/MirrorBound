@@ -164,7 +164,8 @@ class TwinStyleModel:
             self._learn("aggression", 0.0, rate * 0.8, t)
             hf = data.get("health_fraction")
             if hf is not None:
-                self._learn("risk_tolerance", float(hf), rate, t)   # retreating at high HP = cautious
+                # Retreating early (high health) is cautious, so it must pull risk_tolerance down.
+                self._learn("risk_tolerance", 1.0 - min(1.0, max(0.0, float(hf))), rate, t)
         elif event.type == "PLAYER_MOVED":
             distance = float(data.get("distance") or 0.0)
             self._learn("mobility", min(1.0, distance / 90.0), rate * 0.4, t)
