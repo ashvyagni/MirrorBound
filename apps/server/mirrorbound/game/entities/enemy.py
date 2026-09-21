@@ -240,7 +240,7 @@ SPITTER = EnemyDef(
     behavior=EnemyBehavior.KEEP_DISTANCE, size=12, xp_reward=30, sprite="spitter",
     tags=("RANGED",), knockback=50,
     projectile=ProjectileSpec(kind="spore_pod", speed=190, radius=9, lifetime=3.0),
-    loot=LootTable(2, 3, 0.10, 0.10, 0.08), role="ranged",
+    loot=LootTable(2, 3, 0.10, 0.10, 0.08), role="ranged", hit_radius=14,
 )
 
 SPROUT = EnemyDef(
@@ -253,7 +253,7 @@ SPROUT = EnemyDef(
     attack_range=38, aggro_range=130, attack_cooldown=1.1, attack_windup=0.2,
     behavior=EnemyBehavior.CHARGE, size=13, xp_reward=26, sprite="sprout",
     tags=("MELEE",), knockback=120, knockback_resist=0.2,
-    loot=LootTable(1, 3, 0.06, 0.12, 0.06), role="melee",
+    loot=LootTable(1, 3, 0.06, 0.12, 0.06), role="melee", hit_radius=17,
 )
 
 SHARDLING = EnemyDef(
@@ -268,7 +268,7 @@ SHARDLING = EnemyDef(
     tags=("RANGED", "HEAVY"), knockback=90, knockback_resist=0.75,
     projectile=ProjectileSpec(kind="shell_shard", speed=300, radius=6, lifetime=1.1,
                               count=5, spread=0.26),
-    loot=LootTable(3, 5, 0.16, 0.12, 0.08), role="tank",
+    loot=LootTable(3, 5, 0.16, 0.12, 0.08), role="tank", hit_radius=26,
 )
 
 
@@ -288,7 +288,7 @@ DUMMY = EnemyDef(
     attack_range=0, aggro_range=0, attack_cooldown=999, attack_windup=0,
     behavior=EnemyBehavior.TANK, size=14, xp_reward=0, sprite="dummy",
     tags=(), knockback=0, knockback_resist=1.0,
-    loot=LootTable(0, 0, 0.0, 0.0, 0.0, gold_min=0, gold_max=0),
+    loot=LootTable(0, 0, 0.0, 0.0, 0.0, gold_min=0, gold_max=0), hit_radius=22,
 )
 
 

@@ -471,7 +471,13 @@ def test_spawning_from_the_console_puts_a_real_hostile_enemy_in_the_room():
 
     spawned = [e for e in s.state.enemies if e.enemy_def.id == "mirror"]
     assert len(s.state.enemies) == before + 1
-    assert spawned and spawned[0].health == 520
+    # Its real definition, not full health: it spawns into a live fight and
+    # may already have been hit by the time we look. Asserting 520 *current*
+    # health was really asserting that nothing had connected yet, which stopped
+    # being true once a swing started landing on the Mirror's drawn body
+    # rather than on a circle inside it.
+    assert spawned and spawned[0].max_health == 520
+    assert spawned[0].health > 0
     assert spawned[0].enemy_def.boss
     # It has noticed the player. A spawn that stood still would be a prop.
     assert spawned[0].state.value in {"chase", "attack", "reposition"}
