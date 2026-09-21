@@ -30,6 +30,14 @@ WIDTH, HEIGHT = 1600, 1120
 # Props that make a place read as lived-in rather than as an empty arena.
 _BUILDINGS = ("hut", "hut_big", "forge", "stall", "well", "banner")
 
+# How much of itself each building blocks, at scale 1.
+#
+# Every one of these was 26 before -- a flagpole and a two-storey house on the
+# same number -- so you walked into the huts and bounced off thin air beside
+# the banner. Lifted out of the call below so the tests can check the numbers
+# against the drawn art instead of restating them.
+BUILDING_RADII = {"hut": 34, "hut_big": 52, "forge": 32, "stall": 24, "well": 24, "banner": 9}
+
 
 def build_village(area_id: str, rng: DeterministicRNG) -> Room:
     area = AREAS[area_id]
@@ -160,22 +168,32 @@ def _decorate(room: Room, rng: DeterministicRNG) -> None:
         return all((pos - other).length() > radius + keep for other, keep in taken)
 
     def scatter(kind: str, count: int, blocking: bool, radius: float, variants: int = 3) -> None:
+        """A prop's circle grows with the prop.
+
+        The jitter below draws each instance between 0.92 and 1.12 of its
+        nominal size, and the radius used to be passed through flat -- so the
+        biggest-drawn hut in a village was also its most under-blocked, by up
+        to 12%. `generation.py` has always multiplied by the scale; this is
+        the village catching up, not a new idea.
+        """
         placed = 0
         for _ in range(count * 10):
             if placed >= count:
                 return
             pos = Vec2(rng.uniform(TILE * 2, room.width - TILE * 2),
                        rng.uniform(TILE * 2, room.height - TILE * 2))
-            if not free(pos, radius * 1.7):
+            scale = round(rng.uniform(0.92, 1.12), 2)
+            r = radius * scale if blocking else radius
+            if not free(pos, r * 1.7):
                 continue
             room.decor.append(Decor(kind=kind, x=pos.x, y=pos.y, variant=rng.randint(0, variants - 1),
-                                    scale=round(rng.uniform(0.92, 1.12), 2), blocking=blocking,
-                                    radius=radius, flip=rng.chance(0.5)))
-            taken.append((pos, radius * 1.3))
+                                    scale=scale, blocking=blocking,
+                                    radius=r, flip=rng.chance(0.5)))
+            taken.append((pos, r * 1.3))
             placed += 1
 
     for kind in _BUILDINGS:
-        scatter(kind, rng.randint(1, 3), blocking=True, radius={"hut": 34, "hut_big": 52, "forge": 32, "stall": 24, "well": 24, "banner": 9}[kind])
+        scatter(kind, rng.randint(1, 3), blocking=True, radius=BUILDING_RADII[kind])
     # Trees ring the village rather than dotting it, and there are enough of
     # them to read as a treeline -- a handful scattered over 1600x1120 left
     # whole quarters of the map as bare grass.
@@ -187,4 +205,4 @@ def _decorate(room: Room, rng: DeterministicRNG) -> None:
     scatter("torch", 8, blocking=False, radius=10.0)
 
 
-__all__ = ["build_village", "WIDTH", "HEIGHT"]
+__all__ = ["build_village", "BUILDING_RADII", "WIDTH", "HEIGHT"]
