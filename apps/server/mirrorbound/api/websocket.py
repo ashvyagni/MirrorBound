@@ -62,26 +62,43 @@ class ConnectionSender:
 manager = ConnectionManager()
 
 
+from mirrorbound.api.auth import verify_jwt
+
 @router.websocket("/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
     """WebSocket endpoint for game communication."""
-    await manager.connect(websocket, session_id)
+    # Authenticate via JWT token in query params
+    token = websocket.query_params.get("token")
+    if not token:
+        await websocket.close(code=4001, reason="Unauthorized")
+        return
+        
+    payload = verify_jwt(token)
+    if not payload:
+        await websocket.close(code=4001, reason="Invalid token")
+        return
+        
+    user_id = payload.get("sub")
+    is_admin = payload.get("is_admin", False)
+    
+    # We use the user_id from the verified token as the true session ID.
+    # This prevents users from accessing other users' saves even if they forge the URL.
+    true_session_id = user_id
+    
+    await manager.connect(websocket, true_session_id)
     seed_param = websocket.query_params.get("seed")
     seed = int(seed_param) if seed_param and seed_param.lstrip("-").isdigit() else None
-    # A real connection resumes from its checkpoint. Tests build sessions
-    # directly and leave `load_save` off, which is why it is not the default,
-    # but without this here every hearth and every village wrote a save that
-    # nothing ever read and closing the tab lost the run.
-    #
-    # `?seed=` means "start this run over from a known seed", so it also means
-    # do not resume -- otherwise the seed would be ignored by the save.
-    # Resume the slot this profile was last playing, not always the autosave:
-    # a player who loaded a named save and closed the tab expects to come back
-    # to it.
-    slot = save_system.read_active_slot(session_id)
-    session = GameSession(session_id, seed=seed, load_save=seed is None, slot=slot)
+    
+    slot = save_system.read_active_slot(true_session_id)
+    session = GameSession(
+        session_id=true_session_id, 
+        seed=seed, 
+        load_save=seed is None, 
+        slot=slot,
+        is_admin=is_admin
+    )
     game_task = asyncio.create_task(session.run_game_loop(ConnectionSender(manager, websocket)))
-    log.info("session %s started (seed %s)", session_id, session.seed)
+    log.info("session %s started (seed %s, admin %s)", true_session_id, session.seed, is_admin)
 
     try:
         while True:
@@ -90,14 +107,14 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 message = json.loads(data)
             except json.JSONDecodeError:
                 continue
-            if manager.active_connections.get(session_id) is not websocket:
+            if manager.active_connections.get(true_session_id) is not websocket:
                 break
             if isinstance(message, dict):
                 session.handle_input(message)
     except WebSocketDisconnect:
         pass
     except Exception:  # noqa: BLE001
-        log.exception("websocket error for %s", session_id)
+        log.exception("websocket error for %s", true_session_id)
     finally:
         session.stop()
         game_task.cancel()
@@ -105,5 +122,5 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             await game_task
         except (asyncio.CancelledError, Exception):  # noqa: BLE001
             pass
-        manager.disconnect(session_id, websocket)
-        log.info("session %s closed", session_id)
+        manager.disconnect(true_session_id, websocket)
+        log.info("session %s closed", true_session_id)

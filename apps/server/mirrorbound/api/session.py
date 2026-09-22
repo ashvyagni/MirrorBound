@@ -108,8 +108,9 @@ class GameSession:
 
     def __init__(self, session_id: str, seed: int | None = None, record: bool = True, room_count: int = 7,
                  load_save: bool = False, start_area: str | None = None,
-                 slot: str = save_system.AUTO_SLOT):
+                 slot: str = save_system.AUTO_SLOT, is_admin: bool = False):
         self.session_id = session_id
+        self.is_admin = is_admin
         # Which slot this run reads and writes. The village checkpoint follows
         # the run, so playing a named slot keeps checkpointing into that slot
         # rather than quietly diverting the player's progress into `auto`.
@@ -594,9 +595,15 @@ class GameSession:
                 else:
                     state.emit("ACTION_REJECTED", actor=player.id, action=action, skill=cmd.skillId, reason=reason)
             elif action == "SPAWN" and cmd.enemyType:
-                self._spawn_debug(cmd.enemyType)
+                if not self.is_admin:
+                    state.emit("ACTION_REJECTED", actor=player.id, action=action, reason="admin only")
+                else:
+                    self._spawn_debug(cmd.enemyType)
             elif action == "RESPEC":
-                self._respec()
+                if not self.is_admin:
+                    state.emit("ACTION_REJECTED", actor=player.id, action=action, reason="admin only")
+                else:
+                    self._respec()
             elif action == "USE_ITEM" and cmd.itemId:
                 self._use_item(cmd.itemId)
             elif action == "SET_ABILITY_SLOT":
@@ -643,9 +650,15 @@ class GameSession:
                 self._reset_data()
                 return
             elif action == "GIVE" and cmd.weaponId:
-                self._give(cmd.weaponId)
+                if not self.is_admin:
+                    state.emit("ACTION_REJECTED", actor=player.id, action=action, reason="admin only")
+                else:
+                    self._give(cmd.weaponId)
             elif action == "CONFIGURE_BOSS":
-                self._configure_boss(cmd.bossWeapon, cmd.bossOffhand, cmd.bossSkill)
+                if not self.is_admin:
+                    state.emit("ACTION_REJECTED", actor=player.id, action=action, reason="admin only")
+                else:
+                    self._configure_boss(cmd.bossWeapon, cmd.bossOffhand, cmd.bossSkill)
         self.pending_commands.clear()
 
     # ------------------------------------------------------------- save slots
