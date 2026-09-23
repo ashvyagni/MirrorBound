@@ -5,8 +5,10 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
+import os
+
 # Note: In a real environment, this should come from config/env variables
-DB_DSN = "postgres://localhost:5432/mirrorbound"
+DB_DSN = os.environ.get("DATABASE_URL", "postgres://localhost:5432/mirrorbound")
 
 _pool: Optional[asyncpg.Pool] = None
 
