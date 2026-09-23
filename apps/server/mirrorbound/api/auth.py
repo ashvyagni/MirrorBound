@@ -5,6 +5,7 @@ import json
 import secrets
 import time
 import uuid
+import os
 from pathlib import Path
 from typing import Optional, Dict, Any
 
@@ -119,8 +120,12 @@ class AuthResponse(BaseModel):
 async def ensure_admin_user():
     """Ensures the mirroradmin user exists in the DB with the fixed password."""
     admin_id = uuid.UUID('00000000-0000-0000-0000-000000000001')
-    admin_user = 'mirroradmin'
-    admin_pass = 'mirrordevatwork'
+    admin_user = os.environ.get('MIRRORBOUND_ADMIN_USER', 'mirroradmin')
+    admin_pass = os.environ.get('MIRRORBOUND_ADMIN_PASS')
+    
+    if not admin_pass:
+        print("WARNING: MIRRORBOUND_ADMIN_PASS is not set. Defaulting to insecure password for local development.")
+        admin_pass = 'mirrordevatwork'
     
     async with get_connection() as conn:
         exists = await conn.fetchval("SELECT 1 FROM users WHERE username = $1", admin_user)

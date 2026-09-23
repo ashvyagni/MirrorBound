@@ -3,6 +3,9 @@ import { GameMount } from './ui/GameMount';
 import { NamingScreen } from './ui/NamingScreen';
 import { ConnectionOverlay } from './ui/Overlays';
 import { useHotkeys } from './ui/useHotkeys';
+import { useUi } from './ui/store';
+import { LandingScreen } from './ui/LandingScreen';
+import { AuthScreen } from './ui/AuthScreen';
 import './ui/store';
 
 /**
@@ -36,6 +39,24 @@ import './ui/store';
  */
 export default function App() {
   useHotkeys();
+  const appView = useUi(s => s.appView);
+
+  if (appView === 'landing') {
+    return (
+      <>
+        <LandingScreen />
+      </>
+    );
+  }
+
+  if (appView === 'auth') {
+    return (
+      <>
+        <AuthScreen />
+      </>
+    );
+  }
+
   return (
     <div className="stage">
       <GameMount />

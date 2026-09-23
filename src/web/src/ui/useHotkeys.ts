@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { eventBus } from '@/game/EventBus';
 import { eventKeyCode, keybinds } from '@/game/state/Keybinds';
 
-import { closeConversation, command, getUiState, isPauseRequested, openScreen, toggleScreen } from './store';
+import { closeConversation, command, getUiState, isPauseRequested, openScreen, pushToast, toggleScreen } from './store';
 
 /**
  * Menu and world keys. Movement and combat belong to Phaser's input, which
@@ -69,6 +69,10 @@ export function useHotkeys(): void {
           break;
         case 'console':
           e.preventDefault();
+          if (window.localStorage.getItem('mirrorbound.auth.admin') !== 'true') {
+            pushToast('warn', 'You are not high enough in ranks you basic larper');
+            break;
+          }
           eventBus.emit('console:toggle', {});
           break;
         case 'potionCycle':

@@ -46,17 +46,25 @@ export class WebSocketClient {
   url(): string {
     const params = new URLSearchParams(window.location.search);
     const explicit = params.get('server');
-    if (explicit) return `${explicit.replace(/\/$/, '')}/ws/${encodeURIComponent(this.sessionId)}${this.seed ? `?seed=${this.seed}` : ''}`;
+    const token = window.localStorage.getItem('mirrorbound.auth.token');
     
-    if (import.meta.env.VITE_WS_URL) {
-      return `${import.meta.env.VITE_WS_URL.replace(/\/$/, '')}/ws/${encodeURIComponent(this.sessionId)}${this.seed ? `?seed=${this.seed}` : ''}`;
+    let baseStr = '';
+    if (explicit) {
+      baseStr = `${explicit.replace(/\/$/, '')}/ws/${encodeURIComponent(this.sessionId)}`;
+    } else if (import.meta.env.VITE_WS_URL) {
+      baseStr = `${import.meta.env.VITE_WS_URL.replace(/\/$/, '')}/ws/${encodeURIComponent(this.sessionId)}`;
+    } else {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const pageHost = window.location.hostname || 'localhost';
+      const host = pageHost === 'localhost' ? '127.0.0.1' : pageHost;
+      baseStr = `${protocol}//${host}:8000/ws/${encodeURIComponent(this.sessionId)}`;
     }
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // "localhost" resolves to ::1 first in Chromium and the server listens on
-    // IPv4; the fallback costs ~300 ms per connect, so go straight to 127.0.0.1.
-    const pageHost = window.location.hostname || 'localhost';
-    const host = pageHost === 'localhost' ? '127.0.0.1' : pageHost;
-    return `${protocol}//${host}:8000/ws/${encodeURIComponent(this.sessionId)}${this.seed ? `?seed=${this.seed}` : ''}`;
+    
+    const wsUrl = new URL(baseStr, window.location.href);
+    if (this.seed) wsUrl.searchParams.set('seed', this.seed);
+    if (token) wsUrl.searchParams.set('token', token);
+    
+    return wsUrl.toString();
   }
 
   connect(): void {

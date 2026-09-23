@@ -53,6 +53,7 @@ export interface GameEventMap {
   'ui:modal': { open: boolean };
   'ui:screen': { screen: string };
   'ui:screen-close': { screen: string };
+  'ui:logout': {};
   /** Settings changed (volume, zoom, quality, debug overlay). */
   'ui:settings': Settings;
   /** Ask the game to enter or leave fullscreen. Must originate from a click. */

@@ -60,6 +60,7 @@ export interface UiState {
    * must not also open the inventory.
    */
   rebinding: { action: string; slot: 'primary' | 'secondary' } | null;
+  appView: 'landing' | 'auth' | 'game';
 }
 
 let state: UiState = {
@@ -81,6 +82,7 @@ let state: UiState = {
   conversation: null,
   namePrompt: null,
   rebinding: null,
+  appView: (typeof window !== 'undefined' && window.localStorage.getItem('mirrorbound.auth.token')) ? 'game' : 'landing',
 };
 
 const listeners = new Set<() => void>();
@@ -88,6 +90,10 @@ const listeners = new Set<() => void>();
 function set(patch: Partial<UiState>): void {
   state = { ...state, ...patch };
   for (const l of listeners) l();
+}
+
+export function setAppView(view: 'landing' | 'auth' | 'game'): void {
+  set({ appView: view });
 }
 
 export function getUiState(): UiState {
@@ -430,6 +436,12 @@ eventBus.on('game:connection', ({ status, attempt }) => {
 eventBus.on('game:ready', () => set({ ready: true }));
 eventBus.on('game:loading', ({ progress }) => set({ loading: progress }));
 eventBus.on('game:fullscreen', ({ active }) => set({ fullscreen: active }));
+eventBus.on('ui:logout', () => {
+  window.localStorage.removeItem('mirrorbound.auth.token');
+  window.localStorage.removeItem('mirrorbound.auth.username');
+  window.localStorage.removeItem('mirrorbound.auth.admin');
+  window.location.reload();
+});
 
 // Dev-only handle for QA scripts and the console: `__mirrorbound.getUiState().snapshot`.
 if (import.meta.env.DEV) {

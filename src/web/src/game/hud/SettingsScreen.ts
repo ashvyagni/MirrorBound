@@ -259,7 +259,10 @@ export class SettingsScreen {
       updateSettings({ zoom: 1 });
       this.#render();
     }, this.#right - 125);
-    this.#add(this.#text(this.#left, L.footer,
+    this.#button(L.footer, 'LOGOUT', 180, () => {
+      eventBus.emit('ui:logout', {});
+    }, this.#left + 90);
+    this.#add(this.#text(this.#left, L.footer - 40,
       'The Proving is on the map too — travel there like anywhere else.', 22, HUD.dimInk, 0));
   }
 
