@@ -20,6 +20,10 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 SECRET_FILE = Path(__file__).parent.parent.parent.parent / ".auth_secret"
 
 def get_secret() -> bytes:
+    env_secret = os.environ.get("JWT_SECRET")
+    if env_secret:
+        return env_secret.encode('utf-8')
+        
     if not SECRET_FILE.exists():
         SECRET_FILE.write_bytes(secrets.token_bytes(32))
     return SECRET_FILE.read_bytes()
