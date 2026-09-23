@@ -1,0 +1,817 @@
+{
+  "tick": 0,
+  "seed": 5,
+  "phase": "playing",
+  "paused": false,
+  "transition": 0.6,
+  "player": {
+    "id": "player_1",
+    "position": {
+      "x": 526.0,
+      "y": 630.4
+    },
+    "velocity": {
+      "x": 0.0,
+      "y": 0.0
+    },
+    "facing": {
+      "x": 1,
+      "y": 0
+    },
+    "health": 100.0,
+    "maxHealth": 100.0,
+    "radius": 14.0,
+    "statusEffects": [],
+    "invulnerable": false,
+    "active": true,
+    "type": "player",
+    "state": "idle",
+    "mana": 60.0,
+    "maxMana": 60.0,
+    "xp": 0,
+    "xpToNext": 80,
+    "level": 1,
+    "skillPoints": 0,
+    "currentWeapon": "bare_hands",
+    "attackCooldown": 0.0,
+    "comboStep": 0,
+    "comboLength": 2,
+    "abilities": [
+      {
+        "slot": 1,
+        "id": "shadow_dash",
+        "name": "Shadow Dash",
+        "icon": "shadow_dash",
+        "cost": 10,
+        "cooldown": 0.0,
+        "cooldownTotal": 2.6,
+        "ready": true,
+        "blockedBy": null,
+        "tags": [
+          "MOBILITY"
+        ],
+        "description": "Blink a short distance in your facing direction. You cannot be hit while dashing."
+      }
+    ],
+    "kills": 0,
+    "deaths": 0,
+    "targetId": null,
+    "potionCooldown": 0.0,
+    "potionCooldownTotal": 6.0,
+    "drinking": null,
+    "channelling": null,
+    "gold": 0,
+    "respawnIn": 0,
+    "unlockedSkills": [],
+    "skillTree": [
+      {
+        "id": "swift_feet",
+        "name": "Swift Feet",
+        "category": "MOBILITY",
+        "tier": 1,
+        "cost": 1,
+        "description": "+12% movement speed.",
+        "requires": [],
+        "unlocked": false,
+        "available": false,
+        "reason": "not enough skill points"
+      },
+      {
+        "id": "shadow_step",
+        "name": "Shadow Step",
+        "category": "MOBILITY",
+        "tier": 2,
+        "cost": 1,
+        "description": "Shadow Dash cooldown -30%.",
+        "requires": [
+          "swift_feet"
+        ],
+        "unlocked": false,
+        "available": false,
+        "reason": "not enough skill points"
+      },
+      {
+        "id": "phase_walker",
+        "name": "Phase Walker",
+        "category": "MOBILITY",
+        "tier": 3,
+        "cost": 2,
+        "description": "Dash invulnerability lasts 0.2s longer.",
+        "requires": [
+          "shadow_step"
+        ],
+        "unlocked": false,
+        "available": false,
+        "reason": "not enough skill points"
+      },
+      {
+        "id": "keen_edge",
+        "name": "Keen Edge",
+        "category": "COMBAT",
+        "tier": 1,
+        "cost": 1,
+        "description": "+15% weapon damage.",
+        "requires": [],
+        "unlocked": false,
+        "available": false,
+        "reason": "not enough skill points"
+      },
+      {
+        "id": "heavy_hands",
+        "name": "Heavy Hands",
+        "category": "COMBAT",
+        "tier": 2,
+        "cost": 1,
+        "description": "+40% knockback on hits.",
+        "requires": [
+          "keen_edge"
+        ],
+        "unlocked": false,
+        "available": false,
+        "reason": "not enough skill points"
+      },
+      {
+        "id": "executioner",
+        "name": "Executioner",
+        "category": "COMBAT",
+        "tier": 3,
+        "cost": 2,
+        "description": "+12% critical strike chance.",
+        "requires": [
+          "heavy_hands"
+        ],
+        "unlocked": false,
+        "available": false,
+        "reason": "not enough skill points"
+      },
+      {
+        "id": "arcane_focus",
+        "name": "Arcane Focus",
+        "category": "MAGIC",
+        "tier": 1,
+        "cost": 1,
+        "description": "+25 maximum mana.",
+        "requires": [],
+        "unlocked": false,
+        "available": false,
+        "reason": "not enough skill points"
+      },
+      {
+        "id": "pyromancer",
+        "name": "Pyromancer",
+        "category": "MAGIC",
+        "tier": 2,
+        "cost": 1,
+        "description": "+25% spell damage.",
+        "requires": [
+          "arcane_focus"
+        ],
+        "unlocked": false,
+        "available": false,
+        "reason": "not enough skill points"
+      },
+      {
+        "id": "overflow",
+        "name": "Overflow",
+        "category": "MAGIC",
+        "tier": 3,
+        "cost": 2,
+        "description": "+60% mana regeneration, ability cooldowns -15%.",
+        "requires": [
+          "pyromancer"
+        ],
+        "unlocked": false,
+        "available": false,
+        "reason": "not enough skill points"
+      },
+      {
+        "id": "vitality",
+        "name": "Vitality",
+        "category": "SURVIVAL",
+        "tier": 1,
+        "cost": 1,
+        "description": "+30 maximum health.",
+        "requires": [],
+        "unlocked": false,
+        "available": false,
+        "reason": "not enough skill points"
+      },
+      {
+        "id": "second_wind",
+        "name": "Second Wind",
+        "category": "SURVIVAL",
+        "tier": 2,
+        "cost": 1,
+        "description": "Clearing a room heals 25 health.",
+        "requires": [
+          "vitality"
+        ],
+        "unlocked": false,
+        "available": false,
+        "reason": "not enough skill points"
+      },
+      {
+        "id": "iron_skin",
+        "name": "Iron Skin",
+        "category": "SURVIVAL",
+        "tier": 3,
+        "cost": 2,
+        "description": "Take 15% less damage.",
+        "requires": [
+          "second_wind"
+        ],
+        "unlocked": false,
+        "available": false,
+        "reason": "not enough skill points"
+      }
+    ],
+    "weapon": {
+      "id": "bare_hands",
+      "name": "Bare Hands",
+      "type": "melee",
+      "family": "sword",
+      "damage": 6,
+      "cooldown": 0.36,
+      "range": 48,
+      "resourceCost": 0,
+      "tags": [
+        "MELEE",
+        "FAST"
+      ],
+      "comboLength": 2,
+      "rarity": "common",
+      "animation": "sword",
+      "abilities": [],
+      "description": "Two quick swipes. Short reach, and it will not carry you far."
+    },
+    "inventory": {
+      "weapons": [],
+      "equippedWeapon": "",
+      "offhandWeapon": "",
+      "gold": 0,
+      "abilitySlots": [
+        "shadow_dash"
+      ],
+      "consumables": [],
+      "resources": {
+        "essence": 0,
+        "shards": 0,
+        "relics": 0
+      },
+      "relics": []
+    },
+    "stats": {
+      "speed": 175,
+      "weaponDamageMult": 1.0,
+      "spellDamageMult": 1.0,
+      "critChance": 0.08,
+      "damageTakenMult": 1.0,
+      "manaRegen": 4.5
+    }
+  },
+  "twin": {
+    "id": "twin_1",
+    "position": {
+      "x": 760.0,
+      "y": 1014
+    },
+    "velocity": {
+      "x": 0.0,
+      "y": 0.0
+    },
+    "facing": {
+      "x": 1,
+      "y": 0
+    },
+    "health": 90.0,
+    "maxHealth": 90.0,
+    "radius": 13.0,
+    "statusEffects": [],
+    "invulnerable": false,
+    "active": true,
+    "type": "twin",
+    "state": "idle",
+    "dormant": true,
+    "name": "the Twin",
+    "mana": 50.0,
+    "maxMana": 50.0,
+    "currentWeapon": "frost_staff",
+    "intent": {
+      "intentType": "FOLLOW",
+      "targetId": null,
+      "position": null,
+      "confidence": 0.5,
+      "utilities": {},
+      "reason": "",
+      "desiredWeapon": null
+    },
+    "kills": 0,
+    "damageDealt": 0,
+    "damageTaken": 0,
+    "downedFor": 0,
+    "attackCooldown": 0.0,
+    "weapon": {
+      "id": "frost_staff",
+      "name": "Frost Staff",
+      "type": "magic",
+      "family": "staff",
+      "damage": 11,
+      "cooldown": 0.5,
+      "range": 340,
+      "resourceCost": 4,
+      "tags": [
+        "RANGED",
+        "MAGIC",
+        "SPELL",
+        "FAST"
+      ],
+      "comboLength": 1,
+      "rarity": "rare",
+      "animation": "iceStaff",
+      "abilities": [
+        "binding_nova",
+        "arcane_bolt"
+      ],
+      "description": "Rapid frost bolts that slow whatever they touch."
+    },
+    "inventory": {
+      "weapons": [
+        {
+          "id": "frost_staff",
+          "name": "Frost Staff",
+          "type": "magic",
+          "family": "staff",
+          "damage": 11,
+          "cooldown": 0.5,
+          "range": 340,
+          "resourceCost": 4,
+          "tags": [
+            "RANGED",
+            "MAGIC",
+            "SPELL",
+            "FAST"
+          ],
+          "comboLength": 1,
+          "rarity": "rare",
+          "animation": "iceStaff",
+          "abilities": [
+            "binding_nova",
+            "arcane_bolt"
+          ],
+          "description": "Rapid frost bolts that slow whatever they touch."
+        }
+      ],
+      "equippedWeapon": "frost_staff",
+      "offhandWeapon": "",
+      "gold": 0,
+      "abilitySlots": [
+        "binding_nova",
+        "arcane_bolt"
+      ],
+      "consumables": [],
+      "resources": {
+        "essence": 0,
+        "shards": 0,
+        "relics": 0
+      },
+      "relics": []
+    }
+  },
+  "enemies": [],
+  "projectiles": [],
+  "pickups": [],
+  "stats": {
+    "enemiesKilled": 0,
+    "roomsCleared": 0,
+    "damageDealt": 0,
+    "damageTaken": 0,
+    "essenceCollected": 0,
+    "abilitiesCast": 0,
+    "seconds": 0.0
+  },
+  "dungeon": null,
+  "campaign": {
+    "playerName": "Wren",
+    "twinName": "the Twin",
+    "currentArea": "hollow_reach",
+    "completed": [],
+    "discovered": [
+      "hollow_reach",
+      "wakewood_crypt"
+    ],
+    "flags": [],
+    "seals": [],
+    "twinRescued": false,
+    "twinNamed": false,
+    "areas": [
+      {
+        "id": "hollow_reach",
+        "name": "Hollow Reach",
+        "kind": "village",
+        "biome": "grove",
+        "subtitle": "A village that has learned to sleep lightly.",
+        "mapX": 0.18,
+        "mapY": 0.72,
+        "discovered": true,
+        "completed": false,
+        "open": true,
+        "current": true
+      },
+      {
+        "id": "wakewood_crypt",
+        "name": "Wakewood Crypt",
+        "kind": "dungeon",
+        "biome": "grove",
+        "subtitle": "Something under the wakewood is breathing again.",
+        "mapX": 0.38,
+        "mapY": 0.54,
+        "discovered": true,
+        "completed": false,
+        "open": true,
+        "current": false
+      },
+      {
+        "id": "emberfall",
+        "name": "Emberfall",
+        "kind": "village",
+        "biome": "ruins",
+        "subtitle": "Built in the ribs of something older.",
+        "mapX": 0.56,
+        "mapY": 0.66,
+        "discovered": false,
+        "completed": false,
+        "open": false,
+        "current": false
+      },
+      {
+        "id": "ashen_deep",
+        "name": "The Ashen Deep",
+        "kind": "dungeon",
+        "biome": "ruins",
+        "subtitle": "The road down, and the warden that keeps it.",
+        "mapX": 0.74,
+        "mapY": 0.44,
+        "discovered": false,
+        "completed": false,
+        "open": false,
+        "current": false
+      },
+      {
+        "id": "mirror_sanctum",
+        "name": "The Mirror Sanctum",
+        "kind": "dungeon",
+        "biome": "crypt",
+        "subtitle": "It has been watching you the whole way here.",
+        "mapX": 0.88,
+        "mapY": 0.2,
+        "discovered": false,
+        "completed": false,
+        "open": false,
+        "current": false
+      }
+    ]
+  },
+  "npcs": [
+    {
+      "id": "elder_mara",
+      "name": "Elder Mara",
+      "role": "elder",
+      "sprite": "npc_elder",
+      "position": {
+        "x": 752.0,
+        "y": 403.2
+      },
+      "radius": 96.0,
+      "lines": [
+        "You have your mother's stubborn walk, Wren.",
+        "The crypt under the wakewood has been breathing again. Three of ours went in.",
+        "Only one thing came back, and it wasn't one of ours. Go and see."
+      ],
+      "stock": []
+    },
+    {
+      "id": "smith_oren",
+      "name": "Oren the Smith",
+      "role": "weaponsmith",
+      "sprite": "npc_smith",
+      "position": {
+        "x": 416.0,
+        "y": 630.4
+      },
+      "radius": 96.0,
+      "lines": [
+        "You came in with nothing. That happens more than you'd think.",
+        "Take a blade off the bench. Everything else here only changes how the job feels."
+      ],
+      "stock": [
+        {
+          "kind": "weapon",
+          "itemId": "iron_sword",
+          "price": 45,
+          "name": "Iron Sword",
+          "description": "Three-hit chain. The finisher hits hardest and knocks back."
+        },
+        {
+          "kind": "weapon",
+          "itemId": "hunter_bow",
+          "price": 140,
+          "name": "Hunter's Bow",
+          "description": "Fast arrows with a high critical chance. Keep your distance."
+        },
+        {
+          "kind": "weapon",
+          "itemId": "ember_staff",
+          "price": 190,
+          "name": "Ember Staff",
+          "description": "Slow fireballs that burst on impact and hurt everything nearby."
+        },
+        {
+          "kind": "weapon",
+          "itemId": "frost_staff",
+          "price": 190,
+          "name": "Frost Staff",
+          "description": "Rapid frost bolts that slow whatever they touch."
+        },
+        {
+          "kind": "relic",
+          "itemId": "wolf_fang",
+          "price": 260,
+          "name": "Wolf Fang",
+          "description": "+10% weapon damage."
+        }
+      ]
+    },
+    {
+      "id": "apothecary_siv",
+      "name": "Siv the Apothecary",
+      "role": "apothecary",
+      "sprite": "npc_apothecary",
+      "position": {
+        "x": 1184.0,
+        "y": 630.4
+      },
+      "radius": 96.0,
+      "lines": [
+        "Red for blood, blue for the other thing.",
+        "Drink standing still if you can. It takes a moment, and a moment is how people die."
+      ],
+      "stock": [
+        {
+          "kind": "consumable",
+          "itemId": "health_potion",
+          "price": 35,
+          "name": "Health Potion",
+          "description": "Restores 40 health."
+        },
+        {
+          "kind": "consumable",
+          "itemId": "mana_potion",
+          "price": 30,
+          "name": "Mana Potion",
+          "description": "Restores 35 mana."
+        },
+        {
+          "kind": "relic",
+          "itemId": "ember_heart",
+          "price": 260,
+          "name": "Ember Heart",
+          "description": "+10% spell damage."
+        }
+      ]
+    },
+    {
+      "id": "hearth",
+      "name": "The Hearth",
+      "role": "hearth",
+      "sprite": "hearth",
+      "position": {
+        "x": 752.0,
+        "y": 784.0
+      },
+      "radius": 96.0,
+      "lines": [
+        "The fire is banked and steady. Rest here and the road stops mattering for a while."
+      ],
+      "stock": []
+    }
+  ],
+  "room": {
+    "id": "hollow_reach_room_0",
+    "index": 0,
+    "roomType": "village",
+    "name": "Hollow Reach",
+    "biome": "grove",
+    "width": 1600,
+    "height": 1120,
+    "tileSize": 32,
+    "tiles": [],
+    "decor": [],
+    "doors": [],
+    "portals": [
+      {
+        "id": "hollow_reach_to_wakewood_crypt",
+        "x": 533.3,
+        "y": 70.4,
+        "targetArea": "wakewood_crypt",
+        "label": "Wakewood Crypt",
+        "kind": "descent",
+        "locked": false,
+        "lockReason": "",
+        "radius": 54.0
+      },
+      {
+        "id": "hollow_reach_to_emberfall",
+        "x": 1066.7,
+        "y": 70.4,
+        "targetArea": "emberfall",
+        "label": "Emberfall",
+        "kind": "road",
+        "locked": false,
+        "lockReason": "",
+        "radius": 54.0
+      }
+    ],
+    "enemySprites": [],
+    "cleared": true,
+    "safe": true,
+    "areaId": "hollow_reach",
+    "seed": 3414749236
+  },
+  "type": "SNAPSHOT",
+  "roomFull": true,
+  "detail": true,
+  "events": [
+    {
+      "tick": 0,
+      "type": "AREA_DISCOVERED",
+      "data": {
+        "area": "wakewood_crypt",
+        "name": "Wakewood Crypt",
+        "subtitle": "Something under the wakewood is breathing again."
+      }
+    },
+    {
+      "tick": 0,
+      "type": "ROOM_ENTER",
+      "data": {
+        "room_id": "hollow_reach_room_0",
+        "room_index": 0,
+        "room_type": "village",
+        "name": "Hollow Reach",
+        "biome": "grove",
+        "position": {
+          "x": 800.0,
+          "y": 992
+        },
+        "enemies": 0,
+        "first_visit": false,
+        "area": "hollow_reach",
+        "safe": true
+      }
+    },
+    {
+      "tick": 0,
+      "type": "CHECKPOINT_SAVED",
+      "data": {
+        "area": "hollow_reach",
+        "safe": true
+      }
+    }
+  ],
+  "playerModel": {
+    "tick": 0,
+    "traits": {
+      "aggression": {
+        "value": 0.5,
+        "confidence": 0.0,
+        "samples": 0,
+        "recent_trend": 0.0
+      },
+      "mobility": {
+        "value": 0.5,
+        "confidence": 0.0,
+        "samples": 0,
+        "recent_trend": 0.0
+      },
+      "risk_tolerance": {
+        "value": 0.5,
+        "confidence": 0.0,
+        "samples": 0,
+        "recent_trend": 0.0
+      },
+      "preferred_range": {
+        "value": 0.5,
+        "confidence": 0.0,
+        "samples": 0,
+        "recent_trend": 0.0
+      },
+      "melee_dependency": {
+        "value": 0.5,
+        "confidence": 0.0,
+        "samples": 0,
+        "recent_trend": 0.0
+      },
+      "ranged_dependency": {
+        "value": 0.5,
+        "confidence": 0.0,
+        "samples": 0,
+        "recent_trend": 0.0
+      },
+      "spell_dependency": {
+        "value": 0.5,
+        "confidence": 0.0,
+        "samples": 0,
+        "recent_trend": 0.0
+      },
+      "defensive_tendency": {
+        "value": 0.5,
+        "confidence": 0.0,
+        "samples": 0,
+        "recent_trend": 0.0
+      },
+      "combo_dependency": {
+        "value": 0.5,
+        "confidence": 0.0,
+        "samples": 0,
+        "recent_trend": 0.0
+      }
+    },
+    "predictions": [],
+    "spatial": {
+      "combat": [],
+      "retreat": [],
+      "dodge": [],
+      "spell": [],
+      "melee": [],
+      "high_risk": [],
+      "death": []
+    },
+    "patterns": [],
+    "pattern_events": [],
+    "cellSize": 64.0
+  },
+  "twinModel": {
+    "dims": {
+      "preferred_range": {
+        "value": 0.5,
+        "confidence": 0.0,
+        "samples": 0,
+        "recent_trend": 0.0
+      },
+      "aggression": {
+        "value": 0.5,
+        "confidence": 0.0,
+        "samples": 0,
+        "recent_trend": 0.0
+      },
+      "mobility": {
+        "value": 0.5,
+        "confidence": 0.0,
+        "samples": 0,
+        "recent_trend": 0.0
+      },
+      "risk_tolerance": {
+        "value": 0.5,
+        "confidence": 0.0,
+        "samples": 0,
+        "recent_trend": 0.0
+      },
+      "target_preference": {
+        "value": 0.5,
+        "confidence": 0.0,
+        "samples": 0,
+        "recent_trend": 0.0
+      },
+      "melee_dependency": {
+        "value": 0.5,
+        "confidence": 0.0,
+        "samples": 0,
+        "recent_trend": 0.0
+      },
+      "ranged_dependency": {
+        "value": 0.5,
+        "confidence": 0.0,
+        "samples": 0,
+        "recent_trend": 0.0
+      },
+      "defensive_tendency": {
+        "value": 0.5,
+        "confidence": 0.0,
+        "samples": 0,
+        "recent_trend": 0.0
+      },
+      "spell_preference": {
+        "value": 0.5,
+        "confidence": 0.0,
+        "samples": 0,
+        "recent_trend": 0.0
+      }
+    },
+    "lessons": [],
+    "playerEventsSeen": 0,
+    "outcomesSeen": 0,
+    "learningMult": 1.0
+  },
+  "boss": null,
+  "lastError": null
+}

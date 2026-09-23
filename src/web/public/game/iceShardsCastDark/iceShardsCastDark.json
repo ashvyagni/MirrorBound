@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "swing-00": {
+   "frame": {
+    "x": 168,
+    "y": 2,
+    "w": 108,
+    "h": 401
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 163,
+    "y": 36,
+    "w": 108,
+    "h": 401
+   },
+   "sourceSize": {
+    "w": 477,
+    "h": 445
+   }
+  },
+  "swing-01": {
+   "frame": {
+    "x": 556,
+    "y": 2,
+    "w": 165,
+    "h": 389
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 107,
+    "y": 28,
+    "w": 165,
+    "h": 389
+   },
+   "sourceSize": {
+    "w": 477,
+    "h": 445
+   }
+  },
+  "swing-02": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 164,
+    "h": 412
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 106,
+    "y": 0,
+    "w": 164,
+    "h": 412
+   },
+   "sourceSize": {
+    "w": 477,
+    "h": 445
+   }
+  },
+  "swing-03": {
+   "frame": {
+    "x": 723,
+    "y": 2,
+    "w": 230,
+    "h": 373
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 77,
+    "y": 72,
+    "w": 230,
+    "h": 373
+   },
+   "sourceSize": {
+    "w": 477,
+    "h": 445
+   }
+  },
+  "swing-04": {
+   "frame": {
+    "x": 281,
+    "y": 416,
+    "w": 361,
+    "h": 288
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 113,
+    "y": 79,
+    "w": 361,
+    "h": 288
+   },
+   "sourceSize": {
+    "w": 477,
+    "h": 445
+   }
+  },
+  "swing-05": {
+   "frame": {
+    "x": 2,
+    "y": 743,
+    "w": 386,
+    "h": 267
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 91,
+    "y": 91,
+    "w": 386,
+    "h": 267
+   },
+   "sourceSize": {
+    "w": 477,
+    "h": 445
+   }
+  },
+  "swing-06": {
+   "frame": {
+    "x": 2,
+    "y": 416,
+    "w": 277,
+    "h": 325
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 118,
+    "y": 70,
+    "w": 277,
+    "h": 325
+   },
+   "sourceSize": {
+    "w": 477,
+    "h": 445
+   }
+  },
+  "swing-07": {
+   "frame": {
+    "x": 278,
+    "y": 2,
+    "w": 276,
+    "h": 398
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 36,
+    "w": 276,
+    "h": 398
+   },
+   "sourceSize": {
+    "w": 477,
+    "h": 445
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "iceShardsCastDark.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 1024,
+   "h": 1012
+  },
+  "scale": "1"
+ }
+}

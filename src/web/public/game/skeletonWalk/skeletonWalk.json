@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "f-00": {
+   "frame": {
+    "x": 395,
+    "y": 2,
+    "w": 392,
+    "h": 427
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 44,
+    "y": 3,
+    "w": 392,
+    "h": 427
+   },
+   "sourceSize": {
+    "w": 436,
+    "h": 433
+   }
+  },
+  "f-01": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 391,
+    "h": 430
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 29,
+    "y": 0,
+    "w": 391,
+    "h": 430
+   },
+   "sourceSize": {
+    "w": 436,
+    "h": 433
+   }
+  },
+  "f-02": {
+   "frame": {
+    "x": 789,
+    "y": 2,
+    "w": 397,
+    "h": 427
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 14,
+    "y": 3,
+    "w": 397,
+    "h": 427
+   },
+   "sourceSize": {
+    "w": 436,
+    "h": 433
+   }
+  },
+  "f-03": {
+   "frame": {
+    "x": 1188,
+    "y": 2,
+    "w": 395,
+    "h": 427
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 5,
+    "y": 3,
+    "w": 395,
+    "h": 427
+   },
+   "sourceSize": {
+    "w": 436,
+    "h": 433
+   }
+  },
+  "f-04": {
+   "frame": {
+    "x": 1585,
+    "y": 2,
+    "w": 393,
+    "h": 415
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 43,
+    "y": 18,
+    "w": 393,
+    "h": 415
+   },
+   "sourceSize": {
+    "w": 436,
+    "h": 433
+   }
+  },
+  "f-05": {
+   "frame": {
+    "x": 2,
+    "y": 434,
+    "w": 396,
+    "h": 415
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 24,
+    "y": 18,
+    "w": 396,
+    "h": 415
+   },
+   "sourceSize": {
+    "w": 436,
+    "h": 433
+   }
+  },
+  "f-06": {
+   "frame": {
+    "x": 400,
+    "y": 434,
+    "w": 391,
+    "h": 415
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 19,
+    "y": 18,
+    "w": 391,
+    "h": 415
+   },
+   "sourceSize": {
+    "w": 436,
+    "h": 433
+   }
+  },
+  "f-07": {
+   "frame": {
+    "x": 793,
+    "y": 434,
+    "w": 400,
+    "h": 415
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 18,
+    "w": 400,
+    "h": 415
+   },
+   "sourceSize": {
+    "w": 436,
+    "h": 433
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "skeletonWalk.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 2048,
+   "h": 851
+  },
+  "scale": "1"
+ }
+}

@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "cast-00": {
+   "frame": {
+    "x": 2,
+    "y": 686,
+    "w": 103,
+    "h": 91
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 170,
+    "y": 85,
+    "w": 103,
+    "h": 91
+   },
+   "sourceSize": {
+    "w": 437,
+    "h": 270
+   }
+  },
+  "cast-01": {
+   "frame": {
+    "x": 787,
+    "y": 496,
+    "w": 180,
+    "h": 159
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 129,
+    "y": 52,
+    "w": 180,
+    "h": 159
+   },
+   "sourceSize": {
+    "w": 437,
+    "h": 270
+   }
+  },
+  "cast-02": {
+   "frame": {
+    "x": 414,
+    "y": 274,
+    "w": 320,
+    "h": 195
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 60,
+    "y": 37,
+    "w": 320,
+    "h": 195
+   },
+   "sourceSize": {
+    "w": 437,
+    "h": 270
+   }
+  },
+  "cast-03": {
+   "frame": {
+    "x": 2,
+    "y": 496,
+    "w": 410,
+    "h": 188
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 13,
+    "y": 42,
+    "w": 410,
+    "h": 188
+   },
+   "sourceSize": {
+    "w": 437,
+    "h": 270
+   }
+  },
+  "cast-04": {
+   "frame": {
+    "x": 439,
+    "y": 2,
+    "w": 435,
+    "h": 233
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 2,
+    "y": 24,
+    "w": 435,
+    "h": 233
+   },
+   "sourceSize": {
+    "w": 437,
+    "h": 270
+   }
+  },
+  "cast-05": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 435,
+    "h": 270
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 435,
+    "h": 270
+   },
+   "sourceSize": {
+    "w": 437,
+    "h": 270
+   }
+  },
+  "cast-06": {
+   "frame": {
+    "x": 2,
+    "y": 274,
+    "w": 410,
+    "h": 220
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 13,
+    "y": 35,
+    "w": 410,
+    "h": 220
+   },
+   "sourceSize": {
+    "w": 437,
+    "h": 270
+   }
+  },
+  "cast-07": {
+   "frame": {
+    "x": 414,
+    "y": 496,
+    "w": 371,
+    "h": 177
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 33,
+    "y": 44,
+    "w": 371,
+    "h": 177
+   },
+   "sourceSize": {
+    "w": 437,
+    "h": 270
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "shardRing.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 1024,
+   "h": 779
+  },
+  "scale": "1"
+ }
+}

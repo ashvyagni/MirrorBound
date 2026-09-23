@@ -1,0 +1,134 @@
+{
+ "frames": {
+  "mark-00": {
+   "frame": {
+    "x": 634,
+    "y": 2,
+    "w": 21,
+    "h": 46
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 61,
+    "y": 199,
+    "w": 21,
+    "h": 46
+   },
+   "sourceSize": {
+    "w": 156,
+    "h": 433
+   }
+  },
+  "mark-01": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 60,
+    "h": 433
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 42,
+    "y": 0,
+    "w": 60,
+    "h": 433
+   },
+   "sourceSize": {
+    "w": 156,
+    "h": 433
+   }
+  },
+  "mark-02": {
+   "frame": {
+    "x": 488,
+    "y": 2,
+    "w": 144,
+    "h": 303
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 69,
+    "w": 144,
+    "h": 303
+   },
+   "sourceSize": {
+    "w": 156,
+    "h": 433
+   }
+  },
+  "mark-03": {
+   "frame": {
+    "x": 214,
+    "y": 2,
+    "w": 134,
+    "h": 343
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 1,
+    "y": 53,
+    "w": 134,
+    "h": 343
+   },
+   "sourceSize": {
+    "w": 156,
+    "h": 433
+   }
+  },
+  "mark-04": {
+   "frame": {
+    "x": 64,
+    "y": 2,
+    "w": 148,
+    "h": 344
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 8,
+    "y": 43,
+    "w": 148,
+    "h": 344
+   },
+   "sourceSize": {
+    "w": 156,
+    "h": 433
+   }
+  },
+  "mark-05": {
+   "frame": {
+    "x": 350,
+    "y": 2,
+    "w": 136,
+    "h": 343
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 1,
+    "y": 44,
+    "w": 136,
+    "h": 343
+   },
+   "sourceSize": {
+    "w": 156,
+    "h": 433
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "alertMark.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 1024,
+   "h": 437
+  },
+  "scale": "1"
+ }
+}

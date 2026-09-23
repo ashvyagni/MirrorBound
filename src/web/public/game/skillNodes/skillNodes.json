@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "locked": {
+   "frame": {
+    "x": 197,
+    "y": 2,
+    "w": 157,
+    "h": 157
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 22,
+    "y": 26,
+    "w": 157,
+    "h": 157
+   },
+   "sourceSize": {
+    "w": 193,
+    "h": 206
+   }
+  },
+  "available": {
+   "frame": {
+    "x": 2,
+    "y": 210,
+    "w": 158,
+    "h": 157
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 20,
+    "y": 26,
+    "w": 158,
+    "h": 157
+   },
+   "sourceSize": {
+    "w": 193,
+    "h": 206
+   }
+  },
+  "unlocked": {
+   "frame": {
+    "x": 162,
+    "y": 210,
+    "w": 158,
+    "h": 157
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 20,
+    "y": 26,
+    "w": 158,
+    "h": 157
+   },
+   "sourceSize": {
+    "w": 193,
+    "h": 206
+   }
+  },
+  "maxed": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 193,
+    "h": 206
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 193,
+    "h": 206
+   },
+   "sourceSize": {
+    "w": 193,
+    "h": 206
+   }
+  },
+  "combat": {
+   "frame": {
+    "x": 158,
+    "y": 369,
+    "w": 144,
+    "h": 142
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 30,
+    "y": 29,
+    "w": 144,
+    "h": 142
+   },
+   "sourceSize": {
+    "w": 193,
+    "h": 206
+   }
+  },
+  "magic": {
+   "frame": {
+    "x": 304,
+    "y": 369,
+    "w": 136,
+    "h": 140
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 30,
+    "y": 28,
+    "w": 136,
+    "h": 140
+   },
+   "sourceSize": {
+    "w": 193,
+    "h": 206
+   }
+  },
+  "mobility": {
+   "frame": {
+    "x": 2,
+    "y": 369,
+    "w": 154,
+    "h": 145
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 18,
+    "y": 28,
+    "w": 154,
+    "h": 145
+   },
+   "sourceSize": {
+    "w": 193,
+    "h": 206
+   }
+  },
+  "survival": {
+   "frame": {
+    "x": 322,
+    "y": 210,
+    "w": 122,
+    "h": 150
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 34,
+    "y": 28,
+    "w": 122,
+    "h": 150
+   },
+   "sourceSize": {
+    "w": 193,
+    "h": 206
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "skillNodes.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 512,
+   "h": 516
+  },
+  "scale": "1"
+ }
+}

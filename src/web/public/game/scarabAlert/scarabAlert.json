@@ -1,0 +1,174 @@
+{
+ "frames": {
+  "f-00": {
+   "frame": {
+    "x": 330,
+    "y": 374,
+    "w": 326,
+    "h": 131
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 9,
+    "y": 56,
+    "w": 326,
+    "h": 131
+   },
+   "sourceSize": {
+    "w": 343,
+    "h": 189
+   }
+  },
+  "f-01": {
+   "frame": {
+    "x": 664,
+    "y": 193,
+    "w": 327,
+    "h": 134
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 7,
+    "y": 53,
+    "w": 327,
+    "h": 134
+   },
+   "sourceSize": {
+    "w": 343,
+    "h": 189
+   }
+  },
+  "f-02": {
+   "frame": {
+    "x": 670,
+    "y": 2,
+    "w": 325,
+    "h": 184
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 5,
+    "y": 3,
+    "w": 325,
+    "h": 184
+   },
+   "sourceSize": {
+    "w": 343,
+    "h": 189
+   }
+  },
+  "f-03": {
+   "frame": {
+    "x": 341,
+    "y": 2,
+    "w": 327,
+    "h": 185
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 5,
+    "y": 3,
+    "w": 327,
+    "h": 185
+   },
+   "sourceSize": {
+    "w": 343,
+    "h": 189
+   }
+  },
+  "f-04": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 337,
+    "h": 189
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 6,
+    "y": 0,
+    "w": 337,
+    "h": 189
+   },
+   "sourceSize": {
+    "w": 343,
+    "h": 189
+   }
+  },
+  "f-05": {
+   "frame": {
+    "x": 2,
+    "y": 193,
+    "w": 330,
+    "h": 179
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 10,
+    "w": 330,
+    "h": 179
+   },
+   "sourceSize": {
+    "w": 343,
+    "h": 189
+   }
+  },
+  "f-06": {
+   "frame": {
+    "x": 334,
+    "y": 193,
+    "w": 328,
+    "h": 146
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 4,
+    "y": 43,
+    "w": 328,
+    "h": 146
+   },
+   "sourceSize": {
+    "w": 343,
+    "h": 189
+   }
+  },
+  "f-07": {
+   "frame": {
+    "x": 2,
+    "y": 374,
+    "w": 326,
+    "h": 132
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 7,
+    "y": 57,
+    "w": 326,
+    "h": 132
+   },
+   "sourceSize": {
+    "w": 343,
+    "h": 189
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "scarabAlert.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 1024,
+   "h": 508
+  },
+  "scale": "1"
+ }
+}

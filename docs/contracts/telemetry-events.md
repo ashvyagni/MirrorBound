@@ -1,138 +1,98 @@
 # Telemetry event contract
 
-Audience: whoever writes `game/` code (movement, combat, dungeon, ...) that
-publishes events onto the `EventBus`. This is what `agent/telemetry` and
-`agent/player_model` actually consume — get these fields right on the events
-you publish and the prediction/trait pipeline works with zero changes on the
-agent side.
+Audience: whoever writes `game/` code (movement, combat, dungeon, ...) that publishes events onto
+the `EventBus`. This is what `agent/telemetry`, `agent/player_model`, `agent/spatial` and
+`agent/twin/style.py` consume, and what the client turns into VFX and sounds.
 
-Implementation: `mirrorbound/agent/features/*.py` (this is the code these
-tables describe — if the two ever disagree, the code is the current behavior
-and this doc is stale and should be fixed).
+Implementation of the reading side: `mirrorbound/agent/features/*.py` and
+`mirrorbound/agent/twin/style.py`. If this doc and the code disagree, the code is current.
 
-## Every event (already enforced by `Event`, see `game/core/events.py`)
+## Every event (enforced by `Event`, see `game/core/events.py`)
 
-- `tick: int` — the sim tick this happened on (from `SimClock.tick`). Required.
-- `type: str` — event type name, e.g. `"PLAYER_DASHED"`.
-- `data: Mapping[str, Any]` — everything else. Frozen recursively once
-  published; you can't mutate it after the fact, so build the dict you want
-  and pass it to `Event(...)` in one shot.
+- `tick: int` — the sim tick this happened on. Required.
+- `type: str` — event type name.
+- `data: Mapping[str, Any]` — everything else. Frozen recursively once published.
 
-## Fields telemetry reads
+Convenience: `GameState.emit(type, **data)` stamps the tick for you.
 
-None of these are required on every event — only on the events where they're
-relevant. **When a field isn't given, the pipeline skips that observation
-rather than guessing a value.** No signal is safer than a wrong signal.
+## Fields the models read
+
+None are required on every event. **When a field is absent the pipeline skips that observation
+rather than guessing.**
 
 | Field | Type | Used for | Notes |
 |---|---|---|---|
-| `data["action_token"]` | `str` | sequence prediction | Explicit override for the semantic action token this event represents (e.g. `"DASH"`, `"FIRE_BURST"`). Takes priority over the `type`-based mapping below — use this for anything data-driven (an ability defined by content, not a fixed enum in code). |
-| `data["tags"]` | `list[str]` | aggression, melee/ranged/spell dependency | From the ability tag vocabulary (doc section 30): `MELEE`, `RANGED`, `SPELL`, `AOE`, `BURST`, `MOBILITY`, `DEFENSIVE`, `SINGLE_TARGET`, `HIGH_RISK`. `SPELL` is a project-specific addition to the doc's original list — needed to separate `spell_dependency` from `ranged_dependency` (a thrown weapon is `RANGED` but not `SPELL`). |
-| `data["distance"]` | `float` | mobility | World units moved by this event. |
-| `data["ability"]` | `str` | sequence prediction | Required on `PLAYER_ABILITY_CAST` events (see below) — without it the event contributes no prediction token, only telemetry buffering. |
-| `data["position"]` | `[float, float]` | spatial heatmaps | World `[x, y]` where this event happened. Must be a 2-element list/tuple — anything else (missing, wrong length, a dict) is treated as absent. |
+| `data["action_token"]` | `str` | sequence prediction | Semantic token (`SWORD_STRIKE`, `SWORD_FINISHER`, `BOW_SHOT`, `STAFF_SHOT`, `DASH`). Overrides the type mapping. |
+| `data["ability"]` | `str` | sequence prediction | On `PLAYER_ABILITY_CAST`: the token *is* the ability id upper-cased (`FLAME_BURST`). |
+| `data["tags"]` | `list[str]` | aggression, dependencies, zone layers, twin style | `MELEE RANGED SPELL MAGIC AOE BURST MOBILITY DEFENSIVE FAST HEAVY HIGH_RISK`. |
+| `data["distance"]` | `float` | mobility | World units moved. Normalised by `MOBILITY_DISTANCE_NORM` (95). Only on movement events — never put weapon range here. |
+| `data["position"]` | `{"x","y"}` or `[x, y]` | spatial heatmaps | The *actor's* position for player actions; the target's for damage events. |
+| `data["healthFraction"]` | `float` | `risk_tolerance` (player model and twin style) | On `PLAYER_ATTACKED`: the player's health / max health at swing time, 0..1. `PLAYER_RETREATED` carries the same value spelled `health_fraction`; both spellings are read. |
+| `data["nearestEnemyDistance"]` | `float` or absent | `preferred_range` | On `PLAYER_ATTACKED` and `PLAYER_ABILITY_CAST`: distance to the nearest enemy, not necessarily the one being fought. |
+| `data["target_type"]` | `str` | twin target_preference | On `TARGET_CHANGE`. |
+| `data["comboStep"]` | `int` | `combo_dependency` | On `PLAYER_ATTACKED`, 1-indexed (`Player.start_attack`/`weapon.combo_window`). `>= 2` means this hit chained off the previous one within the weapon's own combo window; `1` is an opening hit. Read directly rather than re-derived from tick deltas — the game already computes it per weapon. |
 
-## Recognized event `type`s (fallback when there's no `action_token` override)
+## Player action events (feed the player model)
 
-| `type` | Token | Notes |
+| `type` | Token | Emitted by | Extra data |
+|---|---|---|---|
+| `PLAYER_ATTACKED` | `action_token` | `combat.process_player_attack` | `weapon`, `facing`, `comboStep`, `targets`, `hitCount`, `nearestEnemyDistance` |
+| `PLAYER_ABILITY_CAST` | `ability` | `combat.process_ability` | `ability_id`, `slot`, `facing`, `targets`, `hitCount`, dash: `distance`, `dodged` |
+| `PLAYER_DASHED` | `DASH` | Shadow Dash | `distance`, `direction` |
+| `PLAYER_DODGED` | `DODGE` | dash through a wind-up, or hit while invulnerable | `dodged` (enemy ids) |
+| `PLAYER_RETREATED` | `RETREAT` | `MovementSystem` heuristic: moving away from the nearest engaged enemy ≥0.6 s (2.5 s cooldown) | `from_enemy`, `distance`, `health_fraction` |
+| `PLAYER_MOVED` | — | sampled every 20 ticks while moving | `distance`, `direction`, `running` |
+| `TARGET_CHANGE` | — | first hit on a different enemy | `previous`, `target`, `target_type` |
+| `PLAYER_DIED` | — | lethal `DAMAGE_TAKEN` | `killer`, `room_id`, tags `HIGH_RISK` (death zone layer) |
+
+## Outcome and world events (client feedback, replay, twin experience)
+
+`DAMAGE_DEALT` (`attacker`, `target`, `target_type`, `damage`, `remaining`, `position`, `crit`, `source`, `tags`) ·
+`DAMAGE_TAKEN` (`actor`, `attacker`, `attacker_type`, `damage`, `remaining`, `position`) ·
+`ENEMY_KILLED` (`enemy_id`, `enemy_type`, `role`, `elite`, `boss`, `xp_reward`, `killer`, `position`, `room_id`) ·
+`ENEMY_SPAWNED` · `ENEMY_ATTACKED` (`enemy_id`, `target`, `hit`, `ranged`) ·
+`PROJECTILE_HIT` / `PROJECTILE_EXPIRED` (`kind`, `position`) ·
+`ITEM_PICKUP` (`actor`, `kind`, `item_id`, `amount`, `position`) · `ITEM_USED` · `WEAPON_CHANGED` (`actor`, `weapon`) ·
+`SKILL_UNLOCKED` (`skill`) · `LEVEL_UP` (`level`, `skillPoints`) · `PLAYER_HEALED` · `PLAYER_RESPAWNED` ·
+`ROOM_ENTER` (`room_id`, `room_index`, `room_type`, `name`, `biome`, `first_visit`) · `ROOM_EXIT` · `ROOM_CLEARED` ·
+`ACTION_REJECTED` (`action`, `reason`: `cooldown` `mana` `not owned` ...) · `RUN_COMPLETE` (`stats`, `seed`).
+
+## Twin events
+
+| `type` | Emitted by | Data |
 |---|---|---|
-| `PLAYER_DASHED` | `DASH` | Include `data["distance"]` if you want this to feed mobility. |
-| `PLAYER_DODGED` | `DODGE` | |
-| `PLAYER_ATTACKED` | `ATTACK` | Include `data["tags"]` if you want this to feed aggression / dependency traits. |
-| `PLAYER_RETREATED` | `RETREAT` | Treated as a defensive action for aggression. |
-| `PLAYER_BLOCKED` | `BLOCK` | Treated as a defensive action for aggression. |
-| `PLAYER_ABILITY_CAST` | `data["ability"]` | The token *is* the ability name — new abilities need no code change here, just publish the event with the right `ability`/`tags`. |
+| `TWIN_ACTION` | `TwinExecutor.on_intent` when the intent type or target changes | `intent`, `target`, `position`, `confidence`, `utilities`, `reason`, `twin_position` |
+| `TWIN_OUTCOME` | when that intent ends (change or 4 s timeout) | `intent`, `target`, `success`, `damage_dealt`, `damage_taken`, `kills`, `duration`, `end_reason` |
+| `TWIN_ATTACKED` | `combat.process_twin_attack` | `target`, `weapon`, `tags`, `hitCount`, `distance` |
+| `TWIN_DAMAGED` / `TWIN_DOWNED` / `TWIN_REVIVED` | combat / session | `attacker`, `damage`, `remaining`, `intent` |
 
-Any other `type` (enemy events, outcome events like `ENEMY_KILLED`, anything
-without `action_token` or a recognized `type`) contributes nothing — it's
-still buffered (for replay/debug) but produces no prediction token and no
-trait signal. That's intentional: this pipeline only reasons about *player
-actions*, not their outcomes. Outcome events (damage dealt, kills, loot) are
-out of scope for this slice.
+## Boss events
 
-## Trait formulas (current slice: aggression, mobility, melee/ranged/spell dependency)
+`BOSS_COUNTER` (`counter`: `kite` `rush` `dodge_aoe` `riposte` `predict_dash` `deny_zone`, `confidence`, `detail`, `phase`) ·
+`BOSS_NOVA_CHARGE` (`radius`, `duration`) · `BOSS_NOVA` · `BOSS_DEFEATED`.
 
-Code: `agent/features/combat_features.py`, `agent/features/movement_features.py`.
+## Trait formulas (unchanged from the original contract)
 
-- **aggression** — classified by `type`, not by `action_token` (the token is
-  meant to be overridden per-ability for sequence prediction, e.g.
-  `"AERIAL_ATTACK"`, so it can't double as a stable category label). `1.0` for
-  `PLAYER_ATTACKED`, or `PLAYER_ABILITY_CAST` without a `DEFENSIVE` tag. `0.0`
-  for `PLAYER_BLOCKED`/`PLAYER_RETREATED`, or an ability cast tagged
-  `DEFENSIVE`. **No observation** for anything else (movement, an
-  unrecognized type, an ability cast with no `tags` at all) — an ambiguous
-  action shouldn't pull the trait in either direction.
-- **mobility** — `min(1.0, distance / 5.0)` when `data["distance"]` is
-  present. `5.0` world units is a placeholder "one full dash" reference —
-  retune once real movement numbers exist. **No observation** when `distance`
-  is absent, even on a `PLAYER_DASHED` event — we don't assume a dash moved
-  "far" without the actual number.
-- **melee_dependency / ranged_dependency / spell_dependency** — when
-  `data["tags"]` is present **and contains at least one combat category**
-  (`MELEE`/`RANGED`/`SPELL`), each of the three gets `1.0` if its tag is in
-  the set, else `0.0`. A single action is a mutually-exclusive category
-  choice, so e.g. a melee attack reads as `melee_dependency=1.0`,
-  `ranged_dependency=0.0`, `spell_dependency=0.0` all at once. **No
-  observation for any of the three** when `tags` is absent, empty, or present
-  but containing only non-combat tags (e.g. a `PLAYER_DASHED` event tagged
-  only `MOBILITY`) — none of those assert or deny a combat category, so they
-  must not read as "definitely not melee/ranged/spell" the way an actual
-  combat action's absence of a tag does.
+- **aggression** — `1.0` for `PLAYER_ATTACKED` or a non-`DEFENSIVE` ability cast; `0.0` for
+  `PLAYER_BLOCKED`/`PLAYER_RETREATED` or a `DEFENSIVE` cast; no observation otherwise.
+- **mobility** — `min(1, distance / 95)` when `distance` is present.
+- **melee/ranged/spell_dependency** — from `tags` when at least one combat category is present.
+- **combo_dependency** — `1.0` when `comboStep >= 2` (this hit chained), `0.0` when `comboStep == 1`
+  (an opening hit), no observation when `comboStep` is absent. Deliberately separate from
+  `aggression`: a player who attacks constantly but never chains reads as aggressive without reading
+  as combo-heavy, and vice versa.
+- **preferred_range** — `0.0` at sword reach, `1.0` at staff reach, linear between `48` and `320` world units,
+  read from `nearestEnemyDistance` on `PLAYER_ATTACKED` and offensive casts (a combat tag, no `DEFENSIVE`).
+  No observation when the distance is absent or beyond `450` (nothing engaged: a swing at air).
+- **risk_tolerance** — `PLAYER_ATTACKED`: `1 - 0.8 * healthFraction` (attacking while hurt is risk-tolerant;
+  the same mapping the twin style model uses). `PLAYER_RETREATED`: `1 - health fraction` (retreating early
+  is cautious, retreating nearly dead is not). No observation when health is absent.
+- **defensive_tendency** — `1.0` for `PLAYER_DODGED`, `PLAYER_BLOCKED`, `PLAYER_RETREATED`, a `DEFENSIVE`
+  cast, or an `ITEM_USED` with `healed > 0`; `0.0` for an offensive attack or cast; no observation for
+  mobility-only casts, mana items or anything else. Not the mirror image of `aggression`: dodges and
+  healing items count here and not there. It reads as the share of decisions that were defensive.
 
-All traits share the same `Trait.update()` — an exponentially-weighted moving
-average (see `agent/player_model/traits.py`). Recent observations matter more
-than old ones; confidence rises with sample count but is capped short of
-`1.0`, and a handful of observations never reads as high confidence regardless
-of how consistent they are.
+## Zone layers (spatial)
 
-## Spatial heatmaps (doc section 18)
-
-Code: `agent/features/spatial_features.py`, `agent/spatial/`. Requires
-`data["position"]` — no position, no observation, same rule as everywhere
-else. Each event can land in more than one layer at once (a melee attack in a
-dangerous spot is `combat`, `melee`, *and* `high_risk`).
-
-| Layer | Rule |
-|---|---|
-| `combat` | `type` is `PLAYER_ATTACKED` or `PLAYER_ABILITY_CAST`. |
-| `melee` | `combat` rule *and* `tags` contains `MELEE`. |
-| `spell` | `type` is `PLAYER_ABILITY_CAST` *and* `tags` contains `SPELL`. |
-| `retreat` | `type` is `PLAYER_RETREATED`. |
-| `dodge` | `type` is `PLAYER_DODGED`. |
-| `death` | `type` is `PLAYER_DIED` (not otherwise used by telemetry — publish it purely for this layer). |
-| `high_risk` | `tags` contains `HIGH_RISK`, regardless of `type`. |
-
-Each layer is its own decaying grid (`GridHeatmap`, `cell_size` world units per
-cell) — positions get bucketed into a cell and accumulate decayed weight
-there, same half-life-in-seconds calibration and actual storage pruning as
-`agent/prediction/markov.py`. The snapshot's `spatial` field gives each
-layer's top-N most active cells.
-
-## Pattern detection (doc sections 33-34)
-
-Code: `agent/patterns/`. Not a new input contract — it's a derived layer on
-top of `agent/prediction/predictor.py`'s own output, so it needs no new event
-fields. Audience here is really the AI-agent teammate (twin/utility/boss),
-not the game backend dev.
-
-The predictor's `predict()` gives a ranked candidate every time you call it,
-continuously. `PatternDetector` turns that into discrete state-transition
-events instead — a `"DETECTED"` the moment a context's top prediction first
-crosses `detection_threshold` (default `0.7`), and a `"LOST"` when either the
-top token for that context changes (the old pattern is replaced, not updated)
-or the context simply stops recurring for `staleness_ticks` (default 1800 —
-30s at 60Hz) even though nothing has actively contradicted it yet. Reconfirming
-the *same* dominant token repeatedly does **not** re-fire `"DETECTED"` — you
-get one event per genuinely new pattern, not one per tick it holds.
-
-`PlayerModelSnapshot.patterns` is the current active set (one `Pattern` per
-context); `pattern_events` is the last N `PatternEvent`s (`DETECTED`/`LOST`),
-for a HUD notification feed like the doc's own "NEW PATTERN DETECTED:
-RETREAT -> SPELL -> DODGE" example.
-
-## What isn't covered yet
-
-Any combat-outcome events (damage/kills/loot) are out of scope for this
-slice. Extending the trait set, zone-layer set, or event vocabulary is
-expected — update this table and the corresponding `agent/features/*.py`
-file together.
+`combat` (attacks, casts) · `melee` (combat + `MELEE`) · `spell` (cast + `SPELL`) · `retreat` ·
+`dodge` · `high_risk` (tag) · `death` (`PLAYER_DIED`). Cell size 64 world units.

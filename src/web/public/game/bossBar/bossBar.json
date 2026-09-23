@@ -1,0 +1,54 @@
+{
+ "frames": {
+  "bar": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 373,
+    "h": 61
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 373,
+    "h": 61
+   },
+   "sourceSize": {
+    "w": 374,
+    "h": 62
+   }
+  },
+  "divider": {
+   "frame": {
+    "x": 377,
+    "y": 2,
+    "w": 12,
+    "h": 47
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 182,
+    "y": 8,
+    "w": 12,
+    "h": 47
+   },
+   "sourceSize": {
+    "w": 374,
+    "h": 62
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "bossBar.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 512,
+   "h": 65
+  },
+  "scale": "1"
+ }
+}

@@ -1,0 +1,63 @@
+{
+  "description": "Per-frame movement/combat input. Facing is derived server-side.",
+  "properties": {
+    "type": {
+      "const": "INPUT",
+      "default": "INPUT",
+      "title": "Type",
+      "type": "string"
+    },
+    "moveX": {
+      "default": 0.0,
+      "maximum": 1.0,
+      "minimum": -1.0,
+      "title": "Movex",
+      "type": "number"
+    },
+    "moveY": {
+      "default": 0.0,
+      "maximum": 1.0,
+      "minimum": -1.0,
+      "title": "Movey",
+      "type": "number"
+    },
+    "attack": {
+      "default": false,
+      "title": "Attack",
+      "type": "boolean"
+    },
+    "run": {
+      "default": false,
+      "title": "Run",
+      "type": "boolean"
+    },
+    "ability": {
+      "anyOf": [
+        {
+          "maximum": 4,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ability"
+    },
+    "seq": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Seq"
+    }
+  },
+  "title": "InputMessage",
+  "type": "object"
+}

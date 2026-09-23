@@ -1,0 +1,54 @@
+{
+ "frames": {
+  "rest": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 162,
+    "h": 159
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 6,
+    "y": 0,
+    "w": 162,
+    "h": 159
+   },
+   "sourceSize": {
+    "w": 168,
+    "h": 160
+   }
+  },
+  "press": {
+   "frame": {
+    "x": 166,
+    "y": 2,
+    "w": 162,
+    "h": 159
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 162,
+    "h": 159
+   },
+   "sourceSize": {
+    "w": 168,
+    "h": 160
+   }
+  }
+ },
+ "meta": {
+  "app": "scripts/build_atlas.py",
+  "image": "settingsButton.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 512,
+   "h": 163
+  },
+  "scale": "1"
+ }
+}

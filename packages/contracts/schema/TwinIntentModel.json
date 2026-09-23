@@ -1,0 +1,58 @@
+{
+  "description": "The shape every twin controller must return (validated in tests).",
+  "properties": {
+    "intentType": {
+      "title": "Intenttype",
+      "type": "string"
+    },
+    "targetId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Targetid"
+    },
+    "position": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Position"
+    },
+    "confidence": {
+      "default": 0.5,
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Confidence",
+      "type": "number"
+    },
+    "utilities": {
+      "additionalProperties": {
+        "type": "number"
+      },
+      "title": "Utilities",
+      "type": "object"
+    },
+    "reason": {
+      "default": "",
+      "title": "Reason",
+      "type": "string"
+    }
+  },
+  "required": [
+    "intentType"
+  ],
+  "title": "TwinIntentModel",
+  "type": "object"
+}
