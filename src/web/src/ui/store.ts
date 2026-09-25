@@ -261,7 +261,9 @@ eventBus.on('game:snapshot', (snap) => {
       !askedForName
       && snap.campaign.playerName === 'Wanderer'
       && snap.campaign.completed.length === 0
-      && isRoomFull(snap.room) && snap.room.safe
+      // Standing in a village, which a region reports per-position rather than
+      // per-room now.
+      && snap.settlement !== null
     ) {
       askedForName = true;
       window.setTimeout(() => askForNames('player'), 600);

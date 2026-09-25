@@ -76,6 +76,11 @@ def test_upgrading_keeps_every_bit_of_progression():
     assert upgraded["player"]["unlockedSkills"] == ["keen_edge", "heavy_hands"]
     assert upgraded["player"]["weapons"] == ["iron_sword", "hunter_bow"]
     assert upgraded["campaign"]["completedAreas"] == ["wakewood_crypt"]
+    # The villages became settlements inside regions, so a v1 save's area names
+    # are remapped rather than filtered out as unknown.
+    assert upgraded["campaign"]["currentArea"] == "emberfall_basin"
+    assert upgraded["campaign"]["discoveredAreas"] == [
+        "emberfall_basin", "hollowreach_vale", "wakewood_crypt"]
     assert upgraded["campaign"]["seals"] == ["seal_of_waking"]
     assert upgraded["campaign"]["twinRescued"] is True
     # What the twin learned rides along untouched -- `save.py` never reads into it.
@@ -170,7 +175,8 @@ def test_a_v1_save_still_loads_a_playable_run(monkeypatch):
     path.write_text(json.dumps(v1_save()), encoding="utf-8")
 
     session = GameSession("resume", seed=5, record=False, load_save=True)
-    assert session.campaign.current_area == "emberfall", "resumed where it was saved"
+    assert session.campaign.current_area == "emberfall_basin", (
+        "a v1 save said 'emberfall'; the run resumes in the region that village is in")
     assert session.campaign.player_name == "Rell"
     assert session.state.player.level == 6
     assert session.state.player.inventory.gold == 410

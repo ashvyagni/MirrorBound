@@ -69,24 +69,53 @@ class Decor:
 
 @dataclass
 class Door:
+    """A way out of a room, on one of its four sides.
+
+    Two kinds of target, and they are different things. `target_index` is
+    another room in the *same dungeon* -- a gate you walk through. `target_area`
+    is the edge of the world: the ground continues into the next region, and
+    walking off this side puts you on the opposite side of that one. An edge is
+    a Door rather than a Portal because a Door is already a rectangle on a side,
+    and an edge has to span most of one.
+    """
     side: str                  # "north" | "south" | "east" | "west"
     x: float
     y: float
     width: float = 96.0
     target_index: int | None = None   # room index this door leads to; None = sealed
     locked: bool = True
-    kind: str = "gate"          # gate | arch | exit
+    kind: str = "gate"          # gate | arch | exit | edge | sealed
+    #: Another *area* this side opens onto, for a continuous overworld.
+    target_area: str = ""
+    #: Why this way is shut, when it is. Shown to the player instead of a
+    #: silent wall -- §22 asks for barriers that make sense inside the world.
+    lock_reason: str = ""
+    #: What this way is called. Crossings have names so an NPC can tell you to
+    #: take the Rootbridge and the HUD can confirm you are standing on it.
+    label: str = ""
+
+    @property
+    def is_edge(self) -> bool:
+        """Whether walking off this side leaves the area entirely."""
+        return bool(self.target_area)
 
     def contains(self, pos: Vec2, radius: float) -> bool:
         half = self.width / 2
+        # An edge is crossed by reaching the boundary, not by standing in a
+        # doorway, so it is deeper than a gate: the movement system clamps the
+        # player to the room's interior, and a band one tile thick at the very
+        # edge is one the clamp can leave you just outside of.
+        depth = TILE * (2.2 if self.is_edge else 0.9)
         if self.side in ("north", "south"):
-            return abs(pos.x - self.x) < half and abs(pos.y - self.y) < TILE * 0.9 + radius
-        return abs(pos.y - self.y) < half and abs(pos.x - self.x) < TILE * 0.9 + radius
+            return abs(pos.x - self.x) < half and abs(pos.y - self.y) < depth + radius
+        return abs(pos.y - self.y) < half and abs(pos.x - self.x) < depth + radius
 
     def to_dict(self) -> dict:
         return {
             "side": self.side, "x": self.x, "y": self.y, "width": self.width,
             "targetIndex": self.target_index, "locked": self.locked, "kind": self.kind,
+            "targetArea": self.target_area, "lockReason": self.lock_reason,
+            "label": self.label,
         }
 
 
@@ -118,6 +147,35 @@ class Portal:
             "targetArea": self.target_area, "label": self.label, "kind": self.kind,
             "locked": self.locked, "lockReason": self.lock_reason, "radius": self.radius,
         }
+
+
+@dataclass
+class Settlement:
+    """A village, standing inside a region.
+
+    Not an area of its own. A settlement is a *circle of ground* within a region
+    room: the huts, the vendors and the hearth are on the same map as the fields
+    around them, so you see the rooftops from the road and walk in without a
+    transition. That is the difference between an open world and a set of rooms
+    joined by portals.
+
+    Because it is a zone rather than a room, "am I somewhere safe" stops being a
+    property of the map and becomes a question about where you are standing --
+    which is what `Room.settlement_at` answers, and what the rules that used to
+    read `room_type == "village"` ask now.
+    """
+    id: str
+    name: str
+    x: float
+    y: float
+    radius: float = 520.0
+
+    def contains(self, pos: Vec2) -> bool:
+        return (pos - Vec2(self.x, self.y)).length() <= self.radius
+
+    def to_dict(self) -> dict:
+        return {"id": self.id, "name": self.name, "x": round(self.x, 1),
+                "y": round(self.y, 1), "radius": round(self.radius, 1)}
 
 
 @dataclass
@@ -153,6 +211,8 @@ class Room:
     area_id: str = ""
     portals: list[Portal] = field(default_factory=list)
     npcs: list = field(default_factory=list)      # list[Npc]; untyped to keep this module import-free
+    #: Villages standing in this room. Empty everywhere but an overworld region.
+    settlements: list[Settlement] = field(default_factory=list)
     # Set once the room's one-time rewards have been handed out, so a room that
     # is re-entered cannot be farmed.
     looted: bool = False
@@ -229,8 +289,23 @@ class Room:
         )
 
     def door_at(self, pos: Vec2, radius: float) -> Door | None:
+        """A door to another room in this dungeon that `pos` is standing in."""
         for door in self.doors:
             if door.target_index is not None and door.contains(pos, radius):
+                return door
+        return None
+
+    def edge_at(self, pos: Vec2, radius: float) -> Door | None:
+        """An edge of the world that `pos` has reached.
+
+        Kept apart from `door_at` because the two mean different things and the
+        room logic acts on them differently -- one moves you to another room in
+        the dungeon you are in, the other moves you to another area. Locked
+        edges are returned as well: the caller says why the way is shut, which
+        is the difference between a barrier and an invisible wall.
+        """
+        for door in self.doors:
+            if door.is_edge and door.contains(pos, radius):
                 return door
         return None
 
@@ -259,19 +334,68 @@ class Room:
                 return door
         return None
 
-    def entry_point_from(self, side: str) -> Vec2:
-        """Where you stand after entering through the door on `side`."""
+    def entry_point_from(self, side: str, along: float | None = None) -> Vec2:
+        """Where you stand after entering through the door on `side`.
+
+        `along` is where on that side you came in, as 0-1 across it. Crossing a
+        region edge keeps the offset -- walk off the north edge near its left end
+        and you arrive near the left end of the next region's south edge -- so
+        the world holds its shape as you move through it. None centres on the
+        door, which is what a dungeon gate wants.
+
+        **The inset is load-bearing for edges.** An edge is a band 2.2 tiles deep
+        (see `Door.contains`) and the room logic hands control back after a 0.6 s
+        transition. Arriving inside that band means the edge fires again the
+        moment the timer runs out, and the player ping-pongs between two regions
+        with no way to stop it. Four tiles clears the band with room to spare.
+        """
         for door in self.doors:
-            if door.side == side:
-                inset = TILE * 2.4
-                if side == "north":
-                    return Vec2(door.x, door.y + inset)
-                if side == "south":
-                    return Vec2(door.x, door.y - inset)
-                if side == "west":
-                    return Vec2(door.x + inset, door.y)
-                return Vec2(door.x - inset, door.y)
+            if door.side != side:
+                continue
+            inset = TILE * (4.0 if door.is_edge else 2.4)
+            if along is None:
+                x, y = door.x, door.y
+            elif side in ("north", "south"):
+                x = door.x - door.width / 2 + door.width * min(max(along, 0.0), 1.0)
+                y = door.y
+            else:
+                x = door.x
+                y = door.y - door.width / 2 + door.width * min(max(along, 0.0), 1.0)
+            if side == "north":
+                return Vec2(x, y + inset)
+            if side == "south":
+                return Vec2(x, y - inset)
+            if side == "west":
+                return Vec2(x + inset, y)
+            return Vec2(x - inset, y)
         return self.player_spawn
+
+    def offset_along(self, side: str, pos: Vec2) -> float:
+        """Where `pos` sits across the given side, as 0-1. The inverse of `along`."""
+        for door in self.doors:
+            if door.side != side:
+                continue
+            start = (door.x if side in ("north", "south") else door.y) - door.width / 2
+            here = pos.x if side in ("north", "south") else pos.y
+            return min(max((here - start) / door.width, 0.0), 1.0) if door.width else 0.5
+        return 0.5
+
+    def settlement_at(self, pos: Vec2) -> Settlement | None:
+        """The village `pos` is standing in, if any."""
+        for settlement in self.settlements:
+            if settlement.contains(pos):
+                return settlement
+        return None
+
+    def is_safe_at(self, pos: Vec2) -> bool:
+        """Whether this spot is somewhere the game promises is safe.
+
+        A whole room used to be safe or not, because a village was a room. A
+        region contains both a village and the wilderness around it, so safety
+        is a question about position now. Dungeons answer False everywhere, which
+        they always did.
+        """
+        return self.room_type == "village" or self.settlement_at(pos) is not None
 
     def unlock_doors(self) -> None:
         for door in self.doors:
@@ -296,7 +420,12 @@ class Room:
             # are twelve enemy families and a room uses at most a few.
             "enemySprites": self.enemy_sprites(),
             "cleared": self.cleared,
+            # True when the *whole* room is safe. A region is not -- it has a
+            # village in it and wilderness around that -- so the client reads
+            # `settlements` and the snapshot's `settlement` field for where the
+            # player actually is.
             "safe": self.room_type == "village",
+            "settlements": [s.to_dict() for s in self.settlements],
             "areaId": self.area_id,
             "seed": self.seed,
         }

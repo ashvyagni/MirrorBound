@@ -4,7 +4,7 @@ from mirrorbound.game.dungeon.room import T_PATH, T_WALL, T_WATER, TILE
 from mirrorbound.game.dungeon.templates import DEFAULT_SEQUENCE
 from mirrorbound.game.entities.enemy import get_archetype
 from mirrorbound.game.entities.entity import Vec2
-from mirrorbound.game.world.village import build_village
+from mirrorbound.game.world.region import build_region
 
 
 def gen(seed: int = 7, count: int = 7):
@@ -101,11 +101,21 @@ def test_the_boss_room_names_the_mirror():
     assert run.rooms[-1].enemy_sprites() == ["mirror"]
 
 
-def test_a_village_names_no_enemy_art_at_all():
-    village = build_village("hollow_reach", DeterministicRNG(3))
-    assert village.enemy_spawns == []
-    assert village.enemy_sprites() == []
-    assert village.to_dict()["enemySprites"] == []
+def test_nothing_hostile_stands_inside_a_settlement():
+    """A village is safe ground, and it is ground inside a region now.
+
+    It used to be a room of its own with no spawn table at all, so "no enemies"
+    was a property of the map. The region around Hollow Reach has wolves and a
+    spitter in it on purpose -- what has to stay true is that none of them is
+    standing on the green.
+    """
+    region = build_region("hollowreach_vale", DeterministicRNG(3), lambda _a: (True, "ok"))
+    settlement = region.settlements[0]
+    assert region.enemy_spawns, "the region around it is not empty"
+    for spawn in region.enemy_spawns:
+        assert not settlement.contains(spawn.position), spawn.enemy_type
+    for _kind, position in region.treasure:
+        assert not settlement.contains(position), "loot inside the village is loot for arriving"
 
 
 def test_the_snapshot_carries_the_same_list_the_method_returns():

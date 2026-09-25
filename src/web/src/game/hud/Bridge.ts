@@ -271,6 +271,24 @@ export class Bridge {
         }
       }
     }
+    // Crossings announce themselves by name. A bridge is drawn as terrain rather
+    // than as a gateway, so without this the player walks onto the one thing that
+    // moves them between regions with nothing saying what it is -- and an NPC who
+    // tells them to take the Rootbridge has named something they cannot confirm.
+    if (!best && this.#interactions.room) {
+      for (const door of this.#interactions.room.doors) {
+        if (!door.targetArea) continue;
+        if (near({ x: door.x, y: door.y }, door.width / 2 + 64)) {
+          best = {
+            action: 'walk',
+            label: door.locked && door.lockReason ? door.lockReason : (door.label || 'onward'),
+            x: door.x,
+            y: door.y,
+          };
+          break;
+        }
+      }
+    }
     if (!best) {
       for (const pickup of snap.pickups) {
         if (near(pickup.position, 44)) {
@@ -292,6 +310,22 @@ export class Bridge {
    * inventory is -- opening the tree between two detail frames must not show
    * an empty one.
    */
+  /**
+   * Whether anything is actually fighting the player.
+   *
+   * The server's `FIGHT_RADIUS` rule, restated: a region has creatures in it
+   * permanently, so "any enemy is active" would grey out the respec button
+   * everywhere in the open world because of a hound across the fields.
+   */
+  #somethingIsFighting(snap: GameSnapshot): boolean {
+    const me = snap.player.position;
+    return snap.enemies.some((e) => {
+      if (!e.active) return false;
+      if (e.targetId === snap.player.id) return true;
+      return Math.hypot(e.position.x - me.x, e.position.y - me.y) <= 420;
+    });
+  }
+
   #emitSkills(snap: GameSnapshot): void {
     const tree = snap.player.skillTree;
     if (tree) this.#skills = tree;
@@ -299,10 +333,13 @@ export class Bridge {
 
     // The three rules the server enforces, spelled out so a disabled button
     // says why rather than just refusing.
-    const room = this.#interactions.room;
+    // Mirrors what `_respec` enforces on the server, so a disabled button says
+    // why rather than just refusing. Both rules changed shape with the open
+    // world: "in a village" is a position now, and "in a fight" cannot mean
+    // "anything is alive on this map" when a region always has wilderness in it.
     const blocked = !this.#skills.some((n) => n.unlocked) ? 'Nothing learned yet'
-      : room && !room.safe ? 'Only in a village'
-      : snap.enemies.some((e) => e.active) ? 'Not in a fight'
+      : snap.settlement === null ? 'Only in a village'
+      : this.#somethingIsFighting(snap) ? 'Not in a fight'
       : '';
 
     const key = `${snap.player.skillPoints}|${blocked}|`
@@ -325,10 +362,14 @@ export class Bridge {
   #emitCampaign(snap: GameSnapshot): void {
     if (snap.campaign) this.#areas = snap.campaign.areas;
     if (this.#areas.length === 0) return;
-    const room = this.#interactions.room;
-    // The server honours travel only from a village. Saying so up front beats
-    // a click that is silently refused.
-    const canTravel = room?.roomType === 'village';
+    // The server honours travel only from a settlement (or the sandbox). Saying
+    // so up front beats a click that is silently refused.
+    //
+    // Read off the snapshot rather than the room type: a village is a circle of
+    // ground inside a region now, so the room is a `region` whether the player
+    // is standing among the huts or out in the fields.
+    const canTravel = snap.settlement !== null
+      || this.#interactions.room?.roomType === 'sandbox';
     const key = `${canTravel}|` + this.#areas
       .map((a) => `${a.id}${a.discovered ? 1 : 0}${a.completed ? 1 : 0}${a.open ? 1 : 0}${a.current ? 1 : 0}`)
       .join('');

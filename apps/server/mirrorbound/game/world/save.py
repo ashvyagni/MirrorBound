@@ -39,7 +39,7 @@ log = logging.getLogger("mirrorbound.save")
 #: Bumped whenever the shape changes, with a step added to `_MIGRATIONS` in the
 #: same commit. Older saves are upgraded by `migrate`, never discarded -- see
 #: the note above it for why that distinction is load-bearing.
-SAVE_VERSION = 2
+SAVE_VERSION = 3
 SAVE_DIR = Path(__file__).resolve().parents[3] / "saves"
 
 #: The slot the village checkpoint writes. Autosaving into a fresh slot every
@@ -229,9 +229,50 @@ def _to_v2(data: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
+#: What a village was called when it was an area, and the region it is in now.
+#:
+#: v1.1 made the world continuous, so Hollow Reach and Emberfall stopped being
+#: areas of their own and became settlements standing inside regions. A save from
+#: before that names the village as the place the run was in.
+_AREA_RENAMES: dict[str, str] = {
+    "hollow_reach": "hollowreach_vale",
+    "emberfall": "emberfall_basin",
+    # The old wilderness placeholder from the first pass at the overworld, before
+    # regions carried their settlements. Harmless to keep listed.
+    "wakewood_edge": "wakewood",
+    "ember_road": "drowned_flats",
+}
+
+
+def _to_v3(data: dict[str, Any]) -> dict[str, Any]:
+    """v2 -> v3: the villages moved inside the regions.
+
+    Without this, a run saved in Emberfall reopens with `currentArea` naming an
+    area that no longer exists. `CampaignState.from_save` filters unknown areas
+    out, so the run would silently restart in the first region with its
+    discovered map half erased -- progression intact, but the player put back at
+    the beginning of the world. Remapping is the difference between "your save
+    still works" and "your save still has your level in it".
+    """
+    campaign = data.get("campaign")
+    if not isinstance(campaign, dict):
+        return data
+    current = campaign.get("currentArea")
+    if isinstance(current, str):
+        campaign["currentArea"] = _AREA_RENAMES.get(current, current)
+    for key in ("completedAreas", "discoveredAreas"):
+        listed = campaign.get(key)
+        if isinstance(listed, list):
+            # Deduplicated, because two old ids can map to one region.
+            campaign[key] = sorted({_AREA_RENAMES.get(a, a) for a in listed
+                                    if isinstance(a, str)})
+    return data
+
+
 #: version you are upgrading *from* -> the step that produces the next one.
 _MIGRATIONS: dict[int, Any] = {
     1: _to_v2,
+    2: _to_v3,
 }
 
 

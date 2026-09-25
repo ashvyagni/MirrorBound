@@ -63,15 +63,15 @@ def test_the_sandbox_is_not_a_checkpoint():
     s._checkpoint()
     go_to_proving(s)
     saved = save_system.read_save("nosave")
-    assert saved["campaign"]["currentArea"] == "hollow_reach"
+    assert saved["campaign"]["currentArea"] == "hollowreach_vale"
     assert saved["player"]["level"] == 9
 
 
 def test_you_can_walk_back_out_of_the_sandbox():
     s = village("out")
     go_to_proving(s)
-    apply(s, "TRAVEL", areaId="hollow_reach")
-    assert s.campaign.current_area == "hollow_reach"
+    apply(s, "TRAVEL", areaId="hollowreach_vale")
+    assert s.campaign.current_area == "hollowreach_vale"
 
 
 # --- the admin stick ---------------------------------------------------------
@@ -197,10 +197,18 @@ def test_the_skill_floor_never_lowers_what_the_model_actually_learned():
     assert confidence == 0.3, "but it does raise a model that knows nothing yet"
 
 
-def test_spawning_is_still_refused_in_a_village():
+def test_spawning_is_still_refused_while_standing_in_a_village():
+    """Safe ground stays safe, and it is ground inside a region now.
+
+    Asserted on the boss rather than on the enemy list: the vale around Hollow
+    Reach has wilderness in it, so "nothing is alive here" stopped being the same
+    statement as "nothing was summoned".
+    """
     s = village("safe")
+    before = len(s.state.enemies)
     apply(s, "SPAWN", enemyType="mirror")
-    assert not s.state.enemies
+    assert len(s.state.enemies) == before, "nothing was added"
+    assert not any(e.enemy_def.boss for e in s.state.enemies)
     assert any(e.data.get("reason") == "not in a village" for e in events_of(s, "ACTION_REJECTED"))
 
 

@@ -43,7 +43,9 @@ TICK_BUDGET_MS = 1000.0 / SIM_HZ
 #: the game currently has: the boss runs a counter-policy over the whole player
 #: model every tick.
 SCENES: tuple[tuple[str, str], ...] = (
-    ("hollow_reach", "a village: no enemies, many props, the overworld's shape"),
+    ("hollowreach_vale", "the opening region: a village in it, and wilderness around"),
+    ("drowned_flats", "the widest region: a flood, and the most water decor"),
+    ("kiln_terraces", "the pass: massed wall tiles, the narrowest ground"),
     ("wakewood_crypt", "the opening dungeon: an ordinary fight"),
     ("mirror_sanctum", "the Mirror: the heaviest AI in the game"),
 )

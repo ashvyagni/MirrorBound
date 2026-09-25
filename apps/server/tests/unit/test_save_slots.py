@@ -164,7 +164,7 @@ def test_a_new_save_starts_from_nothing_rather_than_copying_the_run():
     s.campaign.player_name = "Someone"
     s.state.player.level = 7
     s.state.player.inventory.add_weapon("ember_staff")
-    s.campaign.complete("hollow_reach")
+    s.campaign.complete("hollowreach_vale")
 
     apply(s, "NEW_SAVE", saveName="Second")
 

@@ -5,8 +5,21 @@ from tests.conftest import DT, arm, events_of, run_ticks
 
 
 def fresh() -> GameSession:
-    s = GameSession("combat", seed=99, record=False)
-    s.state.enemies = []          # entrance has none anyway; be explicit
+    """A clear, empty arena to measure a weapon in.
+
+    The Proving, because that is what it is for: bare floor, no props, nothing
+    alive. These tests place one enemy at a known offset and assert what a swing
+    or a shot does to it, and they need the line between the two to be empty.
+
+    They used to open in the first village, which was a room with scattered decor
+    and a lot of clear grass. That village is a settlement inside a region now,
+    with an authored layout -- so "150 units north of the spawn" became a spot
+    with the hearth in front of it, and an arrow fired at an enemy there hit the
+    hearth's collision circle instead. The fixture was never meant to be a
+    statement about village geometry.
+    """
+    s = GameSession("combat", seed=99, record=False, start_area="the_proving")
+    s.state.enemies = []          # bare anyway; be explicit
     s.state.pending_events.clear()
     return s
 

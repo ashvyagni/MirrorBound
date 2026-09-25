@@ -58,14 +58,17 @@ from mirrorbound.game.world.actions import (
 from mirrorbound.game.world.campaign import (
     AREAS,
     HOME_VILLAGE,
+    OPPOSITE,
+    OVERWORLD_KINDS,
     START_AREA,
     CampaignState,
     sanitise_name,
 )
+from mirrorbound.game.world.campaign import crossing_between
+from mirrorbound.game.world.region import build_region
 from mirrorbound.game.world.cutscene import BEATS, LINE_SECONDS, LINES, Cutscene
 from mirrorbound.game.world.npc import TALK_RADIUS
 from mirrorbound.game.world.sandbox import build_sandbox
-from mirrorbound.game.world.village import build_village
 from mirrorbound.replay.recorder import ReplayRecorder
 
 log = logging.getLogger("mirrorbound.session")
@@ -91,6 +94,8 @@ CLIENT_EVENT_TYPES = {
     "ITEM_DROPPED", "BOSS_CONFIGURED",
     "SHARD_DROPPED", "TWIN_CORRUPTED", "TWIN_CLEANSED",
     "CUTSCENE_BEGIN", "CUTSCENE_BEAT", "CUTSCENE_LINE", "CUTSCENE_END",
+    # Walking into a village, and being told why a crossing is shut.
+    "SETTLEMENT_ENTER", "SETTLEMENT_EXIT",
 }
 
 # Spatial heatmap cell size in world units. Rooms are 1280-1600 wide, so 64 gives
@@ -143,6 +148,11 @@ class GameSession:
         #: Sandbox: what a summoned boss is armed with, as (main, offhand).
         self.boss_loadout: tuple[str, str] = ("", "")
         self._first_visit_to_sanctum = False
+        #: Which settlement the player is standing in, "" for none. Drives the
+        #: checkpoint and the safety rules that used to read `room_type`.
+        self._settlement = ""
+        #: When each shut crossing last explained itself, keyed by target area.
+        self._last_refusal: dict[str, float] = {}
 
         self.movement = MovementSystem(self.state.bus)
         self.combat = CombatSystem(self.state.bus, self.state.rng)
@@ -195,10 +205,21 @@ class GameSession:
 
     # ------------------------------------------------------------------- areas
 
-    def _enter_area(self, area_id: str, announce: bool = True) -> None:
-        """Move the run to another area: a village (one authored safe room) or a
-        dungeon (a seeded run of rooms). The player and twin keep everything --
-        level, inventory, learned model -- because only the world changes."""
+    def _enter_area(self, area_id: str, announce: bool = True, from_area: str = "",
+                    along: float | None = None) -> None:
+        """Move the run to another area.
+
+        Four kinds, and they arrive differently. A **village** is one authored
+        safe room; a **region** is one authored stretch of wilderness; a
+        **dungeon** is a seeded run of rooms; the **sandbox** is none of the
+        above. The player and twin keep everything -- level, inventory, learned
+        model -- because only the world changes.
+
+        `from_area` is where you walked in from, which decides which side of this
+        one you arrive on, and `along` is where across that side. Both are absent
+        when you did not walk here (a loaded save, a jump from the map, a
+        descent), and then the area's own spawn is used.
+        """
         area = AREAS.get(area_id)
         if area is None:
             return
@@ -209,6 +230,13 @@ class GameSession:
         # Each area gets its own RNG stream off the run seed, so a given seed
         # always produces the same Ashen Deep whether or not you detoured.
         rng = DeterministicRNG(self.seed).spawn(f"area:{area_id}")
+        # Which side of the new area the old one lies off: that is the side you
+        # come in on. Read from the destination's own crossings, so it is right
+        # even when the route here was not a crossing at all (a descent, a map
+        # jump, a loaded save) -- in which case there is none and the area's own
+        # spawn is used.
+        arrival = crossing_between(from_area, area_id) if from_area else None
+        from_side = arrival[0] if arrival else None
 
         if area.kind == "sandbox":
             # Not a checkpoint. Nothing that happens here is written down, so
@@ -216,17 +244,24 @@ class GameSession:
             self.dungeon = None
             state.dungeon = None
             self._enter_room(build_sandbox(area_id, rng), from_side=None)
-        elif area.kind == "village":
-            # Standing in a village is what puts the roads out of it on the
-            # map. Gated areas stay unknown, so the map fills in as you do.
-            for found in self.campaign.reveal_open():
+        elif area.kind in OVERWORLD_KINDS:
+            # Arriving somewhere is what puts the next step on the map: the
+            # neighbours across this area's edges and any dungeon mouth standing
+            # in it. The map fills in as you walk rather than all at once.
+            for found in self.campaign.reveal_adjacent(area_id):
                 state.emit("AREA_DISCOVERED", area=found, name=AREAS[found].name,
                            subtitle=AREAS[found].subtitle)
             self.dungeon = None
             state.dungeon = None
-            room = build_village(area_id, rng)
-            self._enter_room(room, from_side=None)
-            self._checkpoint()
+            room = build_region(area_id, rng, self.campaign.is_open,
+                                self.campaign.completed_areas)
+            self._enter_room(room, from_side=from_side, along=along)
+            # A checkpoint belongs to a settlement, not to a region: the village
+            # is the one ground the game promises is safe. Arriving in a region
+            # whose village you are standing in writes one; walking into the
+            # village later is caught by `_watch_settlement` in the tick.
+            if room.settlement_at(state.player.position) is not None:
+                self._checkpoint()
         else:
             self.dungeon = DungeonGenerator(rng).generate(
                 room_count=len(area.sequence) or self.room_count,
@@ -246,7 +281,7 @@ class GameSession:
             state.emit("AREA_ENTER", area=area_id, name=area.name, kind=area.kind,
                        subtitle=area.subtitle, difficulty=area.difficulty)
 
-    def _leave_area(self, portal_target: str) -> None:
+    def _leave_area(self, portal_target: str, along: float | None = None) -> None:
         if portal_target not in AREAS:
             self.state.emit("ACTION_REJECTED", actor=self.state.player.id, action="TRAVEL",
                             area=portal_target, reason="unknown area")
@@ -267,7 +302,7 @@ class GameSession:
             self.state.emit("ACTION_REJECTED", actor=self.state.player.id, action="TRAVEL",
                             area=portal_target, reason=reason)
             return
-        self._enter_area(portal_target)
+        self._enter_area(portal_target, from_area=self.campaign.current_area, along=along)
 
     def _complete_area(self) -> None:
         """A dungeon's last room is cleared. Rewards land exactly once."""
@@ -301,7 +336,7 @@ class GameSession:
             self.saves_dirty = True
             self.state.emit("CHECKPOINT_SAVED", area=self.campaign.current_area,
                             slot=target, name=name,
-                            safe=self.state.room.room_type == "village")
+                            safe=self._in_settlement())
 
     def _agent_save(self) -> dict:
         """What this run has learned, for the slot it is being written to.
@@ -347,7 +382,7 @@ class GameSession:
         elif event.type == "PLAYER_DASHED":
             self._last_player_action = "DASH"
 
-    def _enter_room(self, room: Room, from_side: str | None) -> None:
+    def _enter_room(self, room: Room, from_side: str | None, along: float | None = None) -> None:
         state = self.state
         if state.room is not None and state.room is not room and state.room.index != room.index:
             state.emit("ROOM_EXIT", room_id=state.room.id, room_type=state.room.room_type,
@@ -358,7 +393,7 @@ class GameSession:
         state.pickups = []
         if self.dungeon is not None:
             self.dungeon.current_room_index = room.index
-        spawn = room.entry_point_from(from_side) if from_side else room.player_spawn
+        spawn = room.entry_point_from(from_side, along) if from_side else room.player_spawn
         spawn = room.clamp(spawn, state.player.radius)
         state.player.position = spawn.copy()
         state.player.velocity = Vec2()
@@ -393,7 +428,14 @@ class GameSession:
         self.room_dirty = True
         state.emit("ROOM_ENTER", room_id=room.id, room_index=room.index, room_type=room.room_type,
                    name=room.name, biome=room.biome, position=spawn.to_dict(), enemies=len(state.enemies),
-                   first_visit=first_visit, area=room.area_id, safe=room.room_type == "village")
+                   first_visit=first_visit, area=room.area_id,
+                   safe=room.is_safe_at(spawn))
+        # Where the player is standing, as of arriving. `_watch_settlement` only
+        # reacts to a *change*, so without seeding it here the snapshot reports no
+        # settlement until the first tick has run -- and a client that reads it
+        # before then would offer travel and respec in the wrong place.
+        landed = room.settlement_at(state.player.position)
+        self._settlement = landed.id if landed is not None else ""
         self._maybe_rescue_twin(room, first_visit)
         self._maybe_take_the_twin(room, first_visit)
 
@@ -765,11 +807,50 @@ class GameSession:
         purpose.
         """
         state = self.state
-        if state.room.room_type not in ("village", "sandbox"):
+        if not (self._in_settlement() or state.room.room_type == "sandbox"):
             state.emit("ACTION_REJECTED", actor=state.player.id, action="TRAVEL", area=area_id,
-                       reason="only from a village")
+                       reason="only from a settlement")
             return
         self._leave_area(area_id)
+
+    #: How close an enemy has to be before it counts as being in a fight.
+    #:
+    #: Generously wide: the point is that nothing can reach the player before the
+    #: refund lands, not that the horizon is empty.
+    FIGHT_RADIUS = 420.0
+
+    def _in_a_fight(self) -> bool:
+        """Whether something is actually fighting the player.
+
+        This used to be `get_active_enemies()` -- "is there anything alive on this
+        map" -- which was the same question while every map was one room and a
+        village had no spawn table. A region has wilderness in it permanently, so
+        that reading made respec impossible anywhere in the open world: there was
+        always a hound somewhere on the far side of the fields.
+
+        What the rule is actually protecting is re-solving an encounter from
+        inside it, so the test is whether anything has noticed you or is close
+        enough to.
+        """
+        state = self.state
+        here = state.player.position
+        for enemy in state.get_active_enemies():
+            if enemy.target_id == state.player.id:
+                return True
+            if (enemy.position - here).length() <= self.FIGHT_RADIUS:
+                return True
+        return False
+
+    def _in_settlement(self) -> bool:
+        """Whether the player is standing in a village right now.
+
+        The four rules below used to ask `room.room_type == "village"`, which was
+        exactly right while a village *was* a room. A village is a circle of
+        ground inside a region now, so the question is about where the player is
+        rather than which map they are on.
+        """
+        state = self.state
+        return state.room.is_safe_at(state.player.position)
 
     def _npc_at(self, npc_id: str):
         for npc in self.state.room.npcs:
@@ -904,7 +985,7 @@ class GameSession:
         # `room_type`. Reading the snapshot's name off the Room raised inside
         # the tick, which stopped snapshots entirely and froze the client with
         # everything standing where it was.
-        if state.room.room_type == "village":
+        if self._in_settlement():
             state.emit("ACTION_REJECTED", actor=state.player.id, action="SPAWN",
                        reason="not in a village")
             return
@@ -943,11 +1024,11 @@ class GameSession:
         is where the campaign already lets you change your mind.
         """
         state, player = self.state, self.state.player
-        if state.room.room_type != "village":
+        if not self._in_settlement():
             state.emit("ACTION_REJECTED", actor=player.id, action="RESPEC",
                        reason="only in a village")
             return
-        if state.get_active_enemies():
+        if self._in_a_fight():
             state.emit("ACTION_REJECTED", actor=player.id, action="RESPEC", reason="not in a fight")
             return
         if not player.unlocked_skills:
@@ -1130,6 +1211,7 @@ class GameSession:
         state.enemies = [e for e in state.enemies if e.active]
 
         # 6. room logic
+        self._watch_settlement()
         self._room_logic()
         self.style.advance(state.tick)
 
@@ -1202,11 +1284,63 @@ class GameSession:
                 opposite = {"north": "south", "south": "north", "east": "west", "west": "east"}[door.side]
                 self._enter_room(self.dungeon.rooms[door.target_index], from_side=opposite)
                 return
-        # Portals out of the area.
+        # A crossing into the next region: walked onto, not activated. This is
+        # what makes the overworld continuous -- the bridge is simply the part of
+        # the boundary you can stand on.
+        if state.transition_timer <= 0:
+            crossing = room.edge_at(state.player.position, state.player.radius)
+            if crossing is not None:
+                if crossing.locked:
+                    self._refuse_crossing(crossing)
+                else:
+                    # Where across the crossing the player is, so they come out
+                    # of the far side at the matching place rather than its middle.
+                    self._leave_area(crossing.target_area,
+                                     along=room.offset_along(crossing.side, state.player.position))
+                    return
+        # Portals: a dungeon mouth, or the road home out of a finished dungeon.
         if state.transition_timer <= 0:
             portal = room.portal_at(state.player.position, state.player.radius)
             if portal is not None and not portal.locked:
                 self._leave_area(portal.target_area)
+
+    #: How long between two tellings of why a crossing is shut, in seconds.
+    #:
+    #: The player is standing in the mouth of it, so the check fires every tick.
+    #: Saying the same thing sixty times a second is how a toast stack becomes a
+    #: wall of text; once every few seconds reads as the place answering you.
+    REFUSAL_SECONDS = 4.0
+
+    def _refuse_crossing(self, crossing) -> None:
+        """Say why the way is shut, at a pace a person can read."""
+        now = self.state.tick / SIM_HZ
+        if now - self._last_refusal.get(crossing.target_area, -99.0) < self.REFUSAL_SECONDS:
+            return
+        self._last_refusal[crossing.target_area] = now
+        self.state.emit("ACTION_REJECTED", actor=self.state.player.id, action="CROSS",
+                        area=crossing.target_area, kind=crossing.kind,
+                        reason=crossing.lock_reason or "not yet")
+
+    def _watch_settlement(self) -> None:
+        """Notice the player walking into or out of a village.
+
+        A settlement is a circle on the region's own map, so there is no room
+        transition to hang this on -- which is the point of building it that way,
+        and also why arriving has to be watched for. Entering one writes a
+        checkpoint, the same promise the old village-as-a-room made.
+        """
+        state = self.state
+        here = state.room.settlement_at(state.player.position)
+        name = here.id if here is not None else ""
+        if name == self._settlement:
+            return
+        was, self._settlement = self._settlement, name
+        if name:
+            state.emit("SETTLEMENT_ENTER", settlement=name, name=here.name,
+                       area=state.room.area_id, position=state.player.position.to_dict())
+            self._checkpoint()
+        elif was:
+            state.emit("SETTLEMENT_EXIT", settlement=was, area=state.room.area_id)
 
     def _open_exit_portal(self, room) -> None:
         """The way back to the village, opened in place once a dungeon is done.
@@ -1270,6 +1404,10 @@ class GameSession:
         # the camera off whatever this says, so its absence means "play on".
         if self.cutscene is not None:
             snap["cutscene"] = self.cutscene.to_dict()
+        # Which village the player is standing in, or None. `room.safe` answers
+        # for a whole map and a region is not a whole map, so this is what the
+        # HUD, the map screen and the respec button read.
+        snap["settlement"] = self._settlement or None
         snap["lastError"] = self.last_error
         # The slot list only changes when a save is written or thrown away, so
         # it rides the detail snapshot rather than going out twenty times a

@@ -1,15 +1,38 @@
-"""The campaign: a small authored world of areas, and the state of a run through it.
+"""The campaign: one continuous authored world, and the state of a run through it.
 
-Five areas, not a procedural continent. The directive's own rule is that a
-compact authored world beats a big generated one when the compact one delivers
-the intended experience, and the intended experience here is Player + Twin and
-the Mirror at the end of it. Every area exists to serve that:
+An authored world rather than a procedural continent. The rule has not changed --
+a compact authored world beats a big generated one -- but v1.1 changes what
+"compact" has to deliver: you now *walk* between the villages instead of stepping
+through a portal, and the ground between them is where the story lives.
 
-    hollow_reach   village   safe hub, vendors, the elder who starts the quest
-    wakewood_crypt dungeon   the tutorial descent; the twin is found here
-    emberfall      village   the second hub; proof that progress reaches the world
-    ashen_deep     dungeon   the real dungeon, with a guardian at the bottom
-    mirror_sanctum dungeon   the Mirror
+The world is a graph of areas joined at their edges. Walking off the north side
+of one puts you at the south side of the next, with no menu and nothing to
+confirm, which is what makes it read as one place:
+
+    the_proving                                        (sandbox, off to one side)
+
+    wakewood_edge   region    the wood, and the crypt's mouth in it
+         |  south
+    hollow_reach    village   safe hub, vendors, the elder who starts the quest
+         |  east
+    greenmoor       region    farmland going back to meadow; the long open walk
+         |  east
+    ember_road      region    the old road between the two settlements
+         |  east
+    emberfall       village   the second hub; proof that progress reaches the world
+         |  north
+    kiln_terraces   region    the pass up, and the two descents at the top of it
+
+    wakewood_crypt  dungeon   the tutorial descent; the twin is found here
+    ashen_deep      dungeon   the real dungeon, with a guardian at the bottom
+    mirror_sanctum  dungeon   the Mirror
+
+A **region** is an ordinary `Room`, exactly as a village is. That is the whole
+trick: movement, collision, decor, the floor pipeline and the renderer treat a
+stretch of wilderness the same way they already treat Hollow Reach, so a
+continuous world costs authored content rather than an engine rewrite. Dungeons
+keep their portals, because a descent into the earth is a threshold and should
+read as one.
 
 Area ids are stable and are baked into room ids, so a heatmap or a saved
 checkpoint from one run still means the same thing in the next.
@@ -22,11 +45,17 @@ from dataclasses import dataclass, field
 from mirrorbound.game.dungeon.templates import RoomType
 
 
+#: Which way you left an area, and therefore which side of the next one you
+#: arrive on. Written once here so nothing has to spell the pairs out again.
+OPPOSITE: dict[str, str] = {"north": "south", "south": "north", "east": "west", "west": "east"}
+
+
+
 @dataclass(frozen=True)
 class AreaDef:
     id: str
     name: str
-    kind: str                      # "village" | "dungeon"
+    kind: str                      # "region" | "dungeon" | "sandbox"
     biome: str
     subtitle: str
     # Dungeons only.
@@ -46,25 +75,133 @@ class AreaDef:
     # alone, at level one, before the twin has been found.
     tutorial: bool = False
 
+    # --- the open world ------------------------------------------------------
+    #: The settlement standing in this region, if any.
+    #:
+    #: A village is not an area of its own any more. It is a *place inside* a
+    #: region: you come over the ridge, see the rooftops, and walk in without a
+    #: transition, because the huts and the fields are on the same map. That is
+    #: the difference between a world and a set of rooms joined by portals.
+    settlement: str = ""
+    #: Where the settlement sits in the region, as 0-1, and how far it reaches.
+    settlement_at: tuple[float, float] = (0.5, 0.5)
+    settlement_radius: float = 520.0
+    #: Dungeon mouths standing in this area, as (area id, fx, fy) in 0-1 units.
+    #:
+    #: A descent keeps its portal: going underground is a threshold, and the
+    #: brief only asks that portals stop being what makes the world *connected*.
+    descents: tuple[tuple[str, float, float], ...] = ()
+    #: How this area's ground is dressed.
+    terrain: str = ""
+    #: Size in world units. 0 means "use the builder's default".
+    width: int = 0
+    height: int = 0
 
-HOLLOW_REACH = AreaDef(
-    id="hollow_reach", name="Hollow Reach", kind="village", biome="grove",
-    subtitle="A village that has learned to sleep lightly.",
-    map_x=0.18, map_y=0.72,
+
+@dataclass(frozen=True)
+class Crossing:
+    """The one way from one region into the next, and a place in its own right.
+
+    Regions are not joined by an invisible seam along a whole side. They are
+    joined at a *thing you find*: a bridge over a river, a cut through the rock,
+    a causeway over the shallows, a boatman who will take you across. That is
+    what makes arriving somewhere new feel like arriving -- you cross something,
+    and the crossing has a name you can be told by an NPC and read on the map.
+
+    Authored once, from one end, and both ends are derived (`crossings_of`). A
+    one-way crossing is the worst kind of world bug -- you get somewhere and the
+    way back is not there -- and deriving it makes that unrepresentable rather
+    than merely tested for.
+    """
+    name: str
+    #: bridge | pass | causeway | ferry. Decides how it is built and drawn.
+    kind: str
+    a: str                         # area id on one side
+    a_side: str                    # which of a's sides it sits on
+    b: str                         # area id on the other
+    #: Where along each side the crossing sits, as 0-1. Authored per end because
+    #: two regions of different sizes do not line up by accident.
+    a_along: float = 0.5
+    b_along: float = 0.5
+    #: How wide the way through is, in world units. Narrow: a crossing is a
+    #: bottleneck, and a bottleneck is what makes it a place.
+    width: float = 190.0
+    #: An area that must be completed before this crossing opens.
+    #:
+    #: The campaign gate, put somewhere the player can walk up to and be told
+    #: about, rather than left as a refusal when they click a map. §22 asks for
+    #: barriers that make sense inside the world; a ferryman who will not take
+    #: you yet is a barrier with a reason and a face.
+    requires: str = ""
+    #: What the world says when it is shut. Spoken by the crossing itself.
+    blocked_line: str = ""
+
+
+# --- the regions -------------------------------------------------------------
+#
+# Six stretches of ground, walked west to east and then up. Two of them have a
+# settlement in them; the rest are the country between, and each one is a
+# different kind of walk (see `region.py` for what a terrain is made of).
+
+HOLLOWREACH_VALE = AreaDef(
+    id="hollowreach_vale", name="Hollowreach Vale", kind="region", biome="grove",
+    subtitle="A village that has learned to sleep lightly, and the vale around it.",
+    terrain="grassland", map_x=0.13, map_y=0.74,
+    width=2560, height=1792,
+    # Hollow Reach itself, in the south of its own vale. Everything the village
+    # had -- the elder, the smith, the apothecary, the hearth -- stands here.
+    settlement="hollow_reach", settlement_at=(0.42, 0.70), settlement_radius=560.0,
 )
+
+WAKEWOOD = AreaDef(
+    id="wakewood", name="The Wakewood", kind="region", biome="grove",
+    subtitle="Old trees that were never felled, and a stair going down among the roots.",
+    terrain="forest", map_x=0.16, map_y=0.52,
+    width=2240, height=1600,
+    descents=(("wakewood_crypt", 0.54, 0.22),),
+)
+
+GREENMOOR = AreaDef(
+    id="greenmoor", name="Greenmoor", kind="region", biome="grove",
+    subtitle="Fields that stopped being fields, and nobody came back for them.",
+    terrain="grassland", map_x=0.36, map_y=0.78,
+    width=2560, height=1600,
+)
+
+DROWNED_FLATS = AreaDef(
+    id="drowned_flats", name="The Drowned Flats", kind="region", biome="ruins",
+    subtitle="Shallow water over a road, and the tops of walls still showing.",
+    terrain="marsh", map_x=0.52, map_y=0.72,
+    width=2560, height=1408,
+    difficulty=1.15,
+)
+
+EMBERFALL_BASIN = AreaDef(
+    id="emberfall_basin", name="Emberfall Basin", kind="region", biome="ruins",
+    subtitle="Built in the ribs of something older, down in the bowl of it.",
+    terrain="road", map_x=0.70, map_y=0.66,
+    width=2560, height=1792,
+    settlement="emberfall", settlement_at=(0.56, 0.62), settlement_radius=560.0,
+    difficulty=1.15,
+)
+
+KILN_TERRACES = AreaDef(
+    id="kiln_terraces", name="The Kiln Terraces", kind="region", biome="ruins",
+    subtitle="Cut steps, fired brick, and two ways down into the dark.",
+    terrain="pass", map_x=0.86, map_y=0.44,
+    width=2240, height=1792,
+    descents=(("ashen_deep", 0.30, 0.22), ("mirror_sanctum", 0.74, 0.14)),
+    difficulty=1.25,
+)
+
+# --- the descents ------------------------------------------------------------
 
 WAKEWOOD_CRYPT = AreaDef(
     id="wakewood_crypt", name="Wakewood Crypt", kind="dungeon", biome="grove",
     subtitle="Something under the wakewood is breathing again.",
     sequence=(RoomType.ENTRANCE, RoomType.COMBAT, RoomType.EXPLORATION, RoomType.TREASURE, RoomType.ELITE),
-    requires="", map_x=0.38, map_y=0.54, difficulty=1.0,
+    requires="", map_x=0.20, map_y=0.38, difficulty=1.0,
     completion_gold=120, completion_seal="seal_of_waking", tutorial=True,
-)
-
-EMBERFALL = AreaDef(
-    id="emberfall", name="Emberfall", kind="village", biome="ruins",
-    subtitle="Built in the ribs of something older.",
-    requires="wakewood_crypt", map_x=0.56, map_y=0.66,
 )
 
 ASHEN_DEEP = AreaDef(
@@ -72,7 +209,7 @@ ASHEN_DEEP = AreaDef(
     subtitle="The road down, and the warden that keeps it.",
     sequence=(RoomType.ENTRANCE, RoomType.COMBAT, RoomType.TREASURE, RoomType.COMBAT,
               RoomType.EXPLORATION, RoomType.GUARDIAN),
-    requires="wakewood_crypt", map_x=0.74, map_y=0.44, difficulty=1.35,
+    requires="wakewood_crypt", map_x=0.90, map_y=0.32, difficulty=1.35,
     completion_gold=260, completion_seal="seal_of_ash",
 )
 
@@ -80,7 +217,7 @@ MIRROR_SANCTUM = AreaDef(
     id="mirror_sanctum", name="The Mirror Sanctum", kind="dungeon", biome="crypt",
     subtitle="It has been watching you the whole way here.",
     sequence=(RoomType.ENTRANCE, RoomType.BOSS),
-    requires="ashen_deep", map_x=0.88, map_y=0.20, difficulty=1.5,
+    requires="ashen_deep", map_x=0.95, map_y=0.14, difficulty=1.5,
     completion_gold=0, completion_seal="seal_of_the_mirror",
 )
 
@@ -89,33 +226,146 @@ MIRROR_SANCTUM = AreaDef(
 #: Not part of the campaign: nothing gates it, nothing it contains counts, and
 #: it is reached from the map like anywhere else so that testing a weapon or a
 #: boss does not mean playing to the place that has one. `kind="sandbox"` keeps
-#: it out of the village/dungeon logic entirely -- it has no NPCs to talk to,
+#: it out of the region/dungeon logic entirely -- it has no NPCs to talk to,
 #: no rooms to clear and no completion to award.
 THE_PROVING = AreaDef(
     id="the_proving", name="The Proving", kind="sandbox", biome="sandbox",
     subtitle="Nothing here is real. Nothing here counts.",
-    map_x=0.06, map_y=0.14,
+    map_x=0.06, map_y=0.12,
 )
 
 AREAS: dict[str, AreaDef] = {
-    a.id: a for a in (HOLLOW_REACH, WAKEWOOD_CRYPT, EMBERFALL, ASHEN_DEEP,
-                      MIRROR_SANCTUM, THE_PROVING)
+    a.id: a for a in (HOLLOWREACH_VALE, WAKEWOOD, GREENMOOR, DROWNED_FLATS,
+                      EMBERFALL_BASIN, KILN_TERRACES,
+                      WAKEWOOD_CRYPT, ASHEN_DEEP, MIRROR_SANCTUM, THE_PROVING)
 }
+
+#: Areas you can walk across, as opposed to what is under them.
+OVERWORLD_KINDS: frozenset[str] = frozenset({"region"})
+
+
+# --- the crossings -----------------------------------------------------------
+#
+# Five, one of each kind the world knows how to build, each where its kind makes
+# sense: a plank bridge into the wood, a stone bridge over the river east, a
+# causeway over the flood, a boatman at the far side of it, and a cut through
+# the rock up to the terraces.
+#
+# The campaign's one gate is the ferryman. Emberfall used to be locked behind
+# "Wakewood Crypt first" as a refusal when you clicked the map; now it is a man
+# with a boat who will not push off until the thing under the wood is quiet.
+
+CROSSINGS: tuple[Crossing, ...] = (
+    Crossing(
+        name="The Rootbridge", kind="bridge",
+        a="hollowreach_vale", a_side="north", b="wakewood",
+        a_along=0.34, b_along=0.40, width=170.0,
+    ),
+    Crossing(
+        name="Stonecount Bridge", kind="bridge",
+        a="hollowreach_vale", a_side="east", b="greenmoor",
+        a_along=0.58, b_along=0.55, width=210.0,
+    ),
+    Crossing(
+        name="The Long Causeway", kind="causeway",
+        a="greenmoor", a_side="east", b="drowned_flats",
+        a_along=0.46, b_along=0.50, width=200.0,
+    ),
+    Crossing(
+        name="Kell's Crossing", kind="ferry",
+        a="drowned_flats", a_side="east", b="emberfall_basin",
+        a_along=0.52, b_along=0.44, width=200.0,
+        requires="wakewood_crypt",
+        blocked_line="Kell keeps the boat tied. Not while the wood is still breathing.",
+    ),
+    Crossing(
+        name="The Cut", kind="pass",
+        a="emberfall_basin", a_side="north", b="kiln_terraces",
+        a_along=0.72, b_along=0.50, width=180.0,
+    ),
+)
+
+
+def crossings_of(area_id: str) -> list[tuple[str, float, str, Crossing]]:
+    """Every crossing out of an area, as (side, along, other area, crossing).
+
+    Both ends come out of one authored record, so a crossing can never lead
+    somewhere that does not lead back.
+    """
+    out: list[tuple[str, float, str, Crossing]] = []
+    for crossing in CROSSINGS:
+        if crossing.a == area_id:
+            out.append((crossing.a_side, crossing.a_along, crossing.b, crossing))
+        elif crossing.b == area_id:
+            out.append((OPPOSITE[crossing.a_side], crossing.b_along, crossing.a, crossing))
+    return out
+
+
+def crossing_between(from_area: str, to_area: str) -> tuple[str, float, Crossing] | None:
+    """Which side of `to_area` you arrive on from `from_area`, and where along it."""
+    for side, along, other, crossing in crossings_of(to_area):
+        if other == from_area:
+            return side, along, crossing
+    return None
+
+
+def neighbours_of(area_id: str) -> list[str]:
+    """Everywhere you can walk to from here, plus every mouth standing in it."""
+    area = AREAS.get(area_id)
+    if area is None:
+        return []
+    return ([other for _side, _along, other, _c in crossings_of(area_id)]
+            + [target for target, _fx, _fy in area.descents])
+
+
+def assert_world_is_sound() -> None:
+    """Checked at import, because a broken world graph strands a run silently."""
+    for crossing in CROSSINGS:
+        if crossing.a_side not in OPPOSITE:
+            raise ValueError(f"{crossing.name}: {crossing.a_side!r} is not a side")
+        for end in (crossing.a, crossing.b):
+            if end not in AREAS:
+                raise ValueError(f"{crossing.name}: unknown area {end!r}")
+            if AREAS[end].kind not in OVERWORLD_KINDS:
+                raise ValueError(f"{crossing.name}: {end} is not somewhere you can walk")
+        if crossing.kind not in ("bridge", "pass", "causeway", "ferry"):
+            raise ValueError(f"{crossing.name}: unknown crossing kind {crossing.kind!r}")
+        if crossing.requires and crossing.requires not in AREAS:
+            raise ValueError(f"{crossing.name}: gated on unknown area {crossing.requires!r}")
+    for area in AREAS.values():
+        for target, _fx, _fy in area.descents:
+            if target not in AREAS:
+                raise ValueError(f"{area.id}: descent into unknown area {target!r}")
+        # Two crossings on the same side of the same area at the same place would
+        # overlap into one unusable band.
+        seen: set[tuple[str, float]] = set()
+        for side, along, _other, crossing in crossings_of(area.id):
+            if (side, along) in seen:
+                raise ValueError(f"{area.id}: two crossings at {side} {along}")
+            seen.add((side, along))
+
+
+assert_world_is_sound()
 
 #: Areas that are always open and always on the map, campaign or not.
 ALWAYS_OPEN: frozenset[str] = frozenset({THE_PROVING.id})
 
-START_AREA = HOLLOW_REACH.id
-# Which village each dungeon sends you back to when you leave or finish it.
+START_AREA = HOLLOWREACH_VALE.id
+
+#: Where a dungeon puts you out when you leave or finish it.
+#:
+#: The region its mouth stands in -- you came down into the crypt from the wood,
+#: so you come back up into the wood and walk home from there. Derived from
+#: `descents` rather than written twice, so moving a mouth moves its exit too.
 HOME_VILLAGE: dict[str, str] = {
-    "wakewood_crypt": "hollow_reach",
-    "ashen_deep": "emberfall",
-    "mirror_sanctum": "emberfall",
+    dungeon: area.id
+    for area in AREAS.values()
+    for dungeon, _fx, _fy in area.descents
 }
-# Where a village's road leads.
-VILLAGE_ROADS: dict[str, tuple[str, ...]] = {
-    "hollow_reach": ("wakewood_crypt", "emberfall", "the_proving"),
-    "emberfall": ("ashen_deep", "mirror_sanctum", "hollow_reach"),
+
+#: Which region each settlement stands in, by settlement id.
+SETTLEMENT_REGION: dict[str, str] = {
+    area.settlement: area.id for area in AREAS.values() if area.settlement
 }
 
 MAX_NAME_LENGTH = 18
@@ -166,19 +416,27 @@ class CampaignState:
         self.discovered_areas.add(area_id)
         return True
 
-    def reveal_open(self) -> list[str]:
-        """Discover every area you could set out for right now.
+    def reveal_adjacent(self, area_id: str = "") -> list[str]:
+        """Discover what can be seen from where you are standing.
 
-        A village is where you choose where to go, so standing in one is what
-        puts the roads out of it on the map. Only *open* areas: anything still
-        gated by an area you have not finished stays an unknown marker, so the
-        map fills in as the campaign does rather than all at once.
+        Only what this region actually connects to -- the places across its
+        crossings, and any dungeon mouth in it. Arriving somewhere is what puts
+        the next step on the map, so the map fills in as you walk it.
 
-        Without this the opening is a dead end -- the elder tells you about the
-        Wakewood Crypt and the map has never heard of it.
+        This used to reveal every *open* area in the game at once, which was the
+        right answer when there were five areas and a portal in the village
+        square. In a world you cross on foot it is wrong twice over: it hands
+        you the whole map for entering the first region, and it marks places you
+        have no route to yet.
+
+        A gate is no reason to hide what is *there*. Kell's Crossing is on the
+        map before the crypt is quiet, because you can stand on the jetty and be
+        told no. `is_open` still decides whether you may go.
         """
-        found = [a.id for a in AREAS.values()
-                 if a.id not in self.discovered_areas and self.is_open(a.id)[0]]
+        here = area_id or self.current_area
+        if here not in AREAS:
+            return []
+        found = [a for a in neighbours_of(here) if a not in self.discovered_areas]
         self.discovered_areas.update(found)
         return found
 
@@ -266,6 +524,8 @@ class CampaignState:
 
 
 __all__ = [
-    "AreaDef", "AREAS", "CampaignState", "START_AREA", "HOME_VILLAGE", "VILLAGE_ROADS",
+    "AreaDef", "AREAS", "CampaignState", "Crossing", "CROSSINGS", "START_AREA",
+    "HOME_VILLAGE", "OPPOSITE", "OVERWORLD_KINDS", "SETTLEMENT_REGION", "ALWAYS_OPEN",
+    "crossings_of", "crossing_between", "neighbours_of", "assert_world_is_sound",
     "sanitise_name", "MAX_NAME_LENGTH",
 ]

@@ -391,10 +391,22 @@ export class WorldRenderer {
 
   // --- doors ------------------------------------------------------------------------
 
+  /**
+   * Gateways between rooms of a dungeon.
+   *
+   * **Crossings are skipped.** A door with a `targetArea` is a bridge, a cut, a
+   * causeway or a ferry between two overworld regions, and drawing the gateway
+   * sheet over one would put a pair of stone posts and a portcullis in the middle
+   * of a bridge -- something to be opened, where the whole point is that you walk
+   * across it without stopping. What says "this is a crossing" is the terrain
+   * either side of it (water, or massed rock) and the rails the server places
+   * along it, both of which arrive as ordinary tiles and decor.
+   */
   #buildDoors(room: RoomFull): void {
     this.#doorSprites.clear();
     this.#doorGlows.clear();
     for (const door of room.doors) {
+      if (door.targetArea) continue;
       const img = this.scene.add
         .image(door.x, door.y + (door.side === 'north' ? 6 : -4),
           DOORS_TEXTURE_KEY, this.#doorFrame(door))
@@ -433,6 +445,7 @@ export class WorldRenderer {
 
   updateDoors(doors: DoorSnap[]): void {
     for (const door of doors) {
+      if (door.targetArea) continue;
       const img = this.#doorSprites.get(door.side);
       const glowImg = this.#doorGlows.get(door.side);
       if (!img || !glowImg) continue;

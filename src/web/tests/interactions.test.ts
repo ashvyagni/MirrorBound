@@ -39,7 +39,9 @@ describe('interaction snapshots', () => {
     const snap = full();
     cache.update(snap);
     const moved = lite(snap);
-    moved.player.position.x += 200;
+    // Out of everyone's reach, not merely out of the smith's: the village is an
+    // authored cluster now, so a small nudge lands next to the hearth instead.
+    moved.player.position = { x: 80, y: 80 };
     expect(cache.update(moved)).toBeNull();
     expect(cache.update(lite(snap))).not.toBeNull();
     expect(cache.update({ ...snap, npcs: [] })).toBeNull();
@@ -153,7 +155,12 @@ describe('map snapshot continuity', () => {
     eventBus.emit('game:snapshot',moving);
     expect(map).toHaveBeenCalledTimes(2);
     expect(map.mock.lastCall![0].player).toEqual(moving.player.position);
-    expect(map.mock.lastCall![0].marks).toEqual(snap.npcs!.map(n=>n.position));
+    // Everything worth walking toward: the people, and whatever is alive. A
+    // village had no enemies, so this used to be the NPC list exactly.
+    expect(map.mock.lastCall![0].marks).toEqual([
+      ...snap.enemies.filter(e=>e.active).map(e=>e.position),
+      ...snap.npcs!.map(n=>n.position),
+    ]);
     expect(campaign).toHaveBeenCalledTimes(1);
     expect(campaign.mock.lastCall![0].canTravel).toBe(true);
     expect(skills).toHaveBeenCalledTimes(1);
@@ -164,11 +171,15 @@ describe('map snapshot continuity', () => {
     cleanup.push(eventBus.on('interact:target', targets)); bridge.start(); cleanup.push(()=>bridge.stop());
     const snap=full(); snap.npcs=[];
     if (!('portals' in snap.room)) throw new Error('fixture needs room');
-    const portal=snap.room.portals[0]!;
-    snap.player.position={x:portal.x,y:portal.y};
+    // A crossing, which is what the overworld is joined by. It is drawn as
+    // terrain rather than as a gateway, so the prompt is the only thing that
+    // names it -- and an NPC telling you to take the Rootbridge is naming this.
+    const crossing=snap.room.doors.find(d=>d.targetArea)!;
+    snap.player.position={x:crossing.x,y:crossing.y};
     eventBus.emit('game:snapshot',snap);
     expect(targets.mock.lastCall![0].action).toBe('walk');
-    snap.room.portals=[];
+    expect(targets.mock.lastCall![0].label).toBe(crossing.label);
+    snap.room.doors=[]; snap.room.portals=[];
     snap.pickups=[{id:'pickup',kind:'health_potion',position:snap.player.position,radius:8} as GameSnapshot['pickups'][number]];
     eventBus.emit('game:snapshot',snap);
     expect(targets.mock.lastCall![0].action).toBe('collect');

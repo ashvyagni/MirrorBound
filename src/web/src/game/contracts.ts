@@ -237,7 +237,29 @@ export interface DoorSnap {
   width: number;
   targetIndex: number | null;
   locked: boolean;
-  kind: 'gate' | 'arch' | 'sealed' | string;
+  /**
+   * `gate`/`arch`/`sealed` link rooms inside a dungeon and are drawn as doors.
+   * The other four are **crossings** between overworld regions — a bridge, a cut
+   * through rock, a causeway, a ferry — and are not drawn as doors at all: the
+   * terrain and its rails already say what they are, and a gate sprite in the
+   * middle of a bridge would read as something to open.
+   */
+  kind: 'gate' | 'arch' | 'sealed' | 'bridge' | 'pass' | 'causeway' | 'ferry' | string;
+  /** The area on the far side, for a crossing. Empty for a dungeon door. */
+  targetArea: string;
+  /** Why the way is shut, when it is. Shown rather than left as a silent wall. */
+  lockReason: string;
+  /** What the crossing is called, so the HUD can name it. Empty for a door. */
+  label: string;
+}
+
+/** A village, standing on a region's own ground. */
+export interface SettlementSnap {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  radius: number;
 }
 
 /** A way out of an area. Doors link rooms by index; portals link areas by id. */
@@ -266,6 +288,12 @@ export interface RoomFull {
   decor: DecorSnap[];
   doors: DoorSnap[];
   portals: PortalSnap[];
+  /**
+   * Villages on this map. A region carries its settlement rather than being
+   * one, so `safe` below answers for the whole room and these answer for a
+   * place inside it.
+   */
+  settlements: SettlementSnap[];
   /**
    * Distinct sprite names this room's spawn table will use, sorted.
    *
@@ -461,6 +489,15 @@ export interface GameSnapshot {
   playerModel: PlayerModel;
   twinModel: TwinModel;
   boss: BossDebug | null;
+  /**
+   * The village the player is standing in, or null out in the world.
+   *
+   * `room.safe` answers for a whole map and a region is not a whole map — it has
+   * a village in it and wilderness around that — so this is what decides the
+   * things that used to key off being in a village: whether the map will let you
+   * travel, whether respec is offered, and what a checkpoint notice says.
+   */
+  settlement: string | null;
   lastError: string | null;
   /** Detail snapshots only, and only after a save was written or removed:
    *  the list is a directory read, not something to re-send at 20Hz. */

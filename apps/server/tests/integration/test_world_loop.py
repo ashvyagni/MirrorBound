@@ -35,15 +35,28 @@ def walk_to(session, pos: Vec2) -> None:
 
 # --- the village -------------------------------------------------------------
 
-def test_the_campaign_opens_in_a_safe_village_with_people_in_it():
+def test_the_campaign_opens_standing_in_a_village_inside_a_region():
+    """The village is a place in the world now, not a map of its own.
+
+    Hollow Reach is a circle of ground inside Hollowreach Vale: the huts, the
+    vendors and the hearth are on the region's own map, so you can walk out of
+    the village and into the fields without anything loading. What used to be a
+    property of the room -- "this place is safe" -- is a question about where the
+    player is standing.
+    """
     s = fresh_village("open")
     room = s.state.room
-    assert room.room_type == "village" and room.area_id == "hollow_reach"
-    assert not room.enemy_spawns and not s.state.enemies, "a village is safe"
+    assert room.room_type == "region" and room.area_id == "hollowreach_vale"
+    settlement = room.settlement_at(s.state.player.position)
+    assert settlement is not None and settlement.id == "hollow_reach"
     roles = {n.definition.role for n in room.npcs}
     assert {"elder", "weaponsmith", "apothecary", "hearth"} <= roles
-    assert room.portals, "a village has roads out"
-    assert s.state.to_dict()["room"]["safe"] is True
+    assert room.doors, "and roads out of the vale"
+    assert room.is_safe_at(s.state.player.position), "the village is safe ground"
+    # The wilderness around it is not, which is the other half of the point.
+    assert room.enemy_spawns, "the vale has things living in it"
+    far = next(sp.position for sp in room.enemy_spawns)
+    assert not room.is_safe_at(far)
 
 
 def test_the_twin_is_not_present_until_it_is_found():
@@ -53,10 +66,35 @@ def test_the_twin_is_not_present_until_it_is_found():
     assert snap["twin"]["dormant"] is True
 
 
-def test_walking_into_a_portal_travels_to_that_area():
+def test_walking_onto_a_crossing_carries_you_into_the_next_region():
+    """The bridge is the boundary you can stand on.
+
+    Nothing is pressed and nothing is confirmed: a crossing is walked onto, which
+    is what makes the overworld continuous rather than a set of rooms with
+    portals between them.
+    """
     s = fresh_village("travel")
-    portal = next(p for p in s.state.room.portals if p.target_area == "wakewood_crypt")
-    walk_to(s, Vec2(portal.x, portal.y))
+    bridge = next(d for d in s.state.room.doors if d.target_area == "wakewood")
+    walk_to(s, Vec2(bridge.x, bridge.y))
+    assert s.campaign.current_area == "wakewood"
+    assert s.state.room.room_type == "region"
+    assert s.dungeon is None, "a region is not a dungeon"
+    # And you come out on the side the vale is on, so the world holds its shape.
+    back = next(d for d in s.state.room.doors if d.target_area == "hollowreach_vale")
+    assert back.side == "south"
+
+
+def test_a_dungeon_mouth_is_still_a_portal_you_step_into():
+    """A descent is a threshold and should read as one.
+
+    The brief only asks that portals stop being what makes the *overworld*
+    connected. Going underground is a decision, so the crypt keeps its mouth.
+    """
+    s = fresh_village("descend")
+    bridge = next(d for d in s.state.room.doors if d.target_area == "wakewood")
+    walk_to(s, Vec2(bridge.x, bridge.y))
+    mouth = next(p for p in s.state.room.portals if p.target_area == "wakewood_crypt")
+    walk_to(s, Vec2(mouth.x, mouth.y))
     assert s.campaign.current_area == "wakewood_crypt"
     assert s.state.room.room_type == "entrance"
     assert s.dungeon is not None
@@ -107,10 +145,10 @@ def test_the_first_dungeon_and_the_sandbox_are_open_from_the_start():
 
 def test_travel_is_refused_from_inside_a_dungeon():
     s = combat_session("no-teleport")
-    s.handle_input({"type": "COMMAND", "action": "TRAVEL", "areaId": "hollow_reach"})
+    s.handle_input({"type": "COMMAND", "action": "TRAVEL", "areaId": "hollowreach_vale"})
     s.step(DT)
     assert s.campaign.current_area == "wakewood_crypt"
-    assert any(e.data.get("reason") == "only from a village"
+    assert any(e.data.get("reason") == "only from a settlement"
                for e in s.state.pending_events if e.type == "ACTION_REJECTED")
 
 
@@ -251,21 +289,29 @@ def test_a_save_with_no_flags_restores_with_no_flags():
     assert restored.flags == set()
 
 
-def test_a_village_puts_the_roads_out_of_it_on_the_map():
-    """The opening is otherwise a dead end: the elder names the crypt and the
-    map has never heard of it, so there is nothing to travel to."""
+def test_arriving_somewhere_puts_only_its_own_neighbours_on_the_map():
+    """The map fills in as you walk it, not all at once.
+
+    Standing in the first region reveals what that region connects to and
+    nothing else. It used to reveal every *open* area in the game, which in a
+    world you cross on foot would hand you the whole overworld for arriving.
+    """
     s = fresh_village("reveal")
     discovered = set(s.campaign.discovered_areas)
-    assert "wakewood_crypt" in discovered, "the one open road out is on the map"
-    assert "emberfall" not in discovered, "still behind the crypt, so still unknown"
+    assert {"hollowreach_vale", "wakewood", "greenmoor"} <= discovered, (
+        "the vale and the two places its bridges lead")
+    assert "drowned_flats" not in discovered, "two regions away; no route seen yet"
+    assert "emberfall_basin" not in discovered
     assert "mirror_sanctum" not in discovered
+    # The crypt is in the wood, not in the vale, so it is not on the map either.
+    assert "wakewood_crypt" not in discovered
 
 
 def test_revealing_is_idempotent_and_reveals_nothing_twice():
     s = fresh_village("reveal2")
-    assert s.campaign.reveal_open() == [], "already revealed on arrival"
+    assert s.campaign.reveal_adjacent() == [], "already revealed on arrival"
     before = set(s.campaign.discovered_areas)
-    s.campaign.reveal_open()
+    s.campaign.reveal_adjacent()
     assert s.campaign.discovered_areas == before
 
 
@@ -392,7 +438,9 @@ def test_finishing_a_dungeon_opens_the_way_home():
     s._enter_room(last, from_side="south")
     clear_room(s)
     assert "wakewood_crypt" in s.campaign.completed_areas
-    assert any(p.target_area == "hollow_reach" for p in s.state.room.portals)
+    # Out where you came in: the crypt's mouth is in the Wakewood, so the road
+    # home puts you back in the wood and you walk to the village from there.
+    assert any(p.target_area == "wakewood" for p in s.state.room.portals)
 
 
 # --- checkpoints ----------------------------------------------------------------
@@ -414,7 +462,8 @@ def test_a_checkpoint_restores_progression_but_not_a_frozen_fight():
     assert loaded.state.player.level == 4 and loaded.state.player.skill_points == 3
     assert loaded.campaign.player_name == "Wren"
     assert "wakewood_crypt" in loaded.campaign.completed_areas
-    assert loaded.state.room.room_type == "village"
+    assert loaded.state.room.room_type == "region"
+    assert loaded.state.room.settlement_at(loaded.state.player.position) is not None
 
 
 def test_a_save_naming_things_that_no_longer_exist_still_loads():
@@ -428,7 +477,7 @@ def test_a_save_naming_things_that_no_longer_exist_still_loads():
     loaded = GameSession("save-junk", seed=5, record=False, load_save=True)
     assert loaded.state.player.inventory.weapons == ["iron_sword"]
     assert loaded.state.player.unlocked_skills == set()
-    assert loaded.campaign.current_area == "hollow_reach"
+    assert loaded.campaign.current_area == "hollowreach_vale"
 
 
 def test_names_are_sanitised_before_they_reach_dialogue():
@@ -478,7 +527,10 @@ def test_campaign_state_round_trips_through_its_save_form():
     restored = CampaignState.from_save(state.save_dict())
     assert restored.completed_areas == state.completed_areas
     assert restored.twin_rescued and restored.twin_name == "Ash"
-    assert "emberfall" in restored.discovered_areas, "completing an area reveals what it unlocks"
+    # The Deep requires the crypt, so finishing the crypt puts it on the map.
+    # Emberfall is not revealed this way any more: it is behind Kell's Crossing,
+    # and a crossing is found by walking to it rather than by a flag.
+    assert "ashen_deep" in restored.discovered_areas, "completing an area reveals what it unlocks"
 
 
 # --- the console -------------------------------------------------------------
@@ -512,11 +564,14 @@ def test_spawning_is_refused_in_a_village_and_does_not_stop_the_tick():
     assertion that matters is the second one: the world still moves.
     """
     s = fresh_village("console-village", admin=True)
+    before = len(s.state.enemies)
     s.handle_input({"type": "COMMAND", "action": "SPAWN", "enemyType": "mirror"})
     for _ in range(10):
         s.step(DT)
 
-    assert not s.state.enemies
+    # The vale has wilderness in it, so what matters is that nothing was added.
+    assert len(s.state.enemies) == before
+    assert not any(e.enemy_def.boss for e in s.state.enemies)
     assert any(e.data.get("reason") == "not in a village"
                for e in s.state.pending_events if e.type == "ACTION_REJECTED")
     tick = s.state.tick
