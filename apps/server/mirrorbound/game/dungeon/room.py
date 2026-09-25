@@ -17,6 +17,14 @@ from mirrorbound.game.entities.entity import Vec2
 TILE = 32
 WALL_THICKNESS = TILE
 
+#: Side of one spatial-index block, in world units.
+#:
+#: Four tiles. Big enough that a query touches only a handful of blocks, small
+#: enough that a block holds only a few props -- the biggest circle in the game
+#: (a flooded sheet of water) is about this wide, so nothing is filed under an
+#: unreasonable number of them.
+BUCKET = TILE * 4
+
 T_GRASS, T_WALL, T_PATH, T_STONE, T_DIRT, T_WATER = 0, 1, 2, 3, 4, 5
 
 BLOCKING_DECOR = {
@@ -45,6 +53,13 @@ class Decor:
     radius: float = 0.0
     flip: bool = False
 
+    #: Worked out once. A prop never moves, so its collision circle is constant --
+    #: and `collision_center` built a fresh Vec2 on every read, which the profile
+    #: caught doing it 722,000 times over four hundred ticks of one region. The
+    #: collision queries are the hottest loops in the simulation and this is pure
+    #: arithmetic on fields that cannot change.
+    _centre: Vec2 | None = field(default=None, repr=False, compare=False)
+
     @property
     def collision_radius(self) -> float:
         return self.radius * self.scale
@@ -53,8 +68,10 @@ class Decor:
     def collision_center(self) -> Vec2:
         # Buildings are drawn with a bottom anchor. Their foundations extend
         # behind that point; trunks and people use a small circle at their feet.
-        lift = self.collision_radius * .55 if self.kind in {"hut", "hut_big", "forge", "stall", "well"} else 0.0
-        return Vec2(self.x, self.y - lift)
+        if self._centre is None:
+            lift = self.collision_radius * .55 if self.kind in {"hut", "hut_big", "forge", "stall", "well"} else 0.0
+            self._centre = Vec2(self.x, self.y - lift)
+        return self._centre
 
     def to_dict(self) -> dict:
         return {
@@ -213,6 +230,16 @@ class Room:
     npcs: list = field(default_factory=list)      # list[Npc]; untyped to keep this module import-free
     #: Villages standing in this room. Empty everywhere but an overworld region.
     settlements: list[Settlement] = field(default_factory=list)
+    #: Blocking decor bucketed by tile block, built on first use.
+    #:
+    #: Every collision query used to scan the whole decor list. That was fine when
+    #: a room was 1280x960 with 76 props in it, and it is not fine now: a region
+    #: is 2560x1792 with 340, and the queries run per entity per tick plus once
+    #: per segment test inside the navigator. The profile had one region at 10.5%
+    #: of the tick budget with the scans on top.
+    _buckets: dict | None = field(default=None, repr=False, compare=False)
+    #: What the index was built from, so appending a prop rebuilds it.
+    _bucket_stamp: int = field(default=-1, repr=False, compare=False)
     # Set once the room's one-time rewards have been handed out, so a room that
     # is re-entered cannot be farmed.
     looted: bool = False
@@ -256,20 +283,55 @@ class Room:
     def blocking_decor(self) -> list[Decor]:
         return [d for d in self.decor if d.blocking]
 
+    def blocking_near(self, min_x: float, min_y: float, max_x: float, max_y: float) -> list[Decor]:
+        """Blocking decor that could overlap the given box.
+
+        A superset, not an exact answer: a prop is filed under every block its
+        circle reaches, so a query returns everything nearby and the caller still
+        does the real distance test. That is the point -- the expensive part was
+        never the arithmetic, it was doing it three hundred and forty times.
+        """
+        buckets = self._blocking_buckets()
+        if not buckets:
+            return []
+        found: list[Decor] = []
+        seen: set[int] = set()
+        for by in range(int(min_y // BUCKET), int(max_y // BUCKET) + 1):
+            for bx in range(int(min_x // BUCKET), int(max_x // BUCKET) + 1):
+                for decor in buckets.get((bx, by), ()):
+                    key = id(decor)
+                    if key not in seen:
+                        seen.add(key)
+                        found.append(decor)
+        return found
+
+    def _blocking_buckets(self) -> dict:
+        if self._buckets is not None and self._bucket_stamp == len(self.decor):
+            return self._buckets
+        buckets: dict[tuple[int, int], list[Decor]] = {}
+        for decor in self.decor:
+            if not decor.blocking:
+                continue
+            centre, reach = decor.collision_center, decor.collision_radius
+            for by in range(int((centre.y - reach) // BUCKET), int((centre.y + reach) // BUCKET) + 1):
+                for bx in range(int((centre.x - reach) // BUCKET), int((centre.x + reach) // BUCKET) + 1):
+                    buckets.setdefault((bx, by), []).append(decor)
+        self._buckets = buckets
+        self._bucket_stamp = len(self.decor)
+        return buckets
+
     def is_blocked(self, pos: Vec2, radius: float) -> bool:
         if self.is_wall(pos.x - radius, pos.y - radius) or self.is_wall(pos.x + radius, pos.y + radius):
             return True
-        for d in self.decor:
-            if d.blocking and (pos - d.collision_center).length() < d.collision_radius + radius:
+        for d in self.blocking_near(pos.x - radius, pos.y - radius, pos.x + radius, pos.y + radius):
+            if (pos - d.collision_center).length() < d.collision_radius + radius:
                 return True
         return False
 
     def resolve_decor_collision(self, pos: Vec2, radius: float) -> Vec2:
         """Push `pos` out of any blocking decor circle it overlaps."""
         out = pos
-        for d in self.decor:
-            if not d.blocking:
-                continue
+        for d in self.blocking_near(pos.x - radius, pos.y - radius, pos.x + radius, pos.y + radius):
             centre = d.collision_center
             diff = out - centre
             dist = diff.length()
