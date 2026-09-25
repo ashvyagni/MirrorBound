@@ -14,11 +14,13 @@ from mirrorbound.api.session import GameSession
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Setup
-    await init_db()
-    await ensure_admin_user()
+    # The database is for accounts. The game is not in it -- the simulation is in
+    # memory and progression is checkpointed to JSON -- so the server comes up
+    # without one and says so, rather than aborting startup and leaving the
+    # developer with no game at all.
+    if await init_db():
+        await ensure_admin_user()
     yield
-    # Teardown
     await close_db()
 
 def create_app() -> FastAPI:

@@ -42,6 +42,14 @@ To run MirrorBound locally, you'll need two terminal windows—one for the Pytho
 - Python 3.12+ and [uv](https://docs.astral.sh/uv/)
 - Node.js (22.22.2+, 24.15+, or 26+) and npm
 
+**Postgres is optional.** It stores accounts and nothing else — the simulation lives in
+memory and progression is checkpointed to JSON files — so the server starts without one
+and says so in its log. Sign-in is unavailable until you start it; everything else works:
+
+```bash
+docker compose up -d db
+```
+
 ### 1. Start the Server (Backend)
 ```bash
 cd apps/server
