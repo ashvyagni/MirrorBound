@@ -600,10 +600,17 @@ class GameSession:
                 else:
                     self._spawn_debug(cmd.enemyType)
             elif action == "RESPEC":
-                if not self.is_admin:
-                    state.emit("ACTION_REJECTED", actor=player.id, action=action, reason="admin only")
-                else:
-                    self._respec()
+                # Not an admin command. "Unlearn all" is a button on the skill
+                # screen and a documented part of the game: the tree has
+                # prerequisites, so changing your mind means refunding the whole
+                # thing at once, and a player who spent twelve points on a build
+                # the next region punishes has to be able to spend them again.
+                #
+                # It was gated behind `is_admin` alongside SPAWN and GIVE, which
+                # are genuinely debug-only. `_respec` enforces its own rules --
+                # a village, out of combat, something actually learned -- so the
+                # authority that matters was never the admin flag.
+                self._respec()
             elif action == "USE_ITEM" and cmd.itemId:
                 self._use_item(cmd.itemId)
             elif action == "SET_ABILITY_SLOT":

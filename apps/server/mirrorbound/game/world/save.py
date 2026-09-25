@@ -34,7 +34,12 @@ from typing import Any
 
 log = logging.getLogger("mirrorbound.save")
 
-SAVE_VERSION = 1
+#: The save shape this build writes.
+#:
+#: Bumped whenever the shape changes, with a step added to `_MIGRATIONS` in the
+#: same commit. Older saves are upgraded by `migrate`, never discarded -- see
+#: the note above it for why that distinction is load-bearing.
+SAVE_VERSION = 2
 SAVE_DIR = Path(__file__).resolve().parents[3] / "saves"
 
 #: The slot the village checkpoint writes. Autosaving into a fresh slot every
@@ -189,8 +194,71 @@ def read_save(session_id: str, slot: str = AUTO_SLOT) -> dict[str, Any] | None:
     except (OSError, ValueError):
         log.exception("could not read checkpoint for %s", session_id)
         return None
-    if not isinstance(data, dict) or data.get("version") != SAVE_VERSION:
+    if not isinstance(data, dict):
         return None
+    return migrate(data)
+
+
+# --- migration ---------------------------------------------------------------
+#
+# A save is progression, and progression is the one thing a player cannot get
+# back. So a save written by an older build is *upgraded*, never discarded.
+#
+# This used to be a single equality check -- anything whose version did not
+# match the current one returned None, which the session reads as "no save" and
+# answers by starting a fresh campaign. Bumping `SAVE_VERSION` would therefore
+# have silently deleted every run on the disk, and v1.1 adds fields to this
+# shape, so the version has to move.
+#
+# Each step takes the save one version forward and is responsible only for the
+# fields that version introduced. They compose, so a v1 file loaded by a v4
+# build runs 1->2, 2->3, 3->4 in order and nothing has to know the whole chain.
+
+
+def _to_v2(data: dict[str, Any]) -> dict[str, Any]:
+    """v1 -> v2: the world became regions, and runs grew a quest log.
+
+    A v1 save predates all of it, so the defaults are what a v1 player had:
+    no quests taken, nothing discovered beyond the areas they already had, and
+    no fast travel unlocked. `campaign` is where run state lives; absent keys
+    are filled by `CampaignState.from_save`, so this only has to guarantee the
+    block exists and is a dict.
+    """
+    campaign = data.get("campaign")
+    data["campaign"] = campaign if isinstance(campaign, dict) else {}
+    return data
+
+
+#: version you are upgrading *from* -> the step that produces the next one.
+_MIGRATIONS: dict[int, Any] = {
+    1: _to_v2,
+}
+
+
+def migrate(data: dict[str, Any]) -> dict[str, Any] | None:
+    """Bring a save up to `SAVE_VERSION`, or None if it cannot be.
+
+    None is reserved for a save this build genuinely cannot read: one with no
+    version, a version from the future, or a version with no route forward. An
+    *older* save is never None -- that is the whole point of this function.
+    """
+    version = data.get("version")
+    if not isinstance(version, int) or version < 1:
+        log.warning("checkpoint has no usable version (%r); ignoring it", version)
+        return None
+    if version > SAVE_VERSION:
+        # Written by a newer build. Guessing at fields this one has never heard
+        # of would corrupt the run more thoroughly than refusing to open it.
+        log.warning("checkpoint is from a newer build (v%s > v%s); ignoring it", version, SAVE_VERSION)
+        return None
+    while version < SAVE_VERSION:
+        step = _MIGRATIONS.get(version)
+        if step is None:
+            log.warning("no migration from save v%s; ignoring it", version)
+            return None
+        data = step(data)
+        version += 1
+        data["version"] = version
     return data
 
 
@@ -305,5 +373,5 @@ __all__ = [
     "build_save", "write_save", "read_save", "apply_save", "delete_save",
     "delete_profile", "list_saves", "new_slot_id", "save_path", "profile_dir",
     "read_active_slot", "write_active_slot",
-    "AUTO_SLOT", "MAX_SLOTS", "SAVE_VERSION",
+    "AUTO_SLOT", "MAX_SLOTS", "SAVE_VERSION", "migrate",
 ]

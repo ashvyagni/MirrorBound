@@ -25,9 +25,15 @@ import { Panel } from './Panel';
  * have.
  *
  * Travel is the server's decision twice over: it only honours it from a
- * village, and it decides what a skipped area is worth. Clicking an area that
- * is gated is allowed and does the right thing -- everything between here and
- * there is granted as though it had been walked.
+ * village, and it refuses an area still gated by one you have not finished.
+ * Clicking a gated area is allowed to *ask* -- the answer comes back as an
+ * ACTION_REJECTED naming what has to be cleared first, which is more useful
+ * than a token that cannot be clicked.
+ *
+ * It used to work the other way: the map granted every area you jumped over,
+ * seals and gold included, which made the campaign a menu -- the Mirror was two
+ * clicks from the opening village. `session.py::_leave_area` asks
+ * `campaign.is_open` now.
  */
 const WIDTH = 1180;
 const HEIGHT = 880;
@@ -88,10 +94,9 @@ export class MapScreen {
   /**
    * The five areas of the Reach, and the roads between them.
    *
-   * Clicking one travels there. The server allows travel only out of a
-   * village, and it allows jumping *ahead* of the gates -- anything skipped is
-   * granted as though it had been walked, so the map is a way to move around
-   * the campaign rather than a list of places you may not go.
+   * Clicking one travels there. The server allows travel only out of a village
+   * and only to an area whose prerequisite is already cleared, so the map moves
+   * you around the campaign you have opened rather than around the gates.
    */
   setCampaign(areas: readonly AreaSnap[], canTravel: boolean): void {
     this.#canTravel = canTravel;

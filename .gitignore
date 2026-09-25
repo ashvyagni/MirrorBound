@@ -30,3 +30,6 @@ apps/server/runs/
 # Player checkpoints: per-machine run state, not project content.
 apps/server/saves/
 
+
+# Scratch saves written by tools/perf/baseline.py
+tools/perf/_perf_saves/

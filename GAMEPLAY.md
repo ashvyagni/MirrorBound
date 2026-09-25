@@ -53,23 +53,48 @@ Two carried at a time. `Q` swaps them; the Character screen (`C`) changes what y
 |---|---|---|
 | Iron Sword | Three-hit chain; finisher hits ×1.5 and knocks back | 14 dmg · 0.42 s · reach 64 |
 | Hunter's Bow | Fast arrows, high crit | 16 dmg · 0.7 s · range 380 · 15% crit |
-| Ember Staff | Slow fireballs that burst (AoE 56) | 20 dmg · 0.85 s · 6 mana |
-| Frost Staff | Rapid bolts that slow to 55% for 1.6 s | 11 dmg · 0.5 s · 4 mana |
+| Ember Staff | A heavy overhead bash; its fire is in its spells | 16 dmg · 0.62 s · reach 74 |
+| Frost Staff | A lighter, faster sweep; its frost is in its spells | 12 dmg · 0.48 s · reach 78 |
+
+You begin with **nothing**, because abilities come from weapons: the first one you pick up
+is the first time the ability bar has anything on it. A dungeon entrance leaves an iron
+sword out when you own no weapon at all, so that moment is something you walked over rather
+than something you woke up with.
 
 The starter sword finishes the main route. The others change how it feels, not whether it works.
 
-### Abilities (`1`-`4`, six to choose from)
+### Abilities (`1`-`4`)
+
+**Abilities belong to weapons, not to you.** Carrying a sword is what gives you a guard and
+a step; carrying a staff is what gives you the spells. The four keys are the main hand's
+abilities followed by the offhand's, so what you carry *is* what you can do — there is no
+loadout screen to set and forget, and dropping a weapon takes its abilities with it.
+
+| Weapon | Grants |
+|---|---|
+| Iron Sword | Aegis, Shadow Dash |
+| Hunter's Bow | Arrow Volley, Mending Light |
+| Ember Staff | Ember Bolt, Flame Burst, Flame Pillar |
+| Frost Staff | Frost Bolt, Binding Nova, Arcane Bolt |
+| *(empty hands)* | Shadow Dash only |
 
 | Ability | Cost | Cooldown | Effect |
 |---|---|---|---|
-| Arcane Bolt | 8 | 1.2 s | Piercing projectile, 22 dmg |
+| Ember Bolt | 6 | 0.85 s | Slow fireball, 20 dmg, bursts for AoE 56 |
+| Frost Bolt | 4 | 0.5 s | Rapid bolt, 11 dmg, slows to 55% for 1.6 s |
+| Arcane Bolt | 8 | 1.2 s | A **beam**: a 760-unit lance, 22 dmg, hits everything on the line |
+| Arrow Volley | 12 | 2.4 s | Fast arrow, 15 dmg |
 | Flame Burst | 22 | 5 s | Cone in facing direction, 38 dmg with falloff, burns |
-| Shadow Dash | 10 | 2.6 s | Blink 190 units, invulnerable 0.28 s |
+| Flame Pillar | 24 | 6.5 s | Column around you after a 0.25 s wind-up, 34 dmg, radius 120 |
 | Binding Nova | 28 | 8 s | Radius 150, 18 dmg, slows to 35% for 2.6 s |
 | Mending Light | 26 | 11 s | Channels 0.55 s, restores 45. **A hit interrupts it and refunds nothing.** |
 | Aegis | 20 | 14 s | Cuts incoming damage 40% for 5 s |
+| Shadow Dash | 10 | 2.6 s | Blink 190 units, invulnerable 0.28 s |
 
-Four are equipped at a time; swap them on the Character screen.
+A staff's basic attack is a **bash**, not a bolt — its element is in the spells it grants,
+which is what makes a staff three spells and a way to buy time between them rather than a
+wand you hold down. Carrying two staves fills all four keys with spells and leaves you
+without a dash, which is a real choice rather than a strictly worse one.
 
 ### Potions (`F` health, `G` mana)
 
@@ -99,8 +124,8 @@ unlearning a tier-1 node under a tier-3 one would leave a build the tree says is
 Relearning the same nodes lands back exactly where you started, and the refund never heals you.
 
 The **first fight of the first dungeon** is authored rather than rolled: four enemies, one of
-each role, no brute. Any other combat room may roll any of four templates, but that one is taken
-alone, at level one, before the twin has been found.
+each role, no brute. Any other combat room may roll any of the six combat templates, but that one
+is taken alone, at level one, before the twin has been found.
 
 ## Enemies
 
@@ -113,6 +138,9 @@ alone, at level one, before the twin has been found.
 | Ash Acolyte | ranged | Never closes, and its bolt slows you. Ignore it and the fight gets away. |
 | Crypt Brute | tank | Huge telegraph, 26 damage, barely flinches. You are meant to leave. |
 | Husk Scarab | fast | Trivial alone, arrives in sevens, surrounds you. |
+| Fen Spitter | ranged | Outranges everything but the bow, and can hit you off-screen. One clean hit kills it. |
+| Bitterroot Sprout | melee | Notices you at 130 units where everything else sees you at three hundred. The dressing is the ambush. |
+| Kiln Shardling | tank | Sheds a fan of five, so sidestepping does not work. Armoured, so it is a decision rather than a race. |
 | The Ashen Warden | guardian | 420 HP. Keeps hitting the same place, so it is beaten by moving. |
 | The Mirror | boss | 520 HP, three phases, counters from your behaviour model. |
 
@@ -136,8 +164,9 @@ over rather than duplicating it.
 
 Written when you reach a village, when you rest at a hearth, and when you find your twin.
 Progression is saved — level, skills, inventory, gold, quest flags, the twin's kit — not a frozen
-simulation. The learned player model is deliberately not saved: a model restored out of its own
-run would be a different claim than "the twin learned this from you".
+simulation. The learned player model **is** saved, in the slot it was learned in: a save is one
+file, so deleting it deletes the twin trained in it and a stale model can never attach itself to
+a run that did not produce it. Two slots never share a twin.
 
 A checkpoint is **read back** when you reconnect, so closing the tab does not lose the run. The
 session id is the save's name; `?session=name` in the URL picks one, and `?seed=N` starts that

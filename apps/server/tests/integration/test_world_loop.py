@@ -16,9 +16,9 @@ from mirrorbound.game.world.campaign import AREAS, CampaignState, sanitise_name
 from tests.conftest import DT, combat_session, play_cutscene
 
 
-def fresh_village(name="world") -> GameSession:
+def fresh_village(name="world", admin: bool = False) -> GameSession:
     save_system.delete_save(name)
-    return GameSession(name, seed=5, record=False)
+    return GameSession(name, seed=5, record=False, is_admin=admin)
 
 
 def clear_room(session) -> None:
@@ -292,6 +292,33 @@ def learn_two(session):
     return p
 
 
+def test_respec_is_a_player_feature_and_not_an_admin_one():
+    """An ordinary player can unlearn their tree.
+
+    The auth pass wrapped RESPEC in an `is_admin` check alongside SPAWN, GIVE
+    and CONFIGURE_BOSS, which really are debug commands. RESPEC is not: it is
+    the "Unlearn all" button on the skill screen, and gating it meant no player
+    who was not the first account on the server could ever change a build.
+
+    Asserted on a session with no admin rights at all, which is what every
+    player has -- the two tests below happen to use the same kind of session,
+    but neither of them would fail if the flag came back, because neither is
+    about who is allowed to ask.
+    """
+    s = fresh_village("respec-player")
+    assert not s.is_admin, "an ordinary player, which is the point"
+    p = learn_two(s)
+    learned = list(p.unlocked_skills)
+
+    s.handle_input({"type": "COMMAND", "action": "RESPEC"})
+    s.step(DT)
+
+    assert learned, "the fixture has to have learned something to unlearn"
+    assert not p.unlocked_skills, "the tree came back"
+    assert not any(e.data.get("reason") == "admin only"
+                   for e in s.state.pending_events if e.type == "ACTION_REJECTED")
+
+
 def test_respec_in_a_village_refunds_everything_and_is_deterministic():
     s = fresh_village("respec")
     p = learn_two(s)
@@ -463,7 +490,7 @@ def test_spawning_from_the_console_puts_a_real_hostile_enemy_in_the_room():
     definition and its real controller and starts hunting -- which is the whole
     reason the console asks the server instead of drawing something itself.
     """
-    s = combat_session("console-spawn")
+    s = combat_session("console-spawn", is_admin=True)
     before = len(s.state.enemies)
     s.handle_input({"type": "COMMAND", "action": "SPAWN", "enemyType": "mirror"})
     for _ in range(40):
@@ -484,7 +511,7 @@ def test_spawning_is_refused_in_a_village_and_does_not_stop_the_tick():
     the tick -- so snapshots stopped and every client froze in place. The
     assertion that matters is the second one: the world still moves.
     """
-    s = fresh_village("console-village")
+    s = fresh_village("console-village", admin=True)
     s.handle_input({"type": "COMMAND", "action": "SPAWN", "enemyType": "mirror"})
     for _ in range(10):
         s.step(DT)

@@ -24,7 +24,12 @@ def isolated_saves(tmp_path, monkeypatch):
 
 
 def village(name: str = "sandbox") -> GameSession:
-    return GameSession(name, seed=5, record=False)
+    # Admin, because that is what this file is about. SPAWN, GIVE and
+    # CONFIGURE_BOSS are debug commands and the server refuses them for an
+    # ordinary player -- so a session testing them has to be one that is
+    # allowed to use them, or every test here asserts the refusal instead of
+    # the tool.
+    return GameSession(name, seed=5, record=False, is_admin=True)
 
 
 def apply(s: GameSession, action: str, **fields) -> None:
