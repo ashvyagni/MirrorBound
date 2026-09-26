@@ -99,12 +99,15 @@ def test_the_three_new_families_exist_and_are_reachable():
         assert family in spawnable, f"{family} exists but no room ever spawns it"
 
 
-def test_the_shardling_is_the_only_spread_shot():
+def test_the_spread_shot_belongs_to_one_family_and_its_boss():
     """Everything else throws one thing you can step around.
 
-    The whole reason it earns a place is that sidestepping does not answer it.
-    If something else grows a spread later this is worth revisiting, but it
-    should be a decision rather than a drift.
+    The whole reason the shardling earns a place is that sidestepping does not
+    answer it. The old form of this test allowed exactly one spread in the game
+    and said that another should be "a decision rather than a drift" -- the
+    Kiln Shardmother is that decision: a regional boss built on the shardling
+    family precisely so it asks the spread question at its loudest. Anything
+    *else* growing one is still the drift this guards against.
     """
     from mirrorbound.game.entities.enemy import ARCHETYPES
 
@@ -113,7 +116,7 @@ def test_the_shardling_is_the_only_spread_shot():
         for eid, e in ARCHETYPES.items()
         if e.projectile is not None and e.projectile.count > 1
     }
-    assert spreads == {"shardling": 5}
+    assert spreads == {"shardling": 5, "shardmother": 5}
 
 
 def test_the_sprout_notices_you_far_later_than_anything_else():

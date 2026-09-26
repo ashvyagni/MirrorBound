@@ -37,7 +37,9 @@ from mirrorbound.game.core.events import Event
 from mirrorbound.game.core.rng import DeterministicRNG
 from mirrorbound.game.dungeon.generation import DungeonGenerator, DungeonRun
 from mirrorbound.game.dungeon.room import TILE, Portal, Room
+from mirrorbound.game.dungeon.templates import GUARDIAN_ROOMS
 from mirrorbound.game.enemy_ai.controller import BasicEnemyController
+from mirrorbound.game.enemy_ai.guardian import GuardianController
 from mirrorbound.game.enemy_ai.mirror import MirrorController
 from mirrorbound.game.entities.enemy import ARCHETYPES, armed_with
 from mirrorbound.game.entities.entity import Vec2
@@ -105,6 +107,8 @@ CLIENT_EVENT_TYPES = {
     "SWITCH_THROWN", "KEY_FOUND",
     # Iron Skin catching a killing blow, and a weapon coming off the bench.
     "LAST_STAND", "WEAPON_UPGRADED",
+    # A regional boss changing shape.
+    "BOSS_PHASE",
 }
 
 # Spatial heatmap cell size in world units. Rooms are 1280-1600 wide, so 64 gives
@@ -168,6 +172,7 @@ class GameSession:
         self.collision = CollisionSystem(self.state.bus, self.combat)
         self.enemy_controller = BasicEnemyController(self.state.rng)
         self.mirror_controller = MirrorController(self.state.rng)
+        self.guardian_controller = GuardianController(self.state.rng)
 
         self.style = TwinStyleModel()
         self.twin_controller = TwinV0Controller(self.style)
@@ -285,6 +290,7 @@ class GameSession:
                 biome=area.biome,
                 tutorial=area.tutorial,
                 branches=area.branches,
+                guardian=GUARDIAN_ROOMS.get(area.guardian_room),
             )
             for room in self.dungeon.rooms:
                 room.area_id = area_id
@@ -1061,7 +1067,12 @@ class GameSession:
         if not weapon or weapon == "bare_hands":
             return
         for enemy in self.state.enemies:
-            if enemy.enemy_def.boss and enemy.active:
+            # The Mirror only. Taking your weapon is *its* premise -- it fights
+            # the way you do -- and `armed_with` rewrites reach, cadence and
+            # projectile from the weapon, which would quietly dismantle a
+            # regional boss's designed identity: a Shardmother holding your
+            # sword stops throwing the fan it exists to throw.
+            if enemy.active and enemy.enemy_def.boss and not enemy.enemy_def.phases:
                 enemy.enemy_def = armed_with(ARCHETYPES[enemy.enemy_def.id], weapon)
 
     def _spawn_debug(self, enemy_type: str) -> None:
@@ -1290,7 +1301,15 @@ class GameSession:
 
         # 3. enemies
         for enemy in state.get_active_enemies():
-            if enemy.enemy_def.boss:
+            # Three kinds of brain, and which one a creature gets is a
+            # statement about the fight. Only the Mirror reads the player model
+            # -- that premise belongs to the ending, and a regional boss that
+            # borrowed it would spend the ending early. The guardians run a
+            # fixed, legible phase ladder instead; everything else is the
+            # ordinary archetype state machine.
+            if enemy.enemy_def.phases:
+                self.guardian_controller.update(dt, enemy, state, self.combat)
+            elif enemy.enemy_def.boss:
                 self.mirror_controller.player_model = self._player_model_dict()
                 self.mirror_controller.update(dt, enemy, state, self.combat)
             else:
@@ -1376,7 +1395,7 @@ class GameSession:
                 return
             # Clearing the last room of a dungeon finishes the area and opens
             # the way home; the player still walks out under their own power.
-            if self.dungeon is not None and room.index == len(self.dungeon.rooms) - 1:
+            if self.dungeon is not None and room.index == self.dungeon.last_room_index:
                 self._complete_area()
                 self._open_exit_portal(room)
             self.room_dirty = True
@@ -1529,7 +1548,17 @@ class GameSession:
         snap["playerModel"] = self._player_model_dict()
         snap["playerModel"]["cellSize"] = SPATIAL_CELL
         snap["twinModel"] = self.style.snapshot()
-        snap["boss"] = self.mirror_controller.debug() if state.boss_alive() else None
+        # The debug panel follows whichever brain is actually driving the fight.
+        # Reporting the Mirror's counters during a Warden fight would be a lie
+        # told to the one screen whose job is to explain the AI.
+        guardian = next((e for e in state.get_active_enemies() if e.enemy_def.phases), None)
+        if guardian is not None:
+            snap["boss"] = {"kind": guardian.enemy_def.id,
+                            **self.guardian_controller.debug(guardian.id)}
+        elif state.boss_alive():
+            snap["boss"] = {"kind": "mirror", **self.mirror_controller.debug()}
+        else:
+            snap["boss"] = None
         # Present only while the scene runs; the client holds input and points
         # the camera off whatever this says, so its absence means "play on".
         if self.cutscene is not None:

@@ -80,6 +80,10 @@ class AreaDef:
     dungeon_kind: str = "combat"
     #: Main-chain rooms with an optional side room hanging off them (§10).
     branches: tuple[int, ...] = ()
+    #: The authored guardian room, by template name. Each of the three belongs
+    #: to one dungeon and its boss is the reason that dungeon exists, so this
+    #: is named rather than rolled.
+    guardian_room: str = ""
 
     # --- the open world ------------------------------------------------------
     #: The settlement standing in this region, if any.
@@ -222,7 +226,8 @@ STONECOUNT_BARROW = AreaDef(
     subtitle="They counted the ones who did not come back, and then they stopped.",
     dungeon_kind="puzzle",
     sequence=(RoomType.ENTRANCE, RoomType.PUZZLE, RoomType.PUZZLE, RoomType.TREASURE,
-              RoomType.PUZZLE, RoomType.ELITE),
+              RoomType.PUZZLE, RoomType.GUARDIAN),
+    guardian_room="barrow_tally",
     # One branch early, so a keyed door later in the barrow has somewhere its
     # key can legitimately be. The generator enforces that too, but a dungeon
     # whose authoring already reads correctly is one less thing being rescued.
@@ -239,7 +244,8 @@ GLASSWORK = AreaDef(
     subtitle="They fired something here that was not brick.",
     dungeon_kind="mirror",
     sequence=(RoomType.ENTRANCE, RoomType.PUZZLE, RoomType.COMBAT, RoomType.PUZZLE,
-              RoomType.TREASURE, RoomType.ELITE),
+              RoomType.TREASURE, RoomType.GUARDIAN),
+    guardian_room="shardmother_kiln",
     branches=(3,),
     requires="wakewood_crypt", map_x=0.78, map_y=0.58, difficulty=1.3,
     completion_gold=240, completion_seal="seal_of_glass",
@@ -251,6 +257,7 @@ ASHEN_DEEP = AreaDef(
     dungeon_kind="combat", branches=(2,),
     sequence=(RoomType.ENTRANCE, RoomType.COMBAT, RoomType.TREASURE, RoomType.COMBAT,
               RoomType.EXPLORATION, RoomType.GUARDIAN),
+    guardian_room="warden_gate",
     requires="wakewood_crypt", map_x=0.90, map_y=0.32, difficulty=1.35,
     completion_gold=260, completion_seal="seal_of_ash",
 )

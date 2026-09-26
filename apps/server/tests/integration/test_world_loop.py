@@ -434,7 +434,9 @@ def test_a_treasure_room_cannot_be_farmed_by_re_entering_it():
 
 def test_finishing_a_dungeon_opens_the_way_home():
     s = combat_session("exit")
-    last = s.dungeon.rooms[-1]
+    # The last room on the *chain*, not the last in the list: side rooms are
+    # appended after the main route, so `rooms[-1]` is a branch.
+    last = s.dungeon.rooms[s.dungeon.last_room_index]
     s._enter_room(last, from_side="south")
     clear_room(s)
     assert "wakewood_crypt" in s.campaign.completed_areas

@@ -513,9 +513,20 @@ export interface TwinModel {
 }
 
 export interface BossDebug {
+  /**
+   * Which brain is driving: `mirror`, or one of the regional guardians.
+   *
+   * They report different things because they *are* different: only the Mirror
+   * reads the player model, so only the Mirror has counters to name.
+   */
+  kind?: string;
+  /** Which of its phases the fight is in. Both kinds have these. */
   phase: number;
-  activeCounter: string | null;
-  countersUsed: Record<string, number>;
+  /** Mirror only: the counter it is currently committed to. */
+  activeCounter?: string | null;
+  countersUsed?: Record<string, number>;
+  /** Guardian only: seconds until it may spend another special. */
+  cadence?: number;
 }
 
 /** One save slot, as the Saves screen lists it. */

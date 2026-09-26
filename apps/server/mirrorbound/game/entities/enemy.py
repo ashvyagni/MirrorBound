@@ -33,6 +33,28 @@ class EnemyState(Enum):
 
 
 @dataclass(frozen=True)
+class BossPhase:
+    """One stage of an encounter: what it does, and what it becomes.
+
+    Phases are entered on a health fraction and never left, so the fight only
+    ever escalates -- a boss that could drop back a phase after a heal would be
+    a boss whose tells stop meaning anything.
+    """
+    #: Entered when health falls to or below this fraction.
+    below: float
+    name: str
+    #: What it may cast in this phase, on top of its ordinary attack.
+    abilities: tuple[str, ...] = ()
+    #: How much faster it moves here. Speed is the one stat that escalates,
+    #: because it is the one the player reads as pressure.
+    speed_mult: float = 1.0
+    #: Help it calls, as (enemy type, how many), once on entering the phase.
+    summons: tuple[tuple[str, int], ...] = ()
+    #: A line for the HUD when the phase turns over.
+    tell: str = ""
+
+
+@dataclass(frozen=True)
 class LootTable:
     essence_min: int = 1
     essence_max: int = 3
@@ -78,6 +100,13 @@ class EnemyDef:
     # draw the thing in its hands. The Mirror taking your sword is the premise;
     # a Mirror that swings an invisible one only half tells you so.
     weapon_id: str = ""
+    #: The phase ladder, for a boss. Empty for everything else.
+    #:
+    #: A regional boss is not a Mirror: it does not read the player model, and
+    #: it must not -- that premise is the ending's, and sharing it would spend
+    #: the ending early. What it has instead is a fixed, legible kit that
+    #: changes shape twice while you are learning it.
+    phases: tuple["BossPhase", ...] = ()
     #: Ability ids this creature can cast, beyond its basic attack.
     #:
     #: Empty for everything that is not a boss. The Mirror carries its own, and
@@ -182,12 +211,82 @@ WARDEN = EnemyDef(
     # The guardian at the bottom of the Ashen Deep. Readable mechanic: it is a
     # tank that keeps hitting the same place, so it is beaten by moving, which
     # is the lesson the Mirror will later punish you for over-learning.
-    id="warden", name="The Ashen Warden", health=420, damage=30, speed=96,
+    #
+    # Promoted to a real encounter in v1.1. It was a tank state machine with a
+    # large health pool -- FEATURE_STATUS said so -- which made the game's
+    # middle milestone the same fight as a Crypt Brute, for longer. It has a
+    # ladder now: the slam, then the scarabs it was keeping down there with it,
+    # then both and faster.
+    id="warden", name="The Ashen Warden", health=520, damage=30, speed=96,
     attack_range=84, aggro_range=900, attack_cooldown=2.0, attack_windup=0.85,
-    behavior=EnemyBehavior.TANK, size=26, xp_reward=260, sprite="warden",
+    behavior=EnemyBehavior.TANK, size=26, xp_reward=320, sprite="warden",
     tags=("MELEE", "HEAVY", "GUARDIAN"), knockback=340, knockback_resist=0.85,
     loot=LootTable(10, 16, 1.0, 0.4, 0.4, weapon_chance=0.5, relic_chance=0.6),
-    elite=True, role="tank",
+    elite=True, boss=True, role="boss",
+    phases=(
+        BossPhase(below=1.0, name="The Gate", abilities=("ash_slam",),
+                  tell="It plants itself between you and the stair."),
+        BossPhase(below=0.62, name="The Nest Wakes", abilities=("ash_slam",),
+                  summons=(("scarab", 4),), speed_mult=1.08,
+                  tell="It strikes the floor, and the floor answers."),
+        BossPhase(below=0.28, name="Ashfall", abilities=("ash_slam", "kiln_breath"),
+                  summons=(("scarab", 3),), speed_mult=1.18,
+                  tell="The ash comes up around it and it stops guarding."),
+    ),
+)
+
+THE_STONECOUNT = EnemyDef(
+    # The barrow's keeper, and the answer to Wren's wrong tally: something has
+    # been counting, and the count includes the ones who came back.
+    #
+    # Drawn on the skeleton family at boss scale (§35). Its identity is the
+    # *adds*: it is not very dangerous on its own and it never stops calling,
+    # so the fight is about which thing you deal with and in what order -- the
+    # question the puzzle dungeon has been asking in a different register.
+    id="stonecount", name="The Stonecount", health=430, damage=19, speed=104,
+    attack_range=58, aggro_range=900, attack_cooldown=1.6, attack_windup=0.6,
+    behavior=EnemyBehavior.CHARGE, size=22, xp_reward=280, sprite="skeleton",
+    tags=("MELEE", "GUARDIAN"), knockback=200, knockback_resist=0.7,
+    loot=LootTable(8, 14, 1.0, 0.35, 0.35, weapon_chance=0.4, relic_chance=0.45),
+    elite=True, boss=True, role="boss",
+    phases=(
+        BossPhase(below=1.0, name="The Count", abilities=("tally_call",),
+                  summons=(("skeleton", 2),),
+                  tell="It begins at one."),
+        BossPhase(below=0.66, name="Recounting", abilities=("tally_call",),
+                  summons=(("skeleton", 2), ("scarab", 3)), speed_mult=1.1,
+                  tell="It loses its place and starts again."),
+        BossPhase(below=0.30, name="The Tally Stands",
+                  abilities=("tally_call", "mirror_nova"),
+                  summons=(("skeleton", 3),), speed_mult=1.2,
+                  tell="Every stone it ever laid is standing."),
+    ),
+)
+
+SHARDMOTHER = EnemyDef(
+    # The Glasswork's. Drawn on the shardling family, which is the one creature
+    # in the game that throws a spread -- so a boss made of that is the spread
+    # question at its loudest: you cannot sidestep it, you have to be behind
+    # something or inside its reach.
+    id="shardmother", name="The Kiln Shardmother", health=480, damage=15, speed=72,
+    attack_range=260, aggro_range=900, attack_cooldown=2.2, attack_windup=0.75,
+    behavior=EnemyBehavior.TANK, size=24, xp_reward=300, sprite="shardling",
+    tags=("RANGED", "HEAVY", "GUARDIAN"), knockback=110, knockback_resist=0.8,
+    projectile=ProjectileSpec(kind="shell_shard", speed=300, radius=6, lifetime=1.2,
+                              count=5, spread=0.24),
+    loot=LootTable(9, 15, 1.0, 0.4, 0.4, weapon_chance=0.45, relic_chance=0.5),
+    elite=True, boss=True, role="boss",
+    phases=(
+        BossPhase(below=1.0, name="Cold Glass", abilities=("shard_fan",),
+                  tell="It turns its face toward you, and the face is a facet."),
+        BossPhase(below=0.60, name="Firing", abilities=("shard_fan", "kiln_breath"),
+                  summons=(("shardling", 1),), speed_mult=1.06,
+                  tell="The kiln behind it comes back up to heat."),
+        BossPhase(below=0.26, name="Shatter",
+                  abilities=("shard_fan", "kiln_breath", "mirror_nova"),
+                  summons=(("shardling", 2),), speed_mult=1.15,
+                  tell="It cracks, and every crack is another mouth."),
+    ),
 )
 
 SPITTER = EnemyDef(
@@ -256,7 +355,8 @@ DUMMY = EnemyDef(
 
 ARCHETYPES: dict[str, EnemyDef] = {
     e.id: e for e in (SKELETON, ARCHER, HOUND, SLIME, ACOLYTE, BRUTE, SCARAB,
-                      SPITTER, SPROUT, SHARDLING, DUMMY, WARDEN, MIRROR)
+                      SPITTER, SPROUT, SHARDLING, DUMMY,
+                      WARDEN, THE_STONECOUNT, SHARDMOTHER, MIRROR)
 }
 
 # Aliases used by earlier templates.

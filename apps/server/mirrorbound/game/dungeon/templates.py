@@ -284,11 +284,32 @@ SHARDLIGHT_HALL = RoomTemplate(
 )
 
 WARDEN_GATE = RoomTemplate(
+    # The Warden calls its own help now, in its second phase, so the room no
+    # longer opens with two scarabs already standing in it -- the summon is the
+    # beat, and pre-placing them spends it before the fight starts.
     name="warden_gate", room_type=RoomType.GUARDIAN, width=1440, height=1080,
-    spawns=(SpawnSpec("warden", 0.50, 0.34), SpawnSpec("scarab", 0.24, 0.30),
-            SpawnSpec("scarab", 0.76, 0.30)),
+    spawns=(SpawnSpec("warden", 0.50, 0.34),),
     tree_density=0.0, rock_density=0.5, ruin_density=2.0, flora_density=0.1, torches=10,
     title_pool=("The Warden's Gate",),
+)
+
+BARROW_TALLY = RoomTemplate(
+    # The Stonecount's. Open in the middle with cover at the edges, because the
+    # fight is about the adds: you need somewhere to put your back and a reason
+    # not to stand there forever.
+    name="barrow_tally", room_type=RoomType.GUARDIAN, width=1440, height=1120,
+    spawns=(SpawnSpec("stonecount", 0.50, 0.30),),
+    tree_density=0.0, rock_density=0.6, ruin_density=2.2, flora_density=0.0, torches=9,
+    title_pool=("The Last Stone", "Where the Count Is Kept"),
+)
+
+SHARDMOTHER_KILN = RoomTemplate(
+    # The Shardmother's. Pillars, deliberately: the fan cannot be sidestepped,
+    # so a room with nothing to get behind would only ever be a race.
+    name="shardmother_kiln", room_type=RoomType.GUARDIAN, width=1600, height=1200,
+    spawns=(SpawnSpec("shardmother", 0.50, 0.28),),
+    tree_density=0.0, rock_density=0.4, ruin_density=2.6, flora_density=0.0, torches=12,
+    title_pool=("The Firing Chamber", "The Mother Kiln"),
 )
 
 #: The combat room the game teaches fighting in.
@@ -312,8 +333,13 @@ TEMPLATES: dict[RoomType, tuple[RoomTemplate, ...]] = {
     RoomType.PUZZLE: (CISTERN_FLOOR, TALLY_HALL, LOCKPLATE_STAIR, SHARDLIGHT_HALL),
     RoomType.SIDE: (SIDE_VAULT, SIDE_OSSUARY),
     RoomType.ELITE: (ELITE_ARENA,),
-    RoomType.GUARDIAN: (WARDEN_GATE,),
+    RoomType.GUARDIAN: (WARDEN_GATE, BARROW_TALLY, SHARDMOTHER_KILN),
     RoomType.BOSS: (BOSS_MIRROR,),
+}
+
+#: Guardian rooms by name, so a dungeon can ask for its own.
+GUARDIAN_ROOMS: dict[str, RoomTemplate] = {
+    t.name: t for t in TEMPLATES[RoomType.GUARDIAN]
 }
 
 # The vertical slice's fixed progression (section 12 of the directive).
@@ -343,6 +369,7 @@ def get_random_template(room_type: RoomType, rng) -> RoomTemplate:
 __all__ = [
     "DEFAULT_SEQUENCE",
     "DungeonKind",
+    "GUARDIAN_ROOMS",
     "TEMPLATES",
     "TUTORIAL_COMBAT",
     "RoomTemplate",

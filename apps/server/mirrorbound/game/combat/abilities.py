@@ -368,10 +368,93 @@ MIRROR_VOLLEY = AbilityDef(
 )
 
 
+# --- what the regional bosses throw ------------------------------------------
+#
+# None of these is on a weapon and none has a slot: they are the guardians'.
+# Each is written as data for the same reason the Mirror's two are -- one
+# selection routine over a kit beats one branch per move.
+
+ASH_SLAM = AbilityDef(
+    id="ash_slam",
+    name="Ashfall",
+    type=AbilityType.NOVA,
+    slot=0,
+    icon="binding_nova",
+    cooldown=6.0,
+    cost=0,
+    # The longest telegraph in the game. The Warden's whole lesson is that you
+    # can see it coming, and the Mirror later punishes you for over-learning it.
+    cast_time=1.1,
+    range=0,
+    damage=30,
+    area=200,
+    tags=("SPELL", "AOE", "BOSS"),
+    description="The Warden brings its fist down and the floor answers.",
+)
+
+TALLY_CALL = AbilityDef(
+    id="tally_call",
+    name="The Tally",
+    type=AbilityType.NOVA,
+    slot=0,
+    icon="binding_nova",
+    cooldown=9.0,
+    cost=0,
+    cast_time=0.9,
+    range=0,
+    damage=14,
+    area=170,
+    tags=("SPELL", "AOE", "BOSS"),
+    effect_tags=("SLOW",),
+    effect_value=0.5,
+    duration=2.0,
+    description="It counts, and the ones it counts are slowed.",
+)
+
+SHARD_FAN = AbilityDef(
+    id="shard_fan",
+    name="Shardfall",
+    type=AbilityType.PROJECTILE,
+    slot=0,
+    icon="arcane_bolt",
+    cooldown=4.0,
+    cost=0,
+    cast_time=0.6,
+    range=460,
+    damage=12,
+    area=0,
+    tags=("RANGED", "BOSS"),
+    # Seven, wide. You cannot sidestep this one -- the answer is to be behind
+    # something or to be inside it, which is the Shardmother's whole question.
+    projectile=ProjectileSpec(kind="shell_shard", speed=320, radius=6, lifetime=1.6,
+                              count=7, spread=0.20),
+    description="A fan of glass, too wide to step around.",
+)
+
+KILN_BREATH = AbilityDef(
+    id="kiln_breath",
+    name="Kiln Breath",
+    type=AbilityType.CONE,
+    slot=0,
+    icon="flame_burst",
+    cooldown=7.0,
+    cost=0,
+    cast_time=0.85,
+    range=210,
+    damage=32,
+    area=210,
+    cone_angle=1.15,
+    tags=("SPELL", "AOE", "BURST", "BOSS"),
+    effect_tags=("BURN",),
+    description="What the kilns were actually for.",
+)
+
+
 ABILITIES: dict[str, AbilityDef] = {
     a.id: a for a in (ARCANE_BOLT, FLAME_BURST, SHADOW_DASH, BINDING_NOVA, MENDING_LIGHT, AEGIS,
                       ARROW_VOLLEY, FLAME_PILLAR, EMBER_BOLT, FROST_BOLT,
-                      SPLINTER_VOLLEY, MIRROR_NOVA, MIRROR_VOLLEY)
+                      SPLINTER_VOLLEY, MIRROR_NOVA, MIRROR_VOLLEY,
+                      ASH_SLAM, TALLY_CALL, SHARD_FAN, KILN_BREATH)
 }
 
 #: What you hold when nothing is equipped.

@@ -277,9 +277,18 @@ export class AgentScreen {
       this.#empty(x, y, w, 'It is only reading you once you are in front of it.');
       return;
     }
+    // A regional guardian has no counters to show, because it reads nothing:
+    // only the Mirror is driven by the player model, and saying otherwise on
+    // the one screen whose job is to explain the AI would be a lie.
+    if (boss.kind && boss.kind !== 'mirror') {
+      y = this.#line(x, y, w, `${boss.kind} — phase ${boss.phase}`, HUD.ink);
+      y = this.#line(x, y, w,
+        'A fixed pattern, not a read of you. Learn it.', HUD.dimInk);
+      return;
+    }
     y = this.#line(x, y, w,
       boss.activeCounter ? `countering: ${boss.activeCounter}` : 'generic behaviour', HUD.ink);
-    const used = Object.entries(boss.countersUsed);
+    const used = Object.entries(boss.countersUsed ?? {});
     if (used.length > 0) {
       y = this.#line(x, y, w, used.map(([c, n]) => `${c} ×${n}`).join('   '), HUD.dimInk);
     }

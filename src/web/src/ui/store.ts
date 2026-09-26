@@ -407,6 +407,11 @@ eventBus.on('game:events', (events) => {
           pushToast('good', `${String(e.data.name)} is quiet`, `+${e.data.gold} gold`);
         }
         break;
+      case 'BOSS_PHASE':
+        // The tell, not the phase number: what the player needs is the line
+        // that says what just changed about the thing in front of them.
+        pushToast('warn', String(e.data.name), String(e.data.tell ?? ''));
+        break;
       case 'WEAPON_UPGRADED':
         pushToast('good', `${String(e.data.name)} - tier ${e.data.tier}`,
           e.data.perk ? `${String(e.data.perk)} unlocked` : 'Sharper.');

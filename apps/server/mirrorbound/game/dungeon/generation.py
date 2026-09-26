@@ -27,6 +27,22 @@ class DungeonRun:
     seed: int
     rooms: list[Room]
     current_room_index: int = 0
+    #: How many rooms are on the main route. Side rooms are appended after
+    #: them, so this is *not* `len(rooms)` -- and the difference matters: the
+    #: room that finishes the dungeon is the last one on the chain, not the
+    #: last one in the list. Reading it as the list's end meant every dungeon
+    #: with a branch could be walked to its end and never completed, which
+    #: stopped the campaign at the first one.
+    chain: int = 0
+
+    def __post_init__(self):
+        if not self.chain:
+            self.chain = len(self.rooms)
+
+    @property
+    def last_room_index(self) -> int:
+        """The room whose clearing finishes the dungeon."""
+        return self.chain - 1
 
     @property
     def current_room(self) -> Room:
@@ -63,7 +79,8 @@ class DungeonGenerator:
 
     def generate(self, room_count: int = 7, sequence: tuple[RoomType, ...] | None = None,
                  biome: str | None = None, tutorial: bool = False,
-                 branches: tuple[int, ...] = ()) -> DungeonRun:
+                 branches: tuple[int, ...] = (),
+                 guardian: RoomTemplate | None = None) -> DungeonRun:
         """`biome` pins every room in the run to one biome. Without it the run
         shades from grove to crypt over its own length, which is right for a
         single long descent and wrong once the world has areas that each have
@@ -92,6 +109,11 @@ class DungeonGenerator:
             if room_type is RoomType.COMBAT:
                 first_combat = False
             template = TUTORIAL_COMBAT if teaching else get_random_template(room_type, self.rng)
+            # A guardian room is authored, not rolled: each of the three belongs
+            # to one dungeon and its boss is the reason that dungeon exists.
+            # Rolling would put the Shardmother in the barrow.
+            if room_type is RoomType.GUARDIAN and guardian:
+                template = guardian
             room_rng = self.rng.spawn(f"room:{index}")
             rooms.append(self._build_room(index, len(seq), template, room_rng, biome=biome))
         chain = len(rooms)
@@ -135,7 +157,7 @@ class DungeonGenerator:
             if not room.enemy_spawns:
                 room.cleared = True
                 room.unlock_doors()
-        return DungeonRun(seed=self.rng.seed, rooms=rooms, current_room_index=0)
+        return DungeonRun(seed=self.rng.seed, rooms=rooms, current_room_index=0, chain=chain)
 
     @staticmethod
     def _ensure_keys_are_reachable(rooms: list[Room], chain: int, side_of: dict[int, int]) -> None:
