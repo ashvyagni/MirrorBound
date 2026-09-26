@@ -212,7 +212,7 @@ WAKEWOOD_CRYPT = AreaDef(
     id="wakewood_crypt", name="Wakewood Crypt", kind="dungeon", biome="grove",
     subtitle="Something under the wakewood is breathing again.",
     sequence=(RoomType.ENTRANCE, RoomType.COMBAT, RoomType.EXPLORATION, RoomType.TREASURE, RoomType.ELITE),
-    requires="", map_x=0.20, map_y=0.38, difficulty=1.0,
+    requires="", map_x=0.20, map_y=0.38, difficulty=1.1,
     completion_gold=120, completion_seal="seal_of_waking", tutorial=True,
     dungeon_kind="combat", branches=(3,),
 )
@@ -232,7 +232,7 @@ STONECOUNT_BARROW = AreaDef(
     # key can legitimately be. The generator enforces that too, but a dungeon
     # whose authoring already reads correctly is one less thing being rescued.
     branches=(1, 4),
-    requires="", map_x=0.32, map_y=0.90, difficulty=1.1,
+    requires="", map_x=0.32, map_y=0.90, difficulty=1.2,
     completion_gold=180, completion_seal="seal_of_the_count",
 )
 
@@ -247,7 +247,7 @@ GLASSWORK = AreaDef(
               RoomType.TREASURE, RoomType.GUARDIAN),
     guardian_room="shardmother_kiln",
     branches=(3,),
-    requires="wakewood_crypt", map_x=0.78, map_y=0.58, difficulty=1.3,
+    requires="wakewood_crypt", map_x=0.78, map_y=0.58, difficulty=1.4,
     completion_gold=240, completion_seal="seal_of_glass",
 )
 
@@ -258,7 +258,7 @@ ASHEN_DEEP = AreaDef(
     sequence=(RoomType.ENTRANCE, RoomType.COMBAT, RoomType.TREASURE, RoomType.COMBAT,
               RoomType.EXPLORATION, RoomType.GUARDIAN),
     guardian_room="warden_gate",
-    requires="wakewood_crypt", map_x=0.90, map_y=0.32, difficulty=1.35,
+    requires="wakewood_crypt", map_x=0.90, map_y=0.32, difficulty=1.6,
     completion_gold=260, completion_seal="seal_of_ash",
 )
 
@@ -267,7 +267,7 @@ MIRROR_SANCTUM = AreaDef(
     subtitle="It has been watching you the whole way here.",
     dungeon_kind="mirror",
     sequence=(RoomType.ENTRANCE, RoomType.BOSS),
-    requires="ashen_deep", map_x=0.95, map_y=0.14, difficulty=1.5,
+    requires="ashen_deep", map_x=0.95, map_y=0.14, difficulty=1.8,
     completion_gold=0, completion_seal="seal_of_the_mirror",
 )
 

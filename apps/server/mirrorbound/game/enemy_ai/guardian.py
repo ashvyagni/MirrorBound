@@ -58,6 +58,8 @@ class GuardianController:
         #: Phase index per boss id, so two in one room never share a ladder.
         self.phase: dict[str, int] = {}
         self.cadence: dict[str, float] = {}
+        #: A special that has been announced and is still winding up, per boss.
+        self.charging: dict[str, tuple[str, float]] = {}
 
     def update(self, dt: float, enemy: Enemy, state: GameState, combat: CombatSystem) -> None:
         if not enemy.active:
@@ -73,6 +75,10 @@ class GuardianController:
 
         phase = self._advance_phase(enemy, state, phases)
         target = state.entity_by_id(enemy.target_id) or state.player
+
+        # A special that is already winding up owns the boss until it lands.
+        if self._resolve_charge(dt, enemy, state, combat, target):
+            return
 
         if not self._cast(enemy, state, combat, phase, target):
             self.basic.update(dt, enemy, state, combat)
@@ -130,6 +136,66 @@ class GuardianController:
 
     # --- the kit ------------------------------------------------------------------
 
+    def _resolve_charge(self, dt: float, enemy: Enemy, state: GameState,
+                        combat: CombatSystem, target) -> bool:
+        """Run down a wind-up and land the special at the end of it.
+
+        **The telegraph is the encounter.** Without this the controller called
+        `resolve_enemy_ability` the instant it chose a special, so an ability
+        whose whole design is a 1.1-second tell -- the Warden's slam, a
+        two-hundred-unit ring you are meant to see coming and leave -- went off
+        with no warning at all. The data said it was telegraphed and nothing
+        honoured it, which is §20's "artificial difficulty" exactly: unavoidable
+        damage dressed as a mechanic.
+
+        The boss holds still while it charges, the way the player does when
+        channelling, so the wind-up reads as a commitment rather than as
+        something it does while chasing you.
+        """
+        pending = self.charging.get(enemy.id)
+        if pending is None:
+            return False
+        ability_id, left = pending
+        left -= dt
+        enemy.velocity = Vec2()
+        if left > 0:
+            self.charging[enemy.id] = (ability_id, left)
+            return True
+        del self.charging[enemy.id]
+        ability = get_ability(ability_id)
+        enemy.face(target.position - enemy.position)
+        combat.resolve_enemy_ability(state, enemy, ability, target)
+        state.emit("ENEMY_ABILITY_CAST", enemy_id=enemy.id, enemy_type=enemy.enemy_def.id,
+                   ability=ability_id, position=enemy.position.to_dict())
+        return True
+
+    def _begin(self, enemy: Enemy, state: GameState, combat: CombatSystem,
+               ability, target) -> None:
+        """Announce a special, then either charge it or land it now."""
+        enemy.face(target.position - enemy.position)
+        enemy.ability_timers[ability.id] = ability.cooldown
+        self.cadence[enemy.id] = CADENCE
+        # Stop on the spot the moment it commits, not on the next tick: the
+        # wind-up is a promise about where the thing will land, and a boss that
+        # slides a stride further while charging breaks it.
+        enemy.velocity = Vec2()
+        if ability.cast_time <= 0:
+            combat.resolve_enemy_ability(state, enemy, ability, target)
+            state.emit("ENEMY_ABILITY_CAST", enemy_id=enemy.id, enemy_type=enemy.enemy_def.id,
+                       ability=ability.id, position=enemy.position.to_dict())
+            return
+        self.charging[enemy.id] = (ability.id, ability.cast_time)
+        # The ring the client already draws for the Mirror's nova is the
+        # fairest thing in that fight; anything that goes off around the caster
+        # gets the same one, and everything else announces generically.
+        if ability.type.value == "nova":
+            state.emit("BOSS_NOVA_CHARGE", enemy_id=enemy.id, position=enemy.position.to_dict(),
+                       radius=ability.area, duration=ability.cast_time)
+        else:
+            state.emit("ENEMY_ABILITY_CHARGE", enemy_id=enemy.id, ability_id=ability.id,
+                       position=enemy.position.to_dict(), radius=ability.area,
+                       duration=ability.cast_time)
+
     def _cast(self, enemy: Enemy, state: GameState, combat: CombatSystem,
               phase: BossPhase, target) -> bool:
         """Spend one special, if one is ready and worth spending."""
@@ -145,10 +211,7 @@ class GuardianController:
             ability = get_ability(ability_id)
             if not self._worth_it(ability, distance):
                 continue
-            enemy.face(target.position - enemy.position)
-            combat.resolve_enemy_ability(state, enemy, ability, target)
-            enemy.ability_timers[ability_id] = ability.cooldown
-            self.cadence[enemy.id] = CADENCE
+            self._begin(enemy, state, combat, ability, target)
             return True
         return False
 

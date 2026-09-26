@@ -98,12 +98,50 @@ def test_every_boss_has_three_phases_that_escalate(enemy_type):
 
 
 @pytest.mark.parametrize("enemy_type", sorted(GUARDIANS))
-def test_every_special_is_telegraphed(enemy_type):
+def test_every_special_is_authored_with_a_wind_up(enemy_type):
     """§12 wants telegraphed attacks, and the Warden's long tell is the lesson
     the Mirror later punishes you for over-learning."""
     for phase in GUARDIANS[enemy_type].phases:
         for ability_id in phase.abilities:
             assert ABILITIES[ability_id].cast_time >= 0.5, (enemy_type, ability_id)
+
+
+@pytest.mark.parametrize("enemy_type", sorted(GUARDIANS))
+def test_the_wind_up_actually_happens_before_the_damage(enemy_type):
+    """The test above only checked the *data*, and that was not enough.
+
+    The controller called `resolve_enemy_ability` the instant it chose a
+    special, so a 1.1-second tell went off with no warning: the ability was
+    telegraphed on paper and unavoidable in play, which is §20's "artificial
+    difficulty" exactly. This is the assertion that would have caught it --
+    something has to be announced, and the damage has to come later.
+    """
+    s, boss = fight(enemy_type)
+    charge_tick = cast_tick = None
+    for _ in range(1200):
+        s.step(DT)
+        for e in s.state.pending_events:
+            if e.type in ("ENEMY_ABILITY_CHARGE", "BOSS_NOVA_CHARGE") and charge_tick is None:
+                charge_tick = e.tick
+            if e.type == "ENEMY_ABILITY_CAST" and charge_tick is not None and cast_tick is None:
+                cast_tick = e.tick
+        if cast_tick is not None:
+            break
+    assert charge_tick is not None, f"{enemy_type} never announced anything"
+    assert cast_tick is not None, f"{enemy_type} announced and never landed it"
+    assert cast_tick > charge_tick, "the damage arrived with the warning"
+    assert (cast_tick - charge_tick) / 60.0 >= 0.5, "no time to read it"
+
+
+def test_a_charging_boss_holds_still():
+    """A wind-up read as a commitment, not as something it does while chasing."""
+    s, boss = fight("warden")
+    for _ in range(1200):
+        s.step(DT)
+        if boss.id in s.guardian_controller.charging:
+            assert boss.velocity.is_zero(), "charging and still moving"
+            return
+    pytest.fail("the Warden never wound anything up")
 
 
 @pytest.mark.parametrize("enemy_type", sorted(GUARDIANS))

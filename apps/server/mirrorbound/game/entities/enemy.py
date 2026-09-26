@@ -384,6 +384,18 @@ def elite_of(base: EnemyDef) -> EnemyDef:
     )
 
 
+#: How much of a region's difficulty goes into health, and how much into damage.
+#:
+#: §20 is explicit: "do NOT simply inflate enemy HP". It was the other way round
+#: -- health took the full multiplier and damage took 70% of it -- so a deeper
+#: region mostly meant the same fight for longer, which is the definition of
+#: inflating health. Damage takes the full multiplier now and health takes 60%
+#: of it, so going deeper means mistakes cost more rather than fights lasting
+#: longer. A 1.5x region: +30% health, +50% damage.
+HEALTH_SCALING = 0.6
+DAMAGE_SCALING = 1.0
+
+
 def scaled_for_region(base: EnemyDef, difficulty: float) -> EnemyDef:
     """Region scaling: the same archetype is meaningfully harder deeper in.
 
@@ -393,10 +405,11 @@ def scaled_for_region(base: EnemyDef, difficulty: float) -> EnemyDef:
     """
     if difficulty == 1.0:
         return base
+    over = difficulty - 1.0
     return replace(
         base,
-        health=round(base.health * difficulty, 1),
-        damage=round(base.damage * (1.0 + (difficulty - 1.0) * 0.7), 1),
+        health=round(base.health * (1.0 + over * HEALTH_SCALING), 1),
+        damage=round(base.damage * (1.0 + over * DAMAGE_SCALING), 1),
         xp_reward=int(base.xp_reward * difficulty),
     )
 

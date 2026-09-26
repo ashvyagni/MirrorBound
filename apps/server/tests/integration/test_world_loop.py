@@ -552,7 +552,11 @@ def test_spawning_from_the_console_puts_a_real_hostile_enemy_in_the_room():
 
     spawned = [e for e in s.state.enemies if e.enemy_def.id == "mirror"]
     assert len(s.state.enemies) == before + 1
-    assert spawned and spawned[0].health == 520
+    # Its real definition, scaled for the region it was summoned into -- not a
+    # literal, which pinned this to the crypt's difficulty being exactly 1.0.
+    from mirrorbound.game.entities.enemy import get_archetype
+    expected = get_archetype("mirror", s.state.difficulty)
+    assert spawned and spawned[0].health == expected.health
     assert spawned[0].enemy_def.boss
     # It has noticed the player. A spawn that stood still would be a prop.
     assert spawned[0].state.value in {"chase", "attack", "reposition"}
