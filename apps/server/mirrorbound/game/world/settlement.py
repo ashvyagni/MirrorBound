@@ -33,6 +33,7 @@ from mirrorbound.game.dungeon.room import (
 from mirrorbound.game.entities.entity import Vec2
 from mirrorbound.game.world.campaign import AREAS
 from mirrorbound.game.world.npc import VILLAGE_NPCS, Npc
+from mirrorbound.game.world.villagers import populate
 
 #: Legacy size of a standalone village room. Kept because a couple of tools and
 #: tests still build one to look at.
@@ -46,11 +47,16 @@ WIDTH, HEIGHT = 1600, 1120
 #: them, the farm buildings are downhill to one side, and the hearth is on the
 #: green itself. Two rings, so the village has a front and a back.
 _PLAN: tuple[tuple[str, float, float], ...] = (
-    # The working front, either side of the road.
-    ("forge",    -210.0,  -40.0),
-    ("stall",     205.0,  -30.0),
-    ("well",       10.0,  120.0),
-    ("banner",   -120.0, -190.0),
+    # The working front, facing the green from either side of it.
+    #
+    # Clear of the road bands, which run through the settlement's centre at
+    # +/-64 units. A building authored inside one gets its road painted straight
+    # through it, and the vendor posted against it is then nudged off the road
+    # and ends up standing away from their own forge.
+    ("forge",    -235.0, -135.0),
+    ("stall",     225.0, -135.0),
+    ("well",       10.0,  150.0),
+    ("banner",   -130.0, -235.0),
     # Houses behind it.
     ("hut_big",  -250.0, -210.0),
     ("hut",       -60.0, -270.0),
@@ -70,10 +76,21 @@ _PLAN: tuple[tuple[str, float, float], ...] = (
 #: explicitly — so the role is bound to the building rather than to a coordinate,
 #: and moving the forge in `_PLAN` moves Oren with it.
 _POSTS: dict[str, tuple[str, float, float]] = {
-    "weaponsmith": ("forge", 0.0, 62.0),
-    "apothecary": ("stall", 0.0, 58.0),
-    "elder": ("banner", 46.0, 56.0),
-    "hearth": ("well", 0.0, -96.0),
+    "weaponsmith": ("forge", 34.0, 58.0),
+    "apothecary": ("stall", -34.0, 56.0),
+    "elder": ("banner", 54.0, 52.0),
+    "hearth": ("well", 0.0, -104.0),
+}
+
+#: Where the people who are not vendors stand, as offsets from the centre.
+#:
+#: Bound to a place rather than a building, because what they are doing is
+#: where they are: the watch is on the road in, and the farmer is out by the
+#: fields. Keyed by NPC id, since two people can share a role.
+_STATIONS: dict[str, tuple[float, float]] = {
+    "farmer_bram": (-300.0, 220.0),
+    "watch_wren": (30.0, 350.0),
+    "keeper_odd": (60.0, -300.0),
 }
 
 
@@ -96,6 +113,10 @@ def place_settlement(room: Room, area_id: str, rng: DeterministicRNG) -> Settlem
     _pave(room, settlement)
     placed = _raise_buildings(room, settlement, rng)
     _place_people(room, area.settlement, settlement, placed)
+    # The people with nothing to say and somewhere to be. Kept apart from the
+    # vendors on purpose: a smith who wanders off mid-conversation is worse than
+    # one who stands at his forge.
+    room.villagers.extend(populate(settlement, room))
     _dress(room, settlement, rng)
     return settlement
 
@@ -169,6 +190,11 @@ def _place_people(room: Room, settlement_id: str, settlement: Settlement,
                   placed: dict[str, list[Vec2]]) -> None:
     """Every vendor at their own building, and the hearth on the green."""
     for definition in VILLAGE_NPCS.get(settlement_id, ()):
+        station = _STATIONS.get(definition.id)
+        if station is not None:
+            where = Vec2(settlement.x + station[0], settlement.y + station[1])
+            _stand(room, definition, where)
+            continue
         post = _POSTS.get(definition.role)
         where: Vec2 | None = None
         if post is not None:
@@ -182,11 +208,15 @@ def _place_people(room: Room, settlement_id: str, settlement: Settlement,
             # region, so they are at least in the village.
             where = Vec2(settlement.x + (definition.fx - 0.5) * settlement.radius,
                          settlement.y + (definition.fy - 0.5) * settlement.radius)
-        where = room.clamp(_beside_the_road(room, where), 16.0)
-        room.npcs.append(Npc(definition=definition, x=where.x, y=where.y))
-        # An NPC is something you walk up to, not through.
-        room.decor.append(Decor(kind=definition.sprite, x=where.x, y=where.y,
-                                blocking=True, radius=14.0))
+        _stand(room, definition, where)
+
+
+def _stand(room: Room, definition, where: Vec2) -> None:
+    """Put one person down, off the road, and make them something you walk up to."""
+    where = room.clamp(_beside_the_road(room, where), 16.0)
+    room.npcs.append(Npc(definition=definition, x=where.x, y=where.y))
+    room.decor.append(Decor(kind=definition.sprite, x=where.x, y=where.y,
+                            blocking=True, radius=14.0))
 
 
 def _beside_the_road(room: Room, pos: Vec2) -> Vec2:
@@ -256,4 +286,8 @@ def _sin(a: float) -> float:
     return math.sin(a)
 
 
-__all__ = ["place_settlement", "WIDTH", "HEIGHT"]
+__all__ = ["place_settlement", "stand_npc", "WIDTH", "HEIGHT"]
+
+
+#: Public name for `_stand`, so a region can place someone outside a village.
+stand_npc = _stand

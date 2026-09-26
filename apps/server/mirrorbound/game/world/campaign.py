@@ -450,6 +450,11 @@ class CampaignState:
         if area.completion_seal and area.completion_seal not in self.seals:
             self.seals.append(area.completion_seal)
         self.flags.add("area_cleared")
+        # A flag per area as well as the generic one, so dialogue can react to
+        # *which* thing is behind you rather than only to "something is". An
+        # elder who says the same line after the crypt and after the Warden is
+        # an elder who has not been listening.
+        self.flags.add(f"cleared_{area_id}")
         # Finishing a dungeon reveals whatever it unlocks.
         for other in AREAS.values():
             if other.requires == area_id:

@@ -31,6 +31,7 @@ import { WebSocketClient } from '../network/WebSocketClient';
 import type { Intent, PlayerSnapshot } from '../types';
 import { Ambient } from '../world/Ambient';
 import { TextureFactory } from '../world/TextureFactory';
+import { Villagers } from '../world/Villagers';
 import { WorldRenderer } from '../world/WorldRenderer';
 import { getSettings, type Settings } from '../../ui/settings';
 
@@ -62,6 +63,7 @@ export class PlayScene extends Phaser.Scene {
   #textures!: TextureFactory;
   #world!: WorldRenderer;
   #ambient!: Ambient;
+  #villagers!: Villagers;
   #vfx!: Vfx;
   #source!: KeyboardIntentSource;
   #weapon!: WeaponOverlay;
@@ -97,6 +99,7 @@ export class PlayScene extends Phaser.Scene {
     this.#textures.ensureCommon();
     this.#world = new WorldRenderer(this, this.#textures, this.#settings.quality);
     this.#ambient = new Ambient(this, this.#settings.quality);
+    this.#villagers = new Villagers(this);
     this.#vfx = new Vfx(this, this.#settings);
     this.#weapon = new WeaponOverlay(this);
     this.#shield = new ShieldOverlay(this);
@@ -202,6 +205,10 @@ export class PlayScene extends Phaser.Scene {
       this.#player.update(dt);
       // Anyone standing in a village turns to watch you walk past.
       this.#world.facePeople({ x: this.#player.x, y: this.#player.y });
+      // And the ones with somewhere to be keep going. Eased toward the
+      // authoritative positions, like every other entity, because snapshots
+      // land at 20Hz and the screen redraws at 60.
+      this.#villagers.step(deltaMs);
       this.#weapon.place({ x: this.#player.x, y: this.#player.y }, this.#player.facingVec);
       this.#shield.place({ x: this.#player.x, y: this.#player.y }, this.#player.facingVec);
       const ui = this.#player.snapshot();
@@ -288,6 +295,7 @@ export class PlayScene extends Phaser.Scene {
       this.#twin.applySnapshot(snap.twin);
     }
 
+    this.#villagers.sync(snap.villagers ?? []);
     this.#syncEnemies(snap.enemies);
     this.#syncProjectiles(snap);
     this.#syncPickups(snap);
@@ -794,6 +802,7 @@ export class PlayScene extends Phaser.Scene {
     this.#source.destroy();
     this.#ws.disconnect();
     this.#world.destroy();
+    this.#villagers.destroy();
     this.#ambient.destroy();
     // An enemy load started in the last room can land after this; without
     // this it would try to upgrade views belonging to a dead scene.

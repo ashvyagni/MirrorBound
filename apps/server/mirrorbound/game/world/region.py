@@ -48,7 +48,8 @@ from mirrorbound.game.dungeon.room import (
 from mirrorbound.game.entities.entity import Vec2
 from mirrorbound.game.world.campaign import AREAS, crossings_of
 from mirrorbound.game.world.crossings import carve_boundary, place_crossings, place_descents
-from mirrorbound.game.world.settlement import place_settlement
+from mirrorbound.game.world.npc import REGION_NPCS
+from mirrorbound.game.world.settlement import place_settlement, stand_npc
 
 #: Default size when an area does not state one. Roughly two villages across.
 DEFAULT_WIDTH, DEFAULT_HEIGHT = 2240, 1600
@@ -160,6 +161,10 @@ def build_region(area_id: str, rng: DeterministicRNG, is_open,
     place_crossings(room, area_id, is_open, completed)
     place_descents(room, area_id, is_open)
     settlement = place_settlement(room, area_id, rng)
+    # Not everyone lives in a village. Kell keeps his jetty at the far side of
+    # the flats, because that is where the boat is.
+    for definition in REGION_NPCS.get(area_id, ()):
+        stand_npc(room, definition, Vec2(definition.fx * room.width, definition.fy * room.height))
     _place_spawns(room, terrain, settlement)
     _place_caches(room, terrain, settlement)
     _dress(room, terrain, rng, settlement)
@@ -169,7 +174,11 @@ def build_region(area_id: str, rng: DeterministicRNG, is_open,
     # that is where a run should resume; otherwise the middle of the region,
     # which is on its road.
     if settlement is not None:
-        room.player_spawn = room.clamp(Vec2(settlement.x, settlement.y + 150.0), 24.0)
+        # The middle of the green, which is where the two roads through the
+        # village cross. Always paved and never built on -- the plan keeps every
+        # building well clear of the road bands -- so it is the one spot in a
+        # settlement guaranteed to be standable whatever the seed rolled.
+        room.player_spawn = room.clamp(Vec2(settlement.x, settlement.y), 24.0)
     else:
         room.player_spawn = room.clamp(Vec2(room.width / 2, room.height / 2), 24.0)
     room.twin_spawn = room.clamp(room.player_spawn + Vec2(-44, 22), 20.0)

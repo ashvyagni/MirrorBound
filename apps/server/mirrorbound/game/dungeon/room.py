@@ -228,6 +228,9 @@ class Room:
     area_id: str = ""
     portals: list[Portal] = field(default_factory=list)
     npcs: list = field(default_factory=list)      # list[Npc]; untyped to keep this module import-free
+    #: People walking their rounds. Scenery that moves, with no dialogue and no
+    #: collision -- see `world/villagers.py` for why they are not Npcs.
+    villagers: list = field(default_factory=list)  # list[Villager]
     #: Villages standing in this room. Empty everywhere but an overworld region.
     settlements: list[Settlement] = field(default_factory=list)
     #: Blocking decor bucketed by tile block, built on first use.

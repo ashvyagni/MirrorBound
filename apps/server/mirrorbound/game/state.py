@@ -198,6 +198,10 @@ class GameState:
             "pickups": [p.to_dict() for p in self.pickups if p.active],
             "stats": self.stats.to_dict(),
             "dungeon": self.dungeon.to_dict() if self.dungeon is not None else None,
+            # On every snapshot, not just detail ones: they move, and a walking
+            # figure updated once a second reads as a stutter rather than as a
+            # person. Small enough to afford -- six people of six short fields.
+            "villagers": [v.to_dict() for v in self.room.villagers],
         }
         if self.campaign is not None:
             d["campaign"] = self.campaign.to_dict()

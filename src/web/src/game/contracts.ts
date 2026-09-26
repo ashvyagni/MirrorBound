@@ -253,6 +253,24 @@ export interface DoorSnap {
   label: string;
 }
 
+/**
+ * Somebody walking their round in a village.
+ *
+ * Not an `NpcSnap`: these have no dialogue, no stock and no collision. They ride
+ * every snapshot rather than the detail ones, because they move and a figure
+ * updated once a second reads as a stutter.
+ */
+export interface VillagerSnap {
+  id: string;
+  role: string;
+  /** Which of the four villager frames to draw them with. */
+  sprite: number;
+  position: Vec2;
+  facing: Vec2;
+  /** False while they are stopped somewhere, doing whatever they came to do. */
+  moving: boolean;
+}
+
 /** A village, standing on a region's own ground. */
 export interface SettlementSnap {
   id: string;
@@ -482,6 +500,8 @@ export interface GameSnapshot {
   pickups: PickupSnap[];
   stats: RunStats;
   dungeon: DungeonInfo | null;
+  /** The village going about its day. Empty outside a settlement. */
+  villagers: VillagerSnap[];
   campaign?: CampaignSnap;
   /** Detail snapshots only, and only in rooms that have people in them. */
   npcs?: NpcSnap[];

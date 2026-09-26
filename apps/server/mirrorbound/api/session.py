@@ -66,6 +66,7 @@ from mirrorbound.game.world.campaign import (
 )
 from mirrorbound.game.world.campaign import crossing_between
 from mirrorbound.game.world.region import build_region
+from mirrorbound.game.world.villagers import update_all as update_villagers
 from mirrorbound.game.world.cutscene import BEATS, LINE_SECONDS, LINES, Cutscene
 from mirrorbound.game.world.npc import TALK_RADIUS
 from mirrorbound.game.world.sandbox import build_sandbox
@@ -1210,7 +1211,8 @@ class GameSession:
         self.combat.update(dt, state)
         state.enemies = [e for e in state.enemies if e.active]
 
-        # 6. room logic
+        # 6. the village going about its day, then room logic
+        update_villagers(state.room.villagers, dt)
         self._watch_settlement()
         self._room_logic()
         self.style.advance(state.tick)

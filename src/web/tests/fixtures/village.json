@@ -7,8 +7,8 @@
  "player": {
   "id": "player_1",
   "position": {
-   "x": 975.2,
-   "y": 1353.2
+   "x": 771.48,
+   "y": 1138.05
   },
   "velocity": {
    "x": 0.0,
@@ -275,7 +275,7 @@
   "id": "twin_1",
   "position": {
    "x": 1035.2,
-   "y": 1426.4
+   "y": 1276.4
   },
   "velocity": {
    "x": 0.0,
@@ -546,6 +546,92 @@
   "seconds": 0.1
  },
  "dungeon": null,
+ "villagers": [
+  {
+   "id": "hollow_reach_villager_0",
+   "role": "farmer",
+   "sprite": 0,
+   "position": {
+    "x": 747.2,
+    "y": 1505.1
+   },
+   "facing": {
+    "x": 0.93,
+    "y": 0.36
+   },
+   "moving": true
+  },
+  {
+   "id": "hollow_reach_villager_1",
+   "role": "carter",
+   "sprite": 1,
+   "position": {
+    "x": 1405.2,
+    "y": 1094.4
+   },
+   "facing": {
+    "x": 0.0,
+    "y": 1.0
+   },
+   "moving": false
+  },
+  {
+   "id": "hollow_reach_villager_2",
+   "role": "guard",
+   "sprite": 2,
+   "position": {
+    "x": 1075.2,
+    "y": 1584.4
+   },
+   "facing": {
+    "x": 0.0,
+    "y": 1.0
+   },
+   "moving": false
+  },
+  {
+   "id": "hollow_reach_villager_3",
+   "role": "child",
+   "sprite": 3,
+   "position": {
+    "x": 965.2,
+    "y": 1234.4
+   },
+   "facing": {
+    "x": 0.0,
+    "y": 1.0
+   },
+   "moving": false
+  },
+  {
+   "id": "hollow_reach_villager_4",
+   "role": "gatherer",
+   "sprite": 1,
+   "position": {
+    "x": 735.2,
+    "y": 1314.4
+   },
+   "facing": {
+    "x": 0.0,
+    "y": 1.0
+   },
+   "moving": false
+  },
+  {
+   "id": "hollow_reach_villager_5",
+   "role": "smith_hand",
+   "sprite": 2,
+   "position": {
+    "x": 865.2,
+    "y": 1294.4
+   },
+   "facing": {
+    "x": 0.0,
+    "y": 1.0
+   },
+   "moving": false
+  }
+ ],
  "campaign": {
   "playerName": "Wanderer",
   "twinName": "the Twin",
@@ -701,14 +787,15 @@
    "role": "elder",
    "sprite": "npc_elder",
    "position": {
-    "x": 975.6,
-    "y": 1120.4
+    "x": 973.6,
+    "y": 1071.4
    },
    "radius": 96.0,
    "lines": [
     "You have your mother's stubborn walk, Wanderer.",
     "The crypt under the wakewood has been breathing again. Three of ours went in.",
-    "Only one thing came back, and it wasn't one of ours. Go and see."
+    "Only one thing came back, and it wasn't one of ours. Go and see.",
+    "North over the Rootbridge, and keep to the path. The trees there are older than the village."
    ],
    "stock": []
   },
@@ -718,8 +805,8 @@
    "role": "weaponsmith",
    "sprite": "npc_smith",
    "position": {
-    "x": 865.2,
-    "y": 1353.2
+    "x": 874.2,
+    "y": 1177.4
    },
    "radius": 96.0,
    "lines": [
@@ -742,20 +829,6 @@
      "description": "Fast arrows with a high critical chance. Keep your distance."
     },
     {
-     "kind": "weapon",
-     "itemId": "ember_staff",
-     "price": 190,
-     "name": "Ember Staff",
-     "description": "Smashes up close. Its fire is in the three spells it grants."
-    },
-    {
-     "kind": "weapon",
-     "itemId": "frost_staff",
-     "price": 190,
-     "name": "Frost Staff",
-     "description": "Sweeps up close. Its frost is in the three spells it grants."
-    },
-    {
      "kind": "relic",
      "itemId": "wolf_fang",
      "price": 260,
@@ -770,8 +843,8 @@
    "role": "apothecary",
    "sprite": "npc_apothecary",
    "position": {
-    "x": 1280.2,
-    "y": 1359.2
+    "x": 1266.2,
+    "y": 1175.4
    },
    "radius": 96.0,
    "lines": [
@@ -809,11 +882,45 @@
    "sprite": "hearth",
    "position": {
     "x": 1162.0,
-    "y": 1355.2
+    "y": 1377.2
    },
    "radius": 96.0,
    "lines": [
     "The fire is banked and steady. Rest here and the road stops mattering for a while."
+   ],
+   "stock": []
+  },
+  {
+   "id": "farmer_bram",
+   "name": "Bram",
+   "role": "folk",
+   "sprite": "villager",
+   "position": {
+    "x": 775.2,
+    "y": 1474.4
+   },
+   "radius": 96.0,
+   "lines": [
+    "You'll be going north, then. Everyone does, eventually.",
+    "My grandfather ploughed to the treeline and no further. Said the wakewood was owed something.",
+    "Nobody remembers what. That's the trouble with being owed things for long enough."
+   ],
+   "stock": []
+  },
+  {
+   "id": "watch_wren",
+   "name": "Wren of the Watch",
+   "role": "folk",
+   "sprite": "villager",
+   "position": {
+    "x": 1156.4,
+    "y": 1604.4
+   },
+   "radius": 96.0,
+   "lines": [
+    "Two ways out of the vale, and I'd take neither if it were up to me.",
+    "North is the Rootbridge, into the wakewood. That's where the elder will send you.",
+    "East is Stonecount. Follow it far enough and you reach the water, and past that, Emberfall."
    ],
    "stock": []
   }
@@ -964,7 +1071,7 @@
     "biome": "grove",
     "position": {
      "x": 1075.2,
-     "y": 1404.4
+     "y": 1254.4
     },
     "enemies": 4,
     "first_visit": true,
@@ -981,33 +1088,10 @@
     "name": "",
     "safe": true
    }
-  },
-  {
-   "tick": 1,
-   "type": "SETTLEMENT_ENTER",
-   "data": {
-    "settlement": "hollow_reach",
-    "name": "Hollow Reach",
-    "area": "hollowreach_vale",
-    "position": {
-     "x": 975.2,
-     "y": 1353.2
-    }
-   }
-  },
-  {
-   "tick": 1,
-   "type": "CHECKPOINT_SAVED",
-   "data": {
-    "area": "hollowreach_vale",
-    "slot": "auto",
-    "name": "",
-    "safe": true
-   }
   }
  ],
  "playerModel": {
-  "tick": 1,
+  "tick": 0,
   "traits": {
    "aggression": {
     "value": 0.5,
@@ -1148,7 +1232,7 @@
    "id": "auto",
    "name": "Autosave",
    "auto": true,
-   "savedAt": 1790375059.348898,
+   "savedAt": 1790403157.8723352,
    "area": "hollowreach_vale",
    "level": 1,
    "gold": 0

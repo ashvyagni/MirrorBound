@@ -13,6 +13,9 @@ vi.mock('../src/game/state/Keybinds', () => ({
 
 // A real seed-5 server snapshot, with tile/decor art removed to keep the fixture small.
 const full = () => structuredClone(village) as GameSnapshot;
+/** The smith, by role: the fixture's NPC list grows as the village does. */
+const smithOf = (snap: GameSnapshot) =>
+  snap.npcs!.find((n) => n.role === 'weaponsmith')!;
 function lite(snap: GameSnapshot): GameSnapshot {
   const copy = structuredClone(snap);
   delete copy.npcs;
@@ -27,7 +30,7 @@ describe('interaction snapshots', () => {
   it('keeps a reachable NPC through every lite frame, clearing it on leaving the room', () => {
     const cache = new Interactions();
     const snap = full();
-    const smith = snap.npcs![1]!;
+    const smith = smithOf(snap);
     expect(cache.update(snap)?.id).toBe(smith.id);
     for (let i = 0; i < 19; i++) expect(cache.update(lite(snap))?.id).toBe(smith.id);
     expect(cache.update({ ...lite(snap), room: { ...lite(snap).room, id: 'next-area:0' } })).toBeNull();
@@ -49,7 +52,7 @@ describe('interaction snapshots', () => {
 
   it('uses the nearest NPC and includes the player radius at the server boundary', () => {
     const snap = full();
-    const smith = snap.npcs![1]!;
+    const smith = smithOf(snap);
     const player = { radius: 14, position: { x: smith.position.x + 110, y: smith.position.y } };
     expect(nearbyNpc([smith], player)).toBe(smith);
     player.position.x += 0.01;
@@ -68,10 +71,20 @@ describe('interaction snapshots', () => {
     eventBus.emit('game:snapshot', snap);
     for (let i = 0; i < 19; i++) eventBus.emit('game:snapshot', lite(snap));
     expect(targets).toHaveBeenCalledExactlyOnceWith({
-      label: 'Oren the Smith', ...snap.npcs![1]!.position,
+      label: 'Oren the Smith', ...smithOf(snap).position,
     });
     const far = lite(snap);
-    far.player.position.x += 20;
+    // Twenty units further along the line the player already stands on, away
+    // from the smith. A fixed nudge in x assumed the two were side by side,
+    // which stopped being true once the village had an authored layout.
+    const smith = smithOf(snap).position;
+    const dx = far.player.position.x - smith.x;
+    const dy = far.player.position.y - smith.y;
+    const away = Math.hypot(dx, dy) || 1;
+    far.player.position = {
+      x: far.player.position.x + (dx / away) * 20,
+      y: far.player.position.y + (dy / away) * 20,
+    };
     eventBus.emit('game:snapshot', far);
     expect(targets).toHaveBeenLastCalledWith(null);
   });
