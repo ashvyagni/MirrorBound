@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from mirrorbound.game.combat.abilities import DEFAULT_SLOTS, get_ability
-from mirrorbound.game.combat.weapons import get_weapon
+from mirrorbound.game.combat.weapons import MAX_UPGRADE, get_weapon, upgrade_cost
 
 
 CONSUMABLES: dict[str, dict] = {
@@ -46,6 +46,8 @@ class Inventory:
     resources: dict[str, int] = field(default_factory=lambda: {"essence": 0, "shards": 0, "relics": 0})
     relics: list[str] = field(default_factory=list)
     gold: int = 0
+    #: How far each weapon has been worked, by weapon id. Absent means tier 0.
+    upgrades: dict[str, int] = field(default_factory=dict)
 
     # --- weapons -----------------------------------------------------------
     def add_weapon(self, weapon_id: str) -> bool:
@@ -91,6 +93,43 @@ class Inventory:
             return False
         self.equipped_weapon, self.offhand_weapon = self.offhand_weapon, self.equipped_weapon
         return True
+
+    # --- upgrades --------------------------------------------------------------
+    def tier(self, weapon_id: str) -> int:
+        return self.upgrades.get(weapon_id, 0)
+
+    def can_upgrade(self, weapon_id: str) -> tuple[bool, str]:
+        """Whether this weapon can be worked further, and why not if it cannot."""
+        if weapon_id not in self.weapons:
+            return False, "not owned"
+        tier = self.tier(weapon_id)
+        cost = upgrade_cost(tier)
+        if cost is None:
+            return False, "already finished"
+        if self.gold < cost["gold"]:
+            return False, "not enough gold"
+        if self.resources.get("shards", 0) < cost["shards"]:
+            return False, "not enough shards"
+        if self.resources.get("essence", 0) < cost["essence"]:
+            return False, "not enough essence"
+        return True, "ok"
+
+    def upgrade(self, weapon_id: str) -> tuple[bool, str]:
+        """Take the payment and raise the tier. Nothing is spent on a refusal."""
+        ok, reason = self.can_upgrade(weapon_id)
+        if not ok:
+            return False, reason
+        cost = upgrade_cost(self.tier(weapon_id))
+        assert cost is not None
+        self.gold -= cost["gold"]
+        self.resources["shards"] = self.resources.get("shards", 0) - cost["shards"]
+        self.resources["essence"] = self.resources.get("essence", 0) - cost["essence"]
+        self.upgrades[weapon_id] = self.tier(weapon_id) + 1
+        return True, "ok"
+
+    def has_perk(self, weapon_id: str) -> bool:
+        """Whether this weapon has been worked far enough to have its perk."""
+        return self.tier(weapon_id) >= MAX_UPGRADE
 
     # --- gold ----------------------------------------------------------------
     def add_gold(self, amount: int) -> None:
@@ -156,7 +195,12 @@ class Inventory:
 
     def to_dict(self) -> dict:
         return {
-            "weapons": [get_weapon(w).to_dict() for w in self.weapons],
+            "weapons": [
+                {**get_weapon(w).to_dict(), "tier": self.tier(w),
+                 "upgradeCost": upgrade_cost(self.tier(w)),
+                 "hasPerk": self.has_perk(w)}
+                for w in self.weapons
+            ],
             "equippedWeapon": self.equipped_weapon,
             "offhandWeapon": self.offhand_weapon,
             "gold": self.gold,

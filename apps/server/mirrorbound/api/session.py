@@ -50,6 +50,7 @@ from mirrorbound.game.twin_executor import TwinExecutor
 from mirrorbound.game.world import save as save_system
 from mirrorbound.game.world.actions import (
     buy_item,
+    upgrade_weapon,
     call_twin,
     restore_twin,
     shard_rush,
@@ -102,6 +103,8 @@ CLIENT_EVENT_TYPES = {
     "QUEST_TAKEN", "QUEST_COMPLETE", "LORE_FOUND",
     # Puzzle dungeons: a plate thrown, and a key that opened something.
     "SWITCH_THROWN", "KEY_FOUND",
+    # Iron Skin catching a killing blow, and a weapon coming off the bench.
+    "LAST_STAND", "WEAPON_UPGRADED",
 }
 
 # Spatial heatmap cell size in world units. Rooms are 1280-1600 wide, so 64 gives
@@ -189,7 +192,8 @@ class GameSession:
         self.saves_dirty = True
         for kind in ("ITEM_PICKUP", "WEAPON_CHANGED", "SKILL_UNLOCKED", "LEVEL_UP", "ITEM_USED",
                      "ABILITY_SLOT_CHANGED", "PLAYER_RESPAWNED", "ROOM_ENTER", "GOLD_GAINED",
-                     "SHOP_PURCHASE", "NPC_TALK", "QUEST_UPDATED", "AREA_ENTER", "TWIN_ITEM_GIVEN"):
+                     "SHOP_PURCHASE", "NPC_TALK", "QUEST_UPDATED", "AREA_ENTER", "TWIN_ITEM_GIVEN",
+                     "WEAPON_UPGRADED"):
             self.state.bus.subscribe(kind, self._mark_detail_dirty)
 
         # A loaded checkpoint decides where the run resumes; otherwise the run
@@ -758,6 +762,8 @@ class GameSession:
                 self._talk(cmd.npcId)
             elif action == "BUY_ITEM" and cmd.npcId and cmd.itemId:
                 self._buy(cmd.npcId, cmd.itemId)
+            elif action == "UPGRADE_WEAPON" and cmd.npcId and cmd.weaponId:
+                upgrade_weapon(state, cmd.npcId, cmd.weaponId)
             elif action == "SET_NAME":
                 self._set_names(cmd.playerName, cmd.twinName)
             elif action == "TWIN_REQUEST" and cmd.weaponId:
@@ -1310,6 +1316,10 @@ class GameSession:
         twin = state.twin
         if twin.dormant:
             return
+        # The MIRROR branch is the player's investment in the twin, so the twin
+        # reads its bonuses off the player's tree rather than holding a copy
+        # that could drift out of step with a respec.
+        twin._recovery_bonus = state.player.mods.twin_recovery_mult - 1.0
         twin.update(dt)
         if twin.downed:
             if twin.downed_timer <= 0:

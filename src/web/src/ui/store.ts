@@ -407,6 +407,19 @@ eventBus.on('game:events', (events) => {
           pushToast('good', `${String(e.data.name)} is quiet`, `+${e.data.gold} gold`);
         }
         break;
+      case 'WEAPON_UPGRADED':
+        pushToast('good', `${String(e.data.name)} - tier ${e.data.tier}`,
+          e.data.perk ? `${String(e.data.perk)} unlocked` : 'Sharper.');
+        break;
+      case 'LAST_STAND':
+        pushToast('warn', 'Still standing', 'Iron Skin caught that one.');
+        break;
+      case 'KEY_FOUND':
+        pushToast('good', 'A key', 'Something further in was waiting for this.');
+        break;
+      case 'SWITCH_THROWN':
+        if (e.data.remaining === 0) pushToast('good', 'Something opened', 'That was the last plate.');
+        break;
       case 'QUEST_TAKEN':
         pushToast('info', String(e.data.name), String(e.data.first ?? ''));
         break;

@@ -133,6 +133,7 @@ def build_save(session_id: str, campaign, player, twin, name: str = "",
             "resources": dict(player.inventory.resources),
             "relics": list(player.inventory.relics),
             "gold": player.inventory.gold,
+            "upgrades": dict(player.inventory.upgrades),
         },
         "twin": {
             "weapons": list(twin.inventory.weapons),
@@ -334,6 +335,11 @@ def apply_save(data: dict[str, Any], player, twin) -> None:
     inv.relics = [r for r in p.get("relics", []) if r in RELICS]
     inv.resources["relics"] = len(inv.relics)
     inv.gold = max(0, int(p.get("gold", 0)))
+    # Weapons that have been worked. Filtered against what is actually owned, so
+    # a save naming a weapon that was since cut does not resurrect its tier.
+    from mirrorbound.game.combat.weapons import MAX_UPGRADE
+    inv.upgrades = {w: max(0, min(MAX_UPGRADE, int(t)))
+                    for w, t in (p.get("upgrades") or {}).items() if w in WEAPONS}
 
     t = data.get("twin", {})
     twin.inventory.weapons = [w for w in t.get("weapons", []) if w in WEAPONS]

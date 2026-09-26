@@ -245,6 +245,11 @@ SMITH_HASK = NpcDef(
         ShopEntry("weapon", "ember_staff", 190),
         ShopEntry("weapon", "frost_staff", 190),
         ShopEntry("weapon", "hunter_bow", 130),
+        # The two that only a mountain forge makes: reach, and a lance that
+        # wants things in a line. Priced above the staves, because by the time
+        # you can afford one you have been paid by a dungeon.
+        ShopEntry("weapon", "warden_pike", 280),
+        ShopEntry("weapon", "shard_lance", 300),
         ShopEntry("relic", "wolf_fang", 240),
         ShopEntry("relic", "mirror_eye", 320),
     ),
@@ -252,6 +257,9 @@ SMITH_HASK = NpcDef(
         "intro": (
             "Oren sent you. He always does, and he never sends coin with them.",
             "Staves, on the left. They don't shoot -- the fire's in what they let you cast.",
+            "Bring me anything you already carry and I'll work it up. Gold, shards, and "
+            "essence for the last of it. Third time on the bench and it stops being the "
+            "weapon you brought me.",
             "Everything here was pulled out of the terraces. Somebody built better than us, once.",
         ),
         "cleared_ashen_deep": (

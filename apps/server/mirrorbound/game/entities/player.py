@@ -81,6 +81,15 @@ class Player(Entity):
     state: str = "idle"
     state_timer: float = 0.0
     dash_timer: float = 0.0
+    #: Dashes taken since the cooldown last started, for Doublestep.
+    dashes_used: int = 0
+    #: Simulation time of the last dodge, or -1 for "never".
+    last_dodge_at: float = -1.0
+    #: Simulation time the last stand last fired. Far enough in the past that
+    #: the first one is always ready -- -1 put it inside its own two-minute
+    #: cooldown for the first two minutes of every run, which is most of the
+    #: time a player would first need it.
+    last_stand_at: float = -1.0e9
     dash_velocity: Vec2 = field(default_factory=Vec2)
     respawn_timer: float = 0.0
     deaths: int = 0
@@ -135,7 +144,19 @@ class Player(Entity):
         return self.weapon.id
 
     def weapon_damage_multiplier(self) -> float:
-        return self.mods.weapon_damage_mult + self.inventory.relic_bonus("weapon_damage_mult")
+        """Skills, relics, and how far the weapon in hand has been worked.
+
+        The upgrade is per *weapon*, so it moves when you swap: a sword worked
+        to its third tier does nothing for the bow in the other hand, which is
+        what makes upgrading a choice about what you carry rather than a
+        character-wide number.
+        """
+        from mirrorbound.game.combat.weapons import UPGRADE_DAMAGE
+
+        tier = min(self.inventory.tier(self.weapon.id), len(UPGRADE_DAMAGE) - 1)
+        return (self.mods.weapon_damage_mult
+                + self.inventory.relic_bonus("weapon_damage_mult")
+                + UPGRADE_DAMAGE[tier])
 
     def spell_damage_multiplier(self) -> float:
         return self.mods.spell_damage_mult + self.inventory.relic_bonus("spell_damage_mult")
@@ -160,10 +181,21 @@ class Player(Entity):
         if self.state in ("dead", "hurt", "dash"):
             return 0.0
         speed = self.run_speed if running else self.speed
-        if self.state in ("attack", "cast"):
+        if self.state == "attack":
             speed *= .45
+        elif self.state == "cast":
+            # Overflow (MAGIC 3) casts at a walk. A caster who has to stand
+            # still to throw anything plays a different game from one who does
+            # not, which is what the node is for.
+            if not self.mods.cast_on_the_move:
+                speed *= .45
         elif self.state == "drink":
-            speed *= DRINK_SLOW
+            # Steady Hand (SURVIVAL 3) drinks at walking pace. The lockout on
+            # attacking and casting stays -- what the node buys is the ability
+            # to keep moving while you do it, which is the part that gets people
+            # killed.
+            if not self.mods.drink_on_the_move:
+                speed *= DRINK_SLOW
         elif self.state == "channel":
             speed *= CHANNEL_SLOW
         return speed
@@ -293,6 +325,53 @@ class Player(Entity):
     #: cooldown, landed hit one over and over, and never saw hits two or three.
     ATTACK_BUFFER = 0.25
 
+    def combo_chain_for(self, weapon) -> tuple[float, ...]:
+        """The weapon's chain, plus whatever Executioner added to it.
+
+        A melee chain only. Hanging an extra swing off a bow would be an extra
+        arrow at no cost, and off a staff's single bash it would be a second
+        bash -- neither is the thing the node is about, which is that a sword
+        fight goes on one beat longer than the enemy expects.
+        """
+        chain = weapon.combo_chain
+        extra = self.mods.extra_combo_step
+        if extra <= 0 or len(chain) < 2:
+            return chain
+        # Each added swing keeps climbing from the finisher.
+        tail = tuple(chain[-1] + 0.35 * (i + 1) for i in range(extra))
+        return chain + tail
+
+    #: Seconds since the player last dodged something, for Riposte.
+    #:
+    #: Set by the combat system when a blow is avoided, and read by it when the
+    #: next strike lands. Lives here because it is a fact about the player and
+    #: two systems need it.
+    def note_dodge(self, now: float) -> None:
+        self.last_dodge_at = now
+
+    def riposte_multiplier(self, now: float) -> float:
+        """How much harder this strike lands for having just dodged one."""
+        window = self.mods.riposte_window
+        if window <= 0 or self.last_dodge_at < 0:
+            return 1.0
+        inside = now - self.last_dodge_at <= window
+        return (self.mods.riposte_mult or 1.0) if inside else 1.0
+
+    def survive_lethal(self, now: float) -> bool:
+        """Iron Skin's second half: a killing blow leaves you at 1, rarely.
+
+        Returns whether it fired. Rate-limited rather than once per run, so it
+        is a mechanic you can learn to rely on in a long fight and not a single
+        get-out you spend in the first room.
+        """
+        cooldown = self.mods.last_stand_seconds
+        if cooldown <= 0 or now - self.last_stand_at < cooldown:
+            return False
+        self.last_stand_at = now
+        self.health = 1.0
+        self.active = True
+        return True
+
     def buffer_attack(self) -> None:
         """Remember a press, whether or not it can be acted on this tick.
 
@@ -365,7 +444,7 @@ class Player(Entity):
 
     def start_attack(self, weapon: WeaponDef) -> float:
         """Begin an attack; returns the combo damage multiplier for this hit."""
-        chain = weapon.combo_chain
+        chain = self.combo_chain_for(weapon)
         if self.combo_timer <= 0 or self.combo_step >= len(chain):
             self.combo_step = 0
         multiplier = chain[self.combo_step]
@@ -423,12 +502,21 @@ class Player(Entity):
         return True, "ok"
 
     def start_ability(self, ability: AbilityDef) -> None:
+        self.mana -= ability.cost
+        if ability.type.value == "dash":
+            # Doublestep (MOBILITY 4): the extra dashes go before the cooldown
+            # starts, so the pair is one movement rather than two with a wait in
+            # between. The mana is spent each time -- what the node buys is the
+            # timing, not free distance.
+            self.dashes_used += 1
+            if self.dashes_used <= self.mods.dash_charges:
+                return
+            self.dashes_used = 0
+        else:
+            self.set_state("cast")
         cd = self.ability_cooldown_for(ability)
         self.ability_cooldowns[ability.id] = cd
         self.ability_cooldown_max[ability.id] = cd
-        self.mana -= ability.cost
-        if ability.type.value != "dash":
-            self.set_state("cast")
 
     def begin_dash(self, direction: Vec2, distance: float, duration: float, invuln: float) -> None:
         d = direction if not direction.is_zero() else self.facing
@@ -573,7 +661,7 @@ class Player(Entity):
             "currentWeapon": self.current_weapon,
             "attackCooldown": round(max(0.0, self.attack_cooldown), 2),
             "comboStep": self.combo_step,
-            "comboLength": len(self.weapon.combo_chain),
+            "comboLength": len(self.combo_chain_for(self.weapon)),
             "abilities": self.abilities_to_dict(),
             "kills": self.kills,
             "deaths": self.deaths,

@@ -35,6 +35,14 @@ export interface WeaponInfo {
   rarity: 'common' | 'uncommon' | 'rare';
   animation: 'sword' | 'bow' | 'fireStaff' | 'iceStaff';
   description: string;
+  /** What the third bench tier turns on, and what the smith calls it. */
+  perk: string;
+  perkName: string;
+  /** How far this weapon has been worked, 0-3. Only on carried weapons. */
+  tier?: number;
+  /** What the next tier costs, or null when it is finished. */
+  upgradeCost?: { gold: number; shards: number; essence: number } | null;
+  hasPerk?: boolean;
 }
 
 export interface AbilitySlot {
@@ -83,7 +91,7 @@ export interface Inventory {
 export interface SkillNode {
   id: string;
   name: string;
-  category: 'MOBILITY' | 'COMBAT' | 'MAGIC' | 'SURVIVAL';
+  category: 'MOBILITY' | 'COMBAT' | 'MAGIC' | 'SURVIVAL' | 'MIRROR';
   tier: number;
   cost: number;
   description: string;

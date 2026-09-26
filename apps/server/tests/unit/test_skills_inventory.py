@@ -5,10 +5,29 @@ from mirrorbound.game.progression.progression import xp_to_next
 from mirrorbound.game.progression.skills import CATEGORIES, SKILLS, can_unlock, modifiers_for, tree_to_dict
 
 
-def test_tree_has_all_four_categories_with_three_tiers():
+def test_every_branch_runs_four_tiers_deep():
     for cat in CATEGORIES:
         tiers = sorted(n.tier for n in SKILLS.values() if n.category == cat)
-        assert tiers == [1, 2, 3]
+        assert tiers == [1, 2, 3, 4], cat
+
+
+def test_the_tree_is_not_just_percentages():
+    """§16: "every skill should change gameplay".
+
+    The beta's twelve nodes were twelve numbers, so picking a branch changed how
+    hard you hit rather than how you played. The flat multipliers are allowed to
+    stay at tier 1 -- the first point in a branch should be a small, safe
+    commitment that says what the branch is about -- but everything past that
+    has to turn something on.
+    """
+    behavioural = ("dash_charges", "riposte_window", "extra_combo_step",
+                   "cooldown_on_kill", "drink_on_the_move", "cast_on_the_move",
+                   "dash_through", "last_stand_seconds", "twin_learning_mult",
+                   "twin_damage_mult", "twin_recovery_mult", "twin_shares_damage")
+    deep = [n for n in SKILLS.values() if n.tier >= 3]
+    for node in deep:
+        assert any(getattr(node, field) for field in behavioural), (
+            f"{node.id} is tier {node.tier} and only moves numbers")
 
 
 def test_prerequisites_gate_unlocks():

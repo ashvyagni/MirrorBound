@@ -55,6 +55,10 @@ Two carried at a time. `Q` swaps them; the Character screen (`C`) changes what y
 | Hunter's Bow | Fast arrows, high crit | 16 dmg · 0.7 s · range 380 · 15% crit |
 | Ember Staff | A heavy overhead bash; its fire is in its spells | 16 dmg · 0.62 s · reach 74 |
 | Frost Staff | A lighter, faster sweep; its frost is in its spells | 12 dmg · 0.48 s · reach 78 |
+| Warden's Pike | Long, slow and narrow. Reaches what nothing else does | 21 dmg · 0.78 s · reach 104 |
+| Shard Lance | Everything it throws goes in a line, and through | 13 dmg · 0.52 s · reach 80 |
+
+The last two are Emberfall's, and Hask is the only one who sells them.
 
 You begin with **nothing**, because abilities come from weapons: the first one you pick up
 is the first time the ability bar has anything on it. A dungeon entrance leaves an iron
@@ -111,12 +115,28 @@ Nothing stacks to immunity; dashing is the only way to take zero.
 ### Progression
 
 XP: 80 × 1.35^(level-1) to the next level. Each level: +12 max health, +8 max mana, +1 skill point.
-The tree (`K`) has four branches × three tiers; tier N needs tier N-1:
+The tree (`K`) has five branches × four tiers; tier N needs tier N-1. **The first point in a
+branch is a number and everything past it is a behaviour** — a tree of percentages is a tree
+where picking a branch changes how hard you hit rather than how you play:
 
-- **Mobility**: Swift Feet (+12% speed) → Shadow Step (dash CD -30%) → Phase Walker (+0.2 s dash i-frames)
-- **Combat**: Keen Edge (+15% weapon dmg) → Heavy Hands (+40% knockback) → Executioner (+12% crit)
-- **Magic**: Arcane Focus (+25 mana) → Pyromancer (+25% spell dmg) → Overflow (+60% regen, -15% ability CD)
-- **Survival**: Vitality (+30 HP) → Second Wind (heal 25 on room clear) → Iron Skin (-15% damage taken)
+- **Mobility**: Swift Feet (+12% speed) → Shadow Step (dash CD −30%) → Phase Walker (dash
+  *through* things, +0.2 s i-frames) → Doublestep (a second dash before the cooldown starts)
+- **Combat**: Keen Edge (+15% weapon dmg) → Heavy Hands (+40% knockback) → Riposte (strike
+  within 0.4 s of a dodge for double) → Executioner (a fourth swing on every melee chain, +12% crit)
+- **Magic**: Arcane Focus (+25 mana) → Pyromancer (+25% spell dmg) → Overflow (cast at a walk,
+  +60% regen, −15% CD) → Kindling (a kill takes a second off everything cooling)
+- **Survival**: Vitality (+30 HP) → Second Wind (heal 25 on room clear) → Steady Hand (drink
+  on the move) → Iron Skin (−15% damage, and one killing blow every two minutes leaves you at 1)
+- **Mirror**: Shared Sight (twin learns 25% faster) → Close Order (twin hits for 75% instead
+  of 60%) → Covering Fire (twin back up in 4 s, not 9) → Reflection (a protecting twin takes
+  a third of what you would have)
+
+### The bench
+
+A weaponsmith works a weapon up three tiers for **gold, mirror shards and essence** — which is
+what those last two are finally *for*. Each tier is +14%, +30%, +50% damage, and the third
+turns on the weapon's own perk. The upgrade belongs to the weapon, not to you: a sword worked
+to its third tier does nothing for the bow in your other hand.
 
 **Unlearning** ("Unlearn all", on the skill screen) refunds every point at once, in a village,
 out of combat. All of it rather than one node at a time: the tree has prerequisites, so

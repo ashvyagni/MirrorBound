@@ -70,6 +70,13 @@ class WeaponDef:
     vfx: str = "slash"
     sound: str = "slash"
     description: str = ""
+    #: What the third upgrade turns on, and the line the smith says about it.
+    #:
+    #: §17 wants weapons to have an identity rather than a damage number, and
+    #: §18 wants somewhere for essence and shards to go. Upgrading is both: the
+    #: first two tiers sharpen the weapon, and the third changes what it does.
+    perk: str = ""
+    perk_name: str = ""
 
     def get_tags(self) -> list[str]:
         return list(self.tags)
@@ -102,6 +109,8 @@ class WeaponDef:
             "animation": self.animation,
             "abilities": list(self.abilities),
             "description": self.description,
+            "perk": self.perk,
+            "perkName": self.perk_name,
         }
 
 
@@ -125,6 +134,7 @@ IRON_SWORD = WeaponDef(
     vfx="slash",
     sound="slash",
     description="Three-hit chain. The finisher hits hardest and knocks back.",
+    perk="cleave", perk_name="Cleaving Edge",
 )
 
 HUNTER_BOW = WeaponDef(
@@ -147,6 +157,7 @@ HUNTER_BOW = WeaponDef(
     sound="bow",
     rarity=Rarity.UNCOMMON,
     description="Fast arrows with a high critical chance. Keep your distance.",
+    perk="pierce", perk_name="Bodkin Heads",
 )
 
 EMBER_STAFF = WeaponDef(
@@ -173,6 +184,7 @@ EMBER_STAFF = WeaponDef(
     sound="fire",
     rarity=Rarity.RARE,
     description="Smashes up close. Its fire is in the three spells it grants.",
+    perk="ignite", perk_name="Banked Coals",
 )
 
 FROST_STAFF = WeaponDef(
@@ -196,6 +208,64 @@ FROST_STAFF = WeaponDef(
     sound="ice",
     rarity=Rarity.RARE,
     description="Sweeps up close. Its frost is in the three spells it grants.",
+    perk="brittle", perk_name="Hoarfrost",
+)
+
+WARDEN_PIKE = WeaponDef(
+    # Reach, and the patience to use it. Drawn from the sword sheets, because a
+    # long haft swung overhead is the same three frames as a blade -- §35 says
+    # recombine before commissioning, and what makes this a different weapon is
+    # that it hits from outside everything else's range and punishes you for
+    # missing rather than for being close.
+    id="warden_pike",
+    name="Warden's Pike",
+    type=WeaponType.MELEE,
+    family="sword",
+    damage=21,
+    cooldown=0.78,
+    range=104,
+    resource_cost=0,
+    knockback=300,
+    tags=("MELEE", "HEAVY"),
+    combo_chain=(1.0, 1.45),
+    combo_window=1.1,
+    # Narrow: the reach is paid for by having to be pointed at the thing.
+    arc_angle=1.1,
+    abilities=("aegis", "binding_nova"),
+    animation="sword",
+    vfx="slash",
+    sound="slash",
+    rarity=Rarity.RARE,
+    perk="impale", perk_name="Barbed Head",
+    description="Long, slow and narrow. It reaches what nothing else does.",
+)
+
+SHARD_LANCE = WeaponDef(
+    # The Glasswork's own. A staff whose spells are all line and no splash:
+    # where the ember staff asks you to gather a crowd, this asks you to line
+    # one up.
+    id="shard_lance",
+    name="Shard Lance",
+    type=WeaponType.MAGIC,
+    family="staff",
+    damage=13,
+    cooldown=0.52,
+    range=80,
+    resource_cost=0,
+    knockback=80,
+    tags=("MELEE", "MAGIC", "FAST"),
+    combo_chain=(1.0,),
+    arc_angle=2.0,
+    # Its own volley, not the Mirror's: `mirror_volley` costs no mana because
+    # a boss has no mana, and putting it on a weapon would hand the player a
+    # free three-shot spell. Splinter Volley is the costed version of the idea.
+    abilities=("arcane_bolt", "splinter_volley", "shadow_dash"),
+    animation="iceStaff",
+    vfx="ice",
+    sound="ice",
+    rarity=Rarity.RARE,
+    perk="refract", perk_name="Facet Cut",
+    description="Everything it throws goes in a straight line, and through.",
 )
 
 BARE_HANDS = WeaponDef(
@@ -256,8 +326,29 @@ ADMIN_STICK = WeaponDef(
 
 WEAPONS: dict[str, WeaponDef] = {
     w.id: w for w in (BARE_HANDS, IRON_SWORD, HUNTER_BOW, EMBER_STAFF, FROST_STAFF,
-                      ADMIN_STICK)
+                      WARDEN_PIKE, SHARD_LANCE, ADMIN_STICK)
 }
+
+#: What an upgrade costs and what it gives.
+#:
+#: Gold *and* shards, because gold alone was already spendable and shards were
+#: not spendable at all -- `RESOURCES` has described them as fuel for "relic
+#: crafting later" since the beta, and this is the sink that makes picking one
+#: up mean something. Essence goes in too at the top tier: it is the commonest
+#: drop in the game and it had nowhere to go.
+MAX_UPGRADE = 3
+UPGRADE_COST: tuple[dict[str, int], ...] = (
+    {"gold": 120, "shards": 2, "essence": 0},
+    {"gold": 260, "shards": 5, "essence": 20},
+    {"gold": 500, "shards": 9, "essence": 60},
+)
+#: What each tier adds to a weapon's damage, multiplicatively.
+UPGRADE_DAMAGE: tuple[float, ...] = (0.0, 0.14, 0.30, 0.50)
+
+
+def upgrade_cost(tier: int) -> dict[str, int] | None:
+    """What the next tier costs, or None when the weapon is finished."""
+    return UPGRADE_COST[tier] if 0 <= tier < MAX_UPGRADE else None
 
 #: Weapons that are testing tools rather than loot.
 #:

@@ -105,3 +105,36 @@ def shard_rush(state) -> bool:
     twin.intent = TwinIntent("EXPLORE", position=shard.position.copy(), confidence=1.0,
                              reason="the shard")
     return True
+
+
+def upgrade_weapon(state, npc_id: str, weapon_id: str) -> None:
+    """Have a smith work a weapon up a tier.
+
+    Only a weaponsmith, and only one you are standing next to -- the same rule
+    buying uses, and for the same reason: the server decides, and a command that
+    could be sent from across the map would make the shop a menu.
+    """
+    player = state.player
+    npc = next((n for n in state.room.npcs if n.id == npc_id), None)
+    if npc is None or npc.definition.role != "weaponsmith":
+        state.emit("ACTION_REJECTED", actor=player.id, action="UPGRADE_WEAPON",
+                   reason="no smith here")
+        return
+    if (Vec2(npc.x, npc.y) - player.position).length() > TALK_RADIUS + player.radius:
+        state.emit("ACTION_REJECTED", actor=player.id, action="UPGRADE_WEAPON",
+                   reason="too far")
+        return
+    before = player.inventory.tier(weapon_id)
+    ok, reason = player.inventory.upgrade(weapon_id)
+    if not ok:
+        state.emit("ACTION_REJECTED", actor=player.id, action="UPGRADE_WEAPON",
+                   weapon=weapon_id, reason=reason)
+        return
+    from mirrorbound.game.combat.weapons import get_weapon
+
+    weapon = get_weapon(weapon_id)
+    tier = player.inventory.tier(weapon_id)
+    state.emit("WEAPON_UPGRADED", npc=npc_id, weapon=weapon_id, name=weapon.name,
+               tier=tier, was=before, gold=player.inventory.gold,
+               perk=weapon.perk_name if player.inventory.has_perk(weapon_id) else "",
+               position=player.position.to_dict())

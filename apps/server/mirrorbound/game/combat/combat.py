@@ -17,6 +17,7 @@ from mirrorbound.game.combat.abilities import AbilityDef, AbilityType
 from mirrorbound.game.combat.hitbox import Hitbox, HitboxShape
 from mirrorbound.game.combat.mitigation import apply_reduction
 from mirrorbound.game.combat.weapons import ProjectileSpec, WeaponDef
+from mirrorbound.game.core.clock import SIM_HZ
 from mirrorbound.game.core.events import EventBus
 from mirrorbound.game.core.rng import DeterministicRNG
 from mirrorbound.game.entities.enemy import Enemy
@@ -64,7 +65,8 @@ class CombatSystem:
                                    source=weapon.id)
 
         token = f"{weapon.family.upper()}_{'STRIKE' if weapon.is_melee else 'SHOT'}"
-        if weapon.is_melee and player.combo_step == len(weapon.combo_chain) and len(weapon.combo_chain) > 1:
+        chain = player.combo_chain_for(weapon)
+        if weapon.is_melee and player.combo_step == len(chain) and len(chain) > 1:
             token = f"{weapon.family.upper()}_FINISHER"
         state.emit(
             "PLAYER_ATTACKED",
@@ -364,10 +366,14 @@ class CombatSystem:
         if weapon.resource_cost > 0:
             twin.mana -= weapon.resource_cost
         hits: list[str] = []
+        # Close Order (MIRROR 2) raises this. The floor stays well under 1.0 --
+        # the player has to remain the one who wins fights, or the twin's help
+        # turns into watching -- so the node buys 0.6 -> 0.75, not parity.
+        scale = min(0.85, TWIN_DAMAGE_MULT * (1.0 + state.player.mods.twin_damage_mult))
         if weapon.is_melee:
-            hits = [e.id for e in self._melee_sweep(state, twin, weapon, direction, TWIN_DAMAGE_MULT, attacker_id=twin.id)]
+            hits = [e.id for e in self._melee_sweep(state, twin, weapon, direction, scale, attacker_id=twin.id)]
         else:
-            self._fire_projectiles(state, twin, weapon.projectile, direction, weapon.damage * TWIN_DAMAGE_MULT,
+            self._fire_projectiles(state, twin, weapon.projectile, direction, weapon.damage * scale,
                                    weapon.knockback, weapon.tags, source=weapon.id)
         state.emit("TWIN_ATTACKED", target=target.id, weapon=weapon.id, tags=weapon.get_tags(),
                    position=twin.position.to_dict(), hitCount=len(hits),
@@ -458,6 +464,13 @@ class CombatSystem:
     def on_enemy_killed(self, state: GameState, enemy: Enemy, killer_id: str) -> None:
         edef = enemy.enemy_def
         state.stats.enemies_killed += 1
+        # Kindling (MAGIC 4): every ability still cooling gets a second back.
+        # Applied on any kill, including the twin's -- the branch is about the
+        # fight going your way, not about who landed the last hit.
+        refund = state.player.mods.cooldown_on_kill
+        if refund > 0:
+            for ability_id, remaining in list(state.player.ability_cooldowns.items()):
+                state.player.ability_cooldowns[ability_id] = max(0.0, remaining - refund)
         if killer_id == state.twin.id:
             state.twin.kills += 1
         else:
@@ -496,13 +509,29 @@ class CombatSystem:
         player = state.player
         if player.state == "dead" or player.invulnerable_for > 0:
             if player.invulnerable_for > 0 and player.state == "dash":
+                # Riposte (COMBAT 3) reads this: a strike inside the window that
+                # follows a dodge hits for double. Recorded here because a dodge
+                # is exactly a blow that arrived and did not land.
+                player.note_dodge(state.tick / SIM_HZ)
                 state.emit("PLAYER_DODGED", tags=["MOBILITY", "DEFENSIVE"], position=player.position.to_dict(),
                            dodged=[attacker_id], distance=0.0)
             return 0.0
         reduced, mitigations = apply_reduction(state, player.id, amount)
+        # Reflection (MIRROR 4): while the twin is actually protecting you, it
+        # takes a share of the blow. A read of what the twin is doing, like the
+        # PROTECT reduction it stacks on -- not something it casts.
+        share = player.mods.twin_shares_damage
+        if share > 0 and state.twin.available and state.twin.intent.intent_type == "PROTECT":
+            taken = reduced * share
+            reduced -= taken
+            self.damage_twin(state, taken, attacker_id, Vec2(), 0.0)
         actual = player.take_hit(reduced)
         if actual <= 0:
             return 0.0
+        # Iron Skin's second half: a killing blow leaves you standing, rarely.
+        if player.health <= 0 and player.survive_lethal(state.tick / SIM_HZ):
+            state.emit("LAST_STAND", actor=player.id, attacker=attacker_id,
+                       position=player.position.to_dict())
         # A hit the ward turned aside is a parry, and a parry makes the ward
         # ready again. The status itself still runs out on its own timer and
         # raising it again still costs mana, so this rewards blocking without

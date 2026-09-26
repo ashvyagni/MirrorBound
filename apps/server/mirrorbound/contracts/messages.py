@@ -33,6 +33,9 @@ CommandAction = Literal[
     # World and progression.
     "SWAP_WEAPON", "SET_OFFHAND", "TRAVEL", "TALK", "BUY_ITEM", "SET_NAME",
     "TWIN_REQUEST", "TWIN_CALL", "SAVE", "RESPEC",
+    # A smith works a weapon up a tier, paid for in gold, shards and essence --
+    # which is what gives the last two somewhere to go.
+    "UPGRADE_WEAPON",
     # Save slots. SAVE writes the slot the run is already playing; SAVE_AS
     # makes a new named one, LOAD_SAVE restarts the run from one, DELETE_SAVE
     # throws one away and RESET_DATA throws away every slot this profile has.

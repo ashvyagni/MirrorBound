@@ -292,6 +292,30 @@ FROST_BOLT = AbilityDef(
     description="A rapid frost bolt that slows whatever it touches.",
 )
 
+SPLINTER_VOLLEY = AbilityDef(
+    id="splinter_volley",
+    name="Splinter Volley",
+    type=AbilityType.PROJECTILE,
+    slot=2,
+    icon="arcane_bolt",
+    cooldown=3.2,
+    cost=18,
+    cast_time=0.0,
+    range=420,
+    damage=11,
+    area=0,
+    tags=("RANGED", "SPELL", "MAGIC"),
+    # Three that go through what they hit, tight enough to land together on one
+    # target at range and wide enough to catch a line of them up close. The
+    # Shard Lance's whole argument: it wants things standing in a row.
+    projectile=ProjectileSpec(kind="mirror_bolt", speed=430, radius=6, lifetime=1.3,
+                              count=3, spread=0.14, pierce=True),
+    vfx="arcane",
+    sound="arcane",
+    description="Three splinters that pass through whatever they hit.",
+)
+
+
 # --- the Mirror's own -------------------------------------------------------
 #
 # Its two, as data rather than as special cases in the controller. The nova was
@@ -347,7 +371,7 @@ MIRROR_VOLLEY = AbilityDef(
 ABILITIES: dict[str, AbilityDef] = {
     a.id: a for a in (ARCANE_BOLT, FLAME_BURST, SHADOW_DASH, BINDING_NOVA, MENDING_LIGHT, AEGIS,
                       ARROW_VOLLEY, FLAME_PILLAR, EMBER_BOLT, FROST_BOLT,
-                      MIRROR_NOVA, MIRROR_VOLLEY)
+                      SPLINTER_VOLLEY, MIRROR_NOVA, MIRROR_VOLLEY)
 }
 
 #: What you hold when nothing is equipped.

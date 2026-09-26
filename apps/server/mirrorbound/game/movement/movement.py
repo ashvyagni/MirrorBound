@@ -94,6 +94,12 @@ class MovementSystem:
         for who in (state.player, state.twin):
             if who.id == state.twin.id and not state.twin.available:
                 continue
+            # Phase Walker (MOBILITY 3): a dash goes through whatever is in the
+            # way. Without it a dash into a crowd is shoved back out again, so
+            # the escape the ability is meant to be only works away from things
+            # -- which is the direction you least need it.
+            if who.id == state.player.id and who.state == "dash" and state.player.mods.dash_through:
+                continue
             for e in enemies:
                 diff = e.position - who.position
                 dist = diff.length()

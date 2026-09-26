@@ -68,6 +68,9 @@ class Twin(Entity):
     state: str = "idle"          # idle | walk | attack | cast | downed
     state_timer: float = 0.0
     downed_timer: float = 0.0
+    #: Set from the player's tree each tick; see Covering Fire and Close Order.
+    _recovery_bonus: float = 0.0
+    _damage_bonus: float = 0.0
     mana: float = 50.0
     max_mana: float = 50.0
     mana_regen: float = 6.0
@@ -181,7 +184,9 @@ class Twin(Entity):
             # while so a bad fight never removes the game's defining feature.
             self.active = True
             self.set_state("downed")
-            self.downed_timer = 9.0
+            # Covering Fire (MIRROR 3) shortens this. Read off the player's
+            # tree because the branch is the player's investment in the twin.
+            self.downed_timer = 9.0 * max(0.25, 1.0 + self._recovery_bonus)
             self.velocity = Vec2()
         return actual
 
