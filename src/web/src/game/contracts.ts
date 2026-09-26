@@ -208,7 +208,8 @@ export interface ProjectileSnap {
 
 export interface PickupSnap {
   id: string;
-  kind: 'essence' | 'shards' | 'health_potion' | 'mana_potion' | 'weapon' | 'relic';
+  kind: 'essence' | 'shards' | 'health_potion' | 'mana_potion' | 'weapon' | 'relic'
+    | 'key' | 'mirror_shard';
   itemId: string;
   amount: number;
   position: Vec2;
@@ -271,6 +272,22 @@ export interface VillagerSnap {
   moving: boolean;
 }
 
+/**
+ * A plate in a puzzle room. Standing on it throws it.
+ *
+ * No interact key: the rooms are built so that *reaching* the plate is the
+ * difficulty, and a keypress would be a second obstacle in front of the first.
+ */
+export interface SwitchSnap {
+  id: string;
+  x: number;
+  y: number;
+  /** What throwing it opens: a door side, or empty when it only counts. */
+  opens: string;
+  radius: number;
+  thrown: boolean;
+}
+
 /** A village, standing on a region's own ground. */
 export interface SettlementSnap {
   id: string;
@@ -312,6 +329,8 @@ export interface RoomFull {
    * place inside it.
    */
   settlements: SettlementSnap[];
+  /** Plates to stand on. Empty outside a puzzle room. */
+  switches: SwitchSnap[];
   /**
    * Distinct sprite names this room's spawn table will use, sorted.
    *

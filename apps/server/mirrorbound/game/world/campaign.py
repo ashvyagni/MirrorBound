@@ -75,6 +75,11 @@ class AreaDef:
     # authored teaching one rather than a roll, because that fight is taken
     # alone, at level one, before the twin has been found.
     tutorial: bool = False
+    #: Which of the three archetypes a dungeon is (§8). Decides how it plays,
+    #: not merely what lives in it.
+    dungeon_kind: str = "combat"
+    #: Main-chain rooms with an optional side room hanging off them (§10).
+    branches: tuple[int, ...] = ()
 
     # --- the open world ------------------------------------------------------
     #: The settlement standing in this region, if any.
@@ -167,6 +172,7 @@ GREENMOOR = AreaDef(
     subtitle="Fields that stopped being fields, and nobody came back for them.",
     terrain="grassland", map_x=0.36, map_y=0.78,
     width=2560, height=1600,
+    descents=(("stonecount_barrow", 0.24, 0.76),),
 )
 
 DROWNED_FLATS = AreaDef(
@@ -183,6 +189,7 @@ EMBERFALL_BASIN = AreaDef(
     terrain="road", map_x=0.70, map_y=0.66,
     width=2560, height=1792,
     settlement="emberfall", settlement_at=(0.56, 0.62), settlement_radius=560.0,
+    descents=(("glasswork", 0.16, 0.20),),
     difficulty=1.15,
 )
 
@@ -203,11 +210,45 @@ WAKEWOOD_CRYPT = AreaDef(
     sequence=(RoomType.ENTRANCE, RoomType.COMBAT, RoomType.EXPLORATION, RoomType.TREASURE, RoomType.ELITE),
     requires="", map_x=0.20, map_y=0.38, difficulty=1.0,
     completion_gold=120, completion_seal="seal_of_waking", tutorial=True,
+    dungeon_kind="combat", branches=(3,),
+)
+
+STONECOUNT_BARROW = AreaDef(
+    # The puzzle archetype. Almost nothing to fight and three rooms that will
+    # not let you past until you have worked out what opens them -- the plates
+    # are behind the standing water and the collapsed stone, so the room's shape
+    # is the problem. Where the Stonecount's history is kept.
+    id="stonecount_barrow", name="The Stonecount Barrow", kind="dungeon", biome="crypt",
+    subtitle="They counted the ones who did not come back, and then they stopped.",
+    dungeon_kind="puzzle",
+    sequence=(RoomType.ENTRANCE, RoomType.PUZZLE, RoomType.PUZZLE, RoomType.TREASURE,
+              RoomType.PUZZLE, RoomType.ELITE),
+    # One branch early, so a keyed door later in the barrow has somewhere its
+    # key can legitimately be. The generator enforces that too, but a dungeon
+    # whose authoring already reads correctly is one less thing being rescued.
+    branches=(1, 4),
+    requires="", map_x=0.32, map_y=0.90, difficulty=1.1,
+    completion_gold=180, completion_seal="seal_of_the_count",
+)
+
+GLASSWORK = AreaDef(
+    # The mixed archetype. Fights that are also locks: the shardlight halls hold
+    # their doors on plates at opposite ends of a room with something in the
+    # middle of it, so neither clearing nor solving is enough by itself.
+    id="glasswork", name="The Glasswork", kind="dungeon", biome="crypt",
+    subtitle="They fired something here that was not brick.",
+    dungeon_kind="mirror",
+    sequence=(RoomType.ENTRANCE, RoomType.PUZZLE, RoomType.COMBAT, RoomType.PUZZLE,
+              RoomType.TREASURE, RoomType.ELITE),
+    branches=(3,),
+    requires="wakewood_crypt", map_x=0.78, map_y=0.58, difficulty=1.3,
+    completion_gold=240, completion_seal="seal_of_glass",
 )
 
 ASHEN_DEEP = AreaDef(
     id="ashen_deep", name="The Ashen Deep", kind="dungeon", biome="ruins",
     subtitle="The road down, and the warden that keeps it.",
+    dungeon_kind="combat", branches=(2,),
     sequence=(RoomType.ENTRANCE, RoomType.COMBAT, RoomType.TREASURE, RoomType.COMBAT,
               RoomType.EXPLORATION, RoomType.GUARDIAN),
     requires="wakewood_crypt", map_x=0.90, map_y=0.32, difficulty=1.35,
@@ -217,6 +258,7 @@ ASHEN_DEEP = AreaDef(
 MIRROR_SANCTUM = AreaDef(
     id="mirror_sanctum", name="The Mirror Sanctum", kind="dungeon", biome="crypt",
     subtitle="It has been watching you the whole way here.",
+    dungeon_kind="mirror",
     sequence=(RoomType.ENTRANCE, RoomType.BOSS),
     requires="ashen_deep", map_x=0.95, map_y=0.14, difficulty=1.5,
     completion_gold=0, completion_seal="seal_of_the_mirror",
@@ -238,7 +280,8 @@ THE_PROVING = AreaDef(
 AREAS: dict[str, AreaDef] = {
     a.id: a for a in (HOLLOWREACH_VALE, WAKEWOOD, GREENMOOR, DROWNED_FLATS,
                       EMBERFALL_BASIN, KILN_TERRACES,
-                      WAKEWOOD_CRYPT, ASHEN_DEEP, MIRROR_SANCTUM, THE_PROVING)
+                      WAKEWOOD_CRYPT, STONECOUNT_BARROW, GLASSWORK, ASHEN_DEEP,
+                      MIRROR_SANCTUM, THE_PROVING)
 }
 
 #: Areas you can walk across, as opposed to what is under them.

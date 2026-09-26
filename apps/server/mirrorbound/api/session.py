@@ -100,6 +100,8 @@ CLIENT_EVENT_TYPES = {
     "SETTLEMENT_ENTER", "SETTLEMENT_EXIT",
     # Side quests, and the codex filling in.
     "QUEST_TAKEN", "QUEST_COMPLETE", "LORE_FOUND",
+    # Puzzle dungeons: a plate thrown, and a key that opened something.
+    "SWITCH_THROWN", "KEY_FOUND",
 }
 
 # Spatial heatmap cell size in world units. Rooms are 1280-1600 wide, so 64 gives
@@ -238,6 +240,8 @@ class GameSession:
         # Each area gets its own RNG stream off the run seed, so a given seed
         # always produces the same Ashen Deep whether or not you detoured.
         rng = DeterministicRNG(self.seed).spawn(f"area:{area_id}")
+        # A key opens one door in one place and does not leave with you.
+        state.keys = set()
         # Which side of the new area the old one lies off: that is the side you
         # come in on. Read from the destination's own crossings, so it is right
         # even when the route here was not a crossing at all (a descent, a map
@@ -276,6 +280,7 @@ class GameSession:
                 sequence=area.sequence or None,
                 biome=area.biome,
                 tutorial=area.tutorial,
+                branches=area.branches,
             )
             for room in self.dungeon.rooms:
                 room.area_id = area_id
@@ -472,6 +477,14 @@ class GameSession:
             state.twin.revive(state.player.position)
         first_visit = not room.visited
         room.visited = True
+        # A key that has not been picked up is still lying where it was, on
+        # every visit rather than the first. Entering a room clears its pickups,
+        # so spawning these once would mean walking out of the room the key is
+        # in and back again loses it -- and the door it opens is on the only
+        # route deeper, which makes that an unfinishable run.
+        for key_id, where in room.keys:
+            if key_id not in state.keys:
+                state.spawn_pickup("key", room.clamp(where, 20.0), item_id=key_id)
         if first_visit:
             state.spawn_enemies_for_room(room)
             # Anything boss-shaped that just spawned takes the player's weapon,
@@ -487,9 +500,9 @@ class GameSession:
                 self.campaign.looted_rooms.add(room.id)
             if not room.enemy_spawns:
                 room.cleared = True
-                room.unlock_doors()
+                room.unlock_doors(state.keys)
         elif room.cleared:
-            room.unlock_doors()
+            room.unlock_doors(state.keys)
         state.transition_timer = 0.6
         self.room_dirty = True
         state.emit("ROOM_ENTER", room_id=room.id, room_index=room.index, room_type=room.room_type,
@@ -1333,9 +1346,12 @@ class GameSession:
     def _room_logic(self) -> None:
         state = self.state
         room = state.room
+        self._check_switches(room)
         if not room.cleared and not state.get_active_enemies() and room.enemy_spawns:
             room.cleared = True
-            room.unlock_doors()
+            # Keys and switches still count: clearing a puzzle room does not
+            # open a door the room is holding shut for another reason.
+            room.unlock_doors(state.keys)
             state.stats.rooms_cleared += 1
             heal = state.player.mods.heal_on_clear
             if heal > 0:
@@ -1418,6 +1434,33 @@ class GameSession:
             self._checkpoint()
         elif was:
             state.emit("SETTLEMENT_EXIT", settlement=was, area=state.room.area_id)
+
+    def _check_switches(self, room) -> None:
+        """Throw the plate the player is standing on, and see what it opens.
+
+        Standing on it rather than a keypress: a puzzle room is built so that
+        *reaching* the plate is the difficulty, and putting a button in front of
+        that would be a second obstacle in front of the first.
+
+        The far door waits on every plate in the room, not one of them -- the
+        puzzle is the set -- so this re-runs the unlock each time and the door
+        opens on the last one.
+        """
+        switch = room.switch_at(self.state.player.position, self.state.player.radius)
+        if switch is None:
+            return
+        switch.thrown = True
+        remaining = sum(1 for s in room.switches if not s.thrown)
+        if remaining == 0:
+            # Only now does the room let you on, and only for doors whose other
+            # conditions are also met.
+            for door in room.doors:
+                if door.needs_switch:
+                    door.needs_switch = ""
+            room.unlock_doors(self.state.keys)
+        self.room_dirty = True
+        self.state.emit("SWITCH_THROWN", switch=switch.id, room_id=room.id,
+                        remaining=remaining, position={"x": switch.x, "y": switch.y})
 
     def _open_exit_portal(self, room) -> None:
         """The way back to the village, opened in place once a dungeon is done.

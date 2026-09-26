@@ -336,6 +336,28 @@ export class TextureFactory {
       ctx.fillRect(-1.5, 8, 3, 6);
       ctx.restore();
     });
+    // A key, for the doors a puzzle dungeon holds shut. Painted rather than
+    // drawn, because there is no key on any sheet and the shape is two circles
+    // and three rectangles -- §35 says compose before commissioning.
+    paint(this.scene, 'pickup:key', 24, 24, (ctx) => {
+      glow(ctx, 12, 12, 12, '#f0c060', 0.7);
+      ctx.strokeStyle = '#f0c060';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(8, 8, 4.5, 0, Math.PI * 2);   // the bow
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(11, 11);
+      ctx.lineTo(18, 18);                    // the shank
+      ctx.stroke();
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(15.5, 14.5);
+      ctx.lineTo(18, 12);                    // two wards
+      ctx.moveTo(17.5, 16.5);
+      ctx.lineTo(20, 14);
+      ctx.stroke();
+    });
     paint(this.scene, 'pickup:relic', 24, 24, (ctx) => {
       glow(ctx, 12, 12, 12, '#ffd27a', 0.7);
       ctx.lineWidth = 3;

@@ -110,6 +110,14 @@ class Door:
     #: What this way is called. Crossings have names so an NPC can tell you to
     #: take the Rootbridge and the HUD can confirm you are standing on it.
     label: str = ""
+    #: A key that opens this door, or "" for one that is not locked that way.
+    #:
+    #: A combat room's gates open when the room is clear. A puzzle room's do not
+    #: -- that is the difference between the two archetypes -- so a door can
+    #: instead be waiting on a key you found or a switch you threw.
+    needs_key: str = ""
+    #: A switch id this door is waiting on, or "".
+    needs_switch: str = ""
 
     @property
     def is_edge(self) -> bool:
@@ -132,7 +140,8 @@ class Door:
             "side": self.side, "x": self.x, "y": self.y, "width": self.width,
             "targetIndex": self.target_index, "locked": self.locked, "kind": self.kind,
             "targetArea": self.target_area, "lockReason": self.lock_reason,
-            "label": self.label,
+            "label": self.label, "needsKey": self.needs_key,
+            "needsSwitch": self.needs_switch,
         }
 
 
@@ -164,6 +173,37 @@ class Portal:
             "targetArea": self.target_area, "label": self.label, "kind": self.kind,
             "locked": self.locked, "lockReason": self.lock_reason, "radius": self.radius,
         }
+
+
+@dataclass
+class Switch:
+    """Something in a room that opens something else in it.
+
+    The puzzle archetype's whole vocabulary. A combat room asks "can you win the
+    fight"; a puzzle room asks "can you see what opens this", and a switch is the
+    smallest honest way to pose that question -- it is a thing you have to reach,
+    which means the room's shape is the puzzle rather than a minigame bolted to
+    it.
+
+    Thrown by standing on it. There is no interact key: the rooms are built so
+    that reaching the plate is the difficulty, and adding a keypress would only
+    put a second obstacle in front of the first.
+    """
+    id: str
+    x: float
+    y: float
+    #: What throwing it opens: a door side, or "" for a switch that only counts
+    #: toward a room needing several.
+    opens: str = ""
+    radius: float = 34.0
+    thrown: bool = False
+
+    def contains(self, pos: Vec2, radius: float) -> bool:
+        return (pos - Vec2(self.x, self.y)).length() <= self.radius + radius
+
+    def to_dict(self) -> dict:
+        return {"id": self.id, "x": round(self.x, 1), "y": round(self.y, 1),
+                "opens": self.opens, "radius": self.radius, "thrown": self.thrown}
 
 
 @dataclass
@@ -233,6 +273,12 @@ class Room:
     villagers: list = field(default_factory=list)  # list[Villager]
     #: Villages standing in this room. Empty everywhere but an overworld region.
     settlements: list[Settlement] = field(default_factory=list)
+    #: Plates to stand on. Empty outside a puzzle room.
+    switches: list[Switch] = field(default_factory=list)
+    #: Keys lying in this room, as (key id, position).
+    keys: list[tuple[str, Vec2]] = field(default_factory=list)
+    #: A key the way on waits for. Set by the template, read once doors link.
+    _needs_key: str = field(default="", repr=False, compare=False)
     #: Blocking decor bucketed by tile block, built on first use.
     #:
     #: Every collision query used to scan the whole decor list. That was fine when
@@ -462,9 +508,29 @@ class Room:
         """
         return self.room_type == "village" or self.settlement_at(pos) is not None
 
-    def unlock_doors(self) -> None:
+    def unlock_doors(self, keys: set[str] | None = None) -> None:
+        """Open every door the room is not deliberately holding shut.
+
+        Clearing a room opens its gates -- that has always been the rule -- but a
+        puzzle room's door is not waiting on the fight, and opening it here would
+        make every lock in the archetype dissolve the moment the last creature
+        died. A door waiting on a key opens only when that key is carried, and a
+        door waiting on a switch only when the switch is thrown.
+        """
+        held = keys or set()
+        thrown = {s.id for s in self.switches if s.thrown}
         for door in self.doors:
+            if door.needs_key and door.needs_key not in held:
+                continue
+            if door.needs_switch and door.needs_switch not in thrown:
+                continue
             door.locked = False
+
+    def switch_at(self, pos: Vec2, radius: float) -> Switch | None:
+        for switch in self.switches:
+            if not switch.thrown and switch.contains(pos, radius):
+                return switch
+        return None
 
     def to_dict(self) -> dict:
         return {
@@ -491,6 +557,7 @@ class Room:
             # player actually is.
             "safe": self.room_type == "village",
             "settlements": [s.to_dict() for s in self.settlements],
+            "switches": [s.to_dict() for s in self.switches],
             "areaId": self.area_id,
             "seed": self.seed,
         }

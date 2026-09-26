@@ -58,6 +58,7 @@ export class WorldRenderer {
   #tweens: Phaser.Tweens.Tween[] = [];
   #doorSprites = new Map<string, Phaser.GameObjects.Image>();
   #doorGlows = new Map<string, Phaser.GameObjects.Image>();
+  #switchMarks = new Map<string, Phaser.GameObjects.Image>();
   #emitters: Phaser.GameObjects.Particles.ParticleEmitter[] = [];
   room: RoomFull | null = null;
   torches: TorchLight[] = [];
@@ -84,6 +85,7 @@ export class WorldRenderer {
     this.#buildDecor(room, biome);
     this.#buildDoors(room);
     this.#buildPortals(room);
+    this.#buildSwitches(room);
   }
 
   // --- floor -------------------------------------------------------------------
@@ -426,6 +428,45 @@ export class WorldRenderer {
   }
 
   /**
+   * The plates in a puzzle room, and whether they have been stood on.
+   *
+   * Drawn on the floor rather than as props: a plate is part of the room, and
+   * something standing proud of the ground would read as an obstacle when the
+   * whole point is that you walk onto it. Unthrown ones pulse, because the
+   * room is a question and they are where the answer is.
+   */
+  #buildSwitches(room: RoomFull): void {
+    this.#switchMarks.clear();
+    for (const plate of room.switches ?? []) {
+      const ring = this.scene.add.image(plate.x, plate.y, 'fx:ring')
+        .setDepth(DEPTH.floorDecal + 3)
+        .setTint(plate.thrown ? 0x63c26d : 0xf0c060)
+        .setDisplaySize(plate.radius * 2.2, plate.radius * 1.5)
+        .setAlpha(plate.thrown ? 0.75 : 0.4);
+      this.#objects.push(ring);
+      this.#switchMarks.set(plate.id, ring);
+      if (!plate.thrown) {
+        this.#tweens.push(this.scene.tweens.add({
+          targets: ring, alpha: { from: 0.32, to: 0.7 },
+          duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+        }));
+      }
+    }
+  }
+
+  /** A plate was stood on: stop it pulsing and let it read as done. */
+  throwSwitch(id: string): void {
+    const ring = this.#switchMarks.get(id);
+    if (!ring) return;
+    this.scene.tweens.killTweensOf(ring);
+    ring.setTint(0x63c26d).setAlpha(0.75);
+    this.scene.tweens.add({
+      targets: ring, scaleX: ring.scaleX * 1.35, scaleY: ring.scaleY * 1.35,
+      duration: 260, yoyo: true, ease: 'Back.easeOut',
+    });
+  }
+
+  /**
    * Which of the four drawn gateways this door is.
    *
    * One sheet, four states of the same gateway, so the posts are identical
@@ -562,6 +603,7 @@ export class WorldRenderer {
     for (const o of this.#objects) o.destroy();
     this.#objects = [];
     this.people = [];
+    this.#switchMarks.clear();
     this.#doorSprites.clear();
     this.#doorGlows.clear();
     this.room = null;

@@ -107,6 +107,14 @@ class LootSystem:
                 inv.add_relic(pickup.item_id)
             else:
                 inv.add_resource("shards", 2)
+        elif pickup.kind == "key":
+            # Not an inventory item. A key is a fact about the dungeon you are
+            # in -- the door reads it, nothing spends it, and it does not leave
+            # the area with you.
+            state.keys.add(pickup.item_id)
+            state.room.unlock_doors(state.keys)
+            state.emit("KEY_FOUND", key=pickup.item_id, room_id=state.room.id,
+                       position=pickup.position.to_dict())
         elif pickup.kind == "mirror_shard":
             # Nothing enters an inventory. What the twin picked up changes what
             # the twin *is*, and the session reads the flag on the next tick.

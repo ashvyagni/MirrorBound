@@ -73,6 +73,12 @@ class GameState:
     # rather than counted from `pickups`, because the shard stops being a
     # pickup the moment the twin takes it.
     shard_dropped: bool = False
+    #: Keys carried in the dungeon being played.
+    #:
+    #: Cleared when an area is entered, and never saved: a key opens one door in
+    #: one place, and a player who walked out of the barrow with its key would
+    #: find every later run of it already open.
+    keys: set[str] = field(default_factory=set)
     paused: bool = False
     transition_timer: float = 0.0  # > 0 while fading between rooms
     stats: RunStats = field(default_factory=RunStats)

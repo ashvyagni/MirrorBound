@@ -12,10 +12,11 @@ from dataclasses import dataclass
 from mirrorbound.game.core.rng import DeterministicRNG
 from mirrorbound.game.dungeon.room import (
     BLOCKING_DECOR, T_DIRT, T_GRASS, T_PATH, T_STONE, T_WALL, T_WATER, TILE,
-    Decor, Door, EnemySpawn, Room,
+    Decor, Door, EnemySpawn, Room, Switch,
 )
 from mirrorbound.game.dungeon.templates import (
-    DEFAULT_SEQUENCE, TUTORIAL_COMBAT, RoomTemplate, RoomType, biome_for, get_random_template,
+    DEFAULT_SEQUENCE, TUTORIAL_COMBAT, DungeonKind, RoomTemplate, RoomType,
+    biome_for, get_random_template,
 )
 from mirrorbound.game.entities.entity import Vec2
 
@@ -61,7 +62,8 @@ class DungeonGenerator:
         self.rng = rng.spawn("dungeon")
 
     def generate(self, room_count: int = 7, sequence: tuple[RoomType, ...] | None = None,
-                 biome: str | None = None, tutorial: bool = False) -> DungeonRun:
+                 biome: str | None = None, tutorial: bool = False,
+                 branches: tuple[int, ...] = ()) -> DungeonRun:
         """`biome` pins every room in the run to one biome. Without it the run
         shades from grove to crypt over its own length, which is right for a
         single long descent and wrong once the world has areas that each have
@@ -69,7 +71,14 @@ class DungeonGenerator:
 
         `tutorial` makes the run's first combat room the authored teaching one
         rather than a roll of the four. The opening dungeon passes it; nothing
-        else does."""
+        else does.
+
+        `branches` names the main-chain rooms that have a side room hanging off
+        them (§10). Side rooms are appended after the chain and linked by an
+        east door, so `DungeonRun` stays a list and doors keep carrying the
+        indices -- a branch is a door with somewhere else to go, not a new
+        model. Optional by construction: nothing on the main route passes
+        through one."""
         seq = list(sequence or DEFAULT_SEQUENCE)
         if room_count != len(seq):
             seq = self._sequence_for(room_count)
@@ -85,20 +94,103 @@ class DungeonGenerator:
             template = TUTORIAL_COMBAT if teaching else get_random_template(room_type, self.rng)
             room_rng = self.rng.spawn(f"room:{index}")
             rooms.append(self._build_room(index, len(seq), template, room_rng, biome=biome))
-        # Link doors: each room's south door leads back, north door leads on.
+        chain = len(rooms)
+        # Side rooms, appended after the chain so the main route keeps its
+        # indices and a door is still just an index.
+        side_of: dict[int, int] = {}
+        for host in branches:
+            if not 0 <= host < chain:
+                continue
+            index = len(rooms)
+            template = get_random_template(RoomType.SIDE, self.rng)
+            rooms.append(self._build_room(index, chain, template,
+                                          self.rng.spawn(f"side:{index}"), biome=biome))
+            side_of[host] = index
+
+        # Link doors: each room's south door leads back, north leads on, and an
+        # east door leads into the branch if this room has one.
         for i, room in enumerate(rooms):
+            on_chain = i < chain
             for door in room.doors:
                 if door.side == "north":
-                    door.target_index = i + 1 if i + 1 < len(rooms) else None
+                    door.target_index = i + 1 if on_chain and i + 1 < chain else None
                     door.kind = "gate" if door.target_index is not None else "sealed"
                 elif door.side == "south":
-                    door.target_index = i - 1 if i > 0 else None
+                    door.target_index = i - 1 if on_chain and i > 0 else None
                     door.kind = "arch" if door.target_index is not None else "sealed"
-            # Rooms with nothing to clear stand open.
+            if on_chain and i in side_of:
+                room.doors.append(Door(side="east", x=room.width - TILE / 2, y=room.height / 2,
+                                       width=TILE * 3, target_index=side_of[i], kind="arch"))
+            elif not on_chain:
+                host = next(h for h, side in side_of.items() if side == i)
+                room.doors.append(Door(side="west", x=TILE / 2, y=room.height / 2,
+                                       width=TILE * 3, target_index=host, kind="arch"))
+
+        for room in rooms:
+            self._lock_the_way_on(room)
+        # After every lock is hung, because this moves keys between rooms.
+        self._ensure_keys_are_reachable(rooms, chain, side_of)
+        for room in rooms:
+            # Rooms with nothing to clear and nothing to solve stand open.
             if not room.enemy_spawns:
                 room.cleared = True
                 room.unlock_doors()
         return DungeonRun(seed=self.rng.seed, rooms=rooms, current_room_index=0)
+
+    @staticmethod
+    def _ensure_keys_are_reachable(rooms: list[Room], chain: int, side_of: dict[int, int]) -> None:
+        """No door may want a key that cannot be found on the way to it.
+
+        The barrow's first attempt shipped exactly that: the lockplate stair
+        rolled into room 1 and the vault holding its key hung off room 2, so the
+        key was one room *behind* the door it opened and the run could not be
+        finished. Nothing in the authoring relates the two -- the lock comes from
+        a room template and the key from another, rolled independently -- so the
+        rule has to be enforced here rather than hoped for.
+
+        The key goes in the **main chain**, in the room before the lock. Putting
+        it in a side room was the first fix and it was the wrong one: §10 says a
+        side room is optional, and a branch you must take to finish the dungeon
+        is not a branch. Side rooms hold what is worth a detour; the main route
+        holds what the main route needs.
+        """
+        for locked_index, room in enumerate(rooms[:chain]):
+            for door in room.doors:
+                if not door.needs_key:
+                    continue
+                on_the_way = any(key == door.needs_key
+                                 for earlier in rooms[:locked_index + 1]
+                                 for key, _pos in earlier.keys)
+                if on_the_way:
+                    continue
+                if locked_index == 0:
+                    # Nothing comes before the entrance; a lock here can never
+                    # be opened, and an open door beats an unopenable one.
+                    door.needs_key = ""
+                    continue
+                for other in rooms:
+                    other.keys = [(k, p) for k, p in other.keys if k != door.needs_key]
+                host = rooms[locked_index - 1]
+                host.keys.append((door.needs_key,
+                                  host.clamp(Vec2(host.width * 0.5, host.height * 0.38), 24)))
+
+    @staticmethod
+    def _lock_the_way_on(room: Room) -> None:
+        """Hang the room's lock on its far door, if it has one.
+
+        A combat room's gates open when it is clear, which `_room_logic` has
+        always done. A puzzle room's do not -- that is the archetype -- so the
+        condition is written onto the door itself and `Room.unlock_doors`
+        refuses to open it until the condition is met.
+        """
+        onward = next((d for d in room.doors if d.side == "north" and d.target_index is not None), None)
+        if onward is None:
+            return
+        if room.switches:
+            # Every plate in the room, not just one: the puzzle is the set.
+            onward.needs_switch = room.switches[0].id
+        if getattr(room, "_needs_key", ""):
+            onward.needs_key = room._needs_key
 
     @staticmethod
     def _sequence_for(count: int) -> list[RoomType]:
@@ -136,8 +228,25 @@ class DungeonGenerator:
             self._add_pond(room, rng)
         self._place_spawns(room, template)
         self._place_treasure(room, template)
+        self._place_switches(room, template)
+        self._place_key(room, template)
         self._place_decor(room, template, rng)
         return room
+
+    @staticmethod
+    def _place_switches(room: Room, template: RoomTemplate) -> None:
+        for i, (fx, fy) in enumerate(template.switches):
+            pos = room.clamp(Vec2(fx * room.width, fy * room.height), 40)
+            room.switches.append(Switch(id=f"{room.id}_switch_{i}", x=pos.x, y=pos.y))
+
+    @staticmethod
+    def _place_key(room: Room, template: RoomTemplate) -> None:
+        if template.key:
+            pos = room.clamp(Vec2(room.width * 0.5, room.height * 0.34), 24)
+            room.keys.append((template.key, pos))
+        if template.needs_key:
+            # Read back by `_lock_the_way_on` once the doors are linked.
+            room._needs_key = template.needs_key
 
     def _paint_floor(self, room: Room, template: RoomTemplate, rng: DeterministicRNG) -> None:
         cols, rows = room.width // TILE, room.height // TILE

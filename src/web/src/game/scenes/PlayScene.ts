@@ -502,6 +502,15 @@ export class PlayScene extends Phaser.Scene {
         this.#playHatch(this.#pos(e));
         break;
       }
+      // A plate in a puzzle room was stood on. The room redraws on the next
+      // full snapshot anyway, but that is up to three seconds away -- and the
+      // one thing a puzzle room owes the player is immediate confirmation that
+      // the thing they just did was the thing.
+      case 'SWITCH_THROWN': {
+        this.#world.throwSwitch(String(e.data.switch));
+        this.#vfx.hitSparks(this.#pos(e), 0xf0c060, 12);
+        break;
+      }
 
       case 'CUTSCENE_LINE':
         eventBus.emit('cutscene:line', { text: String(e.data.text ?? '') });

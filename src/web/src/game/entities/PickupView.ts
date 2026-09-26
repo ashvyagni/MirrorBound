@@ -10,6 +10,7 @@ const DROP_HEIGHT = 34;
 
 const GLOW: Record<string, number> = {
   essence: 0xc05bff, shards: 0x9fe3ff, health_potion: 0xe04a5a, mana_potion: 0x4f8fe6, weapon: 0xf0c060, relic: 0xffd27a,
+  key: 0xf0c060,
 };
 
 export class PickupView extends EntityView {
@@ -42,7 +43,8 @@ export class PickupView extends EntityView {
       // contact patch was composited over its bright glow and the pair read as
       // an olive smear on the floor rather than as a lit object.
       .setDepth(DEPTH.shadow + 1);
-    if (snap.kind === 'weapon' || snap.kind === 'relic') {
+    // A key pulses like a relic does: it is the thing the room is about.
+    if (snap.kind === 'weapon' || snap.kind === 'relic' || snap.kind === 'key') {
       this.#glow.setScale(0.75).setAlpha(0.45);
       scene.tweens.add({ targets: this.#glow, alpha: { from: 0.3, to: 0.6 }, scale: { from: 0.7, to: 0.9 }, duration: 900, yoyo: true, repeat: -1 });
     }

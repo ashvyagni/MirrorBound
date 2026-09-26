@@ -11,12 +11,36 @@ from dataclasses import dataclass
 from enum import Enum
 
 
+class DungeonKind(Enum):
+    """What kind of place a dungeon is, and therefore how it plays.
+
+    §8 asks for three archetypes whose *gameplay loops* differ -- explicitly not
+    "the same rooms with different enemies". The difference is in what a room
+    asks of you and what opens its far door:
+
+        COMBAT   the door opens when the room is clear. Escalating encounters,
+                 arenas, something heavy at the bottom. The question is the fight.
+        PUZZLE   the door opens when you work out what opens it. Switches behind
+                 hazards, keys in side rooms, very few creatures. The question is
+                 the room.
+        MIRROR   both, plus rooms that are not straightforward: doors that need
+                 two switches at once, and the shard-lit halls near the Sanctum.
+    """
+    COMBAT = "combat"
+    PUZZLE = "puzzle"
+    MIRROR = "mirror"
+
+
 class RoomType(Enum):
     ENTRANCE = "entrance"
     COMBAT = "combat"
     EXPLORATION = "exploration"
     TREASURE = "treasure"
     EVENT = "event"
+    #: A room whose far door is opened by a switch rather than by a fight.
+    PUZZLE = "puzzle"
+    #: A room off the main chain: optional, and worth the detour.
+    SIDE = "side"
     ELITE = "elite"
     GUARDIAN = "guardian"
     BOSS = "boss"
@@ -48,6 +72,18 @@ class RoomTemplate:
     torches: int = 4
     has_water: bool = False
     title_pool: tuple[str, ...] = ("Hall",)
+    #: Where the plates sit, as fractions of the room. A puzzle room's far door
+    #: waits on all of them.
+    switches: tuple[tuple[float, float], ...] = ()
+    #: Whether the way on is locked until every switch here is thrown.
+    #:
+    #: This is what makes a puzzle room a puzzle room rather than a combat room
+    #: with scenery: clearing it does not open the door.
+    gated_by_switches: bool = False
+    #: A key left in this room, for a door further in.
+    key: str = ""
+    #: A door this room's far exit waits on a key for.
+    needs_key: str = ""
 
 
 ENTRANCE = RoomTemplate(
@@ -171,6 +207,82 @@ COMBAT_SANCTUM = RoomTemplate(
     title_pool=("The Ash Sanctum", "Choir of Cinders"),
 )
 
+# --- puzzle rooms -------------------------------------------------------------
+#
+# Almost nothing to fight. What stops you is the room: the plates are in the
+# corners behind the standing water and the collapsed stone, so the work is
+# reading the floor and getting to them, and the creatures that are here exist
+# to make standing still while you think about it a bad idea.
+
+CISTERN_FLOOR = RoomTemplate(
+    name="cistern_floor", room_type=RoomType.PUZZLE, width=1600, height=1120,
+    spawns=(SpawnSpec("spitter", 0.50, 0.16),),
+    switches=((0.14, 0.24), (0.86, 0.24)),
+    gated_by_switches=True,
+    tree_density=0.0, rock_density=1.2, ruin_density=1.6, flora_density=0.2,
+    torches=8, has_water=True,
+    title_pool=("The Cistern Floor", "The Standing Water"),
+)
+
+TALLY_HALL = RoomTemplate(
+    # Three plates, one of them behind the only thing in the room that hits
+    # hard. You can take the fight or you can take the long way round it.
+    name="tally_hall", room_type=RoomType.PUZZLE, width=1600, height=1200,
+    spawns=(SpawnSpec("brute", 0.50, 0.30), SpawnSpec("scarab", 0.20, 0.62),
+            SpawnSpec("scarab", 0.80, 0.62)),
+    switches=((0.12, 0.18), (0.88, 0.18), (0.50, 0.80)),
+    gated_by_switches=True,
+    tree_density=0.0, rock_density=0.8, ruin_density=2.0, flora_density=0.1, torches=10,
+    title_pool=("The Tally Hall", "Hall of the Count"),
+)
+
+LOCKPLATE_STAIR = RoomTemplate(
+    # The door here wants a key, and the key is in the side room off it.
+    name="lockplate_stair", room_type=RoomType.PUZZLE, width=1280, height=1120,
+    spawns=(SpawnSpec("acolyte", 0.28, 0.24), SpawnSpec("acolyte", 0.72, 0.24)),
+    needs_key="barrow_key",
+    tree_density=0.0, rock_density=0.6, ruin_density=1.8, flora_density=0.1, torches=8,
+    title_pool=("The Lockplate Stair", "The Barred Descent"),
+)
+
+#: Rooms off the main chain: optional, and the reason to look.
+#:
+#: §10 asks for branching, optional rooms and secrets, and §23 asks that finding
+#: one be worth it. A side room is short, has something in it, and is never on
+#: the way to anywhere -- so taking it is a decision rather than a corridor.
+
+SIDE_VAULT = RoomTemplate(
+    name="side_vault", room_type=RoomType.SIDE, width=960, height=768,
+    spawns=(SpawnSpec("skeleton", 0.50, 0.30),),
+    treasure=(("chest", 0.50, 0.52), ("shards", 0.28, 0.58), ("shards", 0.72, 0.58)),
+    tree_density=0.0, rock_density=0.5, ruin_density=1.6, flora_density=0.2, torches=6,
+    title_pool=("The Keyward", "A Walled Cell"),
+)
+
+SIDE_OSSUARY = RoomTemplate(
+    name="side_ossuary", room_type=RoomType.SIDE, width=960, height=768,
+    spawns=(SpawnSpec("scarab", 0.30, 0.30), SpawnSpec("scarab", 0.70, 0.30),
+            SpawnSpec("skeleton", 0.50, 0.58)),
+    treasure=(("essence", 0.32, 0.62), ("shards", 0.68, 0.62), ("mana_potion", 0.50, 0.36)),
+    tree_density=0.0, rock_density=0.4, ruin_density=1.4, flora_density=0.1, torches=5,
+    title_pool=("The Ossuary", "The Quiet Shelf"),
+)
+
+# --- mirror rooms --------------------------------------------------------------
+
+SHARDLIGHT_HALL = RoomTemplate(
+    # The mirror archetype's own room: a fight *and* a lock, so neither answer
+    # is enough on its own. Two plates at opposite ends, and a shardling in the
+    # middle that punishes crossing the room in a straight line.
+    name="shardlight_hall", room_type=RoomType.PUZZLE, width=1600, height=1200,
+    spawns=(SpawnSpec("shardling", 0.50, 0.44), SpawnSpec("acolyte", 0.22, 0.24),
+            SpawnSpec("acolyte", 0.78, 0.24)),
+    switches=((0.10, 0.70), (0.90, 0.70)),
+    gated_by_switches=True,
+    tree_density=0.0, rock_density=0.4, ruin_density=2.2, flora_density=0.0, torches=12,
+    title_pool=("The Shardlight Hall", "Hall of Facets"),
+)
+
 WARDEN_GATE = RoomTemplate(
     name="warden_gate", room_type=RoomType.GUARDIAN, width=1440, height=1080,
     spawns=(SpawnSpec("warden", 0.50, 0.34), SpawnSpec("scarab", 0.24, 0.30),
@@ -197,6 +309,8 @@ TEMPLATES: dict[RoomType, tuple[RoomTemplate, ...]] = {
     RoomType.EXPLORATION: (EXPLORATION_GROVE,),
     RoomType.TREASURE: (TREASURE_VAULT,),
     RoomType.EVENT: (EXPLORATION_GROVE,),
+    RoomType.PUZZLE: (CISTERN_FLOOR, TALLY_HALL, LOCKPLATE_STAIR, SHARDLIGHT_HALL),
+    RoomType.SIDE: (SIDE_VAULT, SIDE_OSSUARY),
     RoomType.ELITE: (ELITE_ARENA,),
     RoomType.GUARDIAN: (WARDEN_GATE,),
     RoomType.BOSS: (BOSS_MIRROR,),
@@ -228,6 +342,7 @@ def get_random_template(room_type: RoomType, rng) -> RoomTemplate:
 
 __all__ = [
     "DEFAULT_SEQUENCE",
+    "DungeonKind",
     "TEMPLATES",
     "TUTORIAL_COMBAT",
     "RoomTemplate",
