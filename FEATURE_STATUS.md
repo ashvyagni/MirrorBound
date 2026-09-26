@@ -1,8 +1,65 @@
-# Mirrorbound 0.1.0 — feature inventory and release audit
+# Mirrorbound v1.1 — feature inventory and release audit
 
-Reviewed 2026-09-20 after the gameplay hardening pass. This is the initial playable development release, not a claim that every
-menu, campaign edge case or platform has been fully playtested. Status below is based on the
-current executable paths, not on older roadmap text or the presence of unused art.
+Reviewed 2026-09-27, after the v1.1 expansion. This is a playable release of the expanded
+game, not a claim that every menu, campaign edge case or platform has been fully playtested.
+Status below is based on the current executable paths, not on older roadmap text or the
+presence of unused art.
+
+**Validation at this revision:** 640 server tests, 54 frontend tests, TypeScript clean. The
+whole campaign is walked start-to-finish by an automated test on three seeds
+(`tests/integration/test_campaign_walkthrough.py`). Difficulty is measured rather than felt
+— see [docs/playtest-results.md](docs/playtest-results.md) — and simulation cost is measured
+before and after the larger world in [docs/perf-baseline.md](docs/perf-baseline.md).
+
+## What v1.1 changed
+
+| Area | 0.1.0 | v1.1 |
+|---|---|---|
+| World | 5 areas joined by portals in a village square | 6 regions crossed on foot, joined at 5 named crossings |
+| Villages | Areas of their own, reached by portal | Places **inside** regions; no transition to walk into one |
+| Gating | A refusal when you clicked the map | Kell, who will not push off until the wood is quiet |
+| Dungeons | 1 archetype, strictly linear | 3 archetypes (combat / puzzle / mirror), branching side rooms, plates and keys |
+| Bosses | 1 guardian (a tank state machine) + the Mirror | 3 phased regional bosses + the Mirror, untouched |
+| Skills | 12 nodes, all percentages | 20 nodes across 5 branches; everything past tier 1 changes how the game plays |
+| Weapons | 4 | 6, plus a three-tier upgrade bench |
+| Economy | Gold only; essence and shards unspendable | The bench spends all three |
+| Quests | None (an untyped set of flags) | 4 side quests and a 6-page codex |
+| NPCs | 4 definitions, reused in both villages | 9 definitions, distinct per settlement, plus 6 villagers walking rounds |
+| Music | One mood everywhere | Village / wild / dungeon / boss, eased between |
+
+## Bugs this expansion found and fixed
+
+Named because each one had shipped and none was visible from reading the code:
+
+1. **Respec was admin-gated.** The auth pass wrapped it alongside genuine debug commands, so
+   no ordinary player could unlearn a skill tree. 16 tests were reporting it.
+2. **The server would not start without Postgres.** `init_db` aborted the FastAPI lifespan,
+   so the README's two commands produced no game at all.
+3. **`SAVE_VERSION` had no migration path.** Bumping it would have silently deleted every
+   save on disk.
+4. **Dungeons with a branch could never be completed.** Completion asked for the last room in
+   the *list*, and side rooms are appended after the chain — so once the crypt grew a branch,
+   the ferryman never untied his boat and the campaign stopped at the second region.
+5. **The regional bosses' telegraphs never fired.** `cast_time` was ignored entirely, so a
+   1.1-second tell landed with no warning: 0.00 clear rate on the Warden. Fixing it took the
+   Glasswork from 0.06 to 0.89 and the Warden to 0.67 without touching a single number.
+6. **Keys vanished if you left the room.** They spawned on first visit only, and entering a
+   room clears its pickups — losing the key to the only route deeper.
+7. **A pond's collision circle sealed the Drowned Flats**, including the player's spawn.
+8. **The MIRROR skill branch was invisible** — the tree screen hardcoded four columns.
+9. **Riposte hit for triple** and **Iron Skin's last stand never fired for two minutes.**
+
+## Known limits
+
+- **The Mirror is not beaten by the scripted probe**, and was not in 0.1.0 either. It needs
+  human play; the bot brings no skills and no potions to it.
+- **Early-game difficulty is unmeasured.** The probe is a perfect dodger and the opening
+  deliberately sends creatures one at a time, so it reports full health and that figure says
+  nothing about a human.
+- **`apps/.auth_secret` is tracked in git.** Flagged in the audit, left for the owner: it
+  needs untracking *and* rotation, and rewriting history is not a gameplay change.
+- **`api/session.py` still holds gameplay rules** that `AGENTS.md` places in `game/`. v1.1
+  added its world logic to `game/world/` rather than growing the file, but did not shrink it.
 
 ## Repository map
 

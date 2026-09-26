@@ -9,7 +9,7 @@
 
 import Phaser from 'phaser';
 
-import { audio } from '../audio/AudioManager';
+import { audio, type Mood } from '../audio/AudioManager';
 import { CAMERA, DEPTH, PALETTE, RENDER_SCALE } from '../constants';
 import type { CommandMessage, EnemySnap, GameSnapshot, RoomFull, ServerEvent, Vec2 } from '../contracts';
 import { isRoomFull } from '../contracts';
@@ -301,6 +301,23 @@ export class PlayScene extends Phaser.Scene {
     this.#syncPickups(snap);
 
     if (prev?.paused !== snap.paused) audio.setPaused(snap.paused);
+    audio.setMood(this.#moodFor(snap));
+  }
+
+  /**
+   * Where the player is, as far as the music is concerned.
+   *
+   * Read off the snapshot every frame rather than tracked, for the same reason
+   * everything else here is: a mood that is *set* on a transition drifts out of
+   * step with the world the first time a transition is missed, and the
+   * AudioManager ignores a mood it is already in.
+   */
+  #moodFor(snap: GameSnapshot): Mood {
+    if (snap.enemies.some((e) => e.active && e.boss)) return 'boss';
+    if (snap.settlement) return 'village';
+    // A region is the overworld whether or not you are in its village; a room
+    // in a dungeon is under the ground whatever type it is.
+    return isRoomFull(snap.room) && snap.room.roomType === 'region' ? 'wild' : 'dungeon';
   }
 
   #animationFor(weaponId: string): string {

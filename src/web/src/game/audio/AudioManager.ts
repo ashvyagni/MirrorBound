@@ -17,6 +17,40 @@ export type SfxName =
 const PENTATONIC = [0, 3, 5, 7, 10, 12, 15];   // minor pentatonic in semitones
 const CHORDS = [[0, 7, 12], [-2, 5, 10], [-4, 3, 8], [-5, 2, 7]];
 
+/**
+ * Where the player is, as far as the music is concerned.
+ *
+ * §28 asks for different regions to sound different and for the transitions
+ * between village, wilderness, dungeon and boss to be handled. One synth does
+ * all four: the drone is already there, and what separates a village from a
+ * crypt is how open the filter is, how often the chord turns over and whether
+ * anything plucks at all.
+ */
+export type Mood = 'village' | 'wild' | 'dungeon' | 'boss';
+
+interface MoodSpec {
+  /** Lowpass cutoff. Open is warm and near; closed is muffled and underground. */
+  cutoff: number;
+  /** Seconds between chord changes. Slow is settled, fast is unsettled. */
+  chordSeconds: number;
+  /** Range between plucks, in ms. `null` means none at all. */
+  pluck: [number, number] | null;
+  /** How far the filter sweeps. A wide sweep breathes; a narrow one does not. */
+  sweep: number;
+}
+
+const MOODS: Record<Mood, MoodSpec> = {
+  // Somewhere people live: open, warm, and something is being played nearby.
+  village: { cutoff: 1400, chordSeconds: 18, pluck: [1400, 3200], sweep: 200 },
+  // The road between: the default, and the one the others are heard against.
+  wild: { cutoff: 900, chordSeconds: 14, pluck: [1800, 5400], sweep: 260 },
+  // Under the ground. Muffled, slow, and nobody is playing anything.
+  dungeon: { cutoff: 420, chordSeconds: 22, pluck: [6000, 14000], sweep: 90 },
+  // Something is in the room with you. The chord will not settle and the
+  // plucks stop, which is the loudest thing silence can do.
+  boss: { cutoff: 700, chordSeconds: 6, pluck: null, sweep: 40 },
+};
+
 class AudioManagerImpl {
   #ctx: AudioContext | null = null;
   #master: GainNode | null = null;
@@ -27,6 +61,8 @@ class AudioManagerImpl {
   #musicStarted = false;
   #drones: OscillatorNode[] = [];
   #droneFilter: BiquadFilterNode | null = null;
+  #lfoGain: GainNode | null = null;
+  #mood: Mood = 'wild';
   #chordIndex = 0;
   #pluckTimer: number | null = null;
   #chordTimer: number | null = null;
@@ -71,7 +107,8 @@ class AudioManagerImpl {
     this.#paused = paused;
     if (this.#settings) this.applySettings(this.#settings);
     if (this.#droneFilter && this.#ctx) {
-      this.#droneFilter.frequency.setTargetAtTime(paused ? 320 : 900, this.#ctx.currentTime, 0.4);
+      this.#droneFilter.frequency.setTargetAtTime(
+        paused ? 320 : MOODS[this.#mood].cutoff, this.#ctx.currentTime, 0.4);
     }
   }
 
@@ -113,11 +150,42 @@ class AudioManagerImpl {
     const lfo = ctx.createOscillator();
     lfo.frequency.value = 0.07;
     const lfoGain = ctx.createGain();
-    lfoGain.gain.value = 260;
+    lfoGain.gain.value = MOODS[this.#mood].sweep;
     lfo.connect(lfoGain);
     lfoGain.connect(filter.frequency);
     lfo.start();
-    this.#chordTimer = window.setInterval(() => this.#nextChord(), 14000);
+    this.#lfoGain = lfoGain;
+    this.#applyMood();
+  }
+
+  /**
+   * Move the music to where the player now is.
+   *
+   * Everything eases rather than cuts. A hard change of cutoff on a running
+   * drone is an audible click, and the point of doing this with one synth is
+   * that walking out of a village into the fields should sound like walking
+   * out of a village rather than like a track change.
+   */
+  setMood(mood: Mood): void {
+    if (mood === this.#mood) return;
+    this.#mood = mood;
+    this.#applyMood();
+  }
+
+  #applyMood(): void {
+    const ctx = this.#ctx;
+    if (!ctx || !this.#musicStarted) return;
+    const spec = MOODS[this.#mood];
+    if (this.#droneFilter && !this.#paused) {
+      this.#droneFilter.frequency.setTargetAtTime(spec.cutoff, ctx.currentTime, 1.2);
+    }
+    this.#lfoGain?.gain.setTargetAtTime(spec.sweep, ctx.currentTime, 1.2);
+    if (this.#chordTimer !== null) window.clearInterval(this.#chordTimer);
+    this.#chordTimer = window.setInterval(() => this.#nextChord(), spec.chordSeconds * 1000);
+    if (this.#pluckTimer !== null) {
+      window.clearTimeout(this.#pluckTimer);
+      this.#pluckTimer = null;
+    }
     this.#schedulePluck();
   }
 
@@ -134,10 +202,13 @@ class AudioManagerImpl {
   }
 
   #schedulePluck(): void {
+    const range = MOODS[this.#mood].pluck;
+    if (!range) return;     // a boss room has nothing playing in it
+    const [low, high] = range;
     this.#pluckTimer = window.setTimeout(() => {
       this.#pluck();
       this.#schedulePluck();
-    }, 1800 + Math.random() * 3600);
+    }, low + Math.random() * (high - low));
   }
 
   #pluck(): void {

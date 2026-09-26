@@ -2,6 +2,16 @@
 
 > Python owns truth. Phaser displays truth. Agent recommends actions. Game executes actions.
 
+**The world is a graph of regions, and a region is a `Room`.** That is the one structural
+thing worth knowing before reading anything else. The simulation holds exactly one `Room` at
+a time — movement clamps to it, enemies spawn and are discarded per room — so v1.1's
+continuous overworld is built out of large authored rooms joined at their edges rather than
+out of streamed chunks. Villages are circles of ground *inside* those rooms. Nothing about
+movement, collision, decor or the floor pipeline had to change for it, which is why the
+expansion cost content rather than an engine rewrite. See
+[docs/v1.1-audit-and-roadmap.md](docs/v1.1-audit-and-roadmap.md) §1.1 for the reasoning and
+what the alternative would have cost.
+
 ```
  browser (src/web)                         server (apps/server/mirrorbound)
  ┌──────────────────────────┐   INPUT/COMMAND   ┌────────────────────────────────────┐
@@ -50,8 +60,9 @@ Everything random goes through `DeterministicRNG` sub-streams (`rng.spawn("comba
 | `game/entities/` | `Vec2`, `Entity`, `Player`, `Twin`, `Enemy` (+archetypes, loot tables), `Projectile`, `Pickup` |
 | `game/combat/` | `weapons.py`, `abilities.py` (data), `hitbox.py`, `combat.py` (the only place damage happens) |
 | `game/movement/` | integration + projectile collision |
-| `game/enemy_ai/` | archetype state machine, `mirror.py` boss controller |
-| `game/dungeon/` | `room.py` model, `templates.py` handcrafted pieces, `generation.py` arrangement + decor |
+| `game/enemy_ai/` | archetype state machine, `guardian.py` phased regional bosses, `mirror.py` the final boss's counter-policy |
+| `game/dungeon/` | `room.py` model (tiles, decor, doors, switches, settlements), `templates.py` handcrafted pieces, `generation.py` arrangement + decor + branching |
+| `game/world/` | `campaign.py` the region graph and its crossings, `region.py` builds a stretch of overworld, `settlement.py` places a village inside one, `crossings.py` the boundaries and the ways through them, `quest.py` side quests and the codex, `villagers.py` people walking rounds |
 | `game/progression/` | XP curve, skill tree data and modifiers |
 | `game/inventory.py`, `game/loot.py` | inventories; drops and pickups |
 | `game/twin_executor.py` | executes `TwinIntent`; outcome tracking |

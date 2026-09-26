@@ -75,7 +75,26 @@ The snapshot is the number to keep watching: 101 KB for a region with a village 
 it, sent once on a transition. Well inside what the audit budgeted, and the reason
 the region cap is 4096×3072.
 
+## v1.1 Phase 9 — the finished release
+
+Everything the expansion added is in these numbers: two more dungeons, three bosses, six
+villagers walking rounds, quests, and a village built into the opening region.
+
+| Scene | mean | p95 | max | budget | snapshot full | lite |
+|---|---|---|---|---|---|---|
+| hollowreach_vale | 0.346 ms | 0.672 ms | 24.1 ms | **2.08%** | 113.0 KB | 11.4 KB |
+| drowned_flats | 0.322 ms | 0.654 ms | 23.9 ms | 1.93% | 68.4 KB | 11.0 KB |
+| kiln_terraces | 0.213 ms | 0.552 ms | 2.2 ms | 1.28% | 59.8 KB | 10.3 KB |
+| wakewood_crypt | 0.374 ms | 1.254 ms | 16.2 ms | 2.24% | 46.4 KB | 10.5 KB |
+| mirror_sanctum | 0.201 ms | 0.504 ms | 12.1 ms | 1.20% | 53.1 KB | 10.0 KB |
+
+A region with a village, six villagers and four wilderness encounters in it costs **2.08%**
+of the frame — slightly *less* than the beta's opening dungeon did before any of this work,
+and against a map four times the size. The steady-state snapshot is ~11 KB at 20 Hz.
+
 ## What this says about the expansion
+
+
 
 **There is ample tick headroom, once the per-tick scans are bucketed.** A real fight in a
 full region costs under 2.6% of the frame. What did not scale was never the arithmetic — it

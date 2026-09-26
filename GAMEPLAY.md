@@ -9,19 +9,54 @@ a village → a dungeon → your habits emerge → the twin observes → the twi
 
 ## The world
 
-Five authored areas, not a generated continent. You start in a village and walk out of it.
+One continuous world, authored rather than generated. You start in a village and **walk**
+out of it — there is no portal in the square any more.
 
-| Area | Kind | What it is |
+| Region | Terrain | What is in it |
 |---|---|---|
-| Hollow Reach | village | The start. Elder, smith, apothecary, hearth. Safe. |
-| Wakewood Crypt | dungeon | Five rooms. Your twin is two rooms in. |
-| Emberfall | village | Opens once the crypt is quiet. Second hub. |
-| The Ashen Deep | dungeon | Six rooms, ×1.35 difficulty, the Warden at the bottom. |
-| The Mirror Sanctum | dungeon | Two rooms. The Mirror. |
+| Hollowreach Vale | grassland | **Hollow Reach**: elder, smith, apothecary, hearth, and the people who live there. |
+| The Wakewood | forest | Old trees, an ambush terrain, and the crypt's mouth among the roots. |
+| Greenmoor | grassland | Fields going back to meadow. The barrow is under the far end of it. |
+| The Drowned Flats | marsh | A road the water took. Kell keeps the ferry at the east end. |
+| Emberfall Basin | road/ruins | **Emberfall**, in the ribs of something older. The Glasswork is above it. |
+| The Kiln Terraces | mountain pass | Cut steps and fired brick, and the last two ways down. |
 
-Doors link rooms inside a dungeon. **Portals** link areas, and you can only set out from a
-village: leaving a dungeon means walking out of it. The map (`M`) shows what you have found,
-what is open, and where you are.
+Regions are joined at **crossings** — a place you find, not a seam you walk into:
+
+| Crossing | Kind | Between |
+|---|---|---|
+| The Rootbridge | bridge | Hollowreach Vale ↔ The Wakewood |
+| Stonecount Bridge | bridge | Hollowreach Vale ↔ Greenmoor |
+| The Long Causeway | causeway | Greenmoor ↔ The Drowned Flats |
+| **Kell's Crossing** | ferry | The Drowned Flats ↔ Emberfall Basin — *the campaign's one gate* |
+| The Cut | pass | Emberfall Basin ↔ The Kiln Terraces |
+
+Each boundary is a real barrier — a river, a flood, a wall of rock — with one narrow way
+through. Kell will not push off until the wood is quiet, and he says so when you walk up to
+the jetty; that is the whole of the campaign's gating, and it is a man with a boat rather
+than a refusal on a map.
+
+**Villages are places inside regions**, not maps of their own. You come over the ridge, see
+the rooftops, and walk in with nothing loading. "Somewhere safe" is therefore a question
+about where you are standing rather than which map you are on.
+
+### The five dungeons
+
+| Dungeon | Kind | In | What ends it |
+|---|---|---|---|
+| Wakewood Crypt | combat | The Wakewood | Your twin is two rooms in. |
+| The Stonecount Barrow | **puzzle** | Greenmoor | The Stonecount. |
+| The Glasswork | **mirror** | Emberfall Basin | The Kiln Shardmother. |
+| The Ashen Deep | combat | The Kiln Terraces | The Ashen Warden. |
+| The Mirror Sanctum | mirror | The Kiln Terraces | The Mirror. |
+
+The three archetypes differ in what opens the far door: a **combat** room opens when it is
+clear, a **puzzle** room when you work out what opens it (plates you stand on, keys from
+further back), and a **mirror** room wants both at once. Dungeons branch — side rooms hang
+off the main chain, are never on the way to anywhere, and always have something in them.
+
+A **descent** keeps its portal: going underground is a threshold and should read as one. The
+map (`M`) shows what you have found, and it fills in as you walk rather than all at once.
 
 Rooms inside a dungeon come from handcrafted templates dressed by seed. Combat rooms lock their
 gates until every enemy is down. A room's treasure is laid out once, ever — walking away from
@@ -161,13 +196,24 @@ is taken alone, at level one, before the twin has been found.
 | Fen Spitter | ranged | Outranges everything but the bow, and can hit you off-screen. One clean hit kills it. |
 | Bitterroot Sprout | melee | Notices you at 130 units where everything else sees you at three hundred. The dressing is the ambush. |
 | Kiln Shardling | tank | Sheds a fan of five, so sidestepping does not work. Armoured, so it is a decision rather than a race. |
-| The Ashen Warden | guardian | 420 HP. Keeps hitting the same place, so it is beaten by moving. |
-| The Mirror | boss | 520 HP, three phases, counters from your behaviour model. |
+| The Stonecount | boss | Never stops calling for help. The fight is what you deal with first. |
+| The Kiln Shardmother | boss | A seven-shard fan you cannot sidestep. Get behind a pillar or get inside it. |
+| The Ashen Warden | boss | Three phases, a slam you can see coming, and the nest it was keeping down there. |
+| The Mirror | boss | Three phases, and the only thing in the game that counters your behaviour model. |
+
+The three regional bosses are **milestones, not Mirrors**. They run a fixed, legible phase
+ladder and read nothing about you: you beat the Mirror by being unpredictable, and you beat
+these by paying attention. Each announces a special, holds still while it winds up, and
+lands it at the end — the telegraph is the encounter.
 
 Enemies pick targets from a threat table: whoever hurts them most gets their attention, so the
 twin can pull aggro. Wind-ups are telegraphed with a red pulse and a floor arc, always drawn
 under the sprite so art can never hide one. Deeper areas scale health and damage but never speed,
 range or wind-up — those are what you have learned to read.
+
+**Damage leads the ramp.** The five dungeons run ×1.1 → ×1.2 → ×1.4 → ×1.6 → ×1.8, and a
+region's multiplier goes into damage in full and into health at 60% of it: going deeper means
+mistakes cost more rather than fights lasting longer.
 
 ## The twin
 
@@ -207,6 +253,7 @@ seed over instead of resuming.
 | I | Inventory |
 | K | Skills |
 | M | World map |
+| L | Journal: quests and the codex |
 | P / Esc | Pause |
 | F3 | AI debug overlay |
 

@@ -19,9 +19,11 @@ MirrorBound is a single-player action-RPG where your playstyle shapes your ultim
 ## 🚀 Key Features
 
 - **Adaptive AI Twin:** A rescued twin that fights alongside you. It learns your behavior through continuous pattern detection, spatial heatmaps, and decaying sequence predictions.
-- **Dynamic Combat:** 5 unique areas, 13 dungeon rooms, and a variety of enemies including ordinary mobs, elites, the Ashen Warden guardian, and the ultimate Mirror Boss.
-- **Deep Progression:** 4 equipable weapons with unique abilities, 3 relics, 12 skill nodes, and a fully featured inventory and skill system.
-- **Rich World:** Hollow Reach, Wakewood Crypt, Emberfall, Ashen Deep, and Mirror Sanctum await. Discover secrets, trade with NPCs, and rest at hearths.
+- **One continuous world:** Six regions you cross on foot, joined at named crossings — the Rootbridge, the Long Causeway, Kell's ferry, the Cut through the rock. Villages stand *inside* regions, so you come over the ridge and walk in with nothing loading.
+- **Three dungeon archetypes:** Combat, puzzle and mirror dungeons that differ in what opens the far door — clear the room, work out what opens it, or both at once. Branching side rooms, keys and plates.
+- **Four bosses before the last one:** The Stonecount, the Kiln Shardmother and the Ashen Warden each run a three-phase, fully telegraphed ladder. Only the Mirror reads your behaviour model — that premise belongs to the ending.
+- **Deep Progression:** 6 weapons with weapon-bound abilities, a three-tier upgrade bench that finally spends your shards and essence, 20 skill nodes across five branches where everything past tier 1 changes how the game plays.
+- **Quests and a codex:** Four side quests that exist to explain the world, and a codex that fills in as you find it out.
 
 ---
 
@@ -81,6 +83,7 @@ Open [http://127.0.0.1:5173/](http://127.0.0.1:5173/) to play.
 | `E` | Interact / Talk to NPC |
 | `F` / `G` | Health / mana potion |
 | `I` / `K` / `C` / `M` | Inventory / Skills / Character / Map |
+| `L` | Journal: quests and the codex |
 | `P` / `Esc` | Pause |
 
 ---
@@ -92,6 +95,9 @@ Dive deeper into MirrorBound's architecture and design:
 - [ARCHITECTURE.md](ARCHITECTURE.md) — Core system design.
 - [AI_ARCHITECTURE.md](AI_ARCHITECTURE.md) — Modeling, utility decisions, and boss counters.
 - [GAMEPLAY.md](GAMEPLAY.md) — Gameplay and mechanic design.
+- [docs/v1.1-audit-and-roadmap.md](docs/v1.1-audit-and-roadmap.md) — The v1.1 expansion audit and plan.
+- [docs/playtest-results.md](docs/playtest-results.md) — Measured difficulty, and what the probe cannot tell us.
+- [docs/perf-baseline.md](docs/perf-baseline.md) — Simulation cost, before and after the bigger world.
 - [AGENTS.md](AGENTS.md) — Codebase contribution rules.
 
 ---
