@@ -647,6 +647,11 @@
   "seals": [],
   "twinRescued": false,
   "twinNamed": false,
+  "journal": {
+   "active": [],
+   "completed": [],
+   "lore": []
+  },
   "areas": [
    {
     "id": "hollowreach_vale",
@@ -1232,7 +1237,7 @@
    "id": "auto",
    "name": "Autosave",
    "auto": true,
-   "savedAt": 1790403157.8723352,
+   "savedAt": 1790403698.041515,
    "area": "hollowreach_vale",
    "level": 1,
    "gold": 0

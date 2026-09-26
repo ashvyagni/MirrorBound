@@ -368,6 +368,41 @@ export interface AreaSnap {
   current: boolean;
 }
 
+/** One step of a side quest, as the journal draws it. */
+export interface QuestStepSnap {
+  text: string;
+  done: boolean;
+  count: number;
+}
+
+export interface QuestSnap {
+  id: string;
+  name: string;
+  summary: string;
+  giver: string;
+  /** Index of the step being worked on; past the end when finished. */
+  step: number;
+  done: boolean;
+  /** What to do next, or empty when the quest is finished. */
+  current: string;
+  steps: QuestStepSnap[];
+  rewardGold: number;
+}
+
+/** A page of the codex, earned by finishing a quest or by getting somewhere. */
+export interface LoreSnap {
+  id: string;
+  title: string;
+  body: string;
+  section: 'history' | 'mirror' | 'regions' | 'people' | string;
+}
+
+export interface JournalSnap {
+  active: QuestSnap[];
+  completed: QuestSnap[];
+  lore: LoreSnap[];
+}
+
 export interface CampaignSnap {
   playerName: string;
   twinName: string;
@@ -378,6 +413,8 @@ export interface CampaignSnap {
   seals: string[];
   twinRescued: boolean;
   twinNamed: boolean;
+  /** Side quests taken, and the codex they have filled in. */
+  journal: JournalSnap;
   areas: AreaSnap[];
 }
 

@@ -407,6 +407,23 @@ eventBus.on('game:events', (events) => {
           pushToast('good', `${String(e.data.name)} is quiet`, `+${e.data.gold} gold`);
         }
         break;
+      case 'QUEST_TAKEN':
+        pushToast('info', String(e.data.name), String(e.data.first ?? ''));
+        break;
+      case 'QUEST_COMPLETE':
+        pushToast('good', `${String(e.data.name)} - done`,
+          e.data.gold ? `+${e.data.gold} gold` : undefined);
+        break;
+      case 'LORE_FOUND':
+        // Deliberately quieter than a quest reward: a page of the codex is
+        // something to go and read, not something that just happened to you.
+        pushToast('info', 'Something learned', String(e.data.title ?? ''));
+        break;
+      case 'SETTLEMENT_ENTER':
+        pushToast('info', String(e.data.name ?? 'A village'), 'You can rest and trade here.');
+        break;
+      case 'SETTLEMENT_EXIT':
+        break;   // leaving is not news; the world outside says so on its own
       case 'SESSION_REPLACED':
         set({ connectionMessage: 'This save is open in another tab. Close that tab and reload to continue here.' });
         pushToast('warn', 'This save is open in another tab', 'Close the other tab and reload to continue here.');

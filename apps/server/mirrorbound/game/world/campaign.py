@@ -43,6 +43,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from mirrorbound.game.dungeon.templates import RoomType
+from mirrorbound.game.world.quest import QuestLog
 
 
 #: Which way you left an area, and therefore which side of the next one you
@@ -398,6 +399,8 @@ class CampaignState:
     seals: list[str] = field(default_factory=list)
     twin_rescued: bool = False
     twin_named: bool = False
+    #: Side quests taken, and the codex they have filled in.
+    quests: QuestLog = field(default_factory=QuestLog)
 
     # --- progression ---------------------------------------------------------
 
@@ -481,6 +484,7 @@ class CampaignState:
             "seals": list(self.seals),
             "twinRescued": self.twin_rescued,
             "twinNamed": self.twin_named,
+            "journal": self.quests.to_dict(),
             "areas": [
                 {
                     "id": a.id, "name": a.name, "kind": a.kind, "biome": a.biome,
@@ -507,6 +511,7 @@ class CampaignState:
             "seals": list(self.seals),
             "twinRescued": self.twin_rescued,
             "twinNamed": self.twin_named,
+            "quests": self.quests.save_dict(),
         }
 
     @classmethod
@@ -525,6 +530,7 @@ class CampaignState:
         state.seals = list(data.get("seals", []))
         state.twin_rescued = bool(data.get("twinRescued", False))
         state.twin_named = bool(data.get("twinNamed", False))
+        state.quests = QuestLog.from_save(data.get("quests") or {})
         return state
 
 

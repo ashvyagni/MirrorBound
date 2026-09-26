@@ -65,6 +65,7 @@ from mirrorbound.game.world.campaign import (
     sanitise_name,
 )
 from mirrorbound.game.world.campaign import crossing_between
+from mirrorbound.game.world.quest import LORE, LORE_ON_AREA, LORE_ON_FLAG, QUESTS
 from mirrorbound.game.world.region import build_region
 from mirrorbound.game.world.villagers import update_all as update_villagers
 from mirrorbound.game.world.cutscene import BEATS, LINE_SECONDS, LINES, Cutscene
@@ -97,6 +98,8 @@ CLIENT_EVENT_TYPES = {
     "CUTSCENE_BEGIN", "CUTSCENE_BEAT", "CUTSCENE_LINE", "CUTSCENE_END",
     # Walking into a village, and being told why a crossing is shut.
     "SETTLEMENT_ENTER", "SETTLEMENT_EXIT",
+    # Side quests, and the codex filling in.
+    "QUEST_TAKEN", "QUEST_COMPLETE", "LORE_FOUND",
 }
 
 # Spatial heatmap cell size in world units. Rooms are 1280-1600 wide, so 64 gives
@@ -174,6 +177,10 @@ class GameSession:
         self.state.bus.subscribe("PLAYER_ABILITY_CAST", lambda e: self.mirror_controller.note_player_attack(e.tick))
         self._last_player_action: str | None = None
         self.state.bus.subscribe_all(self._track_player_action)
+        # Quests advance on events the simulation already publishes, in the
+        # order it publishes them -- so nothing here rolls and nothing polls.
+        for kind in ("ENEMY_KILLED", "AREA_ENTER", "ITEM_PICKUP"):
+            self.state.bus.subscribe(kind, self._quest_event)
         # Inventory / skill / weapon blocks are only re-sent after something changed them.
         self.detail_dirty = True
         # A rebuilt world is a loaded or reset one, so the slot list is stale.
@@ -281,6 +288,7 @@ class GameSession:
         if announce:
             state.emit("AREA_ENTER", area=area_id, name=area.name, kind=area.kind,
                        subtitle=area.subtitle, difficulty=area.difficulty)
+        self._maybe_learn_lore()
 
     def _leave_area(self, portal_target: str, along: float | None = None) -> None:
         if portal_target not in AREAS:
@@ -314,6 +322,7 @@ class GameSession:
         first_time = self.campaign.complete(area_id)
         if first_time and area.completion_gold:
             self.state.player.inventory.add_gold(area.completion_gold)
+        self._advance_quests("clear", area_id)
         self.state.emit("QUEST_UPDATED", area=area_id, name=area.name, first=first_time,
                         gold=area.completion_gold if first_time else 0,
                         seal=area.completion_seal if first_time else "",
@@ -352,6 +361,59 @@ class GameSession:
             "twinStyle": dump_twin_style(self.style),
         }
 
+    def _quest_event(self, event: Event) -> None:
+        """Turn one simulation event into quest progress.
+
+        The mapping is deliberately thin: a step is a condition on an event the
+        game already emits, so a quest never needs its own bookkeeping in the
+        combat or movement systems.
+        """
+        if event.type == "ENEMY_KILLED":
+            self._advance_quests("slay", str(event.data.get("enemy_type", "")))
+        elif event.type == "AREA_ENTER":
+            self._advance_quests("reach", str(event.data.get("area", "")))
+        elif event.type == "ITEM_PICKUP":
+            self._advance_quests("gather", str(event.data.get("item_id") or event.data.get("kind", "")))
+
+    def _advance_quests(self, kind: str, target: str) -> None:
+        log = self.campaign.quests
+        for quest_id in log.advance(kind, target):
+            self._finish_quest(quest_id)
+        self.detail_dirty = True
+
+    def _finish_quest(self, quest_id: str) -> None:
+        """Pay a quest out, once, and put its page in the codex."""
+        quest = QUESTS.get(quest_id)
+        if quest is None:
+            return
+        if quest.reward_gold:
+            self.state.player.inventory.add_gold(quest.reward_gold)
+        learned = self.campaign.quests.learn(quest.lore) if quest.lore else False
+        self.state.emit("QUEST_COMPLETE", quest=quest_id, name=quest.name,
+                        gold=quest.reward_gold, lore=quest.lore if learned else "")
+        if learned:
+            self._emit_lore(quest.lore)
+        self._checkpoint()
+
+    def _emit_lore(self, lore_id: str) -> None:
+        page = LORE.get(lore_id)
+        if page is not None:
+            self.state.emit("LORE_FOUND", lore=lore_id, title=page.title, section=page.section)
+
+    def _maybe_learn_lore(self) -> None:
+        """Pages you get for having been somewhere rather than for being told.
+
+        §27's environmental storytelling needs somewhere to land: reaching the
+        Sanctum tells you what the Sanctum is, and finding the twin is what
+        makes the page about twins worth reading.
+        """
+        found = LORE_ON_AREA.get(self.campaign.current_area)
+        if found and self.campaign.quests.learn(found):
+            self._emit_lore(found)
+        for flag, lore_id in LORE_ON_FLAG.items():
+            if flag in self.campaign.flags and self.campaign.quests.learn(lore_id):
+                self._emit_lore(lore_id)
+
     def _mark_detail_dirty(self, _event: Event) -> None:
         self.detail_dirty = True
 
@@ -374,6 +436,9 @@ class GameSession:
                    name=self.campaign.twin_name)
         state.emit("QUEST_UPDATED", area=room.area_id, name="The Twin", first=True,
                    rescued=True, seals=list(self.campaign.seals))
+        # Finding it is what makes the page about twins worth reading, so the
+        # codex gets it now rather than at the next area change.
+        self._maybe_learn_lore()
 
     def _track_player_action(self, event: Event) -> None:
         if event.type == "PLAYER_ATTACKED":
@@ -877,6 +942,16 @@ class GameSession:
             self.campaign.flags.add("quest_active")
             state.emit("QUEST_UPDATED", quest="wakewood_crypt", started=True,
                        name=npc.definition.name)
+        # Talking is how a side quest is taken, and how it is reported back --
+        # every quest ends with a conversation, which is what makes the thing
+        # you found mean something rather than just tick a counter.
+        self._advance_quests("talk", npc_id)
+        offered = self.campaign.quests.offered_by(npc_id, self.campaign.flags)
+        if offered is not None and self.campaign.quests.start(offered.id):
+            state.emit("QUEST_TAKEN", quest=offered.id, name=offered.name,
+                       summary=offered.summary, giver=npc_id,
+                       first=offered.steps[0].text)
+            self.detail_dirty = True
         # Resting at the hearth is the village's one mechanical service.
         if npc.definition.role == "hearth":
             player.health = player.max_health
