@@ -19,9 +19,18 @@ import { Interactions } from '@/game/state/Interactions';
 import type { NoticeKind } from '@/game/hud/Notifications';
 import type { ConnectionStatus } from '@/game/types';
 
+export interface Purse {
+  gold: number;
+  shards: number;
+  essence: number;
+  owned: string[];
+  carried: WeaponInfo[];
+}
+
 export type Screen =
   | 'none' | 'pause' | 'inventory' | 'skills' | 'settings' | 'controls'
-  | 'character' | 'map' | 'dialogue' | 'naming' | 'console' | 'sandbox' | 'agent';
+  | 'character' | 'map' | 'dialogue' | 'naming' | 'console' | 'sandbox' | 'agent'
+  | 'journal';
 
 /** An open conversation. Held here, not invented here: every line comes from the server. */
 export interface Conversation {
@@ -156,7 +165,7 @@ export function openScreen(screen: Screen): void {
   if (open && !wasOpen && resumeAfterMenu) command({ action: 'PAUSE' });
 }
 
-for (const screen of ['inventory', 'skills', 'map', 'settings', 'console', 'sandbox', 'agent'] as const) {
+for (const screen of ['inventory', 'skills', 'map', 'settings', 'console', 'sandbox', 'agent', 'journal'] as const) {
   eventBus.on(`${screen}:toggle`, () => toggleScreen(screen));
 }
 eventBus.on('ui:screen-close', ({ screen }) => {
@@ -176,15 +185,29 @@ export function command(message: Omit<CommandMessage, 'type'>): void {
   eventBus.emit('ui:command', { ...message, type: 'COMMAND' });
 }
 
-/** What the player can afford and already has, for an open shop. */
-function purse(): { gold: number; owned: string[] } {
-  const inventory = state.playerDetail.inventory;
+/**
+ * What the player can afford and already has, for an open shop.
+ *
+ * Carries the carried weapons as well, because a smith does two jobs now: what
+ * is on the bench to buy, and what you already own that the bench can work on.
+ * Shards and essence come along because an upgrade is paid for in all three
+ * and a price you cannot see is a button that refuses for no visible reason.
+ */
+function purse(): Purse {
+  return purseOf(state.playerDetail.inventory);
+}
+
+
+function purseOf(inventory: Inventory | null | undefined): Purse {
   return {
     gold: inventory?.gold ?? 0,
+    shards: inventory?.resources?.shards ?? 0,
+    essence: inventory?.resources?.essence ?? 0,
     owned: [
       ...(inventory?.weapons ?? []).map((w) => w.id),
       ...(inventory?.relics ?? []).map((r) => r.id),
     ],
+    carried: inventory?.weapons ?? [],
   };
 }
 
@@ -242,11 +265,12 @@ eventBus.on('game:snapshot', (snap) => {
     };
     // An open shop has to stay honest about what you can afford, and the gold
     // only changes on the detail snapshots this block runs for.
-    const inventory = snap.player.inventory;
-    eventBus.emit('hud:purse', {
-      gold: inventory.gold,
-      owned: [...inventory.weapons.map((w) => w.id), ...inventory.relics.map((r) => r.id)],
-    });
+    //
+    // Built from the inventory this snapshot carried rather than from `state`:
+    // `set(patch)` has not run yet, so the store still holds the previous one
+    // and a shop refreshed from it would show the price you could afford a
+    // moment ago.
+    eventBus.emit('hud:purse', { purse: purseOf(snap.player.inventory) });
   }
   if (snap.twin.inventory) {
     patch.twinDetail = { inventory: snap.twin.inventory, weapon: snap.twin.weapon ?? state.twinDetail.weapon };
@@ -389,7 +413,7 @@ eventBus.on('game:events', (events) => {
           ...(speaker ? { at: speaker.position } : {}),
         };
         set({ conversation });
-        eventBus.emit('hud:conversation', { conversation, ...purse() });
+        eventBus.emit('hud:conversation', { conversation, purse: purse() });
         openScreen('dialogue');
         break;
       }

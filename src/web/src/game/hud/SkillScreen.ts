@@ -3,7 +3,7 @@ import Phaser from 'phaser';
 import { CONTROLS_TEXTURE_KEY } from '../animation/controlsAtlas.generated';
 import { GLYPHS_TEXTURE_KEY } from '../animation/glyphsAtlas.generated';
 import { SKILLNODES_TEXTURE_KEY } from '../animation/skillNodesAtlas.generated';
-import { HUD, PIXEL_FONT, RENDER_SCALE, VIEW } from '../constants';
+import { HUD, PALETTE, PIXEL_FONT, RENDER_SCALE, VIEW } from '../constants';
 import type { SkillNode } from '../contracts';
 import { eventBus } from '../EventBus';
 import { controlArt } from './controlArt';
@@ -13,7 +13,7 @@ import { Panel } from './Panel';
 /**
  * The skill tree, on `K`.
  *
- * Four branches side by side, each a column of nodes you climb in order. The
+ * Five branches side by side, each a column of four nodes you climb in order. The
  * shape is the server's: `SkillNode` arrives already carrying `unlocked`,
  * `available` and, when it is neither, the `reason` why -- so nothing here
  * decides whether a node can be taken, it only draws the answer. A node that
@@ -28,8 +28,11 @@ import { Panel } from './Panel';
  * than greying out silently, because a dead control with no explanation reads
  * as a bug every time.
  */
-const WIDTH = 1640;
-const HEIGHT = 960;
+// Five branches of four, so both dimensions grew with the v1.1 tree. The
+// column layout below is proportional rather than pixel-authored, because a
+// fifth column at fixed offsets crowds the labels into each other.
+const WIDTH = 1880;
+const HEIGHT = 1010;
 const L = {
   pad: 40,
   /** Top of the branch headings. */
@@ -42,11 +45,23 @@ const L = {
 } as const;
 
 /** The four branches, in the order they are drawn. */
-const BRANCHES: readonly { id: SkillNode['category']; label: string; blurb: string }[] = [
-  { id: 'MOBILITY', label: 'Mobility', blurb: 'Move faster, dash more' },
-  { id: 'COMBAT', label: 'Combat', blurb: 'Hit harder with weapons' },
-  { id: 'MAGIC', label: 'Magic', blurb: 'More mana, stronger spells' },
-  { id: 'SURVIVAL', label: 'Survival', blurb: 'Stay standing' },
+/**
+ * The branches, in the order they are drawn.
+ *
+ * `emblem` is a frame on the skill-node sheet, and `tint` recolours it. The
+ * sheet has four emblems and there are five branches — MIRROR arrived with the
+ * v1.1 tree and has no art of its own, so it borrows the magic sigil in the
+ * Mirror's own magenta rather than waiting for a sheet (§35: recombine before
+ * commissioning). It reads as related-but-not-the-same, which is the branch.
+ */
+const BRANCHES: readonly {
+  id: SkillNode['category']; label: string; blurb: string; emblem: string; tint?: number;
+}[] = [
+  { id: 'MOBILITY', label: 'Mobility', blurb: 'Move faster, dash more', emblem: 'mobility' },
+  { id: 'COMBAT', label: 'Combat', blurb: 'Hit harder with weapons', emblem: 'combat' },
+  { id: 'MAGIC', label: 'Magic', blurb: 'More mana, stronger spells', emblem: 'magic' },
+  { id: 'SURVIVAL', label: 'Survival', blurb: 'Stay standing', emblem: 'survival' },
+  { id: 'MIRROR', label: 'Mirror', blurb: 'What follows you', emblem: 'magic', tint: PALETTE.magenta },
 ];
 
 const TIERS = ['I', 'II', 'III', 'IV', 'V'];
@@ -157,16 +172,23 @@ export class SkillScreen {
 
     const span = this.#right - this.#left;
     const colWidth = span / BRANCHES.length;
+    // Everything inside a column is placed against its own left edge rather
+    // than at an offset from its centre, so adding a branch narrows the columns
+    // instead of overlapping their labels.
+    const colLeft = -colWidth / 2 + 12;
 
     BRANCHES.forEach((branch, i) => {
       const x = this.#left + colWidth * (i + 0.5);
 
-      const emblem = this.scene.add.image(x - 110, L.headTop, SKILLNODES_TEXTURE_KEY,
-        branch.id.toLowerCase());
-      fitInside(emblem, 52);
+      const emblem = this.scene.add.image(x + colLeft, L.headTop, SKILLNODES_TEXTURE_KEY,
+        branch.emblem);
+      fitInside(emblem, 46);
+      if (branch.tint !== undefined) emblem.setTint(branch.tint);
       this.#add(emblem);
-      this.#add(this.#row(x - 70, L.headTop, branch.label.toUpperCase(), HUD.labelSize, HUD.ink, 0));
-      this.#add(this.#row(x - 70, L.headTop + 30, branch.blurb.toUpperCase(), HUD.hintSize - 3, HUD.dimInk, 0));
+      this.#add(this.#row(x + colLeft + 38, L.headTop, branch.label.toUpperCase(),
+        HUD.labelSize, HUD.ink, 0));
+      this.#add(this.#row(x + colLeft + 38, L.headTop + 28, branch.blurb.toUpperCase(),
+        HUD.hintSize - 3, HUD.dimInk, 0));
 
       const column = this.#nodes
         .filter((n) => n.category === branch.id)
@@ -177,32 +199,34 @@ export class SkillScreen {
         // The link is drawn from the node above, and lit only when this one is
         // reachable -- so the eye can follow how far up the branch it may go.
         if (tier > 0) {
-          const link = this.scene.add.rectangle(x - 150, y - L.nodeStep / 2, 4, L.nodeStep - L.node, 0xf5a4c0);
+          const link = this.scene.add.rectangle(x + colLeft + 26, y - L.nodeStep / 2,
+            4, L.nodeStep - L.node, 0xf5a4c0);
           link.setAlpha(node.unlocked || node.available ? 0.8 : 0.18);
           this.#add(link);
         }
-        this.#node(node, x, y);
+        this.#node(node, x + colLeft, y, colWidth);
       });
     });
   }
 
-  #node(node: SkillNode, x: number, y: number): void {
+  #node(node: SkillNode, x: number, y: number, colWidth: number): void {
     const frame = node.unlocked ? 'unlocked' : node.available ? 'available' : 'locked';
-    const icon = this.scene.add.image(x - 150, y, SKILLNODES_TEXTURE_KEY, frame);
+    const icon = this.scene.add.image(x + 26, y, SKILLNODES_TEXTURE_KEY, frame);
     fitInside(icon, L.node);
     this.#add(icon);
 
     const ink = node.unlocked ? HUD.activeInk : node.available ? HUD.ink : HUD.dimInk;
-    this.#add(this.#row(x - 150, y + L.node * 0.62,
+    this.#add(this.#row(x + 26, y + L.node * 0.62,
       TIERS[node.tier - 1] ?? String(node.tier), HUD.hintSize - 3, HUD.dimInk, 0.5));
-    this.#add(this.#row(x - 96, y - 14, node.name.toUpperCase(), HUD.hintSize, ink, 0));
-    this.#add(this.#row(x - 96, y + 16,
+    this.#add(this.#row(x + 78, y - 14, node.name.toUpperCase(), HUD.hintSize, ink, 0));
+    this.#add(this.#row(x + 78, y + 16,
       node.unlocked ? 'LEARNED' : node.available ? `${node.cost} PT` : node.reason.toUpperCase(),
       HUD.hintSize - 3, HUD.dimInk, 0));
 
     // The whole node takes the pointer, not the 84px disc: a hit area the size
-    // of the icon is a hit area you have to aim at.
-    const hit = this.scene.add.zone(x - 4, y, 300, L.node).setOrigin(0.5);
+    // of the icon is a hit area you have to aim at. Sized to the column so it
+    // never reaches into the branch beside it.
+    const hit = this.scene.add.zone(x + colWidth / 2 - 12, y, colWidth - 24, L.node).setOrigin(0.5);
     hit.setInteractive({ useHandCursor: node.available });
     hit.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OVER, () => {
       this.#detail.setText(node.description.toUpperCase());

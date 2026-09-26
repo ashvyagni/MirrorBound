@@ -430,6 +430,13 @@ export interface JournalSnap {
   lore: LoreSnap[];
 }
 
+/** One join in the world: a crossing between regions, or a mouth into the dark. */
+export interface AreaLink {
+  from: string;
+  to: string;
+  kind: 'bridge' | 'causeway' | 'pass' | 'ferry' | 'descent' | string;
+}
+
 export interface CampaignSnap {
   playerName: string;
   twinName: string;
@@ -442,6 +449,8 @@ export interface CampaignSnap {
   twinNamed: boolean;
   /** Side quests taken, and the codex they have filled in. */
   journal: JournalSnap;
+  /** How the world is joined. Only links whose both ends you have found. */
+  links: AreaLink[];
   areas: AreaSnap[];
 }
 
@@ -627,6 +636,9 @@ export type CommandAction =
   | 'PAUSE' | 'RESUME' | 'RESTART' | 'REQUEST_ROOM' | 'SET_TWIN_STANCE'
   | 'SWAP_WEAPON' | 'SET_OFFHAND' | 'TRAVEL' | 'TALK' | 'BUY_ITEM' | 'SET_NAME'
   | 'TWIN_REQUEST' | 'TWIN_CALL' | 'SAVE' | 'RESPEC'
+  // A smith works a carried weapon up a tier, paid for in gold, shards and
+  // essence -- which is what gives the last two somewhere to go.
+  | 'UPGRADE_WEAPON'
   // Save slots. SAVE writes the slot the run is already playing; SAVE_AS makes
   // a new named one, LOAD_SAVE restarts the run from one, DELETE_SAVE throws
   // one away and RESET_DATA throws away every slot this profile has.

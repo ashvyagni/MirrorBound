@@ -98,9 +98,23 @@
     "category": "MOBILITY",
     "tier": 3,
     "cost": 2,
-    "description": "Dash invulnerability lasts 0.2s longer.",
+    "description": "Dash straight through anything in the way, and stay untouchable 0.2s longer while you do.",
     "requires": [
      "shadow_step"
+    ],
+    "unlocked": false,
+    "available": false,
+    "reason": "not enough skill points"
+   },
+   {
+    "id": "doublestep",
+    "name": "Doublestep",
+    "category": "MOBILITY",
+    "tier": 4,
+    "cost": 3,
+    "description": "A second dash, straight after the first, before the cooldown starts.",
+    "requires": [
+     "phase_walker"
     ],
     "unlocked": false,
     "available": false,
@@ -133,14 +147,28 @@
     "reason": "not enough skill points"
    },
    {
-    "id": "executioner",
-    "name": "Executioner",
+    "id": "riposte",
+    "name": "Riposte",
     "category": "COMBAT",
     "tier": 3,
     "cost": 2,
-    "description": "+12% critical strike chance.",
+    "description": "Striking within 0.4s of dodging a blow hits for double.",
     "requires": [
      "heavy_hands"
+    ],
+    "unlocked": false,
+    "available": false,
+    "reason": "not enough skill points"
+   },
+   {
+    "id": "executioner",
+    "name": "Executioner",
+    "category": "COMBAT",
+    "tier": 4,
+    "cost": 3,
+    "description": "A fourth swing on the end of every melee chain, and +12% critical chance.",
+    "requires": [
+     "riposte"
     ],
     "unlocked": false,
     "available": false,
@@ -178,9 +206,23 @@
     "category": "MAGIC",
     "tier": 3,
     "cost": 2,
-    "description": "+60% mana regeneration, ability cooldowns -15%.",
+    "description": "Cast at a walk instead of a standstill. +60% mana regeneration, ability cooldowns -15%.",
     "requires": [
      "pyromancer"
+    ],
+    "unlocked": false,
+    "available": false,
+    "reason": "not enough skill points"
+   },
+   {
+    "id": "kindling",
+    "name": "Kindling",
+    "category": "MAGIC",
+    "tier": 4,
+    "cost": 3,
+    "description": "A kill takes a second off every ability still cooling down.",
+    "requires": [
+     "overflow"
     ],
     "unlocked": false,
     "available": false,
@@ -213,14 +255,82 @@
     "reason": "not enough skill points"
    },
    {
-    "id": "iron_skin",
-    "name": "Iron Skin",
+    "id": "steady_hand",
+    "name": "Steady Hand",
     "category": "SURVIVAL",
     "tier": 3,
     "cost": 2,
-    "description": "Take 15% less damage.",
+    "description": "Drink at walking pace: potions no longer slow you.",
     "requires": [
      "second_wind"
+    ],
+    "unlocked": false,
+    "available": false,
+    "reason": "not enough skill points"
+   },
+   {
+    "id": "iron_skin",
+    "name": "Iron Skin",
+    "category": "SURVIVAL",
+    "tier": 4,
+    "cost": 3,
+    "description": "Take 15% less damage, and a hit that would kill you leaves you at 1 once every two minutes.",
+    "requires": [
+     "steady_hand"
+    ],
+    "unlocked": false,
+    "available": false,
+    "reason": "not enough skill points"
+   },
+   {
+    "id": "shared_sight",
+    "name": "Shared Sight",
+    "category": "MIRROR",
+    "tier": 1,
+    "cost": 1,
+    "description": "Your twin learns your habits 25% faster.",
+    "requires": [],
+    "unlocked": false,
+    "available": false,
+    "reason": "not enough skill points"
+   },
+   {
+    "id": "close_order",
+    "name": "Close Order",
+    "category": "MIRROR",
+    "tier": 2,
+    "cost": 1,
+    "description": "Your twin hits for 75% of a weapon's damage instead of 60%.",
+    "requires": [
+     "shared_sight"
+    ],
+    "unlocked": false,
+    "available": false,
+    "reason": "not enough skill points"
+   },
+   {
+    "id": "covering_fire",
+    "name": "Covering Fire",
+    "category": "MIRROR",
+    "tier": 3,
+    "cost": 2,
+    "description": "Your twin is back on its feet in 4 seconds instead of 9.",
+    "requires": [
+     "close_order"
+    ],
+    "unlocked": false,
+    "available": false,
+    "reason": "not enough skill points"
+   },
+   {
+    "id": "reflection",
+    "name": "Reflection",
+    "category": "MIRROR",
+    "tier": 4,
+    "cost": 3,
+    "description": "While your twin is protecting you, it takes a third of what you would have.",
+    "requires": [
+     "covering_fire"
     ],
     "unlocked": false,
     "available": false,
@@ -244,7 +354,9 @@
    "rarity": "common",
    "animation": "",
    "abilities": [],
-   "description": "Two quick swipes. Short reach, and it will not carry you far."
+   "description": "Two quick swipes. Short reach, and it will not carry you far.",
+   "perk": "",
+   "perkName": ""
   },
   "inventory": {
    "weapons": [],
@@ -335,7 +447,9 @@
     "binding_nova",
     "arcane_bolt"
    ],
-   "description": "Sweeps up close. Its frost is in the three spells it grants."
+   "description": "Sweeps up close. Its frost is in the three spells it grants.",
+   "perk": "brittle",
+   "perkName": "Hoarfrost"
   },
   "inventory": {
    "weapons": [
@@ -361,7 +475,16 @@
       "binding_nova",
       "arcane_bolt"
      ],
-     "description": "Sweeps up close. Its frost is in the three spells it grants."
+     "description": "Sweeps up close. Its frost is in the three spells it grants.",
+     "perk": "brittle",
+     "perkName": "Hoarfrost",
+     "tier": 0,
+     "upgradeCost": {
+      "gold": 120,
+      "shards": 2,
+      "essence": 0
+     },
+     "hasPerk": false
     }
    ],
    "equippedWeapon": "frost_staff",
@@ -652,6 +775,18 @@
    "completed": [],
    "lore": []
   },
+  "links": [
+   {
+    "from": "hollowreach_vale",
+    "to": "wakewood",
+    "kind": "bridge"
+   },
+   {
+    "from": "hollowreach_vale",
+    "to": "greenmoor",
+    "kind": "bridge"
+   }
+  ],
   "areas": [
    {
     "id": "hollowreach_vale",
@@ -742,6 +877,32 @@
     "discovered": false,
     "completed": false,
     "open": true,
+    "current": false
+   },
+   {
+    "id": "stonecount_barrow",
+    "name": "The Stonecount Barrow",
+    "kind": "dungeon",
+    "biome": "crypt",
+    "subtitle": "They counted the ones who did not come back, and then they stopped.",
+    "mapX": 0.32,
+    "mapY": 0.9,
+    "discovered": false,
+    "completed": false,
+    "open": true,
+    "current": false
+   },
+   {
+    "id": "glasswork",
+    "name": "The Glasswork",
+    "kind": "dungeon",
+    "biome": "crypt",
+    "subtitle": "They fired something here that was not brick.",
+    "mapX": 0.78,
+    "mapY": 0.58,
+    "discovered": false,
+    "completed": false,
+    "open": false,
     "current": false
    },
    {
@@ -952,7 +1113,9 @@
     "kind": "bridge",
     "targetArea": "wakewood",
     "lockReason": "",
-    "label": "The Rootbridge"
+    "label": "The Rootbridge",
+    "needsKey": "",
+    "needsSwitch": ""
    },
    {
     "side": "east",
@@ -964,7 +1127,9 @@
     "kind": "bridge",
     "targetArea": "greenmoor",
     "lockReason": "",
-    "label": "Stonecount Bridge"
+    "label": "Stonecount Bridge",
+    "needsKey": "",
+    "needsSwitch": ""
    }
   ],
   "portals": [],
@@ -984,6 +1149,7 @@
     "radius": 560.0
    }
   ],
+  "switches": [],
   "areaId": "hollowreach_vale",
   "seed": 4293200180
  },
@@ -1237,7 +1403,7 @@
    "id": "auto",
    "name": "Autosave",
    "auto": true,
-   "savedAt": 1790403698.041515,
+   "savedAt": 1790457164.299527,
    "area": "hollowreach_vale",
    "level": 1,
    "gold": 0

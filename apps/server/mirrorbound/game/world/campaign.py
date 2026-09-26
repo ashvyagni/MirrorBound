@@ -535,6 +535,16 @@ class CampaignState:
             "twinRescued": self.twin_rescued,
             "twinNamed": self.twin_named,
             "journal": self.quests.to_dict(),
+            # How the world is actually joined, so the map can draw the roads
+            # that exist rather than guessing from the order of the list. Only
+            # links where both ends have been found: an undrawn road is the
+            # difference between "there is more" and "there is more, and it is
+            # exactly here".
+            "links": [
+                {"from": a, "to": b, "kind": kind}
+                for a, b, kind in self._links()
+                if a in self.discovered_areas and b in self.discovered_areas
+            ],
             "areas": [
                 {
                     "id": a.id, "name": a.name, "kind": a.kind, "biome": a.biome,
@@ -547,6 +557,15 @@ class CampaignState:
                 for a in AREAS.values()
             ],
         }
+
+    @staticmethod
+    def _links() -> list[tuple[str, str, str]]:
+        """Every join in the world: crossings between regions, mouths into the dark."""
+        out = [(c.a, c.b, c.kind) for c in CROSSINGS]
+        out += [(area.id, target, "descent")
+                for area in AREAS.values()
+                for target, _fx, _fy in area.descents]
+        return out
 
     def save_dict(self) -> dict:
         """The checkpoint form: state only, no derived view."""

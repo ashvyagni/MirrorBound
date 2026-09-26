@@ -7,7 +7,8 @@ import { weaponIcon } from '../animation/abilityIcons';
 import { weaponSheetFor } from '../animation/weaponClips';
 import { CONTROLS_TEXTURE_KEY } from '../animation/controlsAtlas.generated';
 import { HUD, PIXEL_FONT, RENDER_SCALE, VIEW } from '../constants';
-import type { ShopEntry } from '../contracts';
+import type { ShopEntry, WeaponInfo } from '../contracts';
+import type { Purse } from '../../ui/store';
 import { eventBus } from '../EventBus';
 import { controlArt } from './controlArt';
 import { fitInside, fitWidth } from './fit';
@@ -109,6 +110,7 @@ export class DialogueScreen {
   #bubbleH = BUBBLE_MIN_H;
   #gold = 0;
   #owned = new Set<string>();
+  #purse: Purse = { gold: 0, shards: 0, essence: 0, owned: [], carried: [] };
 
   constructor(private readonly scene: Phaser.Scene) {}
 
@@ -132,14 +134,15 @@ export class DialogueScreen {
     this.#shop = this.scene.add.container(0, 0).setVisible(false);
   }
 
-  /** Show a conversation. `gold` and `owned` come from the player's inventory. */
-  show(conversation: Conversation, gold: number, owned: Iterable<string>): void {
+  /** Show a conversation. The purse is the player's inventory, as prices. */
+  show(conversation: Conversation, purse: Purse): void {
     this.#conversation = conversation;
     this.#line = 0;
-    this.#gold = gold;
-    this.#owned = new Set(owned);
+    this.#setPurse(purse);
     this.#bubble.setVisible(true);
-    this.#shop.setVisible(conversation.stock.length > 0);
+    // A smith has a panel even with nothing to sell: what you already carry
+    // can still go on the bench.
+    this.#shop.setVisible(conversation.stock.length > 0 || this.#isSmith(conversation));
     this.#render();
     this.step();
   }
@@ -150,11 +153,26 @@ export class DialogueScreen {
   }
 
   /** Refresh prices and ownership after a purchase, without losing the line. */
-  refresh(gold: number, owned: Iterable<string>): void {
+  refresh(purse: Purse): void {
     if (!this.#conversation) return;
-    this.#gold = gold;
-    this.#owned = new Set(owned);
+    this.#setPurse(purse);
     this.#render();
+  }
+
+  #setPurse(purse: Purse): void {
+    this.#purse = purse;
+    this.#gold = purse.gold;
+    this.#owned = new Set(purse.owned);
+  }
+
+  #isSmith(conversation: Conversation): boolean {
+    return conversation.role === 'weaponsmith';
+  }
+
+  /** What this smith can still work on: carried weapons below their last tier. */
+  #benchable(): WeaponInfo[] {
+    if (!this.#conversation || !this.#isSmith(this.#conversation)) return [];
+    return this.#purse.carried.filter((w) => w.upgradeCost != null);
   }
 
   /**
@@ -327,8 +345,9 @@ export class DialogueScreen {
 
   #renderShop(talk: Conversation): void {
     const stock = talk.stock;
+    const bench = this.#benchable();
     const h = VIEW.height * RENDER_SCALE;
-    const totalH = stock.length * ROW_H + 96;
+    const totalH = (stock.length + bench.length) * ROW_H + 96 + (bench.length ? 44 : 0);
     // Below the minimap and above the hotbar: the two pieces of chrome that
     // own the corners this column runs between.
     const top = h * 0.2;
@@ -347,7 +366,25 @@ export class DialogueScreen {
     fitInside(purse, 22);
     this.#text(this.#shop, right - 112, originY + 22, `${this.#gold} GOLD`, 20, HUD.ink, 0);
 
-    stock.forEach((entry, i) => this.#stockRow(entry, left, right, originY + 74 + i * ROW_H));
+    let y = originY + 74;
+    stock.forEach((entry) => {
+      this.#stockRow(entry, left, right, y);
+      y += ROW_H;
+    });
+    if (bench.length) {
+      // §18's sink, where the resources are actually spent. Separated by a
+      // heading rather than mixed into the stock: buying and upgrading are
+      // different decisions and one price list for both reads as a muddle.
+      y += 12;
+      this.#text(this.#shop, left, y, 'ON THE BENCH', 20, HUD.activeInk, 0);
+      this.#text(this.#shop, right, y,
+        `${this.#purse.shards} SHARDS   ${this.#purse.essence} ESSENCE`, 16, HUD.dimInk, 1);
+      y += 32;
+      bench.forEach((weapon) => {
+        this.#benchRow(weapon, left, right, y);
+        y += ROW_H;
+      });
+    }
     this.#button(this.#shop, 0, originY + totalH - 14, 'LEAVE  ESC', 200, () => this.close());
   }
 
@@ -382,6 +419,56 @@ export class DialogueScreen {
     this.#button(this.#shop, right - 78, y, label, 150,
       () => eventBus.emit('ui:command', {
         type: 'COMMAND', action: 'BUY_ITEM', npcId: this.#conversation!.npcId, itemId: entry.itemId,
+      }));
+  }
+
+  /**
+   * One carried weapon, and what the next tier on it costs.
+   *
+   * The cost is spelled out in all three currencies rather than reduced to a
+   * gold figure: an upgrade you cannot afford should say *which* of the three
+   * you are short of, and shards and essence are the two the player has been
+   * picking up for hours without a use for.
+   */
+  #benchRow(weapon: WeaponInfo, left: number, right: number, y: number): void {
+    const cost = weapon.upgradeCost!;
+    const tier = weapon.tier ?? 0;
+    const afford = this.#gold >= cost.gold
+      && this.#purse.shards >= cost.shards
+      && this.#purse.essence >= cost.essence;
+
+    const row = this.#add(this.#shop, this.scene.add.image(0, y,
+      controlArt(this.scene, CONTROLS_TEXTURE_KEY, 'button', right - left, ROW_H - 14)));
+    row.setOrigin(0.5, 0.5).setAlpha(0.7);
+
+    const mark = weaponIcon(weaponSheetFor(weapon.id) ?? 'sword');
+    const icon = this.#add(this.#shop, this.scene.add.image(left + 36, y, mark.texture, mark.frame));
+    fitInside(icon, 38);
+
+    // Tier as pips, because "II of III" is a thing to parse and three marks is
+    // a thing to glance at.
+    const pips = '\u25cf'.repeat(tier) + '\u25cb'.repeat(3 - tier);
+    this.#text(this.#shop, left + 74, y - 14,
+      `${weapon.name.toUpperCase()}  ${pips}`, 20, HUD.ink, 0);
+    // The last tier is the one worth knowing about in advance: it is what
+    // turns the weapon into something else rather than a bigger number.
+    const next = tier === 2 ? `UNLOCKS ${weapon.perkName.toUpperCase()}` : 'SHARPER';
+    this.#text(this.#shop, left + 74, y + 13, next, 15, HUD.dimInk, 0);
+
+    const price = [`${cost.gold}G`,
+                   cost.shards ? `${cost.shards} SHARD` : '',
+                   cost.essence ? `${cost.essence} ESS` : ''].filter(Boolean).join(' ');
+    if (!afford) {
+      const plate = this.#add(this.#shop, this.scene.add.image(right - 94, y,
+        controlArt(this.scene, CONTROLS_TEXTURE_KEY, 'button', 182, 46)));
+      plate.setOrigin(0.5, 0.5).setAlpha(0.4);
+      this.#text(this.#shop, right - 94, y, price, 16, '#c46a7a');
+      return;
+    }
+    this.#button(this.#shop, right - 94, y, price, 182,
+      () => eventBus.emit('ui:command', {
+        type: 'COMMAND', action: 'UPGRADE_WEAPON',
+        npcId: this.#conversation!.npcId, weaponId: weapon.id,
       }));
   }
 

@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 
 import { MAPTOKENS_TEXTURE_KEY } from '../animation/mapTokensAtlas.generated';
 import { HUD, PALETTE, PIXEL_FONT, RENDER_SCALE, VIEW } from '../constants';
-import type { AreaSnap } from '../contracts';
+import type { AreaLink, AreaSnap } from '../contracts';
 import { eventBus } from '../EventBus';
 import type { Run, RunRoom } from '../world/Run';
 import { fitInside, fitWidth } from './fit';
@@ -98,7 +98,8 @@ export class MapScreen {
    * and only to an area whose prerequisite is already cleared, so the map moves
    * you around the campaign you have opened rather than around the gates.
    */
-  setCampaign(areas: readonly AreaSnap[], canTravel: boolean): void {
+  setCampaign(areas: readonly AreaSnap[], canTravel: boolean,
+              links: readonly AreaLink[] = []): void {
     this.#canTravel = canTravel;
     for (const o of this.#worldObjects) o.destroy();
     this.#worldObjects = [];
@@ -115,16 +116,26 @@ export class MapScreen {
     // Roads first, and only between two places you have found -- an undrawn
     // road is the difference between "there is more" and "there is more, and
     // it is exactly here".
-    for (let i = 0; i < areas.length - 1; i += 1) {
-      const a = areas[i];
-      const b = areas[i + 1];
-      if (a?.discovered && b?.discovered) this.#worldObjects.push(...this.#road(at(a), at(b)));
+    //
+    // Drawn from the links the server sends rather than between consecutive
+    // entries in the list. That shortcut was right while the world was five
+    // areas in a line; it is a graph now, so a chain drawn through the array
+    // would invent roads that do not exist and miss the ones that do.
+    const byId = new Map(areas.map((a) => [a.id, a]));
+    for (const link of links) {
+      const a = byId.get(link.from);
+      const b = byId.get(link.to);
+      if (a?.discovered && b?.discovered) {
+        this.#worldObjects.push(...this.#road(at(a), at(b), link.kind === 'descent'));
+      }
     }
 
     for (const area of areas) this.#areaToken(area, at(area));
 
+    // The old line promised that skipping ahead granted what you passed, which
+    // the server stopped doing: `_leave_area` refuses a gated area now.
     this.#worldNote.setText(canTravel
-      ? 'CLICK A PLACE TO TRAVEL   ·   SKIPPING AHEAD GRANTS WHAT YOU PASS'
+      ? 'CLICK A PLACE YOU HAVE OPENED   ·   OR WALK THERE'
       : 'YOU CAN ONLY SET OUT FROM A VILLAGE');
   }
 
@@ -172,12 +183,22 @@ export class MapScreen {
   }
 
   /** A road between two areas. Same bar the dungeon corridors use. */
-  #road(a: { x: number; y: number }, b: { x: number; y: number }): Phaser.GameObjects.GameObject[] {
+  /**
+   * The line between two places.
+   *
+   * A descent is drawn fainter and thinner than a road, because it is a
+   * different kind of thing: a road is ground you walk and a descent is a hole
+   * you decide to go into, and drawing them identically would make the map
+   * claim you can stroll from the Kiln Terraces into the Sanctum.
+   */
+  #road(a: { x: number; y: number }, b: { x: number; y: number },
+        descent = false): Phaser.GameObjects.GameObject[] {
     const bar = this.scene.add.image((a.x + b.x) / 2, (a.y + b.y) / 2,
       MAPTOKENS_TEXTURE_KEY, 'corridor');
     bar.setRotation(Math.atan2(b.y - a.y, b.x - a.x));
     fitWidth(bar, Math.hypot(b.x - a.x, b.y - a.y));
-    bar.setAlpha(0.5);
+    bar.setAlpha(descent ? 0.22 : 0.5);
+    if (descent) bar.setScale(bar.scaleX, bar.scaleY * 0.5);
     this.#panel.body.add(bar);
     return [bar];
   }

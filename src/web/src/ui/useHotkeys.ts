@@ -92,6 +92,10 @@ export function useHotkeys(): void {
           e.preventDefault();
           eventBus.emit('skills:toggle', {});
           break;
+        case 'journal':
+          e.preventDefault();
+          eventBus.emit('journal:toggle', {});
+          break;
         case 'character':
           e.preventDefault();
           toggleScreen('character');

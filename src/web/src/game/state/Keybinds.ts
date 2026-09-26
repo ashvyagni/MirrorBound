@@ -24,7 +24,7 @@ export type Action =
   | 'attack' | 'dash' | 'ability1' | 'ability2' | 'ability3' | 'ability4'
   | 'ability5' | 'ability6'
   | 'swapWeapon' | 'healthPotion' | 'manaPotion'
-  | 'interact' | 'character' | 'inventory' | 'skills' | 'map' | 'pause' | 'debug'
+  | 'interact' | 'character' | 'inventory' | 'skills' | 'map' | 'journal' | 'pause' | 'debug'
   // The in-canvas HUD's own: the potion dial is one slot you turn and drink
   // from rather than one key per flask, and the console is how anything gets
   // put in the room without a menu for it.
@@ -100,6 +100,7 @@ export const ACTIONS: readonly ActionInfo[] = [
   { action: 'character', label: 'Character', group: 'Interface' },
   { action: 'inventory', label: 'Inventory', group: 'Interface' },
   { action: 'skills', label: 'Skills', group: 'Interface' },
+  { action: 'journal', label: 'Journal', group: 'Interface' },
   { action: 'map', label: 'World map', group: 'Interface' },
   { action: 'pause', label: 'Pause', group: 'Interface' },
   { action: 'debug', label: 'What the AI knows', group: 'Interface' },
@@ -136,6 +137,9 @@ export const DEFAULT_BINDINGS: Readonly<Record<Action, Binding>> = {
   character: { primary: K.C },
   inventory: { primary: K.I },
   skills: { primary: K.K },
+  // L for log. J is the secondary attack key and binding over it would
+  // steal a key people already have in their hands.
+  journal: { primary: K.L },
   map: { primary: K.M },
   pause: { primary: K.P },
   debug: { primary: K.F3 },

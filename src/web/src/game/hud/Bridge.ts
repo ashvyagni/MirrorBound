@@ -4,7 +4,8 @@ import type { Recharging } from './CooldownRail';
 import type { WeaponId } from '../animation/weaponClips';
 import { BIOMES, type BiomeName } from '../constants';
 import type {
-  AreaSnap, CommandMessage, GameSnapshot, Inventory, PlayerSnap, SkillNode, Vec2,
+  AreaLink, AreaSnap, CommandMessage, GameSnapshot, Inventory, JournalSnap, PlayerSnap, SkillNode,
+  Vec2,
 } from '../contracts';
 import { eventBus } from '../EventBus';
 import { POTIONS, type LoadoutSnapshot, type WeaponSlot } from '../state/Loadout';
@@ -71,6 +72,9 @@ export class Bridge {
   #skillKey = '';
   #areas: readonly AreaSnap[] = [];
   #campaignKey = '';
+  #links: AreaLink[] = [];
+  #journal: JournalSnap | null = null;
+  #journalKey = '';
   #inventory: Inventory | null = null;
   #inventoryKey = '';
 
@@ -117,6 +121,7 @@ export class Bridge {
     this.#emitPhase(snap);
     this.#emitSkills(snap);
     this.#emitCampaign(snap);
+    this.#emitJournal(snap);
     this.#emitInventory(snap);
   }
 
@@ -359,8 +364,27 @@ export class Bridge {
    * Cached like the inventory: `campaign` rides detail snapshots only, and
    * opening the map between two of them must not show an empty world.
    */
+  /**
+   * The quest log and the codex.
+   *
+   * Cached like the skill tree and the inventory are: the campaign block rides
+   * detail snapshots only, so opening the journal between two of them must not
+   * show an empty one.
+   */
+  #emitJournal(snap: GameSnapshot): void {
+    if (snap.campaign?.journal) this.#journal = snap.campaign.journal;
+    if (!this.#journal) return;
+    const key = JSON.stringify(this.#journal);
+    if (key === this.#journalKey) return;
+    this.#journalKey = key;
+    eventBus.emit('journal:changed', { journal: this.#journal });
+  }
+
   #emitCampaign(snap: GameSnapshot): void {
-    if (snap.campaign) this.#areas = snap.campaign.areas;
+    if (snap.campaign) {
+      this.#areas = snap.campaign.areas;
+      this.#links = snap.campaign.links ?? [];
+    }
     if (this.#areas.length === 0) return;
     // The server honours travel only from a settlement (or the sandbox). Saying
     // so up front beats a click that is silently refused.
@@ -375,7 +399,7 @@ export class Bridge {
       .join('');
     if (key === this.#campaignKey) return;
     this.#campaignKey = key;
-    eventBus.emit('campaign:changed', { areas: this.#areas, canTravel });
+    eventBus.emit('campaign:changed', { areas: this.#areas, canTravel, links: this.#links });
   }
 
   /**

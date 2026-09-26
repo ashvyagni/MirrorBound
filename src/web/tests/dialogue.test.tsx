@@ -93,16 +93,19 @@ it('the purse travels with the conversation and is refreshed by the server', asy
   snap.player.inventory!.gold = 500;
   await act(async () => eventBus.emit('game:snapshot', snap));
   await talk(village.npcs[1]!);
-  expect(conversations[0]!.gold).toBe(500);
-  expect(conversations[0]!.owned).not.toContain('iron_sword');
+  // The purse is one object now: a smith needs shards and essence too, and
+  // what you already carry, so it can offer to work on it.
+  expect(conversations[0]!.purse.gold).toBe(500);
+  expect(conversations[0]!.purse.owned).not.toContain('iron_sword');
 
   // Buying is a request; ownership only arrives with the server's inventory.
   purses.length = 0;
   snap.player.inventory!.gold = 455;
   snap.player.inventory!.weapons.push({ ...snap.player.weapon!, id: 'iron_sword' });
   await act(async () => eventBus.emit('game:snapshot', structuredClone(snap)));
-  expect(purses.at(-1)!.gold).toBe(455);
-  expect(purses.at(-1)!.owned).toContain('iron_sword');
+  expect(purses.at(-1)!.purse.gold).toBe(455);
+  expect(purses.at(-1)!.purse.owned).toContain('iron_sword');
+  expect(purses.at(-1)!.purse.carried.some((w) => w.id === 'iron_sword')).toBe(true);
 });
 
 it('leaving a conversation never shows the pause screen, even for a frame', async () => {

@@ -23,6 +23,7 @@ import { PauseScreen } from '../hud/PauseScreen';
 import { Toast } from '../hud/Toast';
 import { Bridge } from '../hud/Bridge';
 import { InventoryScreen } from '../hud/InventoryScreen';
+import { JournalScreen } from '../hud/JournalScreen';
 import { SkillScreen } from '../hud/SkillScreen';
 import { complete, run, type CommandHost } from '../state/Commands';
 import { FX } from '../world/textures';
@@ -75,6 +76,7 @@ export class HudScene extends Phaser.Scene {
   readonly #toast = new Toast(this);
   readonly #bridge = new Bridge();
   readonly #skills = new SkillScreen(this);
+  readonly #journal = new JournalScreen(this);
   readonly #inventory = new InventoryScreen(this);
   /** Built in `create`, because it needs the play scene to talk to. */
   #console!: Console;
@@ -112,6 +114,7 @@ export class HudScene extends Phaser.Scene {
     this.#prompt.build();
     this.#toast.build();
     this.#skills.build();
+    this.#journal.build();
     this.#inventory.build();
     this.#end.build();
     this.#sandbox.build();
@@ -164,7 +167,7 @@ export class HudScene extends Phaser.Scene {
           ...this.#settingsScreen.texts, ...this.#pause.texts, ...this.#end.texts,
           ...this.#sandbox.texts, ...this.#agent.texts, ...this.#notices.texts, ...this.#dialogue.texts,
           ...this.#prompt.texts, ...this.#console.texts, ...this.#toast.texts,
-          ...this.#skills.texts, ...this.#inventory.texts,
+          ...this.#skills.texts, ...this.#inventory.texts, ...this.#journal.texts,
         ]) {
           text.updateText();
         }
@@ -175,6 +178,7 @@ export class HudScene extends Phaser.Scene {
   #showScreen(screen: string): void {
     const panels = { map: this.#map, settings: this.#settingsScreen,
       skills: this.#skills, inventory: this.#inventory, console: this.#console,
+      journal: this.#journal,
       sandbox: this.#sandbox, agent: this.#agent };
     // Dialogue is opened by an NPC rather than by a key, so it is not in the
     // toggle list -- but anything else opening has to close it.
@@ -201,13 +205,13 @@ export class HudScene extends Phaser.Scene {
       }),
 
       eventBus.on('hud:notice', ({ kind, title, detail }) => this.#notices.show(kind, title, detail)),
-      eventBus.on('hud:conversation', ({ conversation, gold, owned }) => {
-        this.#dialogue.show(conversation, gold, owned);
+      eventBus.on('hud:conversation', ({ conversation, purse }) => {
+        this.#dialogue.show(conversation, purse);
         // The offer to talk is moot once it has been taken, and the bubble
         // wants the same air over their head.
         this.#prompt.setSuppressed(true);
       }),
-      eventBus.on('hud:purse', ({ gold, owned }) => this.#dialogue.refresh(gold, owned)),
+      eventBus.on('hud:purse', ({ purse }) => this.#dialogue.refresh(purse)),
       eventBus.on('hud:speaker', ({ at }) => this.#dialogue.moveSpeaker(at)),
       eventBus.on('ui:screen-close', ({ screen }) => {
         if (screen === 'dialogue') this.#prompt.setSuppressed(false);
@@ -238,9 +242,10 @@ export class HudScene extends Phaser.Scene {
       eventBus.on('map:changed', (view) => this.#minimap.set(view as MapView)),
       eventBus.on('game:fullscreen', ({ active }) => this.#settings.setFullscreen(active)),
       eventBus.on('run:changed', (run) => this.#map.set(run)),
-      eventBus.on('campaign:changed', ({ areas, canTravel }) => this.#map.setCampaign(areas, canTravel)),
+      eventBus.on('campaign:changed', ({ areas, canTravel, links }) => this.#map.setCampaign(areas, canTravel, links)),
       eventBus.on('skills:changed', ({ nodes, points, respecBlockedBy }) =>
         this.#skills.set(nodes, points, respecBlockedBy)),
+      eventBus.on('journal:changed', ({ journal }) => this.#journal.set(journal)),
       eventBus.on('inventory:changed', ({ inventory, abilities }) =>
         this.#inventory.set(inventory, abilities)),
       // Only one screen at a time: two scrims stack into an unreadable murk,
@@ -309,6 +314,7 @@ export class HudScene extends Phaser.Scene {
     this.#prompt.destroy();
     this.#toast.destroy();
     this.#skills.destroy();
+    this.#journal.destroy();
     this.#inventory.destroy();
     this.#bridge.stop();
     this.#console.destroy();

@@ -1,6 +1,8 @@
 import type {
-  AbilitySlot, AreaSnap, CommandMessage, GameSnapshot, Inventory, ServerEvent, SkillNode,
+  AbilitySlot, AreaLink, AreaSnap, CommandMessage, GameSnapshot, Inventory, JournalSnap, ServerEvent,
+  SkillNode,
 } from './contracts';
+import type { Purse } from '../ui/store';
 import type { ConnectionStatus, PlayerSnapshot } from './types';
 import type { Settings } from '../ui/settings';
 import type { BroClipName } from './animation/broClips';
@@ -137,6 +139,8 @@ export interface GameEventMap {
     areas: readonly AreaSnap[];
     /** Travel only ever leaves from a village; the map says so when it cannot. */
     canTravel: boolean;
+    /** How the world is joined, for the roads the map draws. */
+    links: readonly AreaLink[];
   };
   /** Where the player is in the run, for the full map. */
   'run:changed': RunSnapshot;
@@ -144,11 +148,11 @@ export interface GameEventMap {
   'flourish': { name: 'death' | 'victory' | 'levelUp' };
   /** A server-run cutscene starting, speaking, or ending. */
   /** Someone is talking. The canvas draws it; the store parses NPC_TALK. */
-  'hud:conversation': { conversation: Conversation; gold: number; owned: string[] };
+  'hud:conversation': { conversation: Conversation; purse: Purse };
   /** Where the speaker is standing, while a conversation is open. */
   'hud:speaker': { at: { x: number; y: number } };
   /** What the player can afford now, so an open shop stays honest. */
-  'hud:purse': { gold: number; owned: string[] };
+  'hud:purse': { purse: Purse };
   /** Something worth a line over the world. Drawn by the canvas HUD. */
   'hud:notice': { kind: NoticeKind; title: string; detail?: string };
   'cutscene:state': { playing: boolean };
@@ -168,6 +172,9 @@ export interface GameEventMap {
   'agent:toggle': Record<string, never>;
   /** Open or close the skill tree. */
   'skills:toggle': Record<string, never>;
+  'journal:toggle': Record<string, never>;
+  /** The quest log and the codex, as the server last sent them. */
+  'journal:changed': { journal: JournalSnap };
   /** Open or close what you are carrying. */
   'inventory:toggle': Record<string, never>;
   /** Everything carried, and the four ability slots it feeds. */
