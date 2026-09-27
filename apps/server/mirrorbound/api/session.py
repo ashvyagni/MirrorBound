@@ -116,6 +116,10 @@ CLIENT_EVENT_TYPES = {
     "LAST_STAND", "WEAPON_UPGRADED",
     # A regional boss changing shape.
     "BOSS_PHASE",
+    # The twin looking after itself: reaching for a flask, finishing one, and
+    # buying another with its own share of the gold. On the list because the
+    # whole point of the feature is that you can watch it happen.
+    "TWIN_ITEM_USE_STARTED", "TWIN_ITEM_USED", "TWIN_PURCHASE",
 }
 
 # Spatial heatmap cell size in world units. Rooms are 1280-1600 wide, so 64 gives
@@ -1022,6 +1026,12 @@ class GameSession:
                 state.twin.health = state.twin.max_health
                 state.twin.mana = state.twin.max_mana
                 state.twin.hunger.eat(MAX_HUNGER)
+                # It sat at the same fire. A hearth that fills the twin's stomach
+                # but leaves its three cuts of meat raw is a hearth that only
+                # half-noticed it was there -- and raw meat is worth a third of
+                # cooked, so the twin was carrying the loss all the way to the
+                # next fight.
+                cooked += self._cook_at_hearth(state.twin)
             if cooked:
                 state.emit("FOOD_COOKED", npc=npc_id, cooked=cooked,
                            position=player.position.to_dict())
@@ -1208,14 +1218,14 @@ class GameSession:
         transfer_weapon(self.state, weapon_id, to_twin=False)
 
     @staticmethod
-    def _cook_at_hearth(player) -> int:
-        """Turn everything raw in the bag into the cooked version. Returns how many.
+    def _cook_at_hearth(who) -> int:
+        """Turn everything raw in `who`'s bag into the cooked version. Returns how many.
 
         All of it at once, rather than one at a time: the interesting decision is
         whether to walk back to a hearth, and making the player press a button
         eleven times once they are there does not add a second one.
         """
-        inventory = player.inventory
+        inventory = who.inventory
         cooked = 0
         for raw, done in COOKS_INTO.items():
             count = inventory.consumables.get(raw, 0)
@@ -1250,6 +1260,10 @@ class GameSession:
         if spec is None or not player.inventory.take_consumable(item_id):
             state.emit("ACTION_REJECTED", actor=player.id, action="USE_ITEM", item=item_id, reason="none left")
             return
+        # Captured before the heal: `atHealth` is the fraction the player chose to
+        # drink at, and the twin's style model copies that threshold (see
+        # agent/twin/style.py). After the heal it would only ever say "nearly full".
+        at_health = player.health / player.max_health if player.max_health > 0 else 1.0
         healed = player.heal(float(spec.get("heal", 0))) if spec.get("heal") else 0.0
         mana = 0.0
         if spec.get("mana"):
@@ -1262,7 +1276,7 @@ class GameSession:
         # drinking does.
         fed = player.hunger.eat(float(spec.get("nourish", 0))) if spec.get("nourish") else 0.0
         state.emit("ITEM_USED", actor=player.id, item=item_id, healed=round(healed, 1), mana=round(mana, 1),
-                   fed=round(fed, 1), hunger=player.hunger.to_dict(),
+                   fed=round(fed, 1), hunger=player.hunger.to_dict(), atHealth=round(at_health, 3),
                    position=player.position.to_dict())
 
     def _finish_channel(self, ability_id: str) -> None:

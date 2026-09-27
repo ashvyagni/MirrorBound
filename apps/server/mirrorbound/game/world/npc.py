@@ -182,6 +182,12 @@ FARMER_BRAM = NpcDef(
     # what the wood is before they walk into it, and §6 wants that said by a
     # person met on the way rather than dumped in a scroll.
     id="farmer_bram", name="Bram", role="folk", fx=0.30, fy=0.78, sprite="villager",
+    # v1.2: somebody has to sell food, or hunger is a bar with no answer in the
+    # one place the game opens. A farmer with bread is the answer that needed no
+    # new person, no new stall and no new portrait -- §35 before §19.
+    stock=(
+        ShopEntry("consumable", "bread", 14),
+    ),
     lines={
         "intro": (
             "You'll be going north, then. Everyone does, eventually.",
@@ -349,6 +355,13 @@ DROVER_ESK = NpcDef(
     # for her to be in: somebody is still keeping this pasture, and the question
     # of who the herds are *for* is the whole of what she is here to not answer.
     id="drover_esk", name="Esk", role="folk", fx=0.20, fy=0.28, sprite="villager",
+    # Two hundred head and no market to drive them to, so she sells below the
+    # village: the price is the story. It also means the Downs are where you
+    # stock up before the fell, which is the walk the map wants you to take.
+    stock=(
+        ShopEntry("consumable", "cooked_meat", 18),
+        ShopEntry("consumable", "bread", 10),
+    ),
     lines={
         "intro": (
             "You'll be from the Reach. Everyone's from the Reach.",
@@ -368,6 +381,13 @@ WARDEN_BREK = NpcDef(
     # says so; what he is doing is the answer to why a tundra is on the map at
     # all, which is that the Kiln's ore has to come from somewhere upstream.
     id="warden_brek", name="Brek", role="folk", fx=0.22, fy=0.74, sprite="villager",
+    # Everything up here came up on somebody's back, and he charges for the
+    # carry. The markup is the only thing in the game that says how far Rimefell
+    # is from anywhere without a line of dialogue saying it.
+    stock=(
+        ShopEntry("consumable", "cooked_meat", 34),
+        ShopEntry("consumable", "bread", 22),
+    ),
     lines={
         "intro": (
             "You came up the Windgate. In this. On purpose.",

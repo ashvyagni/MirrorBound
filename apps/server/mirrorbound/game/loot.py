@@ -6,6 +6,7 @@ from mirrorbound.game.core.rng import DeterministicRNG
 from mirrorbound.game.entities.enemy import Enemy
 from mirrorbound.game.entities.entity import Entity, Vec2
 from mirrorbound.game.entities.pickup import Pickup
+from mirrorbound.game.entities.twin import CARRY_CAP, GOLD_SHARE
 from mirrorbound.game.inventory import CONSUMABLES
 from mirrorbound.game.progression.stones import BOSS_STONES, RARITY, STONES, STONES_BY_TIER
 from mirrorbound.game.state import GameState
@@ -133,18 +134,43 @@ class LootSystem:
                     break
 
     def _apply(self, state: GameState, pickup: Pickup, who: Entity) -> None:
-        # Weapons go to whoever actually walked over them (the twin can build
-        # its own arsenal this way); essence/shards/consumables/relics stay on
-        # the player -- shared currency and relic effects are only ever read
-        # from state.player.inventory (see Player.weapon_damage_mult etc.), so
-        # routing those by `who` would silently strand them on a twin nothing
-        # reads from.
-        inv = who.inventory if pickup.kind == "weapon" else state.player.inventory
+        # Weapons go to whoever walked over them, and so do potions and food now.
+        #
+        # This used to route every consumable to the player on the grounds that
+        # nothing read the twin's -- true when it was written, and the whole
+        # reason a companion with an inventory could not use one. Something reads
+        # them now (`agent/twin/controller.py` scores HEAL and EAT off what the
+        # twin is carrying), so the rule inverts: what the twin picks up is the
+        # twin's, up to `CARRY_CAP` of each, and the surplus goes across.
+        #
+        # Essence, shards and relics still go to the player whoever collected
+        # them, because their effects are only ever read from the player's
+        # inventory and routing them by `who` really would strand them.
+        keeps = pickup.kind == "weapon" or (
+            who is state.twin
+            and pickup.kind in CONSUMABLES
+            and who.inventory.consumables.get(pickup.kind, 0) < CARRY_CAP
+        )
+        inv = who.inventory if keeps else state.player.inventory
         detail: dict = {}
         if pickup.kind == "gold":
-            # Gold is the shared purse; it never lands on the twin.
-            state.player.inventory.add_gold(pickup.amount)
-            state.emit("GOLD_GAINED", amount=pickup.amount, total=state.player.inventory.gold,
+            # The twin takes a cut of what it personally picks up, and the rest
+            # is the shared purse. That cut is the whole reason "the twin bought
+            # itself potions" is a story the player can watch happen rather than
+            # a number that changed: the money it spends is money they saw it
+            # collect.
+            # Rounded, not truncated: enemies drop 1-8 gold and truncation would
+            # have given the twin nothing at all from most of them, leaving a
+            # feature that only works after an hour. The player's purse is the
+            # one paying, and only on the drops the twin personally reached
+            # first -- a few gold a region, bought back by a companion that stops
+            # going down.
+            share = round(pickup.amount * GOLD_SHARE) if who is state.twin else 0
+            if share > 0:
+                state.twin.inventory.add_gold(share)
+            state.player.inventory.add_gold(pickup.amount - share)
+            state.emit("GOLD_GAINED", amount=pickup.amount - share,
+                       total=state.player.inventory.gold, twinShare=share,
                        position=pickup.position.to_dict())
         elif pickup.kind == "essence":
             inv.add_resource("essence", pickup.amount)

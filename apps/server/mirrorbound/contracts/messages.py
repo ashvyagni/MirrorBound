@@ -109,6 +109,8 @@ class TwinIntentModel(BaseModel):
     utilities: dict[str, float] = Field(default_factory=dict)
     reason: str = ""
     desiredWeapon: str | None = None
+    #: What HEAL drinks, EAT eats, or SHOP walks to a stall to buy.
+    itemId: str | None = None
 
 
 def parse_client_message(raw: dict) -> ClientMessage | None:

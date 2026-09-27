@@ -1,5 +1,10 @@
-﻿"""Loot acquisition: a weapon pickup goes to whoever actually walked over it
-(player or twin); everything else stays on the player regardless.
+﻿"""Loot acquisition: weapons, potions and food go to whoever actually walked over
+them (the twin keeps up to `CARRY_CAP` of each and hands the surplus across);
+essence, shards and relics stay on the player regardless, because their effects
+are only ever read from the player's inventory.
+
+The twin's half of that is tested in `tests/integration/test_twin_autonomy.py`,
+next to the intents that spend it.
 """
 
 from __future__ import annotations

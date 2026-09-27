@@ -656,8 +656,12 @@ class CombatSystem:
                    remaining=round(twin.health, 1), position=twin.position.to_dict(),
                    intent=twin.intent.intent_type)
         if twin.downed:
+            # `potions` is what makes the death teachable: the style model reads
+            # it to tell a timing mistake (died holding one) from a supply
+            # mistake (died with an empty pack). See agent/twin/style.py.
             state.emit("TWIN_DOWNED", position=twin.position.to_dict(), attacker=attacker_id,
-                       intent=twin.intent.intent_type)
+                       intent=twin.intent.intent_type,
+                       potions=twin.inventory.consumables.get("health_potion", 0))
         return actual
 
     def projectile_hit_enemy(self, state: GameState, projectile: Projectile, enemy: Enemy) -> None:

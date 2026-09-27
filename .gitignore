@@ -33,3 +33,6 @@ apps/server/saves/
 
 # Scratch saves written by tools/perf/baseline.py
 tools/perf/_perf_saves/
+
+# Scratch saves written by tools/fixtures/regen_village.py
+tools/fixtures/_fixture_saves/

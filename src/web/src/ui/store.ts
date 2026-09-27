@@ -552,6 +552,12 @@ eventBus.on('game:events', (events) => {
       case 'TWIN_WEAPON_SWITCH':
         pushToast('ai', 'Your twin changed weapon', String(e.data.weapon).replace(/_/g, ' '));
         break;
+      // Worth a toast where drinking is not: the twin spending its own gold is
+      // the one thing it does that the player cannot see happening on screen.
+      case 'TWIN_PURCHASE':
+        pushToast('ai', 'Your twin bought something',
+          `${String(e.data.item).replace(/_/g, ' ')} for ${e.data.price}g — it has ${e.data.held} now.`);
+        break;
       case 'ABILITY_INTERRUPTED':
         pushToast('warn', 'Cast interrupted', 'You were hit mid-channel.');
         break;

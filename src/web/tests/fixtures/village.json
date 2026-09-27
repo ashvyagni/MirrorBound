@@ -484,7 +484,15 @@
    "radius": 96.0,
    "role": "folk",
    "sprite": "villager",
-   "stock": []
+   "stock": [
+    {
+     "description": "Keeps for weeks and tastes like it.",
+     "itemId": "bread",
+     "kind": "consumable",
+     "name": "Trail Bread",
+     "price": 14
+    }
+   ]
   },
   {
    "id": "watch_wren",
@@ -10414,6 +10422,7 @@
  "twin": {
   "active": true,
   "attackCooldown": 0.0,
+  "busyWith": null,
   "corrupted": false,
   "currentWeapon": "frost_staff",
   "damageDealt": 0,
@@ -10424,6 +10433,7 @@
    "x": 1,
    "y": 0
   },
+  "gold": 0,
   "health": 90.0,
   "hunger": {
    "band": "fed",
@@ -10439,6 +10449,7 @@
    "confidence": 0.5,
    "desiredWeapon": null,
    "intentType": "FOLLOW",
+   "itemId": null,
    "position": null,
    "reason": "",
    "targetId": null,
@@ -10516,6 +10527,7 @@
   "state": "idle",
   "statusEffects": [],
   "type": "twin",
+  "useCooldown": 0.0,
   "velocity": {
    "x": 0.0,
    "y": 0.0
@@ -10561,6 +10573,12 @@
     "samples": 0,
     "value": 0.5
    },
+   "drink_threshold": {
+    "confidence": 0.0,
+    "recent_trend": 0.0,
+    "samples": 0,
+    "value": 0.5
+   },
    "melee_dependency": {
     "confidence": 0.0,
     "recent_trend": 0.0,
@@ -10597,7 +10615,19 @@
     "samples": 0,
     "value": 0.5
    },
+   "stock_target": {
+    "confidence": 0.0,
+    "recent_trend": 0.0,
+    "samples": 0,
+    "value": 0.5
+   },
    "target_preference": {
+    "confidence": 0.0,
+    "recent_trend": 0.0,
+    "samples": 0,
+    "value": 0.5
+   },
+   "thrift": {
     "confidence": 0.0,
     "recent_trend": 0.0,
     "samples": 0,

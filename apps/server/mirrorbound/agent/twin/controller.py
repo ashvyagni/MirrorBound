@@ -14,11 +14,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from mirrorbound.agent.observation import AgentObservation, EntitySnapshot
+from mirrorbound.agent.observation import AgentObservation, EntitySnapshot, VendorSnapshot
 from mirrorbound.agent.twin.style import TwinStyleModel
 from mirrorbound.game.combat.weapons import WeaponType, get_weapon
 from mirrorbound.game.entities.entity import Vec2
 from mirrorbound.game.entities.twin import TwinIntent
+from mirrorbound.game.inventory import CONSUMABLES, FOODS
+from mirrorbound.game.progression.survival import FED_ABOVE
 
 HYSTERESIS = 0.07               # bonus for keeping the current intent, so it doesn't flap
 THREAT_RADIUS = 260.0           # an enemy this close to the player is a threat
@@ -59,7 +61,7 @@ WEAPON_SWITCH_MARGIN = 0.15
 MOMENTUM_WINDOW_SECONDS = 0.5
 MOMENTUM_SWITCH_PENALTY = 0.18
 ENGAGED_POSTURE = {"ATTACK", "ASSIST", "FLANK", "DISTRACT", "INTERCEPT", "PROTECT"}
-DISENGAGED_POSTURE = {"RETREAT", "REPOSITION", "FOLLOW", "EXPLORE"}
+DISENGAGED_POSTURE = {"RETREAT", "REPOSITION", "FOLLOW", "EXPLORE", "HEAL", "EAT", "SHOP"}
 
 # How strongly a confidently combo-heavy player pushes the twin toward
 # disrupting the exchange (INTERCEPT: literally step into an incoming
@@ -67,6 +69,37 @@ DISENGAGED_POSTURE = {"RETREAT", "REPOSITION", "FOLLOW", "EXPLORE"}
 # 1v1 rhythm) rather than just reading as generically more aggressive.
 COMBO_INTERCEPT_WEIGHT = 0.25
 COMBO_FLANK_WEIGHT = 0.18
+
+# --- v1.2: looking after itself ----------------------------------------------
+#
+# HEAL, EAT and SHOP were the missing third of the twin. It could already fight
+# like a player and pick a weapon like a player; it could not keep itself alive
+# like one, because nothing scored drinking, eating or restocking and the loot
+# system routed every potion it walked over into the player's bag.
+#
+# All three are scored in the same pass as everything else rather than handled as
+# special cases ahead of it. That is what makes "retreat first, then drink" fall
+# out on its own: HEAL is penalised by how close the nearest enemy is and RETREAT
+# is rewarded by exactly the same thing, so with something breathing on it the
+# twin backs off, and the moment it is clear the drink wins. Neither intent knows
+# the other exists.
+HEALTH_POTION = "health_potion"
+
+#: What `stock_target` means in potions. An unconfident style blends to 0.5,
+#: which lands on two -- what a careful player carries into a dungeon.
+STOCK_MIN, STOCK_MAX = 1, 4
+
+#: How close an enemy has to be before standing still to drink is a bad idea.
+#: A use is 0.8s rooted and a hit spills it, so this is a gradient rather than a
+#: flag: a drink at arm's length is worth almost nothing, a drink across the room
+#: is worth nearly all of it.
+DRINK_SAFE_DISTANCE = 300.0
+#: Eating is the same commitment but never urgent, so it is suppressed harder.
+EAT_SAFE_DISTANCE = 420.0
+
+#: How far the twin will walk to a merchant, and how close it must be to buy.
+#: The buy radius is the game's own TALK_RADIUS; the executor enforces it.
+SHOP_MAX_WALK = 900.0
 
 
 def clamp01(x: float) -> float:
@@ -160,6 +193,51 @@ class TwinV0Controller:
         return best
 
     @staticmethod
+    def _stock_target(stock_lean: float) -> int:
+        """How many health potions the twin wants to be carrying."""
+        return int(round(STOCK_MIN + (STOCK_MAX - STOCK_MIN) * clamp01(stock_lean)))
+
+    @staticmethod
+    def _best_meal(held: dict[str, int], deficit: float) -> str | None:
+        """The food to eat for a `deficit`-sized hole in the bar.
+
+        The smallest thing that fills it, or the largest thing it has if nothing
+        does. Overeating is wasted outright (see `Hunger.eat`), so a twin that
+        spends cooked meat on a snack while carrying bread is throwing food away
+        -- and one that nibbles bread when it is starving looks like it is not
+        paying attention.
+        """
+        owned = sorted(
+            ((item, float(CONSUMABLES[item]["nourish"])) for item in FOODS
+             if held.get(item, 0) > 0 and item in CONSUMABLES),
+            key=lambda pair: pair[1],
+        )
+        if not owned:
+            return None
+        for item, nourish in owned:
+            if nourish >= deficit:
+                return item
+        return owned[-1][0]
+
+    @staticmethod
+    def _shopping_list(obs: AgentObservation, wanted: dict[str, int]) -> tuple[VendorSnapshot, str, int] | None:
+        """The nearest merchant in reach who will sell something on the list,
+        and the cheapest such thing it can actually afford."""
+        best: tuple[VendorSnapshot, str, int] | None = None
+        best_d = SHOP_MAX_WALK
+        for vendor in obs.vendors:
+            d = (vendor.position - obs.twin_state.position).length()
+            if d > best_d:
+                continue
+            affordable = [(price, item) for item, price in sorted(vendor.stock.items())
+                          if wanted.get(item, 0) > 0 and price <= obs.twin_gold]
+            if not affordable:
+                continue
+            price, item = min(affordable)
+            best, best_d = (vendor, item, price), d
+        return best
+
+    @staticmethod
     def _posture(intent_type: str) -> str:
         return "engaged" if intent_type in ENGAGED_POSTURE else "disengaged"
 
@@ -195,6 +273,9 @@ class TwinV0Controller:
         # avoids triple-counting a single signal.
         range_lean = style.confident_value("preferred_range")   # 0 = melee-leaning, 1 = ranged-leaning
         spell_lean = style.confident_value("spell_preference")
+        drink_at = style.confident_value("drink_threshold")     # health fraction it reaches for a flask at
+        stock_lean = style.confident_value("stock_target")
+        thrift = style.confident_value("thrift")                # 1 = hoards, 0 = spends
         # The player model informs *how* the twin supports, not what it copies.
         player_aggr, player_aggr_conf = self._trait(model, "aggression")
         combo_dep, combo_conf = self._trait(model, "combo_dependency")
@@ -328,6 +409,70 @@ class TwinV0Controller:
         else:
             candidates.append(Candidate("EXPLORE", 0.0, None, None, "nothing to collect"))
 
+        # --- HEAL: drink, because it is hurt and it is carrying something ------------------
+        #
+        # `exposure` is the whole design: how much of a 0.8s rooted drink an enemy
+        # this close would take away. It is what makes the twin back off first
+        # rather than drinking into a swing, without RETREAT and HEAL ever
+        # referring to each other.
+        def exposure(radius: float) -> float:
+            if nearest_to_twin is None:
+                return 0.0
+            return clamp01(1.0 - d_twin / radius)
+
+        winding_on_twin = any(e.winding_up for e in enemies_near_twin)
+        potions = obs.held(HEALTH_POTION)
+        if potions > 0 and twin_hp < 0.98 and not winding_on_twin:
+            urgency = clamp01((drink_at - twin_hp) * 2.2)
+            u = (0.30 + 0.75 * urgency) * (1.0 - 0.80 * exposure(DRINK_SAFE_DISTANCE))
+            candidates.append(Candidate("HEAL", u, None, None,
+                                        f"hp {twin_hp:.0%}, drinks at {drink_at:.0%} ({potions} left)",
+                                        {"item": HEALTH_POTION}))
+        else:
+            candidates.append(Candidate("HEAL", 0.0, None, None,
+                                        "nothing to drink" if potions == 0 else "no need to drink"))
+
+        # --- EAT: stop and eat, because the bar says so -------------------------------------
+        deficit = max(0.0, FED_ABOVE - obs.twin_hunger) * 100.0
+        meal = self._best_meal(obs.twin_consumables, deficit) if deficit > 0 else None
+        if meal is not None:
+            u = 0.20 + 0.55 * clamp01(deficit / (FED_ABOVE * 100.0))
+            if obs.twin_hunger_band == "hungry":
+                u += 0.25            # the band that actually costs it damage and pace
+            u *= 1.0 - 0.85 * exposure(EAT_SAFE_DISTANCE)
+            candidates.append(Candidate("EAT", u, None, None,
+                                        f"hunger {obs.twin_hunger:.0%} ({obs.twin_hunger_band}), eating {meal}",
+                                        {"item": meal}))
+        else:
+            candidates.append(Candidate("EAT", 0.0, None, None,
+                                        "not hungry" if deficit <= 0 else "no food"))
+
+        # --- SHOP: walk to a merchant and restock -------------------------------------------
+        #
+        # Only with nothing to fight: a companion that wanders off to a stall
+        # mid-fight is a bug however well it scores. Merchants stand in villages,
+        # so in practice this is the twin spending its quarter-share of the gold
+        # while the player is safe -- which is the version of the feature worth
+        # watching.
+        want_potions = max(0, self._stock_target(stock_lean) - potions)
+        wanted = {HEALTH_POTION: want_potions}
+        if obs.twin_hunger < FED_ABOVE and meal is None:
+            for food in FOODS:
+                wanted[food] = 1     # hungry with an empty pack: anything edible
+        errand = None if enemies else self._shopping_list(obs, wanted)
+        if errand is not None:
+            vendor, item, price = errand
+            need = 1.0 if item != HEALTH_POTION else clamp01(want_potions / max(1, STOCK_MAX - STOCK_MIN))
+            # Centred on neutral, like every other lean in this file: an
+            # unconfident style must contribute exactly nothing rather than
+            # quietly taxing the errand 30% for having no opinion yet.
+            u = (0.34 + 0.34 * need) * (1.0 - 0.60 * (thrift - 0.5))
+            candidates.append(Candidate("SHOP", u, None, vendor.position,
+                                        f"buying {item} for {price}g from {vendor.id} (thrift {thrift:.2f})",
+                                        {"item": item, "vendor": vendor.id, "price": price}))
+        else:
+            candidates.append(Candidate("SHOP", 0.0, None, None, "nothing to buy, or nobody to buy from"))
+
         # --- FOLLOW: the default -----------------------------------------------------------------
         perp = player.facing.perpendicular()
         follow_pos = player.position - player.facing * FOLLOW_OFFSET + perp * 26
@@ -354,10 +499,13 @@ class TwinV0Controller:
 
         return TwinIntent(
             intent_type=best.intent,
-            target_id=best.target.id if best.target else None,
+            # SHOP names a merchant rather than an enemy, and the executor looks
+            # it up in the room's NPCs; every other intent's target is an entity.
+            target_id=best.extra.get("vendor") if best.intent == "SHOP" else (best.target.id if best.target else None),
             position=best.position,
             confidence=confidence,
             utilities={c.intent: round(c.utility, 3) for c in candidates},
             reason=best.reason,
             desired_weapon=desired_weapon,
+            item_id=best.extra.get("item"),
         )

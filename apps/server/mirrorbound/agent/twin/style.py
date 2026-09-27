@@ -27,6 +27,16 @@ DIMENSIONS = (
     "ranged_dependency",
     "defensive_tendency",
     "spell_preference",
+    # --- v1.2: looking after itself -------------------------------------------
+    #
+    # The three dimensions behind "the twin buys itself potions and uses them
+    # like a player would". Each one is learned from both channels, which is
+    # what makes them style rather than configuration: the player's own habits
+    # teach the twin when to drink and whether money is for spending, and the
+    # twin's own deaths teach it when it was wrong.
+    "drink_threshold",     # 0 = drink at death's door, 1 = drink at the first scratch
+    "stock_target",        # 0 = carry nothing, 1 = keep a full pack
+    "thrift",              # 0 = spends freely, 1 = hoards gold
 )
 
 IMITATION_RATE = 0.06     # how hard the player's behaviour pulls the twin's style
@@ -119,7 +129,14 @@ class TwinStyleModel:
     def observe(self, event: Event) -> None:
         """Route any gameplay event to the right channel."""
         self.tick = max(self.tick, event.tick)
-        if event.type.startswith("PLAYER_") or event.type == "TARGET_CHANGE":
+        # ITEM_USED and SHOP_PURCHASE are the player's: the twin's own drinking
+        # and buying publish TWIN_ITEM_USED and TWIN_PURCHASE, so routing these
+        # into the imitation channel can never feed the twin its own behaviour
+        # back as though it were the player's.
+        if (
+            event.type.startswith("PLAYER_")
+            or event.type in ("TARGET_CHANGE", "ITEM_USED", "SHOP_PURCHASE")
+        ):
             self._observe_player(event)
         elif event.type in ("TWIN_OUTCOME", "TWIN_DAMAGED", "TWIN_DOWNED"):
             self._observe_twin(event)
@@ -168,6 +185,24 @@ class TwinStyleModel:
         elif event.type == "PLAYER_MOVED":
             distance = float(data.get("distance") or 0.0)
             self._learn("mobility", min(1.0, distance / 90.0), rate * 0.4, t)
+        elif event.type == "ITEM_USED":
+            # *When* the player reaches for a flask, not that they did. The
+            # health fraction they drank at is the threshold they play by, and
+            # copying it is the whole imitation channel in one line: a player who
+            # sips at 80% gets a twin that sips, and one who gambles to 10% gets
+            # a twin that gambles.
+            at = data.get("atHealth")
+            if at is not None and float(data.get("healed") or 0.0) > 0:
+                self._learn("drink_threshold", float(at), rate * 1.5, t)
+            if float(data.get("fed") or 0.0) > 0:
+                self._learn("thrift", 0.35, rate * 0.5, t)   # food is worth carrying
+        elif event.type == "SHOP_PURCHASE":
+            # Spending is learned, not assumed. A player who shops has a twin
+            # that will; a player who hoards gold for the smith has a twin that
+            # keeps its quarter-share in its pocket.
+            self._learn("thrift", 0.0, rate, t)
+            if data.get("item") == "health_potion":
+                self._learn("stock_target", 1.0, rate * 1.2, t)
         elif event.type == "TARGET_CHANGE":
             role = data.get("target_type", "")
             danger = {"archer": 1.0, "ranged_skeleton": 1.0, "elite_skeleton": 0.9, "mirror": 1.0,
@@ -211,7 +246,22 @@ class TwinStyleModel:
                 self._learn("defensive_tendency", 1.0 if success else 0.4, rate, t)
                 if success:
                     self._note("Retreating at low health worked")
-            elif intent in ("FOLLOW", "REPOSITION", "EXPLORE"):
+            elif intent == "HEAL":
+                # The fraction it actually drank at, reinforced when the drink
+                # landed and pushed *up* when it did not: a HEAL that ended with
+                # the twin taking hits means it left the decision too late, and
+                # the fix is to drink earlier rather than to stop drinking.
+                at = data.get("health_fraction")
+                if at is not None:
+                    self._learn("drink_threshold", float(at) if success else min(1.0, float(at) + 0.3),
+                                rate, t)
+                if success:
+                    self._learn("stock_target", 0.85, rate * 0.7, t)
+                    self._note("Drinking before it got bad worked")
+            elif intent == "SHOP":
+                if success:
+                    self._learn("thrift", 0.3, rate * 0.5, t)
+            elif intent in ("FOLLOW", "REPOSITION", "EXPLORE", "EAT"):
                 if taken > 0:
                     self._learn("defensive_tendency", 0.7, rate * 0.5, t)
         elif event.type == "TWIN_DAMAGED":
@@ -223,6 +273,18 @@ class TwinStyleModel:
             self._learn("defensive_tendency", 1.0, rate * 1.5, t)
             self._learn("preferred_range", 1.0, rate, t)
             self._note("Went down — will keep more distance and retreat sooner")
+            # Going down is the sharpest lesson available, and which lesson it is
+            # depends on what was in the pack. Holding a potion and dying with it
+            # is a timing mistake; dying with an empty pack is a supply mistake.
+            # Either way, gold that stayed in a pocket bought nothing.
+            potions = int(data.get("potions") or 0)
+            self._learn("thrift", 0.0, rate, t)
+            if potions > 0:
+                self._learn("drink_threshold", 1.0, rate * 1.6, t)
+                self._note(f"Went down holding {potions} potion{'s' if potions > 1 else ''} — drink sooner")
+            else:
+                self._learn("stock_target", 1.0, rate * 1.6, t)
+                self._note("Went down with nothing to drink — buy potions next time")
 
     # --- serialisation ----------------------------------------------------------------------
 

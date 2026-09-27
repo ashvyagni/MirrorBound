@@ -675,6 +675,15 @@ export class PlayScene extends Phaser.Scene {
       case 'TWIN_REVIVED':
         this.#twin?.onCelebrate();
         break;
+      // The twin drinking is the same event as the player drinking, drawn on the
+      // twin: the green float is how you know it kept itself up rather than
+      // getting lucky.
+      case 'TWIN_ITEM_USED': {
+        const twin = this.#twin;
+        if (twin && Number(e.data.healed ?? 0) > 0) this.#vfx.heal({ x: twin.x, y: twin.y }, Number(e.data.healed));
+        audio.play('potion', { volume: 0.4 });
+        break;
+      }
       case 'TWIN_ACTION': {
         const intent = String(e.data.intent);
         if (intent === 'INTERCEPT' || intent === 'RETREAT' || intent === 'DISTRACT') audio.play('twin_action', { volume: 0.5 });

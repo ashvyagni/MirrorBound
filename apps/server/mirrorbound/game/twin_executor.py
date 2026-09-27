@@ -14,10 +14,15 @@ from mirrorbound.game.combat.combat import CombatSystem
 from mirrorbound.game.entities.enemy import Enemy
 from mirrorbound.game.entities.entity import Vec2
 from mirrorbound.game.entities.twin import TwinIntent
+from mirrorbound.game.inventory import CONSUMABLES
+from mirrorbound.game.progression.survival import MAX_HUNGER
 from mirrorbound.game.state import GameState
 from mirrorbound.game.movement.navigation import Navigator
+from mirrorbound.game.world.npc import TALK_RADIUS
 
 OFFENSIVE = {"ATTACK", "ASSIST", "INTERCEPT", "PROTECT", "DISTRACT", "FLANK", "COMBO"}
+#: The intents the twin carries out with its hands rather than its feet.
+SELF_CARE = {"HEAL", "EAT"}
 MAX_INTENT_SECONDS = 4.0
 MIN_OUTCOME_SECONDS = 0.4
 
@@ -29,6 +34,11 @@ class _Open:
     dealt_at_start: float
     taken_at_start: float
     kills_at_start: int
+    #: True once this intent's errand actually happened -- the drink landed, the
+    #: meal went down, the purchase went through. It is both the success test for
+    #: HEAL/EAT/SHOP and the guard that stops SHOP buying once per tick for the
+    #: whole six ticks between decisions.
+    resolved: bool = False
 
 
 class TwinExecutor:
@@ -92,6 +102,12 @@ class TwinExecutor:
         kind = opened.intent.intent_type
         if kind in OFFENSIVE:
             success = dealt > 0 and taken <= max(dealt * 0.9, 8.0)
+        elif kind in SELF_CARE or kind == "SHOP":
+            # An errand succeeds by being completed, not by being quiet. A drink
+            # that landed while something was hitting the twin still worked -- but
+            # `damage_taken` rides along on the event, so the style model can read
+            # "it drank too late" out of a success that cost it.
+            success = opened.resolved and taken <= max(4.0, dealt)
         elif kind == "RETREAT":
             success = taken <= 2.0
         else:
@@ -107,6 +123,10 @@ class TwinExecutor:
             duration=round(duration, 2),
             end_reason=reason,
             confidence=round(opened.intent.confidence, 3),
+            # The two numbers self-care is learned from: what it drank at, and
+            # what it still has. See agent/twin/style.py.
+            health_fraction=round(twin.health / twin.max_health if twin.max_health else 0.0, 3),
+            potions=twin.inventory.consumables.get("health_potion", 0),
         )
 
     # --- per tick ------------------------------------------------------------------
@@ -118,16 +138,38 @@ class TwinExecutor:
             twin.velocity = Vec2()
             return
 
+        # A use that ran its course lands here, not in the entity: the entity holds
+        # the timer, the game decides what a finished drink is worth. Same split as
+        # the player's, whose `finished_drink` the session resolves.
+        self._resolve_use(state)
+
+        # Committed. Whatever the controller has since decided, a twin with a flask
+        # at its lips stands still until the flask is empty or something spills it
+        # -- which is why the controller never has to reason about being busy.
+        if twin.busy:
+            twin.velocity = Vec2()
+            return
+
         target = state.entity_by_id(intent.target_id)
         target_enemy = target if isinstance(target, Enemy) and target.active else None
         kind = intent.intent_type
+
+        if kind in SELF_CARE:
+            if not self._begin_use(state, intent.item_id or ""):
+                # Nothing to drink, or nothing a drink would fix: don't stand there
+                # about it, fall back to the one intent that is always valid.
+                self._move_to(dt, state, self._follow_point(state))
+            return
+        if kind == "SHOP":
+            self._shop(dt, state, intent)
+            return
 
         if kind in OFFENSIVE and target_enemy is not None:
             self._engage(dt, state, combat, target_enemy, hold_position=intent.position if kind in ("FLANK", "PROTECT", "INTERCEPT") else None)
         elif kind in OFFENSIVE:
             # Target vanished: drift back to the player until the next decision.
             self._move_to(dt, state, self._follow_point(state))
-        elif kind in ("FOLLOW", "REPOSITION", "EXPLORE", "RETREAT", "HEAL"):
+        elif kind in ("FOLLOW", "REPOSITION", "EXPLORE", "RETREAT"):
             goal = intent.position or self._follow_point(state)
             self._move_to(dt, state, goal)
             if kind == "RETREAT" and target_enemy is None:
@@ -137,6 +179,88 @@ class TwinExecutor:
                     combat.process_twin_attack(state, nearest)
         else:
             self._move_to(dt, state, self._follow_point(state))
+
+    # --- looking after itself ---------------------------------------------------------
+    #
+    # Three small methods for the whole of "the twin keeps itself alive": start a
+    # use, finish a use, and pay for another one. Each is the twin's own version of
+    # something the session does for the player, deliberately written to the same
+    # shape -- nothing is consumed when a use *starts*, the stock is re-checked
+    # when it *ends*, and a purchase is refused before the gold moves, never after.
+
+    def _begin_use(self, state: GameState, item_id: str) -> bool:
+        """Put a flask or a meal to the twin's mouth. False if it cannot."""
+        twin = state.twin
+        spec = CONSUMABLES.get(item_id)
+        if spec is None or not twin.can_use(item_id):
+            return False
+        # Drinking at full or eating when full is a wasted item, not an action --
+        # the same refusal `Player.can_drink` makes.
+        if spec.get("heal") and twin.health >= twin.max_health:
+            return False
+        if spec.get("nourish") and twin.hunger.value >= MAX_HUNGER:
+            return False
+        twin.begin_use(item_id)
+        state.emit("TWIN_ITEM_USE_STARTED", actor=twin.id, item=item_id,
+                   duration=round(twin.busy_timer, 2), position=twin.position.to_dict())
+        return True
+
+    def _resolve_use(self, state: GameState) -> None:
+        """Apply a use whose timer has run out. An interrupted one costs nothing."""
+        twin = state.twin
+        if not twin.busy_with or twin.busy:
+            return
+        item_id = twin.finish_use()
+        spec = CONSUMABLES.get(item_id)
+        # Re-checked here rather than trusted from when the use began: a whole
+        # 0.4s of simulation has happened since, and the player's potion may have
+        # been the one it was reaching for.
+        if spec is None or not twin.inventory.take_consumable(item_id):
+            return
+        healed = twin.heal(float(spec["heal"])) if spec.get("heal") else 0.0
+        fed = twin.hunger.eat(float(spec["nourish"])) if spec.get("nourish") else 0.0
+        if self._open is not None:
+            self._open.resolved = True
+        state.emit("TWIN_ITEM_USED", actor=twin.id, item=item_id, healed=round(healed, 1),
+                   fed=round(fed, 1), health=round(twin.health, 1), hunger=twin.hunger.to_dict(),
+                   position=twin.position.to_dict())
+
+    def _shop(self, dt: float, state: GameState, intent: TwinIntent) -> None:
+        """Walk to the merchant the controller picked, and buy once there."""
+        twin = state.twin
+        npc = next((n for n in state.room.npcs if n.id == intent.target_id), None)
+        if npc is None or not intent.item_id:
+            self._move_to(dt, state, self._follow_point(state))
+            return
+        stall = Vec2(npc.x, npc.y)
+        if (stall - twin.position).length() > TALK_RADIUS * 0.7:
+            self._move_to(dt, state, stall)
+            return
+        twin.velocity = Vec2()
+        twin.face(stall - twin.position)
+        # Once per opened intent. Without this the twin would buy on every one of
+        # the six ticks between decisions and empty its purse at the first stall.
+        if self._open is not None and not self._open.resolved:
+            self._buy(state, npc, intent.item_id)
+
+    def _buy(self, state: GameState, npc, item_id: str) -> bool:
+        twin = state.twin
+        entry = next((e for e in npc.definition.stock
+                      if e.item_id == item_id and e.kind == "consumable"), None)
+        if entry is None:
+            return False
+        # Refused before the gold moves, never after -- and out of the twin's own
+        # purse, which is the quarter-share of what it picked up (see loot.py).
+        if not twin.inventory.spend_gold(entry.price):
+            return False
+        twin.inventory.add_consumable(item_id)
+        if self._open is not None:
+            self._open.resolved = True
+        state.emit("TWIN_PURCHASE", actor=twin.id, npc=npc.id, item=item_id, price=entry.price,
+                   gold=twin.inventory.gold,
+                   held=twin.inventory.consumables.get(item_id, 0),
+                   position=twin.position.to_dict())
+        return True
 
     # --- movement primitives ----------------------------------------------------------
 

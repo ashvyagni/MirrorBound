@@ -22,6 +22,10 @@ import { EntityView } from './EntityView';
 const INTENT_GLYPH: Record<string, string> = {
   ATTACK: '⚔', ASSIST: '⚔', INTERCEPT: '⛨', PROTECT: '⛨', DISTRACT: '!', FLANK: '↻', RETREAT: '↩',
   REPOSITION: '…', FOLLOW: '', EXPLORE: '✦', COMBO: '⚔', HEAL: '✚',
+  // v1.2: the twin looking after itself. Worth a bubble each -- a companion that
+  // breaks off to eat or walks to a stall is doing something the player would
+  // otherwise read as it wandering away for no reason.
+  EAT: '♨', SHOP: '⊙',
 };
 
 /** The shard's colour on the twin: the Mirror's own magenta, darkened. */

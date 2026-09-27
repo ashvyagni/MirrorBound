@@ -13,15 +13,32 @@ from typing import Any, Protocol
 
 from mirrorbound.game.combat.weapons import BARE_HANDS, TWIN_STARTING_WEAPON, WeaponDef, get_weapon
 from mirrorbound.game.entities.entity import Entity, Vec2
+from mirrorbound.game.entities.player import DRINK_SECONDS, POTION_SHARED_COOLDOWN
 from mirrorbound.game.inventory import Inventory
 from mirrorbound.game.progression.survival import Hunger
 
 INTENT_TYPES = (
     "FOLLOW", "PROTECT", "INTERCEPT", "FLANK", "ATTACK", "RETREAT",
     "DISTRACT", "COMBO", "REPOSITION", "HEAL", "EXPLORE", "ASSIST",
-    #: v1.2. Break off and eat something, because it is hungry and it has food.
-    "EAT",
+    #: v1.2. Break off and eat, because it is hungry and it has food; and go to
+    #: a vendor, because it is short of potions and has money.
+    "EAT", "SHOP",
 )
+
+#: How much of each consumable the twin keeps for itself before passing the rest
+#: on to the player.
+#:
+#: A cap rather than a share, because a share is invisible and a cap is a rule
+#: you can state: *the twin keeps up to three of anything it walks over.* Past
+#: that it hands them across, so a player who wants the potions can have them by
+#: letting the twin fill up first.
+CARRY_CAP = 3
+
+#: The twin's cut of gold it personally picks up.
+#:
+#: Its own money, and the reason "the twin bought itself potions" is a story
+#: rather than a number: the gold it spends is gold you watched it collect.
+GOLD_SHARE = 0.25
 
 
 class TwinController(Protocol):
@@ -46,6 +63,9 @@ class TwinIntent:
     # from what it actually owns (see agent/twin/controller.py). The executor
     # validates this before acting on it -- the controller only ever suggests.
     desired_weapon: str | None = None
+    #: What HEAL drinks, EAT eats, or SHOP buys. Same bargain as `desired_weapon`:
+    #: the controller names an item, the executor checks the twin can have it.
+    item_id: str | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -56,6 +76,7 @@ class TwinIntent:
             "utilities": {k: round(v, 3) for k, v in self.utilities.items()},
             "reason": self.reason,
             "desiredWeapon": self.desired_weapon,
+            "itemId": self.item_id,
         }
 
 
@@ -79,6 +100,18 @@ class Twin(Entity):
     #: something you can watch decide, where a companion that quietly holds a
     #: number is not.
     hunger: Hunger = field(default_factory=Hunger)
+    #: What it is doing with its hands, when that is not fighting.
+    #:
+    #: One timer for drinking and eating both, for the same reason the player has
+    #: one: they are the same commitment -- a pause you can be punished for -- and
+    #: two timers would be two ways to be interrupted.
+    busy_with: str = ""
+    busy_timer: float = 0.0
+    #: The same shared cooldown the player is on, read off the same constant.
+    #: A companion that could chain potions six times faster than you can would
+    #: be a different creature, and the interesting version of "it plays like a
+    #: player" is the one where it is held to the player's rules.
+    use_cooldown: float = 0.0
     mana: float = 50.0
     max_mana: float = 50.0
     mana_regen: float = 6.0
@@ -146,11 +179,16 @@ class Twin(Entity):
     def update(self, dt: float) -> None:
         self.state_timer += dt
         self.tick_status(dt)
+        if self.busy_timer > 0:
+            self.busy_timer -= dt
+        if self.use_cooldown > 0:
+            self.use_cooldown = max(0.0, self.use_cooldown - dt)
         if self.attack_cooldown > 0:
             self.attack_cooldown -= dt
         if self.state == "downed":
             self.velocity = Vec2()
             self.downed_timer -= dt
+            self.cancel_use()
             return
         self.mana = min(self.max_mana, self.mana + self.mana_regen * dt)
         if self.state in ("attack", "cast") and self.state_timer > 0.3:
@@ -158,8 +196,41 @@ class Twin(Entity):
         if self.state in ("idle", "walk"):
             self.set_state("walk" if self.velocity.length() > 5 else "idle")
 
+    @property
+    def busy(self) -> bool:
+        return self.busy_timer > 0.0
+
+    def begin_use(self, item_id: str, seconds: float = DRINK_SECONDS) -> None:
+        """Start drinking or eating. Interrupted by being hit, like the player's."""
+        self.busy_with = item_id
+        self.busy_timer = seconds
+        self.velocity = Vec2()
+        self.set_state("idle")
+
+    def cancel_use(self) -> str:
+        """Drop whatever it was doing. Returns what it was, or empty."""
+        item, self.busy_with, self.busy_timer = self.busy_with, "", 0.0
+        return item
+
+    def can_use(self, item_id: str) -> bool:
+        """Whether a use may start: nothing in its hands, off cooldown, in stock.
+
+        What the item would *do* is checked by the executor, which is the half
+        that knows whether the twin is full."""
+        return (
+            self.available
+            and not self.busy
+            and self.use_cooldown <= 0
+            and self.inventory.consumables.get(item_id, 0) > 0
+        )
+
+    def finish_use(self) -> str:
+        """Hand back what it just finished with, and start the cooldown."""
+        self.use_cooldown = POTION_SHARED_COOLDOWN
+        return self.cancel_use()
+
     def can_attack(self) -> bool:
-        return self.available and self.attack_cooldown <= 0
+        return self.available and self.attack_cooldown <= 0 and not self.busy
 
     def start_attack(self) -> None:
         self.hunger.acted()
@@ -186,6 +257,8 @@ class Twin(Entity):
     def take_hit(self, amount: float) -> float:
         if self.state == "downed" or self.dormant:
             return 0.0
+        # Being hit spills the flask, the same bargain the player makes.
+        self.cancel_use()
         actual = self.take_damage(amount)
         self.damage_taken += actual
         if self.health <= 0:
@@ -224,6 +297,9 @@ class Twin(Entity):
             "damageDealt": round(self.damage_dealt),
             "damageTaken": round(self.damage_taken),
             "hunger": self.hunger.to_dict(),
+            "busyWith": self.busy_with or None,
+            "gold": self.inventory.gold,
+            "useCooldown": round(max(0.0, self.use_cooldown), 2),
             "downedFor": round(max(0.0, self.downed_timer), 1) if self.downed else 0,
             "attackCooldown": round(max(0.0, self.attack_cooldown), 2),
         })

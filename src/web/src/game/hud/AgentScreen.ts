@@ -263,7 +263,14 @@ export class AgentScreen {
     y += SECTION;
     y = this.#heading(x, y, 'What the twin has learned',
       `${style.playerEventsSeen} seen · ${style.outcomesSeen} outcomes`, w);
-    for (const [name, d] of Object.entries(style.dims).slice(0, 5)) {
+    // The five it is most sure about, not the first five declared. With twelve
+    // dimensions and room for five, insertion order would have meant the three
+    // v1.2 ones (drinking, stocking, spending) could never appear on the one
+    // screen whose job is to explain what the twin has learned.
+    const learned = Object.entries(style.dims)
+      .sort(([, a], [, b]) => b.confidence - a.confidence)
+      .slice(0, 5);
+    for (const [name, d] of learned) {
       y = this.#bar(x, y, w, name, { value: d.value, confidence: d.confidence, trend: d.recent_trend }, 0xb48cff);
     }
     for (const lesson of style.lessons.slice(-KEEP.lessons)) {

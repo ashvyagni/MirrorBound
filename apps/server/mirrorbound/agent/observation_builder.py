@@ -7,6 +7,7 @@ from mirrorbound.agent.observation import (
     EntitySnapshot,
     PickupSnapshot,
     RoomSnapshot,
+    VendorSnapshot,
 )
 from mirrorbound.game.core.events import Event
 from mirrorbound.game.entities.entity import Vec2
@@ -91,6 +92,20 @@ def build_observation(
 
     pickups = [PickupSnapshot(p.id, p.kind, p.position.copy()) for p in state.pickups if p.active]
 
+    # Merchants, reduced to the shelf the twin can reason about. Empty in a
+    # dungeon, which is the point: SHOP is an intent you can only form where
+    # there is somebody to shop from, so the controller needs no separate notion
+    # of "am I in a village".
+    vendors = [
+        VendorSnapshot(
+            id=npc.id,
+            position=Vec2(npc.x, npc.y),
+            stock={e.item_id: e.price for e in npc.definition.stock if e.kind == "consumable"},
+        )
+        for npc in state.room.npcs
+        if any(e.kind == "consumable" for e in npc.definition.stock)
+    ]
+
     return AgentObservation(
         tick=state.tick,
         player_state=player_snapshot,
@@ -110,4 +125,10 @@ def build_observation(
         seconds_since_decision=seconds_since_decision,
         twin_weapon_id=twin.weapon.id,
         twin_owned_weapons=list(twin.inventory.weapons),
+        twin_consumables=dict(twin.inventory.consumables),
+        twin_gold=twin.inventory.gold,
+        twin_hunger=twin.hunger.fraction,
+        twin_hunger_band=twin.hunger.band,
+        twin_busy=twin.busy,
+        vendors=vendors,
     )

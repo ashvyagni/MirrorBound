@@ -241,6 +241,8 @@ export interface TwinIntent {
   reason: string;
   /** A weapon the controller would rather hold, from what the twin owns. */
   desiredWeapon: string | null;
+  /** What HEAL drinks, EAT eats, or SHOP is walking to a stall to buy. */
+  itemId: string | null;
 }
 
 export interface TwinSnap extends EntityBase {
@@ -258,6 +260,14 @@ export interface TwinSnap extends EntityBase {
   kills: number;
   damageDealt: number;
   damageTaken: number;
+  /** The twin gets hungry on the same terms the player does. */
+  hunger: HungerSnap;
+  /** The flask or the meal currently at its lips, or null. */
+  busyWith: string | null;
+  /** Its own purse: a quarter-share of the gold it picks up, which it spends. */
+  gold: number;
+  /** The same shared potion cooldown the player is on. */
+  useCooldown: number;
   downedFor: number;
   attackCooldown: number;
   weapon?: WeaponInfo;

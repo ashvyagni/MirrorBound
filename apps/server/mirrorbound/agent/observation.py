@@ -82,6 +82,19 @@ class PickupSnapshot:
 
 
 @dataclass
+class VendorSnapshot:
+    """Somebody who will sell the twin something, and for how much.
+
+    Only the consumables are listed. The twin has no use for a weapon it cannot
+    choose to buy and no way to judge a relic, so `stock` is the part of a
+    merchant's shelf it can actually reason about: item id -> price.
+    """
+    id: str
+    position: Vec2
+    stock: dict[str, int] = field(default_factory=dict)
+
+
+@dataclass
 class AgentObservation:
     """Complete observation for AI decision-making."""
     tick: int
@@ -107,6 +120,23 @@ class AgentObservation:
     # and every weapon id the twin actually owns and could switch to.
     twin_weapon_id: str = ""
     twin_owned_weapons: list[str] = field(default_factory=list)
+    # --- v1.2: what the twin has to look after itself with ---------------------
+    #
+    # A controller that cannot see its own pack cannot decide to drink from it.
+    # These are the twin's own means, never the player's: its stock, its money,
+    # its appetite. `vendors` is the only outward-looking one -- somebody in
+    # reach who will sell it more.
+    twin_consumables: dict[str, int] = field(default_factory=dict)
+    twin_gold: int = 0
+    twin_hunger: float = 1.0
+    twin_hunger_band: str = "fed"
+    #: True while its hands are full of a flask or a meal. Distinct from
+    #: `twin_can_attack`, which also folds in the weapon cooldown.
+    twin_busy: bool = False
+    vendors: list[VendorSnapshot] = field(default_factory=list)
+
+    def held(self, item_id: str) -> int:
+        return int(self.twin_consumables.get(item_id, 0))
 
     def enemy(self, enemy_id: str | None) -> EntitySnapshot | None:
         for e in self.enemies:
