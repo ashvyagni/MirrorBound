@@ -128,6 +128,16 @@ class Player(Entity):
         return bonuses_for(self.attributes)
 
     @property
+    def socket(self):
+        """The stone set into the weapon in hand, folded. Empty when there is none.
+
+        Read off the equipped weapon for the same reason the forge is: a stone is
+        in a setting on one weapon, and putting the sword away should put its
+        stone away with it.
+        """
+        return self.inventory.socket_bonus(self.weapon.id)
+
+    @property
     def forge(self):
         """What is fitted into the weapon currently in hand.
 
@@ -140,7 +150,7 @@ class Player(Entity):
     @property
     def max_mana(self) -> float:
         return (self.base_max_mana + self.mods.max_mana_bonus + (self.level - 1) * 8
-                + self.attribute_bonuses.max_mana)
+                + self.attribute_bonuses.max_mana + self.socket.max_mana_bonus)
 
     @property
     def speed(self) -> float:
@@ -152,7 +162,7 @@ class Player(Entity):
 
     @property
     def mana_regen(self) -> float:
-        return self.base_mana_regen * self.mods.mana_regen_mult
+        return self.base_mana_regen * (self.mods.mana_regen_mult + self.socket.mana_regen_mult)
 
     @property
     def weapon(self) -> WeaponDef:
@@ -187,11 +197,11 @@ class Player(Entity):
 
     def spell_damage_multiplier(self) -> float:
         return (self.mods.spell_damage_mult + self.inventory.relic_bonus("spell_damage_mult")
-                + self.attribute_bonuses.spell_damage_mult)
+                + self.attribute_bonuses.spell_damage_mult + self.socket.spell_damage_mult)
 
     def crit_chance_bonus(self) -> float:
         return (self.mods.crit_chance_bonus + self.attribute_bonuses.crit_chance
-                + self.forge.crit_chance)
+                + self.forge.crit_chance + self.socket.crit_chance)
 
     def crit_multiplier_for(self, weapon: WeaponDef) -> float:
         """What a critical hit is worth with this weapon.
@@ -199,7 +209,8 @@ class Player(Entity):
         Read off the weapon rather than the player because a diamond is fitted
         into one blade, not into the person holding it.
         """
-        return weapon.crit_multiplier + self.inventory.forge_for(weapon.id).crit_multiplier
+        return (weapon.crit_multiplier + self.inventory.forge_for(weapon.id).crit_multiplier
+                + self.inventory.socket_bonus(weapon.id).crit_multiplier)
 
     def knockback_multiplier(self) -> float:
         return (self.mods.knockback_mult + self.attribute_bonuses.knockback_mult
@@ -542,7 +553,12 @@ class Player(Entity):
         return cleared
 
     def ability_cooldown_for(self, ability: AbilityDef) -> float:
-        mult = self.mods.ability_cooldown_mult
+        # A Riftstone in the weapon that grants the ability, not the one in hand:
+        # the same rule `mana_cost_for` follows, and for the same reason -- the
+        # offhand's spells belong to the offhand.
+        source = self.inventory.weapon_granting(ability.id)
+        mult = (self.mods.ability_cooldown_mult
+                + (self.inventory.socket_bonus(source).ability_cooldown_mult if source else 0.0))
         if ability.id == "shadow_dash":
             mult *= self.mods.dash_cooldown_mult
         return max(0.2, ability.cooldown * mult)
@@ -573,8 +589,9 @@ class Player(Entity):
         source = self.inventory.weapon_granting(ability.id)
         if not source:
             return ability.cost
-        forge = self.inventory.forge_for(source)
-        return max(ability.cost * 0.1, ability.cost * (1.0 + forge.mana_cost_mult))
+        discount = (self.inventory.forge_for(source).mana_cost_mult
+                    + self.inventory.socket_bonus(source).mana_cost_mult)
+        return max(ability.cost * 0.1, ability.cost * (1.0 + discount))
 
     def start_ability(self, ability: AbilityDef) -> None:
         self.mana -= self.mana_cost_for(ability)

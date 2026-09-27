@@ -10,8 +10,11 @@ from mirrorbound.game.entities.entity import Entity, Vec2
 #: the twin may take it, and taking it is what turns the twin into the Mirror.
 #: It is a story beat wearing a pickup's clothes, which is why it is listed
 #: here but handled apart everywhere it appears.
+#: `key` and `stone` are handled by `LootSystem._apply` like the rest; a key is a
+#: fact about the dungeon you are in rather than an inventory item, and a stone is
+#: the rarest thing in the game.
 PICKUP_KINDS = ("essence", "shards", "gold", "health_potion", "mana_potion", "weapon", "relic",
-                "mirror_shard")
+                "key", "stone", "mirror_shard")
 
 
 @dataclass

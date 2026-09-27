@@ -14,6 +14,9 @@ from mirrorbound.game.combat.weapons import MAX_UPGRADE, get_weapon, upgrade_cos
 from mirrorbound.game.progression.materials import (
     MATERIALS, ForgeBonuses, forge_bonuses, slots_for_tier,
 )
+from mirrorbound.game.progression.stones import (
+    SOCKETS_AT_TIER, STONES, SocketBonuses, socket_bonuses,
+)
 
 
 CONSUMABLES: dict[str, dict] = {
@@ -53,6 +56,10 @@ class Inventory:
     upgrades: dict[str, int] = field(default_factory=dict)
     #: Ore and fuel, by material id. Mined, never bought.
     materials: dict[str, int] = field(default_factory=dict)
+    #: Relic stones carried but not yet socketed, by stone id.
+    stones: dict[str, int] = field(default_factory=dict)
+    #: The one stone set into each weapon, by weapon id.
+    socketed: dict[str, str] = field(default_factory=dict)
     #: What is fitted into each weapon, by weapon id.
     #:
     #: A list rather than a set: two iron in one weapon is a legitimate and
@@ -167,6 +174,63 @@ class Inventory:
                 self.materials.pop(material_id, None)
         return True
 
+    # --- relic stones --------------------------------------------------------
+    def add_stone(self, stone_id: str, count: int = 1) -> None:
+        if stone_id not in STONES:
+            raise ValueError(f"Unknown relic stone: {stone_id}")
+        self.stones[stone_id] = self.stones.get(stone_id, 0) + count
+
+    def stone_count(self, stone_id: str) -> int:
+        return self.stones.get(stone_id, 0)
+
+    def has_socket(self, weapon_id: str) -> bool:
+        """Whether this weapon has been worked far enough to hold a stone."""
+        return self.tier(weapon_id) >= SOCKETS_AT_TIER
+
+    def socket_of(self, weapon_id: str) -> str:
+        return self.socketed.get(weapon_id, "")
+
+    def can_socket(self, weapon_id: str, stone_id: str) -> tuple[bool, str]:
+        if weapon_id not in self.weapons:
+            return False, "not owned"
+        if stone_id not in STONES:
+            return False, "unknown stone"
+        if self.stone_count(stone_id) <= 0:
+            return False, "you do not have that stone"
+        if not self.has_socket(weapon_id):
+            return False, "the weapon is not finished"
+        if self.socket_of(weapon_id):
+            return False, "the socket is full"
+        return True, "ok"
+
+    def socket_stone(self, weapon_id: str, stone_id: str) -> tuple[bool, str]:
+        ok, reason = self.can_socket(weapon_id, stone_id)
+        if not ok:
+            return False, reason
+        count = self.stone_count(stone_id) - 1
+        if count > 0:
+            self.stones[stone_id] = count
+        else:
+            self.stones.pop(stone_id, None)
+        self.socketed[weapon_id] = stone_id
+        return True, "ok"
+
+    def unsocket_stone(self, weapon_id: str) -> str:
+        """Prise a stone back out. Unlike ore, it survives -- and is given back.
+
+        The asymmetry is deliberate. Ore is smelted into the metal and there is
+        no getting it out again; a stone sits in a setting. And a stone is rare
+        enough that destroying one to try it elsewhere would mean nobody ever
+        tried it elsewhere.
+        """
+        stone_id = self.socketed.pop(weapon_id, "")
+        if stone_id:
+            self.add_stone(stone_id)
+        return stone_id
+
+    def socket_bonus(self, weapon_id: str) -> SocketBonuses:
+        return socket_bonuses(self.socket_of(weapon_id))
+
     # --- fitting -------------------------------------------------------------
     def forge_slots(self, weapon_id: str) -> int:
         return slots_for_tier(self.tier(weapon_id))
@@ -218,7 +282,7 @@ class Inventory:
             family = get_weapon(weapon_id).family
         except ValueError:
             family = ""
-        return forge_bonuses(fittings, family)
+        return forge_bonuses(tuple(fittings), family)
 
     # --- gold ----------------------------------------------------------------
     def add_gold(self, amount: int) -> None:
@@ -308,7 +372,9 @@ class Inventory:
                  "upgradeCost": upgrade_cost(self.tier(w)),
                  "hasPerk": self.has_perk(w),
                  "slots": self.forge_slots(w),
-                 "fitted": self.fittings(w)}
+                 "fitted": self.fittings(w),
+                 "hasSocket": self.has_socket(w),
+                 "socketed": self.socket_of(w)}
                 for w in self.weapons
             ],
             "equippedWeapon": self.equipped_weapon,
@@ -325,6 +391,13 @@ class Inventory:
                  "fuel": MATERIALS[mid].fuel}
                 for mid in sorted(self.materials, key=lambda m: (MATERIALS[m].tier, m))
                 if self.materials[mid] > 0 and mid in MATERIALS
+            ],
+            "stones": [
+                {"id": sid, "count": self.stones[sid], "name": STONES[sid].name,
+                 "tier": STONES[sid].tier, "description": STONES[sid].description,
+                 "socketNote": STONES[sid].socket_note}
+                for sid in sorted(self.stones, key=lambda s: (-STONES[s].tier, s))
+                if self.stones[sid] > 0 and sid in STONES
             ],
             "relics": [{"id": r, **RELICS[r]} for r in self.relics],
         }

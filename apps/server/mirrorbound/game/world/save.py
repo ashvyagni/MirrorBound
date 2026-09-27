@@ -141,6 +141,8 @@ def build_save(session_id: str, campaign, player, twin, name: str = "",
             # recoverable, so all three are saved.
             "materials": dict(player.inventory.materials),
             "fitted": {w: list(m) for w, m in player.inventory.fitted.items() if m},
+            "stones": dict(player.inventory.stones),
+            "socketed": {w: s for w, s in player.inventory.socketed.items() if s},
             "attributes": player.attributes.to_save(),
         },
         "twin": {
@@ -299,6 +301,8 @@ def _to_v4(data: dict[str, Any]) -> dict[str, Any]:
         return data
     player.setdefault("materials", {})
     player.setdefault("fitted", {})
+    player.setdefault("stones", {})
+    player.setdefault("socketed", {})
     if "attributes" not in player:
         try:
             level = max(1, int(player.get("level", 1)))
@@ -356,6 +360,7 @@ def apply_save(data: dict[str, Any], player, twin) -> None:
     from mirrorbound.game.progression.attributes import Attributes
     from mirrorbound.game.progression.materials import MATERIALS
     from mirrorbound.game.progression.skills import SKILLS
+    from mirrorbound.game.progression.stones import STONES
 
     p = data.get("player", {})
     player.level = max(1, int(p.get("level", 1)))
@@ -386,6 +391,13 @@ def apply_save(data: dict[str, Any], player, twin) -> None:
     inv.materials = {m: int(n) for m, n in (p.get("materials") or {}).items()
                      if m in MATERIALS and int(n) > 0}
     inv.fitted = _restore_fittings(p.get("fitted"), inv)
+    inv.stones = {s: int(n) for s, n in (p.get("stones") or {}).items()
+                  if s in STONES and int(n) > 0}
+    # Only on a weapon that is owned and still has a socket. A stone restored
+    # onto a weapon whose tier the save disagrees with would be held by nothing
+    # and readable by nothing.
+    inv.socketed = {w: s for w, s in (p.get("socketed") or {}).items()
+                    if w in inv.weapons and s in STONES and inv.has_socket(w)}
 
     t = data.get("twin", {})
     twin.inventory.weapons = [w for w in t.get("weapons", []) if w in WEAPONS]

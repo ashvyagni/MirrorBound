@@ -33,7 +33,8 @@ what an ingot is.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from functools import lru_cache
 
 #: Weapon families a material can favour or spoil, matching `WeaponDef.family`.
 FAMILIES = ("sword", "bow", "staff", "pike")
@@ -243,7 +244,13 @@ class ForgeBonuses:
 MAX_PIERCE = 0.60
 
 
-def forge_bonuses(fitted: list[str] | tuple[str, ...], family: str = "") -> ForgeBonuses:
+# Memoised, and the reason the signature takes a tuple: this is read by
+# `weapon_damage_multiplier`, `crit_chance_bonus` and `start_attack`, so it runs
+# several times a tick per armed actor, and its inputs are a handful of interned
+# strings that change only when a smith is standing in front of you. The cache is
+# tiny and bounded -- eight materials over three slots is not a large space.
+@lru_cache(maxsize=512)
+def forge_bonuses(fitted: tuple[str, ...], family: str = "") -> ForgeBonuses:
     """Fold a weapon's fitted materials, respecting affinity.
 
     `family` is the weapon's own family. A material that spoils it contributes

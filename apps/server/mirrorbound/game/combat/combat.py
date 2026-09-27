@@ -430,6 +430,47 @@ class CombatSystem:
         return 0.0
 
     @staticmethod
+    def _inventory_of(state: GameState, actor_id: str):
+        """The bag behind a hit, or None when whatever swung does not carry one."""
+        if actor_id == state.player.id:
+            return state.player.inventory
+        if actor_id == state.twin.id:
+            return state.twin.inventory
+        return None
+
+    @staticmethod
+    def _socket_for(inventory, source: str):
+        """The stone behind a hit, whether `source` names a weapon or an ability.
+
+        A hit records the thing that produced it, which is a weapon id for a swing
+        or an arrow and an ability id for a spell. A Leechstone set into a staff
+        has to answer for both -- the staff's spells are most of what the staff
+        is -- so an id that is not a weapon is resolved back to the weapon that
+        grants it.
+        """
+        from mirrorbound.game.progression.stones import SocketBonuses
+
+        if inventory is None:
+            return SocketBonuses()
+        if source in inventory.socketed:
+            return inventory.socket_bonus(source)
+        granting = inventory.weapon_granting(source)
+        return inventory.socket_bonus(granting) if granting else SocketBonuses()
+
+    def _stone_on_hit(self, state: GameState, enemy: Enemy, attacker_id: str, source: str) -> None:
+        """What a socketed stone does when a blow lands."""
+        inventory = self._inventory_of(state, attacker_id)
+        if inventory is None:
+            return
+        stone = self._socket_for(inventory, source)
+        if stone.mana_on_hit > 0:
+            actor = state.entity_by_id(attacker_id)
+            if actor is not None and hasattr(actor, "max_mana"):
+                actor.mana = min(actor.max_mana, actor.mana + stone.mana_on_hit)
+        if stone.slow_on_hit > 0 and stone.slow_seconds > 0:
+            enemy.apply_status("slow", stone.slow_seconds, slow_factor=stone.slow_on_hit)
+
+    @staticmethod
     def _through_armour(state: GameState, enemy: Enemy, amount: float,
                         attacker_id: str, source: str) -> float:
         """Take the target's armour off the hit, less whatever the weapon pierces.
@@ -444,13 +485,9 @@ class CombatSystem:
         armour = enemy.enemy_def.armour
         if armour <= 0:
             return amount
-        inventory = None
-        if attacker_id == state.player.id:
-            inventory = state.player.inventory
-        elif attacker_id == state.twin.id:
-            # The twin can be handed a fitted weapon, and it should cut the same
-            # way in its hands as in the player's.
-            inventory = state.twin.inventory
+        # The twin can be handed a fitted weapon, and it should cut the same way
+        # in its hands as in the player's.
+        inventory = CombatSystem._inventory_of(state, attacker_id)
         pierce = inventory.forge_for(source).pierce if inventory is not None else 0.0
         return amount * (1.0 - max(0.0, armour * (1.0 - pierce)))
 
@@ -462,6 +499,7 @@ class CombatSystem:
         actual = enemy.take_hit(amount, attacker_id)
         if actual <= 0:
             return 0.0
+        self._stone_on_hit(state, enemy, attacker_id, source)
         resist = 1.0 - enemy.enemy_def.knockback_resist
         if knockback > 0 and resist > 0:
             enemy.knockback = enemy.knockback + direction * (knockback * resist)

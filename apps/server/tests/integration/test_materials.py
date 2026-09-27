@@ -206,8 +206,8 @@ def test_no_combination_of_speed_can_make_an_attack_free():
 
 
 def test_gold_is_for_a_staff_and_wrong_in_a_blade():
-    good = forge_bonuses(["gold"], "staff")
-    bad = forge_bonuses(["gold"], "sword")
+    good = forge_bonuses(("gold",), "staff")
+    bad = forge_bonuses(("gold",), "sword")
     # The upside is halved and the downside doubled, so the same ingot is a
     # bargain in one hand and a mistake in the other.
     assert good.mana_cost_mult < bad.mana_cost_mult < 0
@@ -317,7 +317,7 @@ def test_obsidian_is_worth_more_against_armour_than_against_a_hound():
 def test_pierce_is_capped_however_much_obsidian_is_fitted():
     from mirrorbound.game.progression.materials import MAX_PIERCE
 
-    assert forge_bonuses(["obsidian"] * 6, "sword").pierce <= MAX_PIERCE
+    assert forge_bonuses(("obsidian",) * 6, "sword").pierce <= MAX_PIERCE
 
 
 # --- the ground ----------------------------------------------------------------

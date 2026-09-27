@@ -3,6 +3,7 @@ from mirrorbound.game.entities.entity import Vec2
 from mirrorbound.game.entities.twin import TwinIntent
 from mirrorbound.game.progression.attributes import ATTRIBUTES
 from mirrorbound.game.progression.materials import MATERIALS, describe_fitting, training_cost
+from mirrorbound.game.progression.stones import STONES
 from mirrorbound.game.world.npc import TALK_RADIUS
 
 #: Who will sell you an attribute point.
@@ -292,3 +293,43 @@ def strip_weapon(state, npc_id: str, weapon_id: str) -> None:
     state.emit("WEAPON_STRIPPED", npc=npc_id, weapon=weapon_id, removed=removed,
                slots=player.inventory.forge_slots(weapon_id),
                position=player.position.to_dict())
+
+
+def socket_stone(state, npc_id: str, weapon_id: str, stone_id: str) -> None:
+    """Set a relic stone into a finished weapon."""
+    player = state.player
+    npc = next((n for n in state.room.npcs if n.id == npc_id), None)
+    if npc is None or npc.definition.role != "weaponsmith":
+        state.emit("ACTION_REJECTED", actor=player.id, action="SOCKET_STONE",
+                   reason="no smith here")
+        return
+    if (Vec2(npc.x, npc.y) - player.position).length() > TALK_RADIUS + player.radius:
+        state.emit("ACTION_REJECTED", actor=player.id, action="SOCKET_STONE", reason="too far")
+        return
+    ok, reason = player.inventory.socket_stone(weapon_id, stone_id)
+    if not ok:
+        state.emit("ACTION_REJECTED", actor=player.id, action="SOCKET_STONE",
+                   weapon=weapon_id, stone=stone_id, reason=reason)
+        return
+    from mirrorbound.game.combat.weapons import get_weapon
+
+    state.emit("STONE_SOCKETED", npc=npc_id, weapon=weapon_id, name=get_weapon(weapon_id).name,
+               stone=stone_id, stoneName=STONES[stone_id].name,
+               note=STONES[stone_id].socket_note, position=player.position.to_dict())
+
+
+def unsocket_stone(state, npc_id: str, weapon_id: str) -> None:
+    """Take a stone back out. It survives, unlike ore."""
+    player = state.player
+    npc = next((n for n in state.room.npcs if n.id == npc_id), None)
+    if npc is None or npc.definition.role != "weaponsmith":
+        state.emit("ACTION_REJECTED", actor=player.id, action="UNSOCKET_STONE",
+                   reason="no smith here")
+        return
+    stone_id = player.inventory.unsocket_stone(weapon_id)
+    if not stone_id:
+        state.emit("ACTION_REJECTED", actor=player.id, action="UNSOCKET_STONE",
+                   weapon=weapon_id, reason="nothing socketed")
+        return
+    state.emit("STONE_UNSOCKETED", npc=npc_id, weapon=weapon_id, stone=stone_id,
+               stoneName=STONES[stone_id].name, position=player.position.to_dict())

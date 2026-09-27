@@ -7,6 +7,7 @@ from mirrorbound.game.entities.enemy import Enemy
 from mirrorbound.game.entities.entity import Entity, Vec2
 from mirrorbound.game.entities.pickup import Pickup
 from mirrorbound.game.inventory import CONSUMABLES
+from mirrorbound.game.progression.stones import BOSS_STONES, RARITY, STONES, STONES_BY_TIER
 from mirrorbound.game.state import GameState
 
 # iron_sword is in here even though the player starts with one. Without it the
@@ -49,11 +50,55 @@ class LootSystem:
             owned = set(state.player.inventory.weapons) & set(state.twin.inventory.weapons)
             options = [w for w in WEAPON_DROPS if w not in owned] or list(WEAPON_DROPS)
             drops.append(state.spawn_pickup("weapon", pos, item_id=self.rng.choice(options), scatter=scatter()))
+        drops.extend(self._stones(state, enemy, scatter))
         if self.rng.chance(table.relic_chance):
             owned_relics = set(state.player.inventory.relics)
             options = [r for r in RELIC_DROPS if r not in owned_relics]
             if options:
                 drops.append(state.spawn_pickup("relic", pos, item_id=self.rng.choice(options), scatter=scatter()))
+        return drops
+
+    def _stones(self, state: GameState, enemy: Enemy, scatter) -> list[Pickup]:
+        """Relic stones: three tiers, each rolled once per kill.
+
+        Every tier is rolled on every kill rather than one roll picking a tier,
+        so a lucky kill can drop two -- which is the right answer for independent
+        lotteries and the wrong answer only if you think of a stone as a slot on
+        a loot table. The drought counters behind this live on the campaign, so
+        the pity floor survives a reconnect.
+
+        A regional boss also hands over one tier-3 stone the first time it dies,
+        and only the first time. That is what makes tier 3 reachable at all: at
+        one in ten thousand it is roughly twenty-eight hours of farming, and the
+        rarest thing in the game should be earned somewhere as well as won
+        somewhere.
+        """
+        campaign = getattr(state, "campaign", None)
+        if campaign is None:
+            return []
+        drops: list[Pickup] = []
+        pos = enemy.position
+
+        def leave(stone_id: str) -> Pickup:
+            stone = state.spawn_pickup("stone", pos, item_id=stone_id, scatter=scatter())
+            # It waits, like the Warden's shard does. The ordinary forty-second
+            # timer on loot is fine for a potion and indefensible for a one-in-ten-
+            # thousand drop that expired while the player was finishing the fight
+            # that produced it.
+            stone.ttl = 0.0
+            return stone
+
+        awarded = BOSS_STONES.get(enemy.enemy_def.id)
+        if awarded and enemy.enemy_def.id not in campaign.stones_awarded:
+            campaign.stones_awarded.add(enemy.enemy_def.id)
+            drops.append(leave(awarded))
+
+        for tier in sorted(RARITY):
+            options = STONES_BY_TIER.get(tier, ())
+            if not options:
+                continue
+            if campaign.stone_luck.roll(tier, self.rng.chance):
+                drops.append(leave(self.rng.choice(list(options))))
         return drops
 
     def collect(self, state: GameState) -> None:
@@ -102,6 +147,13 @@ class LootSystem:
                 # Duplicate weapon: refund as shards, always to the player's
                 # shared currency -- the twin has nothing to spend shards on.
                 state.player.inventory.add_resource("shards", 1)
+        elif pickup.kind == "stone":
+            # Always the player's, whoever walked over it. A stone is socketed at
+            # a bench the twin never visits.
+            state.player.inventory.add_stone(pickup.item_id)
+            state.emit("STONE_FOUND", stone=pickup.item_id,
+                       name=STONES[pickup.item_id].name, tier=STONES[pickup.item_id].tier,
+                       position=pickup.position.to_dict(), room_id=state.room.id)
         elif pickup.kind == "relic":
             if pickup.item_id not in inv.relics:
                 inv.add_relic(pickup.item_id)

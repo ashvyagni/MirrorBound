@@ -42,6 +42,9 @@ CommandAction = Literal[
     # itself from a trainer, in ore. FIT_MATERIAL works ore into a weapon at the
     # smith's bench and STRIP_WEAPON melts it back out, losing the ore.
     "MINE", "SPEND_ATTRIBUTE", "TRAIN_ATTRIBUTE", "FIT_MATERIAL", "STRIP_WEAPON",
+    # A relic stone goes into the one socket a finished weapon has, and comes
+    # back out again intact -- which ore does not.
+    "SOCKET_STONE", "UNSOCKET_STONE",
     # Save slots. SAVE writes the slot the run is already playing; SAVE_AS
     # makes a new named one, LOAD_SAVE restarts the run from one, DELETE_SAVE
     # throws one away and RESET_DATA throws away every slot this profile has.
@@ -75,6 +78,7 @@ class CommandMessage(BaseModel):
     veinId: str | None = None
     attributeId: str | None = None
     materialId: str | None = None
+    stoneId: str | None = None
     # Length-capped here as well as sanitised server-side: the contract is the
     # first place a hostile client meets, and it should not accept a megabyte.
     playerName: str | None = Field(None, max_length=64)

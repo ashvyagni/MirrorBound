@@ -43,6 +43,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from mirrorbound.game.dungeon.templates import RoomType
+from mirrorbound.game.progression.stones import StoneLuck
 from mirrorbound.game.world.quest import QuestLog
 
 
@@ -441,6 +442,13 @@ class CampaignState:
     discovered_areas: set[str] = field(default_factory=lambda: {START_AREA, *ALWAYS_OPEN})
     # Rooms already looted, by room id, so a treasure room re-entered is empty.
     looted_rooms: set[str] = field(default_factory=set)
+    #: How long since a relic stone of each tier last dropped, for the pity floor
+    #: in `progression/stones.py`. Saved with the run: a counter that reset on
+    #: reconnect would make the floor a promise the game breaks whenever the tab
+    #: closes, and one the player could farm by closing it.
+    stone_luck: StoneLuck = field(default_factory=StoneLuck)
+    #: Bosses whose one guaranteed stone has already been handed over.
+    stones_awarded: set[str] = field(default_factory=set)
     # Quest flags drive dialogue and nothing else. Empty at the start, so the
     # village opens on its `intro` lines -- which are the only place the name
     # the player chose is ever spoken back to them. `quest_active` is set by
@@ -576,6 +584,8 @@ class CampaignState:
             "completedAreas": sorted(self.completed_areas),
             "discoveredAreas": sorted(self.discovered_areas),
             "lootedRooms": sorted(self.looted_rooms),
+            "stoneLuck": self.stone_luck.to_save(),
+            "stonesAwarded": sorted(self.stones_awarded),
             "flags": sorted(self.flags),
             "seals": list(self.seals),
             "twinRescued": self.twin_rescued,
@@ -593,6 +603,8 @@ class CampaignState:
         state.completed_areas = {a for a in data.get("completedAreas", []) if a in AREAS}
         state.discovered_areas = {a for a in data.get("discoveredAreas", []) if a in AREAS} or {START_AREA}
         state.looted_rooms = set(data.get("lootedRooms", []))
+        state.stone_luck = StoneLuck.from_save(data.get("stoneLuck"))
+        state.stones_awarded = {b for b in data.get("stonesAwarded", []) if isinstance(b, str)}
         # No `or {...}` fallback: a save taken before the elder was spoken to
         # legitimately has no flags, and defaulting would skip her opening.
         state.flags = set(data.get("flags", []))

@@ -54,8 +54,10 @@ from mirrorbound.game.world.actions import (
     buy_item,
     fit_material,
     mine_vein,
+    socket_stone,
     strip_weapon,
     train_attribute,
+    unsocket_stone,
     upgrade_weapon,
     call_twin,
     restore_twin,
@@ -792,6 +794,10 @@ class GameSession:
                 fit_material(state, cmd.npcId, cmd.weaponId, cmd.materialId)
             elif action == "STRIP_WEAPON" and cmd.npcId and cmd.weaponId:
                 strip_weapon(state, cmd.npcId, cmd.weaponId)
+            elif action == "SOCKET_STONE" and cmd.npcId and cmd.weaponId and cmd.stoneId:
+                socket_stone(state, cmd.npcId, cmd.weaponId, cmd.stoneId)
+            elif action == "UNSOCKET_STONE" and cmd.npcId and cmd.weaponId:
+                unsocket_stone(state, cmd.npcId, cmd.weaponId)
             elif action == "SET_NAME":
                 self._set_names(cmd.playerName, cmd.twinName)
             elif action == "TWIN_REQUEST" and cmd.weaponId:
