@@ -110,6 +110,11 @@ Named because each one had shipped and none was visible from reading the code:
   behaviour is a village-and-wilderness one rather than something seen every session.
 - **Timing on this machine swings ±2.4× run to run.** Any performance comparison across commits
   needs a same-session baseline; see [docs/perf-baseline.md](docs/perf-baseline.md).
+- **`eslint --max-warnings=0` does not pass, and has not since the landing page landed.** 11
+  errors: 8 React purity errors in `LandingScreen.tsx`, 1 in `AuthScreen.tsx`, and two
+  type-import/empty-object nits in `EventBus.ts` and `Villagers.ts`. The count is identical at the
+  pre-v1.2 commit, so the expansion introduced none of them — but the historical validation
+  sections below claim ESLint passes and that claim is now out of date. TypeScript is clean.
 - **`apps/.auth_secret` is tracked in git.** Flagged in the audit, left for the owner: it
   needs untracking *and* rotation, and rewriting history is not a gameplay change.
 - **`api/session.py` still holds gameplay rules** that `AGENTS.md` places in `game/`. v1.1
