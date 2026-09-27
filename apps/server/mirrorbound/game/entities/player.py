@@ -8,6 +8,9 @@ from mirrorbound.game.combat.abilities import ABILITIES, AbilityDef, AbilityType
 from mirrorbound.game.combat.weapons import BARE_HANDS, STARTING_WEAPON, WeaponDef, get_weapon
 from mirrorbound.game.entities.entity import Entity, Vec2
 from mirrorbound.game.inventory import Inventory
+from mirrorbound.game.progression.attributes import (
+    Attributes, AttributeBonuses, POINTS_PER_LEVEL, bonuses_for,
+)
 from mirrorbound.game.progression.progression import MAX_LEVEL, level_up_rewards, xp_to_next
 from mirrorbound.game.progression.skills import StatModifiers, modifiers_for
 
@@ -65,6 +68,13 @@ class Player(Entity):
     level: int = 1
     skill_points: int = 0
     unlocked_skills: set[str] = field(default_factory=set)
+    #: The numeric half of the character: five counters, bought with ore.
+    #:
+    #: Separate from `unlocked_skills` because the two are earned differently --
+    #: skill points come from levelling and attribute points mostly come out of
+    #: the ground -- and because the tree's deep tiers are gated on these. See
+    #: `progression/attributes.py`.
+    attributes: Attributes = field(default_factory=Attributes)
 
     # Potion drinking. `finished_drink` is set for exactly one tick when a drink
     # completes; the session reads it and is the only thing that consumes the
@@ -114,8 +124,23 @@ class Player(Entity):
         return modifiers_for(self.unlocked_skills)
 
     @property
+    def attribute_bonuses(self) -> AttributeBonuses:
+        return bonuses_for(self.attributes)
+
+    @property
+    def forge(self):
+        """What is fitted into the weapon currently in hand.
+
+        Per weapon, like the upgrade tier and for the same reason: a sword full
+        of mithril should swing fast, and the bow in the other hand should not
+        suddenly agree with it.
+        """
+        return self.inventory.forge_for(self.weapon.id)
+
+    @property
     def max_mana(self) -> float:
-        return self.base_max_mana + self.mods.max_mana_bonus + (self.level - 1) * 8
+        return (self.base_max_mana + self.mods.max_mana_bonus + (self.level - 1) * 8
+                + self.attribute_bonuses.max_mana)
 
     @property
     def speed(self) -> float:
@@ -156,16 +181,42 @@ class Player(Entity):
         tier = min(self.inventory.tier(self.weapon.id), len(UPGRADE_DAMAGE) - 1)
         return (self.mods.weapon_damage_mult
                 + self.inventory.relic_bonus("weapon_damage_mult")
-                + UPGRADE_DAMAGE[tier])
+                + UPGRADE_DAMAGE[tier]
+                + self.attribute_bonuses.weapon_damage_mult
+                + self.forge.damage_mult)
 
     def spell_damage_multiplier(self) -> float:
-        return self.mods.spell_damage_mult + self.inventory.relic_bonus("spell_damage_mult")
+        return (self.mods.spell_damage_mult + self.inventory.relic_bonus("spell_damage_mult")
+                + self.attribute_bonuses.spell_damage_mult)
 
     def crit_chance_bonus(self) -> float:
-        return self.mods.crit_chance_bonus
+        return (self.mods.crit_chance_bonus + self.attribute_bonuses.crit_chance
+                + self.forge.crit_chance)
+
+    def crit_multiplier_for(self, weapon: WeaponDef) -> float:
+        """What a critical hit is worth with this weapon.
+
+        Read off the weapon rather than the player because a diamond is fitted
+        into one blade, not into the person holding it.
+        """
+        return weapon.crit_multiplier + self.inventory.forge_for(weapon.id).crit_multiplier
+
+    def knockback_multiplier(self) -> float:
+        return (self.mods.knockback_mult + self.attribute_bonuses.knockback_mult
+                + self.forge.knockback_mult)
+
+    def pierce_for(self, weapon: WeaponDef) -> float:
+        """Fraction of a target's armour this weapon ignores."""
+        return self.inventory.forge_for(weapon.id).pierce
+
+    @property
+    def steadfast(self) -> bool:
+        """Whether a hit can knock the player out of a swing. Adamantine."""
+        return self.forge.steadfast
 
     def recompute_max_health(self) -> None:
-        new_max = self.base_max_health + self.mods.max_health_bonus + (self.level - 1) * 12
+        new_max = (self.base_max_health + self.mods.max_health_bonus + (self.level - 1) * 12
+                   + self.attribute_bonuses.max_health)
         ratio = self.health / self.max_health if self.max_health > 0 else 1.0
         self.max_health = new_max
         self.health = min(new_max, max(self.health, ratio * new_max))
@@ -451,7 +502,17 @@ class Player(Entity):
         self.combo_step += 1
         self.combo_timer = weapon.combo_window
         # The finisher of a chain costs a bit more recovery.
-        self.attack_cooldown = weapon.cooldown * (1.25 if self.combo_step == len(chain) and len(chain) > 1 else 1.0)
+        #
+        # Finesse and a fitted material both move the recovery rather than the
+        # damage, which is the whole difference between them and the tree: a
+        # faster weapon changes the rhythm of a fight, and a bigger number does
+        # not. Floored at a fifth of the weapon's own cooldown so no combination
+        # of mithril and Finesse can make an attack free.
+        forge = self.inventory.forge_for(weapon.id)
+        speed = 1.0 + forge.cooldown_mult - self.attribute_bonuses.attack_speed_mult
+        speed = max(0.2, speed)
+        self.attack_cooldown = (weapon.cooldown * speed
+                                * (1.25 if self.combo_step == len(chain) and len(chain) > 1 else 1.0))
         self.set_state("attack")
         return multiplier
 
@@ -497,12 +558,26 @@ class Player(Entity):
             return False, "dashing"
         if self.ability_cooldowns.get(ability.id, 0) > 0:
             return False, "cooldown"
-        if self.mana < ability.cost:
+        if self.mana < self.mana_cost_for(ability):
             return False, "mana"
         return True, "ok"
 
+    def mana_cost_for(self, ability: AbilityDef) -> float:
+        """What this cast actually costs, after whatever is fitted into the weapon
+        that grants it.
+
+        Gold conducts, so a gilded staff casts cheaply. Never below a tenth of
+        the printed cost: a free spell is a spell with no decision in it, and
+        `mana_cost_mult` is clamped in `materials.py` besides.
+        """
+        source = self.inventory.weapon_granting(ability.id)
+        if not source:
+            return ability.cost
+        forge = self.inventory.forge_for(source)
+        return max(ability.cost * 0.1, ability.cost * (1.0 + forge.mana_cost_mult))
+
     def start_ability(self, ability: AbilityDef) -> None:
-        self.mana -= ability.cost
+        self.mana -= self.mana_cost_for(ability)
         if ability.type.value == "dash":
             # Doublestep (MOBILITY 4): the extra dashes go before the cooldown
             # starts, so the pair is one movement rather than two with a wait in
@@ -575,6 +650,7 @@ class Player(Entity):
             self.level += 1
             reward = level_up_rewards(self.level)
             self.skill_points += reward["skillPoints"]
+            self.attributes.grant(reward.get("attributePoints", POINTS_PER_LEVEL))
             self.recompute_max_health()
             self.health = self.max_health
             self.mana = self.max_mana
@@ -584,13 +660,52 @@ class Player(Entity):
     def unlock_skill(self, skill_id: str) -> tuple[bool, str]:
         from mirrorbound.game.progression.skills import SKILLS, can_unlock
 
-        ok, reason = can_unlock(skill_id, self.unlocked_skills, self.skill_points)
+        ok, reason = can_unlock(skill_id, self.unlocked_skills, self.skill_points,
+                                self.attributes)
         if not ok:
             return False, reason
         self.skill_points -= SKILLS[skill_id].cost
         self.unlocked_skills.add(skill_id)
         self.recompute_max_health()
         return True, "ok"
+
+    def spend_attribute(self, attribute: str) -> tuple[bool, str]:
+        """Put an unspent point into an attribute.
+
+        Health is recomputed the same way a skill node recomputes it, which keeps
+        the *fraction* of the bar rather than the number on it. So Vigour is not
+        a way out of a bad fight -- a player at a tenth of their health is still
+        at a tenth of it afterwards -- and it is also not a hidden nerf, which
+        leaving the number alone would have been.
+        """
+        ok, reason = self.attributes.spend(attribute)
+        if not ok:
+            return False, reason
+        self.recompute_max_health()
+        return True, "ok"
+
+    def refund_attributes(self) -> int:
+        """Hand every attribute point back, and drop any node it was holding up.
+
+        The tree's tiers 3 and 4 are gated on attributes, so clearing the spread
+        can leave an unlocked node below its own requirement -- a state the rules
+        say cannot exist. Rather than refuse the refund or quietly allow the
+        illegal build, the affected nodes are unlearned and their skill points
+        returned, which is the same bargain `respec` already makes.
+        """
+        from mirrorbound.game.progression.skills import SKILLS, gate_on
+
+        moved = self.attributes.refund_all()
+        if moved:
+            stranded = {sid for sid in self.unlocked_skills
+                        if sid in SKILLS and gate_on(SKILLS[sid])[1] > 0}
+            if stranded:
+                self.skill_points += sum(SKILLS[s].cost for s in stranded)
+                self.unlocked_skills -= stranded
+        self.recompute_max_health()
+        self.health = min(self.health, self.max_health)
+        self.mana = min(self.mana, self.max_mana)
+        return moved
 
     def respec(self) -> int:
         """Refund every unlocked node and return the points handed back.
@@ -632,7 +747,7 @@ class Player(Entity):
                 "id": ability.id,
                 "name": ability.name,
                 "icon": ability.icon,
-                "cost": ability.cost,
+                "cost": round(self.mana_cost_for(ability), 1),
                 "cooldown": round(max(0.0, remaining), 2),
                 "cooldownTotal": round(total, 2),
                 "ready": ok,
@@ -678,7 +793,10 @@ class Player(Entity):
 
             base.update({
                 "unlockedSkills": sorted(self.unlocked_skills),
-                "skillTree": tree_to_dict(self.unlocked_skills, self.skill_points),
+                "skillTree": tree_to_dict(self.unlocked_skills, self.skill_points,
+                                          self.attributes),
+                "attributes": self.attributes.to_dict(),
+                "attributePoints": self.attributes.unspent,
                 "weapon": self.weapon.to_dict(),
                 "inventory": self.inventory.to_dict(),
                 "stats": {
@@ -688,6 +806,14 @@ class Player(Entity):
                     "critChance": round(self.weapon.crit_chance + self.crit_chance_bonus(), 2),
                     "damageTakenMult": round(self.mods.damage_taken_mult, 2),
                     "manaRegen": round(self.mana_regen, 1),
+                    # What the forge did to the weapon in hand, so the stats
+                    # panel can show the trade the player made rather than only
+                    # the total it came to.
+                    "attackSpeedMult": round(
+                        1.0 + self.forge.cooldown_mult
+                        - self.attribute_bonuses.attack_speed_mult, 2),
+                    "pierce": round(self.forge.pierce, 2),
+                    "steadfast": self.steadfast,
                 },
             })
         return base

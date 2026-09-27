@@ -19,6 +19,8 @@ from mirrorbound.game.dungeon.templates import (
     biome_for, get_random_template,
 )
 from mirrorbound.game.entities.entity import Vec2
+from mirrorbound.game.progression.materials import VEINS_PER_DUNGEON_ROOM
+from mirrorbound.game.world.mining import place_veins
 
 
 @dataclass
@@ -147,6 +149,20 @@ class DungeonGenerator:
                 host = next(h for h, side in side_of.items() if side == i)
                 room.doors.append(Door(side="west", x=TILE / 2, y=room.height / 2,
                                        width=TILE * 3, target_index=host, kind="arch"))
+
+        # Ore, after the doors are hung and before the locks, so a vein is never
+        # dropped across a doorway it would block. Boss and entrance rooms are
+        # skipped: a boss arena wants nothing in it but the boss, and an entrance
+        # is the one room a player passes through without a choice to make.
+        for room in rooms:
+            if room.room_type in ("boss", "guardian", "entrance"):
+                continue
+            # `room.biome`, not the `biome` argument: without one the run shades
+            # from grove to crypt over its length and each room's own biome is
+            # what decides its geology. Passing the argument would put grove ore
+            # in the deepest room of an unpinned descent.
+            place_veins(room, room.biome, self.rng.spawn(f"veins:{room.index}"),
+                        VEINS_PER_DUNGEON_ROOM)
 
         for room in rooms:
             self._lock_the_way_on(room)

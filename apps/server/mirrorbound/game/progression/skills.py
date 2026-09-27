@@ -23,6 +23,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from mirrorbound.game.progression.attributes import ATTRIBUTES, BRANCH_ATTRIBUTE, gate_for
+
 
 @dataclass(frozen=True)
 class SkillNode:
@@ -240,7 +242,29 @@ def modifiers_for(unlocked: set[str] | list[str]) -> StatModifiers:
     return mods
 
 
-def can_unlock(skill_id: str, unlocked: set[str], skill_points: int) -> tuple[bool, str]:
+def gate_on(node: SkillNode) -> tuple[str, int]:
+    """The attribute this node needs, and how much of it. ("", 0) when ungated.
+
+    Derived from the node's own branch and tier rather than stored on the node,
+    so a new node cannot be added with the gate left off by accident -- the tier
+    it is placed at *is* the gate.
+    """
+    needed = gate_for(node.tier)
+    if needed <= 0:
+        return "", 0
+    return BRANCH_ATTRIBUTE.get(node.category, ""), needed
+
+
+def can_unlock(skill_id: str, unlocked: set[str], skill_points: int,
+               attributes: "object | None" = None) -> tuple[bool, str]:
+    """Whether a node can be taken now, and the reason it cannot.
+
+    `attributes` is anything with a `.get(attribute_id) -> int`, which in
+    practice is `progression.attributes.Attributes`. Optional, and read as "all
+    zero" when absent: the parameter arrived after this function had other
+    callers, and a gate that silently passes when nobody asks about it would be
+    worse than one that refuses. Refusing is what the tests assert.
+    """
     node = SKILLS.get(skill_id)
     if node is None:
         return False, "unknown skill"
@@ -251,16 +275,28 @@ def can_unlock(skill_id: str, unlocked: set[str], skill_points: int) -> tuple[bo
     for req in node.requires:
         if req not in unlocked:
             return False, f"requires {SKILLS[req].name}"
+    attribute_id, needed = gate_on(node)
+    if attribute_id:
+        have = attributes.get(attribute_id) if attributes is not None else 0
+        if have < needed:
+            name = ATTRIBUTES[attribute_id].name
+            return False, f"requires {needed} {name}"
     return True, "ok"
 
 
-def tree_to_dict(unlocked: set[str], skill_points: int) -> list[dict]:
+def tree_to_dict(unlocked: set[str], skill_points: int,
+                 attributes: "object | None" = None) -> list[dict]:
     out = []
     for node in SKILLS.values():
-        ok, reason = can_unlock(node.id, unlocked, skill_points)
+        ok, reason = can_unlock(node.id, unlocked, skill_points, attributes)
+        attribute_id, needed = gate_on(node)
         d = node.to_dict()
         d["unlocked"] = node.id in unlocked
         d["available"] = ok
         d["reason"] = reason
+        # The gate travels with the node so the tree screen can show what a
+        # locked tier is waiting for, rather than only that it is locked.
+        d["gateAttribute"] = attribute_id
+        d["gateValue"] = needed
         out.append(d)
     return out

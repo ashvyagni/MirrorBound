@@ -95,10 +95,12 @@ class CombatSystem:
         is_player = attacker_id == state.player.id
         dmg_mult = state.player.weapon_damage_multiplier() if is_player else 1.0
         crit_bonus = state.player.crit_chance_bonus() if is_player else 0.0
-        knock_mult = state.player.mods.knockback_mult if is_player else 1.0
+        knock_mult = state.player.knockback_multiplier() if is_player else 1.0
+        crit_mult = (state.player.crit_multiplier_for(weapon) if is_player
+                     else weapon.crit_multiplier)
         for enemy in hits:
             crit = self.rng.chance(weapon.crit_chance + crit_bonus)
-            damage = weapon.damage * mult * dmg_mult * (weapon.crit_multiplier if crit else 1.0)
+            damage = weapon.damage * mult * dmg_mult * (crit_mult if crit else 1.0)
             direction = (enemy.position - attacker.position).normalized()
             self.damage_enemy(state, enemy, damage, attacker_id, weapon.get_tags(), direction,
                               weapon.knockback * knock_mult * (1.4 if mult > 1.2 else 1.0), weapon.id, crit)
@@ -427,10 +429,36 @@ class CombatSystem:
             return self.damage_twin(state, amount, attacker_id, direction, knockback)
         return 0.0
 
+    @staticmethod
+    def _through_armour(state: GameState, enemy: Enemy, amount: float,
+                        attacker_id: str, source: str) -> float:
+        """Take the target's armour off the hit, less whatever the weapon pierces.
+
+        Placed in the one funnel every hit on an enemy already goes through, and
+        keyed off `source` -- which is the weapon id for a swing or an arrow, and
+        an ability id for a spell -- rather than threading a `pierce` argument
+        through a dozen call sites. An ability id finds no fittings and so
+        pierces nothing, which is the right answer: obsidian sharpens an edge, it
+        does not sharpen a spell.
+        """
+        armour = enemy.enemy_def.armour
+        if armour <= 0:
+            return amount
+        inventory = None
+        if attacker_id == state.player.id:
+            inventory = state.player.inventory
+        elif attacker_id == state.twin.id:
+            # The twin can be handed a fitted weapon, and it should cut the same
+            # way in its hands as in the player's.
+            inventory = state.twin.inventory
+        pierce = inventory.forge_for(source).pierce if inventory is not None else 0.0
+        return amount * (1.0 - max(0.0, armour * (1.0 - pierce)))
+
     def damage_enemy(self, state: GameState, enemy: Enemy, amount: float, attacker_id: str, tags: list[str],
                      direction: Vec2, knockback: float, source: str, crit: bool = False) -> float:
         if not enemy.active:
             return 0.0
+        amount = self._through_armour(state, enemy, amount, attacker_id, source)
         actual = enemy.take_hit(amount, attacker_id)
         if actual <= 0:
             return 0.0

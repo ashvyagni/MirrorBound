@@ -52,6 +52,10 @@ from mirrorbound.game.twin_executor import TwinExecutor
 from mirrorbound.game.world import save as save_system
 from mirrorbound.game.world.actions import (
     buy_item,
+    fit_material,
+    mine_vein,
+    strip_weapon,
+    train_attribute,
     upgrade_weapon,
     call_twin,
     restore_twin,
@@ -770,6 +774,24 @@ class GameSession:
                 self._buy(cmd.npcId, cmd.itemId)
             elif action == "UPGRADE_WEAPON" and cmd.npcId and cmd.weaponId:
                 upgrade_weapon(state, cmd.npcId, cmd.weaponId)
+            elif action == "MINE":
+                mine_vein(state, cmd.veinId or "")
+            elif action == "SPEND_ATTRIBUTE" and cmd.attributeId:
+                ok, reason = player.spend_attribute(cmd.attributeId)
+                if ok:
+                    state.emit("ATTRIBUTE_SPENT", attribute=cmd.attributeId,
+                               points=player.attributes.get(cmd.attributeId),
+                               unspent=player.attributes.unspent,
+                               position=player.position.to_dict())
+                else:
+                    state.emit("ACTION_REJECTED", actor=player.id, action=action,
+                               attribute=cmd.attributeId, reason=reason)
+            elif action == "TRAIN_ATTRIBUTE" and cmd.npcId and cmd.attributeId:
+                train_attribute(state, cmd.npcId, cmd.attributeId)
+            elif action == "FIT_MATERIAL" and cmd.npcId and cmd.weaponId and cmd.materialId:
+                fit_material(state, cmd.npcId, cmd.weaponId, cmd.materialId)
+            elif action == "STRIP_WEAPON" and cmd.npcId and cmd.weaponId:
+                strip_weapon(state, cmd.npcId, cmd.weaponId)
             elif action == "SET_NAME":
                 self._set_names(cmd.playerName, cmd.twinName)
             elif action == "TWIN_REQUEST" and cmd.weaponId:
@@ -1567,6 +1589,13 @@ class GameSession:
         # for a whole map and a region is not a whole map, so this is what the
         # HUD, the map screen and the respec button read.
         snap["settlement"] = self._settlement or None
+        # Ore, every tick, as id and what is left. The positions and materials
+        # ride the room payload because they never change; only `remaining` does,
+        # and a client that missed the swing that emptied a vein would otherwise
+        # keep offering to mine it. Fourteen pairs is a few hundred bytes against
+        # an eleven-kilobyte snapshot, which is cheaper than marking the whole
+        # room dirty on every swing.
+        snap["veins"] = [{"id": v.id, "remaining": v.remaining} for v in state.room.veins]
         snap["lastError"] = self.last_error
         # The slot list only changes when a save is written or thrown away, so
         # it rides the detail snapshot rather than going out twenty times a

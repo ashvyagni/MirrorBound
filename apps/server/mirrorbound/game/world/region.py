@@ -49,6 +49,8 @@ from mirrorbound.game.entities.entity import Vec2
 from mirrorbound.game.world.campaign import AREAS, crossings_of
 from mirrorbound.game.world.crossings import carve_boundary, place_crossings, place_descents
 from mirrorbound.game.world.npc import REGION_NPCS
+from mirrorbound.game.progression.materials import VEINS_PER_REGION
+from mirrorbound.game.world.mining import place_veins
 from mirrorbound.game.world.settlement import place_settlement, stand_npc
 
 #: Default size when an area does not state one. Roughly two villages across.
@@ -182,6 +184,11 @@ def build_region(area_id: str, rng: DeterministicRNG, is_open,
     else:
         room.player_spawn = room.clamp(Vec2(room.width / 2, room.height / 2), 24.0)
     room.twin_spawn = room.clamp(room.player_spawn + Vec2(-44, 22), 20.0)
+
+    # Last, and after the spawn is decided: a vein is a blocking boulder, and one
+    # placed on the arrival point would wedge the player into the geometry the
+    # moment they walked in. `place_veins` checks the spawn, so it has to know it.
+    place_veins(room, terrain, rng.spawn("veins"), VEINS_PER_REGION, settlement)
     return room
 
 

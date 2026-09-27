@@ -89,6 +89,19 @@ class EnemyDef:
     tags: tuple[str, ...] = ()
     knockback: float = 160.0
     knockback_resist: float = 0.0     # 0 = full knockback taken, 1 = immune
+    #: Fraction of incoming damage this creature simply does not take.
+    #:
+    #: The non-HP way to make something tanky, which §20 asks for by name: a
+    #: brute with armour is a creature you need the right tool for, and a brute
+    #: with more health is the same fight held for longer. Obsidian in a weapon
+    #: ignores a share of this (`Player.pierce_for`), which is the whole reason
+    #: the material exists.
+    #:
+    #: The three creatures that have it had their health cut by exactly the
+    #: reciprocal when it was introduced, so effective health -- and therefore
+    #: every difficulty number already measured against them -- is unchanged for
+    #: a weapon carrying no obsidian.
+    armour: float = 0.0
     projectile: ProjectileSpec | None = None
     loot: LootTable = LootTable()
     elite: bool = False
@@ -123,6 +136,7 @@ class EnemyDef:
             "sprite": self.sprite,
             "elite": self.elite,
             "boss": self.boss,
+            "armour": round(self.armour, 2),
         }
 
 
@@ -150,11 +164,11 @@ HOUND = EnemyDef(
 )
 
 SLIME = EnemyDef(
-    id="slime", name="Mire Slime", health=115, damage=15, speed=48,
+    id="slime", name="Mire Slime", health=92, damage=15, speed=48,
     attack_range=40, aggro_range=220, attack_cooldown=1.8, attack_windup=0.6,
     behavior=EnemyBehavior.TANK, size=18, xp_reward=34, sprite="slime",
     tags=("MELEE", "HEAVY"), knockback=200, knockback_resist=0.7,
-    loot=LootTable(2, 4, 0.10, 0.14, 0.06), role="tank",
+    loot=LootTable(2, 4, 0.10, 0.14, 0.06), role="tank", armour=0.20,
 )
 
 MIRROR = EnemyDef(
@@ -189,11 +203,11 @@ ACOLYTE = EnemyDef(
 BRUTE = EnemyDef(
     # The spacing question: a long, obvious wind-up that hurts badly, and a body
     # that barely flinches. You are meant to see it coming and leave.
-    id="brute", name="Crypt Brute", health=180, damage=26, speed=62,
+    id="brute", name="Crypt Brute", health=135, damage=26, speed=62,
     attack_range=62, aggro_range=280, attack_cooldown=2.6, attack_windup=0.95,
     behavior=EnemyBehavior.TANK, size=22, xp_reward=58, sprite="brute",
     tags=("MELEE", "HEAVY"), knockback=300, knockback_resist=0.8,
-    loot=LootTable(4, 7, 0.25, 0.20, 0.10, weapon_chance=0.12), role="tank",
+    loot=LootTable(4, 7, 0.25, 0.20, 0.10, weapon_chance=0.12), role="tank", armour=0.25,
 )
 
 SCARAB = EnemyDef(
@@ -323,13 +337,13 @@ SHARDLING = EnemyDef(
     # sidestepping does not work and the answer is to get out of the cone or
     # get past it. Armoured to make that a decision rather than a race: you
     # will not out-damage it before the next burst.
-    id="shardling", name="Kiln Shardling", health=140, damage=9, speed=66,
+    id="shardling", name="Kiln Shardling", health=105, damage=9, speed=66,
     attack_range=250, aggro_range=330, attack_cooldown=2.5, attack_windup=0.8,
     behavior=EnemyBehavior.TANK, size=17, xp_reward=44, sprite="shardling",
     tags=("RANGED", "HEAVY"), knockback=90, knockback_resist=0.75,
     projectile=ProjectileSpec(kind="shell_shard", speed=300, radius=6, lifetime=1.1,
                               count=5, spread=0.26),
-    loot=LootTable(3, 5, 0.16, 0.12, 0.08), role="tank",
+    loot=LootTable(3, 5, 0.16, 0.12, 0.08), role="tank", armour=0.25,
 )
 
 

@@ -1,7 +1,22 @@
 """Authoritative vendor and companion requests, independent of transport."""
 from mirrorbound.game.entities.entity import Vec2
 from mirrorbound.game.entities.twin import TwinIntent
+from mirrorbound.game.progression.attributes import ATTRIBUTES
+from mirrorbound.game.progression.materials import MATERIALS, describe_fitting, training_cost
 from mirrorbound.game.world.npc import TALK_RADIUS
+
+#: Who will sell you an attribute point.
+#:
+#: The three people a village already has who could plausibly teach you
+#: something: the smith, the apothecary and the elder. Adding a dedicated trainer
+#: would mean a new role, a new portrait and a new stall in every settlement
+#: plan -- §35 asks for composition before new assets, and a smith who will also
+#: show you how to put your weight behind a swing is not a stretch.
+#:
+#: Any of the three will train any attribute. Splitting them by attribute was the
+#: first version and it was worse: it meant walking across a village to spend ore
+#: you were already standing next to the right person to spend.
+TRAINER_ROLES = ("weaponsmith", "apothecary", "elder")
 
 
 def buy_item(state, npc_id: str, item_id: str) -> None:
@@ -137,4 +152,143 @@ def upgrade_weapon(state, npc_id: str, weapon_id: str) -> None:
     state.emit("WEAPON_UPGRADED", npc=npc_id, weapon=weapon_id, name=weapon.name,
                tier=tier, was=before, gold=player.inventory.gold,
                perk=weapon.perk_name if player.inventory.has_perk(weapon_id) else "",
+               position=player.position.to_dict())
+
+
+# --- v1.2: ore, and the two places it is spent ---------------------------------
+
+
+def mine_vein(state, vein_id: str = "") -> None:
+    """Take a swing at a vein.
+
+    One swing, one unit, and the swing is not free: it holds the player still
+    for `MINE_TIME` with no way to cancel out of it except being hit. That is the
+    cost the whole system is priced against — mining in the open, in a region
+    with wilderness in it, is a decision about whether you have time.
+
+    `vein_id` is what the client believes it is pointing at; the server resolves
+    the nearest vein in reach and *refuses* if the two disagree, rather than
+    quietly mining a different rock. Silently substituting a target is how a
+    player ends up with ore they did not choose.
+    """
+    player = state.player
+    if player.state in ("dead", "dash", "drink", "channel"):
+        state.emit("ACTION_REJECTED", actor=player.id, action="MINE", reason="busy")
+        return
+    vein = state.room.vein_at(player.position, player.radius)
+    if vein is None:
+        state.emit("ACTION_REJECTED", actor=player.id, action="MINE", reason="nothing to mine")
+        return
+    if vein_id and vein.id != vein_id:
+        state.emit("ACTION_REJECTED", actor=player.id, action="MINE", vein=vein_id,
+                   reason="not that one")
+        return
+    vein.remaining -= 1
+    player.inventory.add_material(vein.material)
+    material = MATERIALS[vein.material]
+    # The pick holds you still. Reusing the drink state rather than adding a
+    # sixth player state: it already means "committed to something that is not
+    # fighting", the client already draws it as a pause, and being hit already
+    # interrupts it.
+    player.begin_drink("__mining__")
+    state.emit("VEIN_WORKED", vein=vein.id, material=vein.material, name=material.name,
+               remaining=vein.remaining, total=vein.total,
+               carried=player.inventory.material_count(vein.material),
+               spent=vein.spent, position=player.position.to_dict(),
+               room_id=state.room.id)
+
+
+def train_attribute(state, npc_id: str, attribute_id: str) -> None:
+    """Buy a point in an attribute from a trainer, in ore.
+
+    The point is bought, not spent: this hands over an *unspent* point and the
+    player still chooses where it goes. Two steps rather than one because the
+    trainer's price depends on how far the attribute has already been raised, and
+    collapsing the two would mean paying a Vigour price for a point you then put
+    into Focus.
+    """
+    player = state.player
+    npc = next((n for n in state.room.npcs if n.id == npc_id), None)
+    if npc is None or npc.definition.role not in TRAINER_ROLES:
+        state.emit("ACTION_REJECTED", actor=player.id, action="TRAIN_ATTRIBUTE",
+                   reason="nobody here teaches that")
+        return
+    if (Vec2(npc.x, npc.y) - player.position).length() > TALK_RADIUS + player.radius:
+        state.emit("ACTION_REJECTED", actor=player.id, action="TRAIN_ATTRIBUTE", reason="too far")
+        return
+    definition = ATTRIBUTES.get(attribute_id)
+    if definition is None:
+        state.emit("ACTION_REJECTED", actor=player.id, action="TRAIN_ATTRIBUTE",
+                   attribute=attribute_id, reason="unknown attribute")
+        return
+    if player.attributes.at_cap(attribute_id):
+        state.emit("ACTION_REJECTED", actor=player.id, action="TRAIN_ATTRIBUTE",
+                   attribute=attribute_id, reason="already at maximum")
+        return
+    # Priced off where the attribute is *now*, including points still unspent
+    # that are obviously headed here. Reading only spent points would let a
+    # player buy ten cheap points and put them all in one place.
+    cost = training_cost(definition.ore, player.attributes.get(attribute_id))
+    if not player.inventory.spend_materials(cost):
+        state.emit("ACTION_REJECTED", actor=player.id, action="TRAIN_ATTRIBUTE",
+                   attribute=attribute_id, reason="not enough ore", cost=dict(cost))
+        return
+    player.attributes.grant(1)
+    state.emit("ATTRIBUTE_TRAINED", npc=npc_id, attribute=attribute_id, name=definition.name,
+               paid=dict(cost), unspent=player.attributes.unspent,
+               position=player.position.to_dict())
+
+
+def fit_material(state, npc_id: str, weapon_id: str, material_id: str) -> None:
+    """Work a material into a weapon at a smith's bench."""
+    player = state.player
+    npc = next((n for n in state.room.npcs if n.id == npc_id), None)
+    if npc is None or npc.definition.role != "weaponsmith":
+        state.emit("ACTION_REJECTED", actor=player.id, action="FIT_MATERIAL",
+                   reason="no smith here")
+        return
+    if (Vec2(npc.x, npc.y) - player.position).length() > TALK_RADIUS + player.radius:
+        state.emit("ACTION_REJECTED", actor=player.id, action="FIT_MATERIAL", reason="too far")
+        return
+    ok, reason = player.inventory.fit_material(weapon_id, material_id)
+    if not ok:
+        state.emit("ACTION_REJECTED", actor=player.id, action="FIT_MATERIAL",
+                   weapon=weapon_id, material=material_id, reason=reason)
+        return
+    from mirrorbound.game.combat.weapons import get_weapon
+
+    weapon = get_weapon(weapon_id)
+    state.emit("MATERIAL_FITTED", npc=npc_id, weapon=weapon_id, name=weapon.name,
+               material=material_id, materialName=MATERIALS[material_id].name,
+               fitted=player.inventory.fittings(weapon_id),
+               slots=player.inventory.forge_slots(weapon_id),
+               notes=describe_fitting(player.inventory.fittings(weapon_id), weapon.family),
+               position=player.position.to_dict())
+
+
+def strip_weapon(state, npc_id: str, weapon_id: str) -> None:
+    """Melt a weapon's fittings out. The ore is gone.
+
+    Nothing is refunded, and the refusal to refund is the point: a bench you can
+    undo for free is a menu you scroll until the numbers are biggest, and then the
+    choice the forge exists to pose was never posed. What this is for is a player
+    who fitted the wrong thing and would rather have the slots back than keep it.
+    """
+    player = state.player
+    npc = next((n for n in state.room.npcs if n.id == npc_id), None)
+    if npc is None or npc.definition.role != "weaponsmith":
+        state.emit("ACTION_REJECTED", actor=player.id, action="STRIP_WEAPON",
+                   reason="no smith here")
+        return
+    if weapon_id not in player.inventory.weapons:
+        state.emit("ACTION_REJECTED", actor=player.id, action="STRIP_WEAPON",
+                   weapon=weapon_id, reason="not owned")
+        return
+    removed = player.inventory.clear_fittings(weapon_id)
+    if removed <= 0:
+        state.emit("ACTION_REJECTED", actor=player.id, action="STRIP_WEAPON",
+                   weapon=weapon_id, reason="nothing fitted")
+        return
+    state.emit("WEAPON_STRIPPED", npc=npc_id, weapon=weapon_id, removed=removed,
+               slots=player.inventory.forge_slots(weapon_id),
                position=player.position.to_dict())

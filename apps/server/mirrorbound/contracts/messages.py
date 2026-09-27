@@ -36,6 +36,12 @@ CommandAction = Literal[
     # A smith works a weapon up a tier, paid for in gold, shards and essence --
     # which is what gives the last two somewhere to go.
     "UPGRADE_WEAPON",
+    # v1.2. MINE takes a swing at the vein the player is standing next to; the
+    # other three spend what it gives up. SPEND_ATTRIBUTE puts a point that has
+    # already been earned into one of the five; TRAIN_ATTRIBUTE buys the point
+    # itself from a trainer, in ore. FIT_MATERIAL works ore into a weapon at the
+    # smith's bench and STRIP_WEAPON melts it back out, losing the ore.
+    "MINE", "SPEND_ATTRIBUTE", "TRAIN_ATTRIBUTE", "FIT_MATERIAL", "STRIP_WEAPON",
     # Save slots. SAVE writes the slot the run is already playing; SAVE_AS
     # makes a new named one, LOAD_SAVE restarts the run from one, DELETE_SAVE
     # throws one away and RESET_DATA throws away every slot this profile has.
@@ -65,6 +71,10 @@ class CommandMessage(BaseModel):
     seed: int | None = None
     areaId: str | None = None
     npcId: str | None = None
+    #: MINE, and the three that spend what it gives.
+    veinId: str | None = None
+    attributeId: str | None = None
+    materialId: str | None = None
     # Length-capped here as well as sanitised server-side: the contract is the
     # first place a hostile client meets, and it should not accept a megabyte.
     playerName: str | None = Field(None, max_length=64)

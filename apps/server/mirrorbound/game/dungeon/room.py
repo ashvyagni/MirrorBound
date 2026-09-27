@@ -207,6 +207,54 @@ class Switch:
 
 
 @dataclass
+class Vein:
+    """Ore in the ground, and how much of it is left.
+
+    A vein is a rock you stand next to and work, which is why it is a room
+    object and not a `Pickup`: a pickup is collected by walking over it, and
+    mining is meant to be a thing you *stop* to do. Standing still in the open is
+    the cost, and in a region with wilderness in it that cost is real.
+
+    `remaining` counts down per swing and the vein stays in the room at zero so
+    the player can see it is spent rather than watching it vanish. It blocks
+    movement for the same reason the boulders it is drawn as do -- a vein you can
+    walk through reads as painted on.
+    """
+    id: str
+    material: str
+    x: float
+    y: float
+    remaining: int = 1
+    #: What it started with, so the client can draw how worked-out it is.
+    total: int = 1
+    radius: float = 30.0
+    #: Which rock sprite. Chosen at placement so it is stable across snapshots.
+    variant: int = 0
+
+    @property
+    def spent(self) -> bool:
+        return self.remaining <= 0
+
+    def in_reach(self, pos: Vec2, radius: float) -> bool:
+        """Whether someone standing at `pos` could put a pick into this.
+
+        Deliberately looser than `contains`: the vein blocks, so a player walking
+        at it stops short of the circle and would never be inside one.
+        """
+        return (pos - Vec2(self.x, self.y)).length() <= self.radius + radius + REACH
+
+    def to_dict(self) -> dict:
+        return {"id": self.id, "material": self.material,
+                "x": round(self.x, 1), "y": round(self.y, 1),
+                "remaining": self.remaining, "total": self.total,
+                "radius": self.radius, "variant": self.variant}
+
+
+#: How far past a vein's own edge a pick still reaches.
+REACH = 26.0
+
+
+@dataclass
 class Settlement:
     """A village, standing inside a region.
 
@@ -275,6 +323,8 @@ class Room:
     settlements: list[Settlement] = field(default_factory=list)
     #: Plates to stand on. Empty outside a puzzle room.
     switches: list[Switch] = field(default_factory=list)
+    #: Ore in this room's ground. Re-rolled every visit, like its enemies.
+    veins: list[Vein] = field(default_factory=list)
     #: Keys lying in this room, as (key id, position).
     keys: list[tuple[str, Vec2]] = field(default_factory=list)
     #: A key the way on waits for. Set by the template, read once doors link.
@@ -508,6 +558,23 @@ class Room:
         """
         return self.room_type == "village" or self.settlement_at(pos) is not None
 
+    def vein_at(self, pos: Vec2, radius: float) -> "Vein | None":
+        """The nearest workable vein within reach of `pos`, or None.
+
+        Nearest rather than first, because two veins can sit close enough
+        together that both are in reach and picking by list order would have the
+        player swing at the one further away.
+        """
+        best: Vein | None = None
+        best_distance = float("inf")
+        for vein in self.veins:
+            if vein.spent or not vein.in_reach(pos, radius):
+                continue
+            distance = (pos - Vec2(vein.x, vein.y)).length()
+            if distance < best_distance:
+                best, best_distance = vein, distance
+        return best
+
     def unlock_doors(self, keys: set[str] | None = None) -> None:
         """Open every door the room is not deliberately holding shut.
 
@@ -558,6 +625,7 @@ class Room:
             "safe": self.room_type == "village",
             "settlements": [s.to_dict() for s in self.settlements],
             "switches": [s.to_dict() for s in self.switches],
+            "veins": [v.to_dict() for v in self.veins],
             "areaId": self.area_id,
             "seed": self.seed,
         }

@@ -32,6 +32,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from mirrorbound.game.progression.attributes import POINTS_PER_LEVEL
+
 log = logging.getLogger("mirrorbound.save")
 
 #: The save shape this build writes.
@@ -39,7 +41,7 @@ log = logging.getLogger("mirrorbound.save")
 #: Bumped whenever the shape changes, with a step added to `_MIGRATIONS` in the
 #: same commit. Older saves are upgraded by `migrate`, never discarded -- see
 #: the note above it for why that distinction is load-bearing.
-SAVE_VERSION = 3
+SAVE_VERSION = 4
 SAVE_DIR = Path(__file__).resolve().parents[3] / "saves"
 
 #: The slot the village checkpoint writes. Autosaving into a fresh slot every
@@ -134,11 +136,18 @@ def build_save(session_id: str, campaign, player, twin, name: str = "",
             "relics": list(player.inventory.relics),
             "gold": player.inventory.gold,
             "upgrades": dict(player.inventory.upgrades),
+            # v1.2. Ore carried, what is worked into which weapon, and the five
+            # attributes. All three are progression and none of them is
+            # recoverable, so all three are saved.
+            "materials": dict(player.inventory.materials),
+            "fitted": {w: list(m) for w, m in player.inventory.fitted.items() if m},
+            "attributes": player.attributes.to_save(),
         },
         "twin": {
             "weapons": list(twin.inventory.weapons),
             "equippedWeapon": twin.inventory.equipped_weapon,
             "offhandWeapon": twin.inventory.offhand_weapon,
+            "fitted": {w: list(m) for w, m in twin.inventory.fitted.items() if m},
         },
         # What the run learned. Opaque here on purpose -- see the module docstring.
         "agent": agent or {},
@@ -270,10 +279,41 @@ def _to_v3(data: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
+def _to_v4(data: dict[str, Any]) -> dict[str, Any]:
+    """v3 -> v4: ore, fittings and the five attributes.
+
+    Every new field is additive and every reader already defaults it, so this
+    step exists to be *explicit* rather than because anything would break
+    without it: a v3 save read by a v4 build is a character who has never mined
+    and has no attribute points, which is exactly what it is.
+
+    What it does have to do is hand over the attribute points those levels should
+    have paid for. v1.2 gives one per level, and a player arriving from v1.1 at
+    level 9 has earned eight of them. Leaving them unpaid would lock the tier-3
+    nodes of an existing run behind ore it has never been able to mine -- a save
+    that still opens but can no longer progress, which is the failure this whole
+    migration chain exists to prevent.
+    """
+    player = data.get("player")
+    if not isinstance(player, dict):
+        return data
+    player.setdefault("materials", {})
+    player.setdefault("fitted", {})
+    if "attributes" not in player:
+        try:
+            level = max(1, int(player.get("level", 1)))
+        except (TypeError, ValueError):
+            level = 1
+        owed = (level - 1) * POINTS_PER_LEVEL
+        player["attributes"] = {"points": {}, "unspent": owed}
+    return data
+
+
 #: version you are upgrading *from* -> the step that produces the next one.
 _MIGRATIONS: dict[int, Any] = {
     1: _to_v2,
     2: _to_v3,
+    3: _to_v4,
 }
 
 
@@ -313,6 +353,8 @@ def apply_save(data: dict[str, Any], player, twin) -> None:
     from mirrorbound.game.combat.abilities import ABILITIES
     from mirrorbound.game.combat.weapons import WEAPONS
     from mirrorbound.game.inventory import CONSUMABLES, RELICS
+    from mirrorbound.game.progression.attributes import Attributes
+    from mirrorbound.game.progression.materials import MATERIALS
     from mirrorbound.game.progression.skills import SKILLS
 
     p = data.get("player", {})
@@ -320,6 +362,7 @@ def apply_save(data: dict[str, Any], player, twin) -> None:
     player.xp = max(0, int(p.get("xp", 0)))
     player.skill_points = max(0, int(p.get("skillPoints", 0)))
     player.unlocked_skills = {s for s in p.get("unlockedSkills", []) if s in SKILLS}
+    player.attributes = Attributes.from_save(p.get("attributes"))
 
     inv = player.inventory
     inv.weapons = [w for w in p.get("weapons", []) if w in WEAPONS] or list(inv.weapons)
@@ -340,6 +383,9 @@ def apply_save(data: dict[str, Any], player, twin) -> None:
     from mirrorbound.game.combat.weapons import MAX_UPGRADE
     inv.upgrades = {w: max(0, min(MAX_UPGRADE, int(t)))
                     for w, t in (p.get("upgrades") or {}).items() if w in WEAPONS}
+    inv.materials = {m: int(n) for m, n in (p.get("materials") or {}).items()
+                     if m in MATERIALS and int(n) > 0}
+    inv.fitted = _restore_fittings(p.get("fitted"), inv)
 
     t = data.get("twin", {})
     twin.inventory.weapons = [w for w in t.get("weapons", []) if w in WEAPONS]
@@ -347,10 +393,35 @@ def apply_save(data: dict[str, Any], player, twin) -> None:
     twin.inventory.equipped_weapon = twin_equipped if twin_equipped in twin.inventory.weapons else next(iter(twin.inventory.weapons), "")
     offhand = t.get("offhandWeapon")
     twin.inventory.offhand_weapon = offhand if offhand in twin.inventory.weapons and offhand != twin.inventory.equipped_weapon else ""
+    twin.inventory.fitted = _restore_fittings(t.get("fitted"), twin.inventory)
 
     player.recompute_max_health()
     player.health = player.max_health
     player.mana = player.max_mana
+
+
+def _restore_fittings(stored: Any, inv) -> dict[str, list[str]]:
+    """Fittings, filtered against what is owned and how many slots it has.
+
+    Both filters matter. A weapon the save names but the player no longer carries
+    would keep a forge nothing can read, and a weapon whose upgrade tier is lower
+    than the save implies would come back with more fitted than it has room for --
+    which `can_fit` would then refuse to touch, leaving a weapon the bench cannot
+    work on and cannot explain why.
+    """
+    from mirrorbound.game.progression.materials import MATERIALS
+
+    out: dict[str, list[str]] = {}
+    if not isinstance(stored, dict):
+        return out
+    for weapon_id, fitted in stored.items():
+        if weapon_id not in inv.weapons or not isinstance(fitted, list):
+            continue
+        clean = [m for m in fitted if isinstance(m, str) and m in MATERIALS
+                 and not MATERIALS[m].fuel]
+        if clean:
+            out[weapon_id] = clean[:inv.forge_slots(weapon_id)]
+    return out
 
 
 def delete_save(session_id: str, slot: str = AUTO_SLOT) -> None:

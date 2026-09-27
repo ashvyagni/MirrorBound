@@ -11,6 +11,9 @@ from dataclasses import dataclass, field
 
 from mirrorbound.game.combat.abilities import DEFAULT_SLOTS, get_ability
 from mirrorbound.game.combat.weapons import MAX_UPGRADE, get_weapon, upgrade_cost
+from mirrorbound.game.progression.materials import (
+    MATERIALS, ForgeBonuses, forge_bonuses, slots_for_tier,
+)
 
 
 CONSUMABLES: dict[str, dict] = {
@@ -48,6 +51,15 @@ class Inventory:
     gold: int = 0
     #: How far each weapon has been worked, by weapon id. Absent means tier 0.
     upgrades: dict[str, int] = field(default_factory=dict)
+    #: Ore and fuel, by material id. Mined, never bought.
+    materials: dict[str, int] = field(default_factory=dict)
+    #: What is fitted into each weapon, by weapon id.
+    #:
+    #: A list rather than a set: two iron in one weapon is a legitimate and
+    #: deliberately available choice (heavier still), and the slot count is what
+    #: limits it. Order is the order they were fitted, which is what the bench
+    #: shows.
+    fitted: dict[str, list[str]] = field(default_factory=dict)
 
     # --- weapons -----------------------------------------------------------
     def add_weapon(self, weapon_id: str) -> bool:
@@ -131,6 +143,83 @@ class Inventory:
         """Whether this weapon has been worked far enough to have its perk."""
         return self.tier(weapon_id) >= MAX_UPGRADE
 
+    # --- materials -----------------------------------------------------------
+    def add_material(self, material_id: str, count: int = 1) -> None:
+        if material_id not in MATERIALS:
+            raise ValueError(f"Unknown material: {material_id}")
+        self.materials[material_id] = self.materials.get(material_id, 0) + count
+
+    def material_count(self, material_id: str) -> int:
+        return self.materials.get(material_id, 0)
+
+    def has_materials(self, cost: dict[str, int]) -> bool:
+        return all(self.material_count(m) >= n for m, n in cost.items())
+
+    def spend_materials(self, cost: dict[str, int]) -> bool:
+        """All or nothing. Nothing is taken unless the whole bill can be paid."""
+        if not self.has_materials(cost):
+            return False
+        for material_id, count in cost.items():
+            left = self.material_count(material_id) - count
+            if left > 0:
+                self.materials[material_id] = left
+            else:
+                self.materials.pop(material_id, None)
+        return True
+
+    # --- fitting -------------------------------------------------------------
+    def forge_slots(self, weapon_id: str) -> int:
+        return slots_for_tier(self.tier(weapon_id))
+
+    def fittings(self, weapon_id: str) -> list[str]:
+        return list(self.fitted.get(weapon_id, ()))
+
+    def can_fit(self, weapon_id: str, material_id: str) -> tuple[bool, str]:
+        if weapon_id not in self.weapons:
+            return False, "not owned"
+        material = MATERIALS.get(material_id)
+        if material is None:
+            return False, "unknown material"
+        if material.fuel:
+            return False, "that is fuel, not metal"
+        if self.material_count(material_id) <= 0:
+            return False, f"no {material.name.lower()}"
+        if len(self.fittings(weapon_id)) >= self.forge_slots(weapon_id):
+            return False, "no free slot"
+        return True, "ok"
+
+    def fit_material(self, weapon_id: str, material_id: str) -> tuple[bool, str]:
+        """Work a material into a weapon. The ore is consumed either way it turns out.
+
+        Consumed, and not refundable: `clear_fittings` empties the slots and
+        gives nothing back. A forge you can undo for free is a menu you scroll
+        through until the numbers are biggest, and then the choice this system
+        exists to pose was never posed.
+        """
+        ok, reason = self.can_fit(weapon_id, material_id)
+        if not ok:
+            return False, reason
+        if not self.spend_materials({material_id: 1}):
+            return False, "not enough"
+        self.fitted.setdefault(weapon_id, []).append(material_id)
+        return True, "ok"
+
+    def clear_fittings(self, weapon_id: str) -> int:
+        """Melt a weapon back down to bare. Returns how many slots were emptied."""
+        removed = len(self.fitted.get(weapon_id, ()))
+        self.fitted.pop(weapon_id, None)
+        return removed
+
+    def forge_for(self, weapon_id: str) -> ForgeBonuses:
+        fittings = self.fitted.get(weapon_id)
+        if not fittings:
+            return ForgeBonuses()
+        try:
+            family = get_weapon(weapon_id).family
+        except ValueError:
+            family = ""
+        return forge_bonuses(fittings, family)
+
     # --- gold ----------------------------------------------------------------
     def add_gold(self, amount: int) -> None:
         self.gold = max(0, self.gold + int(amount))
@@ -165,6 +254,25 @@ class Inventory:
                 slots.extend(get_weapon(weapon_id).abilities)
         return slots or list(DEFAULT_SLOTS)
 
+    def weapon_granting(self, ability_id: str) -> str:
+        """Which carried weapon grants this ability. Empty when neither does.
+
+        Main hand first, so a spell held in both hands is costed against the one
+        actually swinging. This exists because a fitted material belongs to a
+        weapon and abilities belong to weapons -- discounting the offhand's
+        spells because the *main* hand has gold in it would make the pair
+        cosmetic again, which `ability_slots` went out of its way to avoid.
+        """
+        for weapon_id in (self.equipped_weapon, self.offhand_weapon):
+            if not weapon_id:
+                continue
+            try:
+                if ability_id in get_weapon(weapon_id).abilities:
+                    return weapon_id
+            except ValueError:
+                continue
+        return ""
+
     # --- stackables ----------------------------------------------------------
     def add_consumable(self, item_id: str, count: int = 1) -> None:
         if item_id not in CONSUMABLES:
@@ -198,7 +306,9 @@ class Inventory:
             "weapons": [
                 {**get_weapon(w).to_dict(), "tier": self.tier(w),
                  "upgradeCost": upgrade_cost(self.tier(w)),
-                 "hasPerk": self.has_perk(w)}
+                 "hasPerk": self.has_perk(w),
+                 "slots": self.forge_slots(w),
+                 "fitted": self.fittings(w)}
                 for w in self.weapons
             ],
             "equippedWeapon": self.equipped_weapon,
@@ -209,5 +319,12 @@ class Inventory:
                 {"id": cid, "count": n, **CONSUMABLES[cid]} for cid, n in sorted(self.consumables.items())
             ],
             "resources": dict(self.resources),
+            "materials": [
+                {"id": mid, "count": self.materials[mid], "name": MATERIALS[mid].name,
+                 "tier": MATERIALS[mid].tier, "description": MATERIALS[mid].description,
+                 "fuel": MATERIALS[mid].fuel}
+                for mid in sorted(self.materials, key=lambda m: (MATERIALS[m].tier, m))
+                if self.materials[mid] > 0 and mid in MATERIALS
+            ],
             "relics": [{"id": r, **RELICS[r]} for r in self.relics],
         }
