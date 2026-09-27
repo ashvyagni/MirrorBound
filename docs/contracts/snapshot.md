@@ -32,15 +32,32 @@ One JSON object per snapshot, 20 per second, from server to client. TypeScript m
     "abilities":[{"slot":1,"id":"arcane_bolt","name":"Arcane Bolt","icon":"arcane_bolt","cost":8,
                   "cooldown":0.9,"cooldownTotal":1.2,"ready":false,"blockedBy":"cooldown","tags":["RANGED","SPELL","MAGIC"],"description":"..."}],
     "kills":1,"deaths":0,"targetId":"enemy_3","respawnIn":0,
+    "hunger":{"value":72.4,"max":100,"band":"fine","frozen":false,   // v1.2: always present
+              "damageMult":0,"damageTakenMult":0,"speedMult":0},
     // detail only:
     "unlockedSkills":[], "skillTree":[{"id":"swift_feet","name":"Swift Feet","category":"MOBILITY","tier":1,"cost":1,
                                        "description":"...","requires":[],"unlocked":false,"available":true,"reason":"ok"}],
     "weapon":{"id":"iron_sword","name":"Iron Sword","type":"melee","family":"sword","damage":14,"cooldown":0.42,"range":64,
               "resourceCost":0,"tags":["MELEE","FAST"],"comboLength":3,"rarity":"common","animation":"sword","description":"..."},
+    // each entry of inventory.weapons[] also carries, v1.2:
+    //   "tier":2,"upgradeCost":{...},"hasPerk":false,
+    //   "slots":1,"fitted":["iron"],"hasSocket":false,"socketed":[]
     "inventory":{"weapons":[...],"equippedWeapon":"iron_sword","abilitySlots":["arcane_bolt","flame_burst","shadow_dash","binding_nova"],
                  "consumables":[{"id":"health_potion","count":1,"name":"Health Potion","heal":45,...}],
-                 "resources":{"essence":2,"shards":1,"relics":0},"relics":[]},
-    "stats":{"speed":175,"weaponDamageMult":1,"spellDamageMult":1,"critChance":0.08,"damageTakenMult":1,"manaRegen":4.5}
+                 "resources":{"essence":2,"shards":1,"relics":0},"relics":[],
+                 // v1.2: the ore and stones carried. What is *in* a weapon rides on that
+                 // weapon's own entry in `weapons[]` -- `slots`, `fitted`, `hasSocket`,
+                 // `socketed` -- because a fitting belongs to the weapon, not to the bag.
+                 "materials":[{"id":"iron","count":6,"name":"Iron","tier":1,"fuel":false,"description":"..."}],
+                 "stones":[{"id":"cinder_shard","count":1,"name":"Cinder Shard","tier":1,...}]},
+    "stats":{"speed":175,"weaponDamageMult":1,"spellDamageMult":1,"critChance":0.08,"damageTakenMult":1,"manaRegen":4.5},
+    // v1.2, detail only: the five attributes, each with the ore that buys the next point and
+    // what that point costs. `trainCost` is computed server-side -- the client never prices a
+    // point itself, and the skill tree's `gateAttribute`/`gateValue` say which attribute gates
+    // a tier-3 or tier-4 node and at what value.
+    "attributes":[{"id":"vigour","name":"Vigour","branch":"SURVIVAL","ore":"iron","points":3,
+                   "max":20,"description":"...","trainCost":{"iron":4,"coal":2}}],   // all five
+    "attributePoints":1
   },
 
   "twin": {
@@ -49,6 +66,10 @@ One JSON object per snapshot, 20 per second, from server to client. TypeScript m
     "intent":{"intentType":"INTERCEPT","targetId":"enemy_3","position":{"x":..,"y":..},"confidence":0.71,
               "utilities":{"INTERCEPT":0.84,"ASSIST":0.52,...},"reason":"melee threatening player (hp 87%)"},
     "kills":0,"damageDealt":31,"damageTaken":0,"downedFor":0,"attackCooldown":0.2,
+    // v1.2: it gets hungry, it has hands that can be full, and it has its own money
+    "hunger":{"value":68.0,"max":100,"band":"fine","frozen":false,...},
+    "busyWith":"health_potion",   // or null: what is at its lips right now
+    "gold":41, "useCooldown":4.2, // its own purse, and the player's shared potion cooldown
     "weapon":{...},"inventory":{...}                 // detail only
   },
 
@@ -56,6 +77,10 @@ One JSON object per snapshot, 20 per second, from server to client. TypeScript m
               "state":"attack","targetId":"player_1","windingUp":true,"windup":0.3,"weapon":null}],
   "projectiles":[{"id":"projectile_4","kind":"ice_bolt","ownerId":"twin_1","faction":"ally","position":{..},"velocity":{..},"radius":6}],
   "pickups":[{"id":"pickup_2","kind":"essence","itemId":"","amount":3,"position":{..},"age":1.2}],
+  // v1.2. Ore veins are Room decor, so their *appearance* already travels in `room.decor`;
+  // this carries only what changes as they are worked, and nothing the client could use to
+  // decide an outcome. Sent on every snapshot, because `remaining` changes on a keypress.
+  "veins":[{"id":"vein_3","remaining":2}],
 
   "stats":{"enemiesKilled":1,"roomsCleared":0,"damageDealt":62,"damageTaken":13,"essenceCollected":2,"abilitiesCast":1,"seconds":80.2},
   "dungeon":{"seed":1234,"roomCount":7,"currentIndex":1,"rooms":[{"index":0,"type":"entrance","name":"...","biome":"grove","cleared":true,"visited":true}]},
@@ -64,8 +89,10 @@ One JSON object per snapshot, 20 per second, from server to client. TypeScript m
   "playerModel":{"tick":4812,"traits":{"aggression":{"value":0.65,"confidence":0.4,"samples":10,"recent_trend":0.02}},
                  "predictions":[{"token":"FLAME_BURST","confidence":0.7,"order":2,"weight":6.2}],
                  "spatial":{"combat":[{"cell":[10,13],"weight":4.9}],...},"cellSize":64},
-  "twinModel":{"dims":{"preferred_range":{"value":0.31,"confidence":0.45,"samples":14,"recent_trend":-0.01}},
-               "lessons":["Player favours melee (0.45)"],"playerEventsSeen":40,"outcomesSeen":6,"learningMult":1},
+  "twinModel":{"dims":{"preferred_range":{"value":0.31,"confidence":0.45,"samples":14,"recent_trend":-0.01},
+                       "drink_threshold":{"value":0.62,...},"stock_target":{...},"thrift":{...}},
+               "lessons":["Player favours melee (0.45)","Went down holding 2 potions — drink sooner"],
+               "playerEventsSeen":40,"outcomesSeen":6,"learningMult":1},
   "boss": null | {"phase":1,"activeCounter":"kite","countersUsed":{"kite":3}},
   "lastError": null
 }
@@ -77,6 +104,10 @@ Rules:
 - `events` is filtered to `CLIENT_EVENT_TYPES` and capped at 60 per snapshot.
 - The client must tolerate a lite `room` and missing detail blocks by caching the last full ones.
 - Field names are camelCase on the wire, snake_case inside event `data` (they are the telemetry events verbatim).
+- `veins[]` carries the *id and remaining swings only*. Where a vein is and what it looks like
+  travel once, as decor, when the room changes; what is inside it is never sent, so the client
+  cannot pre-empt what a swing yields. Same rule as everything else here: the browser draws the
+  rock, the server decides what comes out of it.
 - `enemies[].weapon` is the player weapon this creature was armed with (`armed_with`),
   or `null`. It is **presentational only** -- every number the weapon dictates (reach,
   cadence, cooldown, projectile, damage scale) has already been folded into the

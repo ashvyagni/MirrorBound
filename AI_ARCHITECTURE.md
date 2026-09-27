@@ -56,14 +56,37 @@ Events are emitted on meaningful gameplay moments, never per frame. The full voc
 
 ## 3. Twin style (`agent/twin/style.py`)
 
-Nine dimensions (`preferred_range`, `aggression`, `mobility`, `risk_tolerance`, `target_preference`,
-`melee_dependency`, `ranged_dependency`, `defensive_tendency`, `spell_preference`), each a
-`StyleDim` with value/confidence/samples/trend. Two channels feed them:
+Twelve dimensions, each a `StyleDim` with value/confidence/samples/trend:
 
-- **Imitation** (rate 0.06): the player's events nudge the twin toward the player's habits.
+- **Fighting** (nine): `preferred_range`, `aggression`, `mobility`, `risk_tolerance`,
+  `target_preference`, `melee_dependency`, `ranged_dependency`, `defensive_tendency`,
+  `spell_preference`.
+- **Looking after itself** (three, v1.2): `drink_threshold` (the health fraction it reaches for a
+  flask at), `stock_target` (how many potions it wants to carry), `thrift` (0 spends freely,
+  1 hoards).
+
+Two channels feed them:
+
+- **Imitation** (rate 0.06): the player's events nudge the twin toward the player's habits. For
+  self-care this is the interesting channel: `ITEM_USED` carries `atHealth` — the fraction the
+  player was at when the drink landed, captured *before* the heal — and copying it is the whole
+  imitation channel in one line. A player who sips at 80% gets a twin that sips; one who gambles
+  to 10% gets a twin that gambles. `SHOP_PURCHASE` teaches `thrift` and, for a potion,
+  `stock_target`.
 - **Experience** (rate 0.12): `TWIN_OUTCOME` events. An attack that dealt more than it cost
   reinforces aggression and risk tolerance; one that cost more pushes toward caution and range;
-  going down pushes hard toward defence.
+  going down pushes hard toward defence. A `HEAL` outcome reinforces the threshold it drank at
+  when it worked and pushes it *up* when it did not — a drink that cost damage means the decision
+  came late, and the fix is to drink earlier rather than to stop drinking.
+
+`TWIN_DOWNED` carries `potions`, because going down teaches **opposite** lessons depending on what
+was in the pack: with a potion it is a timing mistake (`drink_threshold` up hard), with none it is
+a supply mistake (`stock_target` up hard). Either way `thrift` falls — gold in a pocket bought
+nothing.
+
+The twin's own use publishes `TWIN_ITEM_USED`, a different event from the player's `ITEM_USED`,
+specifically so the imitation channel can never be fed the twin's own behaviour back as though it
+were the player's. A test asserts that.
 
 Confidence decays with a 75 s half-life on dimensions that stop receiving evidence. The model keeps
 a short list of human-readable "lessons" for the HUD ("Player favours melee (0.72)", "Went down —
@@ -84,11 +107,25 @@ Every decision scores all candidates from the observation, the player model and 
 | FLANK | player's target within reach | mobility, own `preferred_range` (ranged-leaning favors it), `spell_preference`, player `combo_dependency` × its confidence (break the 1v1 rhythm from another angle); bonus when an AoE is predicted (stay out of the cone) |
 | REPOSITION | far from the player | mobility, distance |
 | EXPLORE | room clear, pickups present | mobility |
+| HEAL | hurt, carrying a potion, nothing winding up on it | `drink_threshold` (how early), and **discounted by how close the nearest enemy is** |
+| EAT | hunger below the Fed band and food in the pack | the size of the gap, the Hungry band, and the same enemy-distance discount |
+| SHOP | a merchant in reach selling something it wants, money for it, nothing to fight | `stock_target` (how much it wants), `thrift` (whether it will spend) |
 | FOLLOW | default | — |
+
+The three self-care candidates are scored in the same pass as the rest rather than handled as
+special cases ahead of it, and that is what makes the behaviour read as judgement. The clearest
+case: HEAL is discounted by how close the nearest enemy is and RETREAT is *rewarded* by exactly
+the same thing, so with something on top of it the twin backs off and the drink wins the moment it
+is clear. Neither candidate refers to the other; "retreat, then drink" is the two curves crossing.
+An enemy winding up inside 200 units zeroes HEAL outright — 0.4s rooted into a telegraph is how
+you lose a potion and a companion.
+
+The executor owns commitment rather than the controller: while `twin.busy` is true it stands still
+whatever the controller has since decided, so no candidate needs to reason about being mid-drink.
 
 The current intent gets a small hysteresis bonus so decisions don't flap. Beyond that, a candidate whose
 *posture* (engaged: `ATTACK`/`ASSIST`/`FLANK`/`DISTRACT`/`INTERCEPT`/`PROTECT` vs. disengaged:
-`RETREAT`/`REPOSITION`/`FOLLOW`/`EXPLORE`) opposes the current intent's is penalized, scaled by
+`RETREAT`/`REPOSITION`/`FOLLOW`/`EXPLORE`/`HEAL`/`EAT`/`SHOP`) opposes the current intent's is penalized, scaled by
 `seconds_since_decision` (previously computed on every observation and never read by anything): a
 decision made very recently resists flipping to the opposite posture; the penalty decays to nothing
 over `MOMENTUM_WINDOW_SECONDS` (0.5s). The penalty's ceiling is kept well below what a genuine

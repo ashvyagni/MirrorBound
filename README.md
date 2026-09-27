@@ -19,10 +19,14 @@ MirrorBound is a single-player action-RPG where your playstyle shapes your ultim
 ## 🚀 Key Features
 
 - **Adaptive AI Twin:** A rescued twin that fights alongside you. It learns your behavior through continuous pattern detection, spatial heatmaps, and decaying sequence predictions.
-- **One continuous world:** Six regions you cross on foot, joined at named crossings — the Rootbridge, the Long Causeway, Kell's ferry, the Cut through the rock. Villages stand *inside* regions, so you come over the ridge and walk in with nothing loading.
+- **A companion that looks after itself:** It keeps the potions it walks over, holds a quarter-share of the gold it picks up, and spends it — walking to a merchant, buying its own flasks, drinking them when it is hurt and eating when it is hungry. *When* it drinks is copied from the health you drink at; how much it carries is learned from going down with an empty pack.
+- **One continuous world:** Eight regions you cross on foot, joined at named crossings — the Rootbridge, Ewesford, the Long Causeway, Kell's ferry, the Windgate, the Cut through the rock. Two of the eight are off the campaign's spine entirely. Villages stand *inside* regions, so you come over the ridge and walk in with nothing loading.
 - **Three dungeon archetypes:** Combat, puzzle and mirror dungeons that differ in what opens the far door — clear the room, work out what opens it, or both at once. Branching side rooms, keys and plates.
 - **Four bosses before the last one:** The Stonecount, the Kiln Shardmother and the Ashen Warden each run a three-phase, fully telegraphed ladder. Only the Mirror reads your behaviour model — that premise belongs to the ending.
-- **Deep Progression:** 6 weapons with weapon-bound abilities, a three-tier upgrade bench that finally spends your shards and essence, 20 skill nodes across five branches where everything past tier 1 changes how the game plays.
+- **Mining, and a forge that changes what a weapon is for:** Eight materials in the ground, placed by the terrain you are standing on. Trained, they buy attributes; fitted into a weapon, they make it heavier, faster, sharper or armour-splitting. Every one is a trade rather than an upgrade.
+- **Two progression layers that need each other:** Levels buy a skill tree, ore buys five attributes, and the tree's deep tiers are gated on the attributes — so 20 levels of skill points cannot finish a tree on their own.
+- **Relic stones with a floor under the luck:** Seven stones at 1/200, 1/1000 and 1/10000, socketed into a fully worked weapon. A saved drought counter per tier turns "vanishingly rare" into a number a test can check, and each regional boss awards a tier-3 outright.
+- **A wild that lives in itself:** Cows and sheep to hunt, tigers and wolves that hunt you, a pasture and a tundra that are not on the way to anything, and a hunger bar that drains on how far you walk and how much you swing — never on the clock.
 - **Quests and a codex:** Four side quests that exist to explain the world, and a codex that fills in as you find it out.
 
 ---
@@ -80,9 +84,9 @@ Open [http://127.0.0.1:5173/](http://127.0.0.1:5173/) to play.
 | `J` / `Space` | Basic attack |
 | `1`–`4` | Abilities from carried weapons |
 | `Q` | Swap weapons |
-| `E` | Interact / Talk to NPC |
+| `E` | Interact: talk to an NPC, or mine the ore vein you are standing next to |
 | `F` / `G` | Health / mana potion |
-| `I` / `K` / `C` / `M` | Inventory / Skills / Character / Map |
+| `I` / `K` / `C` / `M` | Inventory / Skills and attributes / Character / Map |
 | `L` | Journal: quests and the codex |
 | `P` / `Esc` | Pause |
 
@@ -96,6 +100,7 @@ Dive deeper into MirrorBound's architecture and design:
 - [AI_ARCHITECTURE.md](AI_ARCHITECTURE.md) — Modeling, utility decisions, and boss counters.
 - [GAMEPLAY.md](GAMEPLAY.md) — Gameplay and mechanic design.
 - [docs/v1.1-audit-and-roadmap.md](docs/v1.1-audit-and-roadmap.md) — The v1.1 expansion audit and plan.
+- [docs/v1.2-design.md](docs/v1.2-design.md) — The v1.2 expansion: mining, attributes, stones, hunger and the twin's autonomy.
 - [docs/playtest-results.md](docs/playtest-results.md) — Measured difficulty, and what the probe cannot tell us.
 - [docs/perf-baseline.md](docs/perf-baseline.md) — Simulation cost, before and after the bigger world.
 - [AGENTS.md](AGENTS.md) — Codebase contribution rules.

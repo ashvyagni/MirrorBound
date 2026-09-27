@@ -12,6 +12,11 @@ expansion cost content rather than an engine rewrite. See
 [docs/v1.1-audit-and-roadmap.md](docs/v1.1-audit-and-roadmap.md) §1.1 for the reasoning and
 what the alternative would have cost.
 
+The same constraint is why v1.2's two extra regions were nearly free: *more* regions costs
+authored content and nothing structural, while a *bigger* region costs navigation-grid area.
+Ore veins are `Room` decor, so mining needed no new spatial concept either — see
+[docs/v1.2-design.md](docs/v1.2-design.md).
+
 ```
  browser (src/web)                         server (apps/server/mirrorbound)
  ┌──────────────────────────┐   INPUT/COMMAND   ┌────────────────────────────────────┐
@@ -38,16 +43,21 @@ what the alternative would have cost.
 
 ### Tick (`api/session.py::GameSession.step`)
 
-1. Apply queued **commands** (equip, unlock, use item, pause, restart).
+1. Apply queued **commands** (equip, unlock, use item, mine, train/spend an attribute, fit or
+   strip a material, socket or unsocket a stone, pause, restart).
 2. `player.update` (cooldowns, regen, state timers) then `player.apply_input` (velocity + facing).
 3. Combat requests: `CombatSystem.process_player_attack` / `process_ability`.
 4. `MovementSystem.update`: integrate velocity + knockback, clamp to room, resolve blocking decor,
    separate crowds, move projectiles, emit sampled `PLAYER_MOVED` and `PLAYER_RETREATED`.
 5. Enemies: `BasicEnemyController.update` per enemy; the boss uses `MirrorController`.
 6. Twin: every 6 ticks build an `AgentObservation`, ask the controller for a `TwinIntent`, hand it to
-   `TwinExecutor` (validates, moves, attacks, publishes `TWIN_ACTION`/`TWIN_OUTCOME`).
+   `TwinExecutor` (validates, moves, attacks, drinks, eats, buys, publishes
+   `TWIN_ACTION`/`TWIN_OUTCOME`). The observation carries the twin's own pack, purse and hunger,
+   because a controller that cannot see its own supplies cannot decide to use them.
 7. `CollisionSystem` (projectiles), `LootSystem` (magnetism, pickup), `CombatSystem.update` (status).
 8. Room logic: clear detection, door unlocks, transitions, death/respawn, victory.
+9. Hunger: both bars are charged by distance in `MovementSystem` and by actions at the swing, and
+   frozen by `_hunger_watch` while any active enemy is a boss.
 
 Everything random goes through `DeterministicRNG` sub-streams (`rng.spawn("combat")`, `"loot"`,
 `"dungeon"`, `"enemy_ai"`, `"mirror"`). No `random.*`, no `hash()` on strings.
@@ -62,8 +72,9 @@ Everything random goes through `DeterministicRNG` sub-streams (`rng.spawn("comba
 | `game/movement/` | integration + projectile collision |
 | `game/enemy_ai/` | archetype state machine, `guardian.py` phased regional bosses, `mirror.py` the final boss's counter-policy |
 | `game/dungeon/` | `room.py` model (tiles, decor, doors, switches, settlements), `templates.py` handcrafted pieces, `generation.py` arrangement + decor + branching |
-| `game/world/` | `campaign.py` the region graph and its crossings, `region.py` builds a stretch of overworld, `settlement.py` places a village inside one, `crossings.py` the boundaries and the ways through them, `quest.py` side quests and the codex, `villagers.py` people walking rounds |
-| `game/progression/` | XP curve, skill tree data and modifiers |
+| `game/world/` | `campaign.py` the region graph and its crossings, `region.py` builds a stretch of overworld, `settlement.py` places a village inside one, `crossings.py` the boundaries and the ways through them, `quest.py` side quests and the codex, `villagers.py` people walking rounds, `actions.py` vendor/companion/forge/training requests |
+| `game/progression/` | XP curve, skill tree data and modifiers; `attributes.py` the five attributes and the tier gates, `materials.py` the eight ores and what fitting one does, `stones.py` the relic stones with their rarity and pity floors, `survival.py` hunger |
+| `game/world/mining.py` | Places ore veins on open ground, away from roads, water, walls, spawns and doors |
 | `game/inventory.py`, `game/loot.py` | inventories; drops and pickups |
 | `game/twin_executor.py` | executes `TwinIntent`; outcome tracking |
 | `agent/` | see [AI_ARCHITECTURE.md](AI_ARCHITECTURE.md) |

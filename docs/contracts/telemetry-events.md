@@ -51,19 +51,39 @@ rather than guessing.**
 `ENEMY_KILLED` (`enemy_id`, `enemy_type`, `role`, `elite`, `boss`, `xp_reward`, `killer`, `position`, `room_id`) ·
 `ENEMY_SPAWNED` · `ENEMY_ATTACKED` (`enemy_id`, `target`, `hit`, `ranged`) ·
 `PROJECTILE_HIT` / `PROJECTILE_EXPIRED` (`kind`, `position`) ·
-`ITEM_PICKUP` (`actor`, `kind`, `item_id`, `amount`, `position`) · `ITEM_USED` · `WEAPON_CHANGED` (`actor`, `weapon`) ·
+`ITEM_PICKUP` (`actor`, `kind`, `item_id`, `amount`, `position`) ·
+`ITEM_USED` (`actor`, `item`, `healed`, `mana`, `fed`, `hunger`, **`atHealth`** — the health fraction
+the player was at *before* the heal, which is what the twin's `drink_threshold` copies) ·
+`WEAPON_CHANGED` (`actor`, `weapon`) ·
 `SKILL_UNLOCKED` (`skill`) · `LEVEL_UP` (`level`, `skillPoints`) · `PLAYER_HEALED` · `PLAYER_RESPAWNED` ·
 `ROOM_ENTER` (`room_id`, `room_index`, `room_type`, `name`, `biome`, `first_visit`) · `ROOM_EXIT` · `ROOM_CLEARED` ·
-`ACTION_REJECTED` (`action`, `reason`: `cooldown` `mana` `not owned` ...) · `RUN_COMPLETE` (`stats`, `seed`).
+`ACTION_REJECTED` (`action`, `reason`: `cooldown` `mana` `not owned` ...) · `RUN_COMPLETE` (`stats`, `seed`) ·
+`GOLD_GAINED` (`amount` — the player's share, `total`, **`twinShare`**, `position`).
+
+## v1.2 world events
+
+| `type` | Emitted by | Data |
+|---|---|---|
+| `VEIN_WORKED` | `actions.mine_vein` | `vein`, `material`, `name`, `remaining`, `total`, `carried`, `spent`, `position` |
+| `ATTRIBUTE_SPENT` | session, `SPEND_ATTRIBUTE` (free, from a level-up point) | `attribute`, `points`, `unspent`, `position` |
+| `ATTRIBUTE_TRAINED` | `actions.train_attribute` (paid in ore, at a trainer) | `npc`, `attribute`, `name`, `paid` (the ore bill), `unspent`, `position` |
+| `MATERIAL_FITTED` | `actions.fit_material` | `npc`, `weapon`, `name`, `material`, `materialName`, `fitted`, `slots`, `position` |
+| `WEAPON_STRIPPED` | `actions.strip_weapon` | `npc`, `weapon`, `removed`, `slots`, `position` |
+| `STONE_SOCKETED` / `STONE_UNSOCKETED` | `actions` | `npc`, `weapon`, `stone`, `stoneName`, `note`, `position` |
+| `STONE_FOUND` | `LootSystem`, on pickup | `stone`, `name`, `tier`, `position`, `room_id` |
+| `FOOD_COOKED` | session, at a hearth | `npc`, `cooked` (both bags' worth), `position` |
 
 ## Twin events
 
 | `type` | Emitted by | Data |
 |---|---|---|
 | `TWIN_ACTION` | `TwinExecutor.on_intent` when the intent type or target changes | `intent`, `target`, `position`, `confidence`, `utilities`, `reason`, `twin_position` |
-| `TWIN_OUTCOME` | when that intent ends (change or 4 s timeout) | `intent`, `target`, `success`, `damage_dealt`, `damage_taken`, `kills`, `duration`, `end_reason` |
+| `TWIN_OUTCOME` | when that intent ends (change or 4 s timeout) | `intent`, `target`, `success`, `damage_dealt`, `damage_taken`, `kills`, `duration`, `end_reason`, `health_fraction`, `potions` |
 | `TWIN_ATTACKED` | `combat.process_twin_attack` | `target`, `weapon`, `tags`, `hitCount`, `distance` |
-| `TWIN_DAMAGED` / `TWIN_DOWNED` / `TWIN_REVIVED` | combat / session | `attacker`, `damage`, `remaining`, `intent` |
+| `TWIN_DAMAGED` / `TWIN_DOWNED` / `TWIN_REVIVED` | combat / session | `attacker`, `damage`, `remaining`, `intent`; `TWIN_DOWNED` also carries **`potions`**, which is what lets the style model tell a timing mistake (went down holding one) from a supply mistake (went down with none) |
+| `TWIN_ITEM_USE_STARTED` | `TwinExecutor._begin_use` | `actor`, `item`, `duration`, `position` |
+| `TWIN_ITEM_USED` | `TwinExecutor._resolve_use`, when the timer runs out | `actor`, `item`, `healed`, `fed`, `health`, `hunger`, `position`. **Deliberately a different type from the player's `ITEM_USED`**, so the style model's imitation channel can never be fed the twin's own behaviour back as the player's. |
+| `TWIN_PURCHASE` | `TwinExecutor._buy` | `actor`, `npc`, `item`, `price`, `gold`, `held`, `position` |
 
 ## Boss events
 

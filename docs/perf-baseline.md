@@ -94,8 +94,6 @@ and against a map four times the size. The steady-state snapshot is ~11 KB at 20
 
 ## What this says about the expansion
 
-
-
 **There is ample tick headroom, once the per-tick scans are bucketed.** A real fight in a
 full region costs under 2.6% of the frame. What did not scale was never the arithmetic — it
 was doing it over every prop in the room. Measure again after Phase 4 adds dungeon
@@ -109,3 +107,26 @@ low hundreds of KB. That is acceptable **once, on a transition**, and unacceptab
 
 **The max spikes are the navigator's grid build**, confirmed by profile: one frame per room
 per actor radius, at a transition. Still the only measured thing above budget.
+
+## A warning about this machine (added during v1.2)
+
+**Run-to-run variance here is up to ±2.4×, on identical code.** Mid-expansion the server suite
+appeared to triple in wall time — 34s to 105s — which looked exactly like a real regression in a
+hot path. A cProfile pass found nothing (the suspected function was 1.8% of total), so the next
+step was a proper A/B: three commits, three runs each, stashing the working tree between. The
+*same commit* swung 2.4×. There was no regression.
+
+Two things follow, and both are load-bearing for anyone reading a number in this file:
+
+1. **A cross-commit comparison needs a same-session baseline.** Measuring HEAD today against a
+   figure recorded last week says nothing. Check the old commit out and measure it again, in the
+   same session, interleaved.
+2. **Profile before believing a wall-clock delta.** The cheap explanation for "it got slower" was
+   available and wrong, and the only reason it did not become a day of optimising a function that
+   costs 1.8% was that the profile was run first.
+
+The per-tick figures above are averages over thousands of ticks and are much steadier than a suite
+run, but they were taken on the same machine and carry the same caveat. v1.2 did not re-measure
+them: the features it added (veins as decor, two more regions, five animal archetypes, a hunger
+float per entity) are all inside the shapes already measured here, and a new table of numbers that
+cannot be compared to the old one would be worse than none.
