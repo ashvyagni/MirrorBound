@@ -26,7 +26,7 @@ export function useHotkeys(): void {
       // it; nothing else may act on that press.
       if (getUiState().rebinding) return;
 
-      const { screen, snapshot, nearbyNpc } = getUiState();
+      const { screen, snapshot, nearbyNpc, nearbyVein } = getUiState();
       const inMenu = screen !== 'none';
 
       // Escape is reserved and never rebindable: it is the way out of any
@@ -120,10 +120,17 @@ export function useHotkeys(): void {
           if (!inMenu) command({ action: 'SWAP_WEAPON' });
           break;
         case 'interact':
-          // Talk to whoever you are standing next to.
-          if (!inMenu && nearbyNpc) {
+          // Talk to whoever you are standing next to, or work whatever vein you
+          // are standing at. A person wins: the prompt puts people first for the
+          // same reason, and a boulder that swallowed the key beside a vendor
+          // would be the kind of bug nobody reports precisely.
+          if (inMenu) break;
+          if (nearbyNpc) {
             e.preventDefault();
             command({ action: 'TALK', npcId: nearbyNpc.id });
+          } else if (nearbyVein) {
+            e.preventDefault();
+            command({ action: 'MINE', veinId: nearbyVein });
           }
           break;
         default:

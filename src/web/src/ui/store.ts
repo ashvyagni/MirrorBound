@@ -58,6 +58,16 @@ export interface UiState {
   npcs: NpcSnap[];
   /** The NPC you are standing next to, if any: what the interact prompt names. */
   nearbyNpc: NpcSnap | null;
+  /**
+   * The id of the vein you are standing at, if any.
+   *
+   * Beside `nearbyNpc` and resolved the same way, from the authoritative
+   * positions rather than tracked, because the interact key has to know what it
+   * would be working before the player presses it. The id is what the MINE
+   * command carries -- the server resolves the nearest vein in reach itself and
+   * refuses a mismatch, so this is a claim rather than an instruction.
+   */
+  nearbyVein: string | null;
   conversation: Conversation | null;
   /** Set once, before the campaign starts, so the opening asks who you are. */
   namePrompt: 'player' | 'twin' | null;
@@ -88,6 +98,7 @@ let state: UiState = {
   campaign: null,
   npcs: [],
   nearbyNpc: null,
+  nearbyVein: null,
   conversation: null,
   namePrompt: null,
   rebinding: null,
@@ -103,6 +114,31 @@ function set(patch: Partial<UiState>): void {
 
 export function setAppView(view: 'landing' | 'auth' | 'game'): void {
   set({ appView: view });
+}
+
+/**
+ * The nearest vein within reach, or null.
+ *
+ * Nearest rather than first: two veins can sit close enough together that both
+ * are in reach, and list order would offer the further one. `remaining` is read
+ * off the snapshot and the position off the room payload, because only the first
+ * of those changes -- a vein emptied this tick stops being offered on the next.
+ */
+function nearestVein(snap: GameSnapshot, room: RoomFull | null): string | null {
+  if (!room?.veins?.length) return null;
+  const me = snap.player.position;
+  const left = new Map((snap.veins ?? []).map((v) => [v.id, v.remaining]));
+  let best: string | null = null;
+  let closest = Infinity;
+  for (const vein of room.veins) {
+    if ((left.get(vein.id) ?? vein.remaining) <= 0) continue;
+    const distance = Math.hypot(vein.x - me.x, vein.y - me.y);
+    if (distance < vein.radius + snap.player.radius + 26 && distance < closest) {
+      closest = distance;
+      best = vein.id;
+    }
+  }
+  return best;
 }
 
 export function getUiState(): UiState {
@@ -302,6 +338,8 @@ eventBus.on('game:snapshot', (snap) => {
     if (speaker) eventBus.emit('hud:speaker', { at: speaker.position });
   }
   if (near !== state.nearbyNpc) patch.nearbyNpc = near;
+  const vein = nearestVein(snap, interactions.room);
+  if (vein !== state.nearbyVein) patch.nearbyVein = vein;
   // The HUD does not need every one of the 20 snapshots a second; 10 is plenty
   // and halves React work. Detail snapshots always go through.
   const now = performance.now();

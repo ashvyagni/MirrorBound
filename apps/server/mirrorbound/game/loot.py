@@ -15,6 +15,9 @@ from mirrorbound.game.state import GameState
 # its weapon scoring unreachable through play (see TwinV0Controller._preferred_weapon).
 # The "already owned" filter below is what stops it dropping pointlessly.
 WEAPON_DROPS = ("iron_sword", "hunter_bow", "ember_staff", "frost_staff")
+
+#: How many meals a beast is worth. Size, roughly -- a cow is three sheep.
+MEAT_PER_BEAST: dict[str, int] = {"cow": 3, "sheep": 1}
 RELIC_DROPS = ("ember_heart", "wolf_fang", "mirror_eye")
 
 
@@ -30,6 +33,16 @@ class LootSystem:
         def scatter() -> Vec2:
             angle = self.rng.next_float() * 6.28318
             return Vec2.from_angle(angle, 90 + self.rng.next_float() * 80)
+
+        if enemy.enemy_def.livestock:
+            # Meat, and nothing else. A cow carries no essence, no gold and no
+            # chance of a relic: essence is what a creature of the Reach leaves
+            # behind and a cow is not one of those. Its loot table is all zeroes
+            # for the same reason, so this returns early rather than rolling a
+            # row of nothings.
+            for _ in range(MEAT_PER_BEAST.get(enemy.enemy_def.id, 1)):
+                drops.append(state.spawn_pickup("raw_meat", pos, scatter=scatter()))
+            return drops
 
         essence = self.rng.randint(table.essence_min, table.essence_max)
         if essence > 0:

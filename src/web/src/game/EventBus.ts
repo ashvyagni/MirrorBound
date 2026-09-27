@@ -14,6 +14,7 @@ import type { Conversation } from './hud/DialogueScreen';
 import type { MapView } from './hud/Minimap';
 import type { NoticeKind } from './hud/Notifications';
 import type { PauseStats as PauseSnapshot } from './hud/PauseScreen';
+import type { PromptTarget } from './hud/InteractPrompt';
 import type { LoadoutSnapshot } from './state/Loadout';
 import type { VitalsSnapshot } from './state/Vitals';
 import type { Run as RunSnapshot } from './world/Run';
@@ -191,7 +192,7 @@ export interface GameEventMap {
   /** What the pause screen shows. Pushed when it opens. */
   'pause:stats': PauseSnapshot;
   /** What the goat is standing next to, or null. Drives the prompt. */
-  'interact:target': { label: string; x: number; y: number; action?: 'walk' | 'collect' } | null;
+  'interact:target': PromptTarget | null;
   /** Toggle physics body overlays. */
   'debug:toggle-bodies': { enabled: boolean };
 }

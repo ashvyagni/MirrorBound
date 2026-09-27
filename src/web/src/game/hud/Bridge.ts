@@ -145,8 +145,14 @@ export class Bridge {
     // and losing it is a change -- without that the bars would appear only on
     // the next time the player took damage.
     const t = snap.twin.dormant ? null : snap.twin;
+    // Hunger is rounded into the key rather than compared exactly: it moves by
+    // fractions on every step the player takes, so the raw value would make this
+    // guard fire twenty times a second and the whole point of it is that it does
+    // not. A whole point of hunger is the smallest change worth redrawing for.
+    const hunger = p.hunger;
     const key = `${p.health}/${p.maxHealth}/${p.mana}/${p.maxMana}/${p.level}/${p.xp}/${p.xpToNext}`
-      + `/${t ? `${t.health}/${t.maxHealth}/${t.mana}/${t.maxMana}` : 'none'}`;
+      + `/${t ? `${t.health}/${t.maxHealth}/${t.mana}/${t.maxMana}` : 'none'}`
+      + `/${hunger ? `${Math.round(hunger.value)}/${hunger.band}/${hunger.frozen}` : 'none'}`;
     if (key === this.#vitals) return;
     this.#vitals = key;
     eventBus.emit('vitals:changed', {
@@ -156,6 +162,7 @@ export class Bridge {
       // fraction is a plain division rather than one minus anything.
       levelProgress: p.xpToNext > 0 ? Math.min(1, Math.max(0, p.xp / p.xpToNext)) : 0,
       twin: t ? { health: t.health, maxHealth: t.maxHealth, mana: t.mana, maxMana: t.maxMana } : null,
+      hunger,
     });
   }
 
@@ -263,7 +270,8 @@ export class Bridge {
     const near = (p: Vec2, reach: number) =>
       Math.hypot(p.x - me.x, p.y - me.y) < reach;
 
-    let best: { label: string; x: number; y: number; action?: 'walk' | 'collect' } | null = null;
+    let best: { label: string; x: number; y: number; action?: 'walk' | 'collect' | 'mine';
+                veinId?: string } | null = null;
     const npc = this.#interactions.update(snap);
     if (npc) {
       best = { label: npc.name, x: npc.position.x, y: npc.position.y };
@@ -299,6 +307,27 @@ export class Bridge {
         if (near(pickup.position, 44)) {
           best = { action: 'collect', label: pickup.kind.replace(/_/g, ' '), x: pickup.position.x, y: pickup.position.y };
           break;
+        }
+      }
+    }
+    // Ore, last, so a vein never hides a person or a way out. The nearest
+    // workable one -- two veins can sit close enough that both are in reach, and
+    // taking the first in the list would offer the further of the two.
+    //
+    // `remaining` comes off the snapshot and the position off the room payload,
+    // because only the first of those moves. A vein worked out this tick stops
+    // being offered on the next one.
+    if (!best && this.#interactions.room) {
+      const left = new Map(snap.veins?.map((v) => [v.id, v.remaining]) ?? []);
+      let closest = Infinity;
+      for (const vein of this.#interactions.room.veins ?? []) {
+        if ((left.get(vein.id) ?? vein.remaining) <= 0) continue;
+        const reach = vein.radius + snap.player.radius + 26;
+        const distance = Math.hypot(vein.x - me.x, vein.y - me.y);
+        if (distance < reach && distance < closest) {
+          closest = distance;
+          best = { action: 'mine', label: vein.material.replace(/_/g, ' '),
+                   x: vein.x, y: vein.y, veinId: vein.id };
         }
       }
     }

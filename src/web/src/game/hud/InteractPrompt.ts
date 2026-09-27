@@ -37,13 +37,30 @@ const TARGET_HEIGHT = 68;
 /** Clear air between the top of the target and the bottom of the bubble. */
 const HEAD_ROOM = 12;
 
+/**
+ * What the prompt is pointing at.
+ *
+ * One shape, declared here and imported by the bus, so the thing that draws the
+ * prompt and the thing that computes it cannot disagree about what an action is.
+ * `veinId` rides along for `mine`, because the MINE command names the vein it
+ * means and the server refuses a mismatch rather than quietly working a
+ * different rock.
+ */
+export interface PromptTarget {
+  label: string;
+  x: number;
+  y: number;
+  action?: 'walk' | 'collect' | 'mine';
+  veinId?: string;
+}
+
 export class InteractPrompt {
   #plate!: Phaser.GameObjects.Image;
   #cap!: Phaser.GameObjects.Text;
   #label!: Phaser.GameObjects.Text;
   #group!: Phaser.GameObjects.Container;
   #texts: Phaser.GameObjects.Text[] = [];
-  #target: { label: string; x: number; y: number; action?: 'walk' | 'collect' } | null = null;
+  #target: PromptTarget | null = null;
   /** True while a conversation owns the space over the target's head. */
   #suppressed = false;
 
@@ -76,7 +93,7 @@ export class InteractPrompt {
     return t;
   }
 
-  set(target: { label: string; x: number; y: number; action?: 'walk' | 'collect' } | null): void {
+  set(target: PromptTarget | null): void {
     this.#target = target;
     if (!target || this.#suppressed) {
       this.#group.setVisible(false);
@@ -84,7 +101,14 @@ export class InteractPrompt {
     }
 
     const key = keyName(keybinds.get('interact').primary);
-    this.#cap.setText(target.action === 'walk' ? 'WALK INTO' : target.action === 'collect' ? 'WALK OVER' : key.toUpperCase());
+    this.#cap.setText(
+      target.action === 'walk' ? 'WALK INTO'
+        : target.action === 'collect' ? 'WALK OVER'
+          // Mining needs the key named, because unlike a pickup it does not
+          // happen by standing there -- and unlike a conversation it happens
+          // once per press, so the player has to know there is a press to make.
+          : target.action === 'mine' ? `${key.toUpperCase()} TO MINE`
+            : key.toUpperCase());
     this.#label.setText(target.label.toUpperCase());
 
     // Laid out from the two texts' measured widths, so a short key and a long

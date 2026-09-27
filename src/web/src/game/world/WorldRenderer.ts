@@ -19,6 +19,25 @@ import type { Quality } from '../../ui/settings';
 import { T, TextureFactory } from './TextureFactory';
 
 const SWAY_KINDS = new Set(['grass_tuft', 'flowers', 'bush', 'mushrooms']);
+
+/**
+ * What each ore looks like in the rock.
+ *
+ * Read against the grey `rockBig` frame, so these are the metal's own colour
+ * rather than a UI hue -- iron rusty, gold warm, mithril almost white, coal near
+ * black. A material with no entry draws as plain stone, which is a boulder, which
+ * is fine.
+ */
+const ORE_TINT: Readonly<Record<string, number>> = {
+  coal: 0x4a4a52,
+  iron: 0xa8714a,
+  gold: 0xe0b34a,
+  silver: 0xd6dde4,
+  obsidian: 0x3a3450,
+  mithril: 0xeaf2f8,
+  diamond: 0xa8e8f0,
+  adamantine: 0x8f6fc4,
+};
 const TREE_KINDS = new Set(['tree', 'tree_big']);
 
 /** Lying on the floor already; a flat thing casts nothing worth drawing. */
@@ -59,6 +78,10 @@ export class WorldRenderer {
   #doorSprites = new Map<string, Phaser.GameObjects.Image>();
   #doorGlows = new Map<string, Phaser.GameObjects.Image>();
   #switchMarks = new Map<string, Phaser.GameObjects.Image>();
+  /** The boulder drawn for each vein, so working one can be shown on it. */
+  #veinRocks = new Map<string, Phaser.GameObjects.Image>();
+  /** How much was left in each vein last frame, to notice a swing landing. */
+  #veinLeft = new Map<string, number>();
   #emitters: Phaser.GameObjects.Particles.ParticleEmitter[] = [];
   room: RoomFull | null = null;
   torches: TorchLight[] = [];
@@ -236,6 +259,11 @@ export class WorldRenderer {
         : this.scene.add.image(d.x, d.y, art.texture, art.frame))
         .setOrigin(0.5, 1).setFlipX(d.flip);
       if (chest) this.#chests.push(img as Phaser.GameObjects.Sprite);
+      // An ore vein is a boulder with the metal showing in it. The rock frame is
+      // grey, so the material *is* the tint -- which is the whole reason five
+      // ores cost no art: §35 asks for composition first, and a seam of iron seen
+      // from above is a rock with a colour.
+      if (d.kind === 'vein') this.#dressVein(img, d, room);
       WorldRenderer.#fit(img, art.height, d.scale);
       img.setDepth(DEPTH.entityBase + d.y * 0.01);
       this.#objects.push(img);
@@ -437,6 +465,8 @@ export class WorldRenderer {
    */
   #buildSwitches(room: RoomFull): void {
     this.#switchMarks.clear();
+    this.#veinRocks.clear();
+    this.#veinLeft.clear();
     for (const plate of room.switches ?? []) {
       const ring = this.scene.add.image(plate.x, plate.y, 'fx:ring')
         .setDepth(DEPTH.floorDecal + 3)
@@ -451,6 +481,49 @@ export class WorldRenderer {
           duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
         }));
       }
+    }
+  }
+
+  /**
+   * Colour a vein's boulder by what is in it, and pair it with its record.
+   *
+   * Matched by position rather than by id, because the decor list and the vein
+   * list are two views of the same placement and only the second carries an id.
+   * A vein with no record is drawn as a plain rock, which is the right failure:
+   * it is still a boulder.
+   */
+  #dressVein(img: Phaser.GameObjects.Image, d: DecorSnap, room: RoomFull): void {
+    const record = (room.veins ?? []).find(
+      (v) => Math.abs(v.x - d.x) < 1 && Math.abs(v.y - d.y) < 1);
+    if (!record) return;
+    img.setTint(ORE_TINT[record.material] ?? 0xb9b2a8);
+    this.#veinRocks.set(record.id, img);
+    this.#veinLeft.set(record.id, record.remaining);
+    if (record.remaining <= 0) img.setAlpha(0.55).clearTint();
+  }
+
+  /**
+   * What is left in each vein, from the snapshot.
+   *
+   * A vein that has just been worked flinches, and one that is spent loses its
+   * colour and goes half-transparent -- it stays in the room rather than
+   * vanishing, so the player can see it is finished instead of wondering where
+   * the rock went.
+   */
+  updateVeins(veins: ReadonlyArray<{ id: string; remaining: number }>): void {
+    for (const vein of veins) {
+      const rock = this.#veinRocks.get(vein.id);
+      if (!rock) continue;
+      const before = this.#veinLeft.get(vein.id);
+      if (before === vein.remaining) continue;
+      this.#veinLeft.set(vein.id, vein.remaining);
+      if (before !== undefined && vein.remaining < before) {
+        this.scene.tweens.add({
+          targets: rock, scaleY: rock.scaleY * 0.9, duration: 90, yoyo: true,
+          ease: 'Quad.easeOut',
+        });
+      }
+      if (vein.remaining <= 0) rock.clearTint().setAlpha(0.55);
     }
   }
 
@@ -604,6 +677,8 @@ export class WorldRenderer {
     this.#objects = [];
     this.people = [];
     this.#switchMarks.clear();
+    this.#veinRocks.clear();
+    this.#veinLeft.clear();
     this.#doorSprites.clear();
     this.#doorGlows.clear();
     this.room = null;

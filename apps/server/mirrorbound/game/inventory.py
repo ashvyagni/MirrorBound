@@ -22,7 +22,25 @@ from mirrorbound.game.progression.stones import (
 CONSUMABLES: dict[str, dict] = {
     "health_potion": {"name": "Health Potion", "heal": 40, "description": "Restores 40 health.", "rarity": "common", "price": 35},
     "mana_potion": {"name": "Mana Potion", "mana": 35, "description": "Restores 35 mana.", "rarity": "common", "price": 30},
+    # Food. `nourish` fills the hunger bar and nothing else -- deliberately no
+    # `heal` on any of it. Food that heals is a cheap potion, and the moment it
+    # is a cheap potion the apothecary has nothing to sell and the whole gold
+    # economy the v1.1 bench was priced against goes with it. Eating answers
+    # hunger; drinking answers damage.
+    "raw_meat": {"name": "Raw Meat", "nourish": 14, "rarity": "common", "price": 6,
+                 "description": "Edible. Barely. Worth far more cooked."},
+    "cooked_meat": {"name": "Cooked Meat", "nourish": 48, "rarity": "common", "price": 24,
+                    "description": "A proper meal. Cook it at any hearth."},
+    "bread": {"name": "Trail Bread", "nourish": 28, "rarity": "common", "price": 14,
+              "description": "Keeps for weeks and tastes like it."},
 }
+
+#: What a hearth turns into what, when you sit down at one.
+COOKS_INTO: dict[str, str] = {"raw_meat": "cooked_meat"}
+
+#: Everything that goes in a mouth for hunger rather than for health.
+FOODS: frozenset[str] = frozenset(
+    item for item, spec in CONSUMABLES.items() if spec.get("nourish"))
 
 RESOURCES: dict[str, dict] = {
     "essence": {"name": "Essence", "description": "Raw life force. Dropped by every enemy; fuels relic crafting later.", "rarity": "common"},

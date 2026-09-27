@@ -71,8 +71,13 @@ def test_scaling_never_touches_what_the_player_has_learned_to_read(area_id):
 
 def test_every_creature_announces_its_basic_attack():
     """The floor under all of it: a hit you could not have seen coming is not
-    difficulty, and §21 wants telegraphs to be the vocabulary of the fight."""
+    difficulty, and §21 wants telegraphs to be the vocabulary of the fight.
+
+    Keyed off whether the creature *has* an attack rather than off a list of
+    names, so the practice dummy and the v1.2 livestock are both covered by the
+    same sentence: nothing that deals no damage owes anyone a wind-up.
+    """
     for enemy_id, enemy in ARCHETYPES.items():
-        if enemy_id == "dummy":
-            continue          # a post with straw on it; it never attacks
+        if enemy.damage <= 0:
+            continue
         assert enemy.attack_windup > 0, enemy_id

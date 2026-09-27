@@ -71,6 +71,10 @@ const ART: Readonly<Record<string, Art>> = {
   rock: { texture: STONE_TEXTURE_KEY, stem: 'rock', variants: 3, height: 30 },
   rock_big: { texture: STONE_TEXTURE_KEY, stem: 'rockBig', variants: 2, height: 50 },
   rubble: { texture: STONE_TEXTURE_KEY, stem: 'rubble', variants: 3, height: 22 },
+  // An ore vein is a boulder. §35 wants composition before new art, and seen
+  // from above that is exactly what one is -- `WorldRenderer` tints it by the
+  // material the room's `veins` list says is in it.
+  vein: { texture: STONE_TEXTURE_KEY, stem: 'rockBig', variants: 2, height: 50 },
 
   // Ruins.
   pillar: { texture: RUINS_TEXTURE_KEY, stem: 'pillar', variants: 2, height: 118 },

@@ -59,6 +59,14 @@ class BasicEnemyController:
             if enemy.threat[key] < 0.5:
                 del enemy.threat[key]
 
+        # Livestock leaves the state machine here. A grazing animal has no
+        # target, no threat table and no attack, and running it through the
+        # chase/attack path would mean giving a sheep answers to questions it
+        # never asks -- so it gets four lines of its own instead.
+        if enemy.enemy_def.behavior is EnemyBehavior.GRAZE:
+            self._graze(dt, enemy, state)
+            return
+
         target = self._choose_target(enemy, state)
         enemy.target_id = target.id if target else None
 
@@ -91,6 +99,35 @@ class BasicEnemyController:
             self._reposition(dt, enemy, target, dist, state)
         elif enemy.state is EnemyState.RETREAT:
             self._retreat(enemy, target, dist)
+
+    # --- livestock -----------------------------------------------------------
+
+    def _graze(self, dt: float, enemy: Enemy, state: GameState) -> None:
+        """Wander the patch, and bolt once when something hits you.
+
+        `hits_taken` rather than health: a cow that has been hit once should run,
+        not wait until it is nearly dead. And once it is running it keeps running
+        -- there is no version of this animal that decides the danger has passed
+        and goes back to the grass, because the only thing that hits it is a
+        player who is still standing there.
+        """
+        enemy.target_id = None
+        if enemy.hits_taken <= 0:
+            self._idle_or_wander(dt, enemy, state)
+            return
+
+        enemy.set_state(EnemyState.RETREAT)
+        threats = [state.player]
+        if state.twin.available:
+            threats.append(state.twin)
+        nearest = min(threats, key=enemy.distance_to)
+        away = (enemy.position - nearest.position)
+        if away.is_zero():
+            away = Vec2(1, 0)
+        # Flat out. A panicking animal is faster than a grazing one, and being
+        # slower than the player would make this a formality rather than a chase.
+        enemy.velocity = away.normalized() * (enemy.speed * 1.35)
+        enemy.face(away)
 
     # --- targeting -----------------------------------------------------------
 

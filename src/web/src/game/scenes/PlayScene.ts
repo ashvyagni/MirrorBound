@@ -253,6 +253,10 @@ export class PlayScene extends Phaser.Scene {
       this.#room.doors = snap.room.doors;
       this.#world.updateDoors(snap.room.doors);
     }
+    // Veins every tick, from the snapshot rather than the room payload: their
+    // positions never move and only what is *left* in them does, so a lite
+    // snapshot still carries everything the boulder needs to know.
+    if (snap.veins?.length) this.#world.updateVeins(snap.veins);
 
     if (!this.#player) {
       this.#player = new PlayerView(this, snap.player.position);

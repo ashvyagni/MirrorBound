@@ -13,7 +13,8 @@ from mirrorbound.game.entities.entity import Entity, Vec2
 #: `key` and `stone` are handled by `LootSystem._apply` like the rest; a key is a
 #: fact about the dungeon you are in rather than an inventory item, and a stone is
 #: the rarest thing in the game.
-PICKUP_KINDS = ("essence", "shards", "gold", "health_potion", "mana_potion", "weapon", "relic",
+PICKUP_KINDS = ("essence", "shards", "gold", "health_potion", "mana_potion",
+                "raw_meat", "cooked_meat", "bread", "weapon", "relic",
                 "key", "stone", "mirror_shard")
 
 

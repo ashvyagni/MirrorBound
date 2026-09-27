@@ -74,16 +74,18 @@ describe('interaction snapshots', () => {
       label: 'Oren the Smith', ...smithOf(snap).position,
     });
     const far = lite(snap);
-    // Twenty units further along the line the player already stands on, away
-    // from the smith. A fixed nudge in x assumed the two were side by side,
-    // which stopped being true once the village had an authored layout.
+    // Straight away from the smith, and *well* clear of the talk radius rather
+    // than twenty units past wherever the recording happened to put the player.
+    // The twenty-unit nudge worked only while the fixture stood the player right
+    // on the edge, so regenerating the recording broke a test about the boundary
+    // by moving the player away from it.
     const smith = smithOf(snap).position;
     const dx = far.player.position.x - smith.x;
     const dy = far.player.position.y - smith.y;
     const away = Math.hypot(dx, dy) || 1;
     far.player.position = {
-      x: far.player.position.x + (dx / away) * 20,
-      y: far.player.position.y + (dy / away) * 20,
+      x: smith.x + (dx / away) * 600,
+      y: smith.y + (dy / away) * 600,
     };
     eventBus.emit('game:snapshot', far);
     expect(targets).toHaveBeenLastCalledWith(null);

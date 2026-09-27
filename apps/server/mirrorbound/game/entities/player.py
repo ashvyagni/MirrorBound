@@ -11,6 +11,7 @@ from mirrorbound.game.inventory import Inventory
 from mirrorbound.game.progression.attributes import (
     Attributes, AttributeBonuses, POINTS_PER_LEVEL, bonuses_for,
 )
+from mirrorbound.game.progression.survival import MAX_HUNGER, Hunger
 from mirrorbound.game.progression.progression import MAX_LEVEL, level_up_rewards, xp_to_next
 from mirrorbound.game.progression.skills import StatModifiers, modifiers_for
 
@@ -75,6 +76,8 @@ class Player(Entity):
     #: the ground -- and because the tree's deep tiers are gated on these. See
     #: `progression/attributes.py`.
     attributes: Attributes = field(default_factory=Attributes)
+    #: How long since you last ate. See `progression/survival.py`.
+    hunger: Hunger = field(default_factory=Hunger)
 
     # Potion drinking. `finished_drink` is set for exactly one tick when a drink
     # completes; the session reads it and is the only thing that consumes the
@@ -154,11 +157,16 @@ class Player(Entity):
 
     @property
     def speed(self) -> float:
-        return self.base_speed * self.mods.speed_mult * self.slow_factor
+        return self.base_speed * self.pace * self.slow_factor
 
     @property
     def run_speed(self) -> float:
-        return self.base_run_speed * self.mods.speed_mult * self.slow_factor
+        return self.base_run_speed * self.pace * self.slow_factor
+
+    @property
+    def pace(self) -> float:
+        """Every multiplier on how fast the legs go, folded once."""
+        return self.mods.speed_mult + self.hunger.speed_mult
 
     @property
     def mana_regen(self) -> float:
@@ -193,11 +201,22 @@ class Player(Entity):
                 + self.inventory.relic_bonus("weapon_damage_mult")
                 + UPGRADE_DAMAGE[tier]
                 + self.attribute_bonuses.weapon_damage_mult
-                + self.forge.damage_mult)
+                + self.forge.damage_mult
+                + self.hunger.damage_mult)
 
     def spell_damage_multiplier(self) -> float:
         return (self.mods.spell_damage_mult + self.inventory.relic_bonus("spell_damage_mult")
                 + self.attribute_bonuses.spell_damage_mult + self.socket.spell_damage_mult)
+
+    def damage_taken_multiplier(self) -> float:
+        """How much of an incoming hit actually lands, before mitigation.
+
+        Iron Skin takes damage off; being hungry puts it back on. Floored well
+        above zero so no combination of the two can make the player immune --
+        `mitigation.py` makes the same argument about its own stack, for the same
+        reason.
+        """
+        return max(0.25, self.mods.damage_taken_mult + self.hunger.damage_taken_mult)
 
     def crit_chance_bonus(self) -> float:
         return (self.mods.crit_chance_bonus + self.attribute_bonuses.crit_chance
@@ -471,6 +490,9 @@ class Player(Entity):
             return False, "health full"
         if spec.get("mana") and self.mana >= self.max_mana:
             return False, "mana full"
+        # And eating when full is a wasted meal for the same reason.
+        if spec.get("nourish") and self.hunger.value >= MAX_HUNGER:
+            return False, "not hungry"
         return True, "ok"
 
     def begin_drink(self, item_id: str) -> None:
@@ -524,6 +546,7 @@ class Player(Entity):
         speed = max(0.2, speed)
         self.attack_cooldown = (weapon.cooldown * speed
                                 * (1.25 if self.combo_step == len(chain) and len(chain) > 1 else 1.0))
+        self.hunger.acted(self.attribute_bonuses.hunger_resist)
         self.set_state("attack")
         return multiplier
 
@@ -595,6 +618,7 @@ class Player(Entity):
 
     def start_ability(self, ability: AbilityDef) -> None:
         self.mana -= self.mana_cost_for(ability)
+        self.hunger.acted(self.attribute_bonuses.hunger_resist)
         if ability.type.value == "dash":
             # Doublestep (MOBILITY 4): the extra dashes go before the cooldown
             # starts, so the pair is one movement rather than two with a wait in
@@ -621,7 +645,7 @@ class Player(Entity):
         """Damage with skill mitigation; enters the hurt state when it lands."""
         if self.state == "dead":
             return 0.0
-        mitigated = amount * self.mods.damage_taken_mult
+        mitigated = amount * self.damage_taken_multiplier()
         actual = self.take_damage(mitigated)
         if actual > 0 and self.health > 0:
             self.set_state("hurt")
@@ -804,6 +828,7 @@ class Player(Entity):
             "channelling": self.channel_ability or None,
             "gold": self.inventory.gold,
             "respawnIn": round(max(0.0, self.respawn_timer), 1) if self.state == "dead" else 0,
+            "hunger": self.hunger.to_dict(),
         })
         if detail:
             from mirrorbound.game.progression.skills import tree_to_dict
@@ -821,7 +846,7 @@ class Player(Entity):
                     "weaponDamageMult": round(self.weapon_damage_multiplier(), 2),
                     "spellDamageMult": round(self.spell_damage_multiplier(), 2),
                     "critChance": round(self.weapon.crit_chance + self.crit_chance_bonus(), 2),
-                    "damageTakenMult": round(self.mods.damage_taken_mult, 2),
+                    "damageTakenMult": round(self.damage_taken_multiplier(), 2),
                     "manaRegen": round(self.mana_regen, 1),
                     # What the forge did to the weapon in hand, so the stats
                     # panel can show the trade the player made rather than only

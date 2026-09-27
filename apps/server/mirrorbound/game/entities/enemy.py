@@ -20,6 +20,13 @@ class EnemyBehavior(Enum):
     DART = "dart"                    # fast: rush in, bite, dart out, repeat
     TANK = "tank"                    # slow, heavy, hard to knock back
     MIRROR = "mirror"                # boss: uses the player's behaviour model
+    #: Livestock. Wanders its patch, never attacks anything, and runs when hurt.
+    #:
+    #: A behaviour of its own rather than a CHARGE with zero damage, because a
+    #: grazing animal should never enter the chase-attack machinery at all -- the
+    #: v1.1 threat table, the wind-up telegraph and the low-health retreat are all
+    #: answers to questions a sheep does not ask.
+    GRAZE = "graze"
 
 
 class EnemyState(Enum):
@@ -107,6 +114,21 @@ class EnemyDef:
     elite: bool = False
     boss: bool = False
     role: str = "melee"                # melee | ranged | fast | tank | boss (client + twin read this)
+    #: A resting colour for the sprite, as 0xRRGGBB, or 0 for the art as drawn.
+    #:
+    #: §35 wants composition before new assets, and the wild animals are the
+    #: clearest case for it in the whole expansion: the Gloom Hound is already a
+    #: four-legged sheet with idle, walk, attack and alert states in it, and a
+    #: tiger is that sheet at a different size in a different colour. The client
+    #: applies this where it would otherwise clear the tint, so the damage flash
+    #: and the wind-up telegraph still read correctly over the top.
+    tint: int = 0
+    #: True for something that is food rather than a fight.
+    #:
+    #: Read by the loot table (livestock drops meat and no essence) and by the
+    #: settlement placement (livestock stands in the fields, never on the green --
+    #: see the note in `region.py`).
+    livestock: bool = False
     # Set only by `armed_with`: the player weapon this creature is fighting
     # with. It changes no number here -- every stat the weapon dictates has
     # already been folded into the fields above -- and exists so the client can
@@ -137,6 +159,8 @@ class EnemyDef:
             "elite": self.elite,
             "boss": self.boss,
             "armour": round(self.armour, 2),
+            "tint": self.tint,
+            "livestock": self.livestock,
         }
 
 
@@ -347,6 +371,76 @@ SHARDLING = EnemyDef(
 )
 
 
+# --- the wild -----------------------------------------------------------------
+#
+# Livestock and predators, and the reason the overworld has something in it
+# besides things that want to kill you. All five are the Gloom Hound's sheet at
+# different sizes and colours: see `EnemyDef.tint`.
+#
+# Livestock carry no essence. Essence is what a creature of the Reach leaves
+# behind and a cow is not one of those -- it leaves meat, which is what the
+# hunger bar is fed with. Their XP is deliberately tiny: a player who levels by
+# farming sheep has found a way to skip the game.
+
+COW = EnemyDef(
+    # Slow, fat, and worth three meals. Standing still in a field is the whole
+    # of what it does until something hits it.
+    id="cow", name="Moorland Cow", health=70, damage=0, speed=54,
+    attack_range=0, aggro_range=0, attack_cooldown=99.0, attack_windup=0.0,
+    behavior=EnemyBehavior.GRAZE, size=20, xp_reward=3, sprite="hound",
+    tags=("BEAST", "PASSIVE"), knockback=40, knockback_resist=0.4,
+    loot=LootTable(0, 0, 0.0, 0.0, 0.0, gold_min=0, gold_max=0),
+    role="melee", tint=0xE8DCC8, livestock=True,
+)
+
+SHEEP = EnemyDef(
+    id="sheep", name="Fell Sheep", health=34, damage=0, speed=76,
+    attack_range=0, aggro_range=0, attack_cooldown=99.0, attack_windup=0.0,
+    behavior=EnemyBehavior.GRAZE, size=14, xp_reward=2, sprite="hound",
+    tags=("BEAST", "PASSIVE"), knockback=60,
+    loot=LootTable(0, 0, 0.0, 0.0, 0.0, gold_min=0, gold_max=0),
+    role="melee", tint=0xF2EFE6, livestock=True,
+)
+
+TIGER = EnemyDef(
+    # The wilderness answer to a player who has learned to fight skeletons. It
+    # notices you from much further away than anything else in the open, hits
+    # harder than a hound and does not dart out afterwards -- so the grassland is
+    # somewhere you can be caught rather than somewhere you cross.
+    id="tiger", name="Reach Tiger", health=96, damage=21, speed=196,
+    attack_range=52, aggro_range=420, attack_cooldown=1.5, attack_windup=0.45,
+    behavior=EnemyBehavior.CHARGE, size=20, xp_reward=52, sprite="hound",
+    tags=("BEAST", "MELEE", "FAST"), knockback=220, knockback_resist=0.25,
+    loot=LootTable(1, 2, 0.06, 0.16, 0.04, gold_min=2, gold_max=6),
+    role="fast", tint=0xE8913C,
+)
+
+LEOPARD = EnemyDef(
+    # The forest's version: lighter, faster, and it leaves between bites, so the
+    # trees are cover for it rather than for you.
+    id="leopard", name="Shadepelt", health=58, damage=15, speed=238,
+    attack_range=44, aggro_range=300, attack_cooldown=1.1, attack_windup=0.3,
+    behavior=EnemyBehavior.DART, size=16, xp_reward=40, sprite="hound",
+    tags=("BEAST", "MELEE", "FAST"), knockback=150,
+    loot=LootTable(1, 2, 0.05, 0.14, 0.04, gold_min=2, gold_max=5),
+    role="fast", tint=0xD8C070,
+)
+
+WINTER_WOLF = EnemyDef(
+    # The tundra's, and the only pack animal: three of them at once is the
+    # authored encounter, which is why each one alone is unremarkable.
+    id="winter_wolf", name="Winter Wolf", health=52, damage=13, speed=214,
+    attack_range=46, aggro_range=360, attack_cooldown=1.2, attack_windup=0.34,
+    behavior=EnemyBehavior.DART, size=15, xp_reward=36, sprite="hound",
+    tags=("BEAST", "MELEE", "FAST"), knockback=160,
+    loot=LootTable(1, 2, 0.05, 0.12, 0.04, gold_min=1, gold_max=4),
+    role="fast", tint=0xBFD4E8,
+)
+
+#: Everything that is food rather than a fight.
+LIVESTOCK: frozenset[str] = frozenset({COW.id, SHEEP.id})
+
+
 DUMMY = EnemyDef(
     # The practice dummy. Not a creature: a post with straw on it, spawned in
     # The Proving so a weapon can be measured instead of guessed at.
@@ -370,6 +464,7 @@ DUMMY = EnemyDef(
 ARCHETYPES: dict[str, EnemyDef] = {
     e.id: e for e in (SKELETON, ARCHER, HOUND, SLIME, ACOLYTE, BRUTE, SCARAB,
                       SPITTER, SPROUT, SHARDLING, DUMMY,
+                      COW, SHEEP, TIGER, LEOPARD, WINTER_WOLF,
                       WARDEN, THE_STONECOUNT, SHARDMOTHER, MIRROR)
 }
 
@@ -527,6 +622,8 @@ class Enemy(Entity):
             "targetId": self.target_id,
             "windingUp": self.is_winding_up,
             "windup": round(self.windup_timer, 2),
+            "tint": self.enemy_def.tint,
+            "livestock": self.enemy_def.livestock,
             "weapon": self.enemy_def.weapon_id or None,
         })
         return base

@@ -72,8 +72,17 @@ class MovementSystem:
             candidate = room.clamp(candidate, entity.radius)
             if not room.is_blocked(candidate, entity.radius - .001):
                 new_pos = candidate
+        walked = (new_pos - entity.position).length()
         if entity.id == state.player.id:
-            self._moved_since_sample += (new_pos - entity.position).length()
+            self._moved_since_sample += walked
+            # Hunger is charged against distance rather than seconds: see the
+            # argument in `progression/survival.py`. Here is where distance is
+            # actually known, which is why it is charged from the mover and not
+            # from a tick handler somewhere.
+            state.player.hunger.walked(
+                walked, state.player.attribute_bonuses.hunger_resist)
+        elif entity.id == state.twin.id:
+            state.twin.hunger.walked(walked)
         entity.position = new_pos
 
     def _separate(self, enemies: list[Enemy], state: GameState) -> None:

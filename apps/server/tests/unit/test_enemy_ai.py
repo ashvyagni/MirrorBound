@@ -124,11 +124,13 @@ def test_the_sprout_notices_you_far_later_than_anything_else():
     from mirrorbound.game.entities.enemy import ARCHETYPES
 
     sprout = ARCHETYPES["sprout"]
-    # The dummy is excluded because it is not a creature: it is a post with
-    # straw on it and it notices nothing at all, which would make this
-    # comparison meaningless rather than wrong.
+    # Compared against things that actually come for you. The practice dummy is a
+    # post with straw on it and the v1.2 livestock is food; both notice nothing at
+    # all, and including a zero would make this comparison meaningless rather than
+    # wrong. `aggro_range > 0` is the honest way to say "everything that hunts".
     others = [e.aggro_range for eid, e in ARCHETYPES.items()
-              if eid not in ("sprout", "dummy") and not e.boss and not eid.startswith("elite_")]
+              if eid != "sprout" and e.aggro_range > 0
+              and not e.boss and not eid.startswith("elite_")]
     assert sprout.aggro_range < min(others) / 1.5
 
 

@@ -107,6 +107,24 @@ LORE: dict[str, LoreEntry] = {e.id: e for e in (
               "wakewood has stopped keeping the other half."),
     ),
     LoreEntry(
+        "the_keeping", "The Keeping", section="people",
+        body=("Nobody has driven cattle east out of the Downs since the causeway went under. "
+              "Esk keeps the herd anyway -- two hundred head, fenced, counted, wintered -- and "
+              "will not say for whom. The oldest fence posts on that pasture are cut from kiln "
+              "brick, which does not grow on the Downs and was not carried there for a fence. "
+              "Somebody was driving something across that ground long before the water came, "
+              "and it was going the other way."),
+    ),
+    LoreEntry(
+        "the_white_metal", "The White Metal", section="regions",
+        body=("Every ingot of mithril the Kiln ever fired came off the Rimefell, up past the "
+              "last of the trees, and the fell is not getting any bigger. Brek has the workings "
+              "counted: eleven cuts, nine of them spent, and a tally on the wall of the last "
+              "one that stops mid-year. Whatever the Kiln was building, it was building it "
+              "faster at the end than the ground could feed it. Then the tally stops, and the "
+              "Kiln is still warm."),
+    ),
+    LoreEntry(
         "the_count", "The Stonecount", section="history",
         body=("The bridge east is named for its toll: one stone laid on the parapet per "
               "traveller, taken up again on the way back. Stones left standing were people who "
@@ -188,6 +206,32 @@ QUESTS: dict[str, QuestDef] = {q.id: q for q in (
         ),
         requires=("cleared_wakewood_crypt",),
         reward_gold=120, lore="the_flood",
+    ),
+    # v1.2, and the pair that make the optional country worth walking into. Both
+    # are about the same thing from two ends: what the Kiln was fed with, and what
+    # it cost the country that fed it.
+    QuestDef(
+        id="the_last_herd", name="The Last Herd", giver="drover_esk",
+        summary=("Esk keeps two hundred head on pasture with no market left to drive them to. "
+                 "Something off the high ground has started taking them, and she has stopped "
+                 "counting how many."),
+        steps=(
+            QuestStep("slay", "tiger", "Deal with what is coming down off the fell.", count=1),
+            QuestStep("gather", "raw_meat", "Bring Esk proof it was not a wolf.", count=2),
+            QuestStep("talk", "drover_esk", "Tell Esk what is hunting her herd."),
+        ),
+        reward_gold=85, lore="the_keeping",
+    ),
+    QuestDef(
+        id="what_the_fell_owes", name="What the Fell Owes", giver="warden_brek",
+        summary=("Brek has been counting what is left of the Rimefell for longer than he will "
+                 "say. He would like somebody else to see the workings before he stops."),
+        steps=(
+            QuestStep("reach", "rimefell", "Climb the Windgate onto the Rimefell."),
+            QuestStep("slay", "winter_wolf", "Get past what works the high ground.", count=3),
+            QuestStep("talk", "warden_brek", "Bring Brek his count."),
+        ),
+        reward_gold=130, lore="the_white_metal",
     ),
     QuestDef(
         id="ribs_and_ledgers", name="Ribs and Ledgers", giver="keeper_odd",

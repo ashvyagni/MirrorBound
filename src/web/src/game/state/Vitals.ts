@@ -6,6 +6,8 @@
  * now, and a second copy that ticks on its own is a second copy that disagrees
  * during the round trip. `hud/Bridge.ts` fills this straight off the snapshot.
  */
+import type { HungerSnap } from '../contracts';
+
 export interface VitalsSnapshot {
   health: number;
   maxHealth: number;
@@ -22,4 +24,13 @@ export interface VitalsSnapshot {
    * question the game has not raised yet.
    */
   twin: { health: number; maxHealth: number; mana: number; maxMana: number } | null;
+  /**
+   * How long since the player ate.
+   *
+   * Carried with the vitals rather than on a channel of its own: it is drawn in
+   * the same stack of troughs, by the same object, and a second event for it
+   * would mean the portrait could hold a hunger band from one tick beside a
+   * health value from another.
+   */
+  hunger?: HungerSnap;
 }

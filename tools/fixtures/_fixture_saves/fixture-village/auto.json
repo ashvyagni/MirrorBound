@@ -1,0 +1,202 @@
+{
+ "version": 4,
+ "sessionId": "fixture-village",
+ "name": "",
+ "savedAt": 1790500551.542953,
+ "summary": {
+  "area": "hollowreach_vale",
+  "level": 1,
+  "gold": 0
+ },
+ "campaign": {
+  "playerName": "Wanderer",
+  "twinName": "the Twin",
+  "currentArea": "hollowreach_vale",
+  "completedAreas": [],
+  "discoveredAreas": [
+   "greenmoor",
+   "hollowreach_vale",
+   "the_proving",
+   "wakewood"
+  ],
+  "lootedRooms": [
+   "hollowreach_vale_room_0"
+  ],
+  "stoneLuck": {},
+  "stonesAwarded": [],
+  "flags": [],
+  "seals": [],
+  "twinRescued": false,
+  "twinNamed": false,
+  "quests": {
+   "progress": {},
+   "known": [],
+   "counted": []
+  }
+ },
+ "player": {
+  "level": 1,
+  "xp": 0,
+  "skillPoints": 0,
+  "unlockedSkills": [],
+  "weapons": [],
+  "equippedWeapon": "",
+  "offhandWeapon": "",
+  "abilitySlots": [
+   "shadow_dash"
+  ],
+  "consumables": {},
+  "resources": {
+   "essence": 0,
+   "shards": 0,
+   "relics": 0
+  },
+  "relics": [],
+  "gold": 0,
+  "upgrades": {},
+  "materials": {},
+  "fitted": {},
+  "stones": {},
+  "socketed": {},
+  "attributes": {
+   "points": {},
+   "unspent": 0
+  },
+  "hunger": 100.0
+ },
+ "twin": {
+  "weapons": [
+   "frost_staff"
+  ],
+  "equippedWeapon": "frost_staff",
+  "offhandWeapon": "",
+  "fitted": {},
+  "consumables": {},
+  "hunger": 100.0
+ },
+ "agent": {
+  "playerModel": {
+   "version": 1,
+   "traits": {
+    "aggression": {
+     "value": 0.5,
+     "confidence": 0.0,
+     "samples": 0,
+     "recentTrend": 0.0
+    },
+    "mobility": {
+     "value": 0.5,
+     "confidence": 0.0,
+     "samples": 0,
+     "recentTrend": 0.0
+    },
+    "risk_tolerance": {
+     "value": 0.5,
+     "confidence": 0.0,
+     "samples": 0,
+     "recentTrend": 0.0
+    },
+    "preferred_range": {
+     "value": 0.5,
+     "confidence": 0.0,
+     "samples": 0,
+     "recentTrend": 0.0
+    },
+    "melee_dependency": {
+     "value": 0.5,
+     "confidence": 0.0,
+     "samples": 0,
+     "recentTrend": 0.0
+    },
+    "ranged_dependency": {
+     "value": 0.5,
+     "confidence": 0.0,
+     "samples": 0,
+     "recentTrend": 0.0
+    },
+    "spell_dependency": {
+     "value": 0.5,
+     "confidence": 0.0,
+     "samples": 0,
+     "recentTrend": 0.0
+    },
+    "defensive_tendency": {
+     "value": 0.5,
+     "confidence": 0.0,
+     "samples": 0,
+     "recentTrend": 0.0
+    },
+    "combo_dependency": {
+     "value": 0.5,
+     "confidence": 0.0,
+     "samples": 0,
+     "recentTrend": 0.0
+    }
+   },
+   "history": [],
+   "orders": {}
+  },
+  "twinStyle": {
+   "version": 1,
+   "dims": {
+    "preferred_range": {
+     "value": 0.5,
+     "confidence": 0.0,
+     "samples": 0,
+     "recentTrend": 0.0
+    },
+    "aggression": {
+     "value": 0.5,
+     "confidence": 0.0,
+     "samples": 0,
+     "recentTrend": 0.0
+    },
+    "mobility": {
+     "value": 0.5,
+     "confidence": 0.0,
+     "samples": 0,
+     "recentTrend": 0.0
+    },
+    "risk_tolerance": {
+     "value": 0.5,
+     "confidence": 0.0,
+     "samples": 0,
+     "recentTrend": 0.0
+    },
+    "target_preference": {
+     "value": 0.5,
+     "confidence": 0.0,
+     "samples": 0,
+     "recentTrend": 0.0
+    },
+    "melee_dependency": {
+     "value": 0.5,
+     "confidence": 0.0,
+     "samples": 0,
+     "recentTrend": 0.0
+    },
+    "ranged_dependency": {
+     "value": 0.5,
+     "confidence": 0.0,
+     "samples": 0,
+     "recentTrend": 0.0
+    },
+    "defensive_tendency": {
+     "value": 0.5,
+     "confidence": 0.0,
+     "samples": 0,
+     "recentTrend": 0.0
+    },
+    "spell_preference": {
+     "value": 0.5,
+     "confidence": 0.0,
+     "samples": 0,
+     "recentTrend": 0.0
+    }
+   },
+   "lessons": [],
+   "playerEventsSeen": 0,
+   "outcomesSeen": 0
+  }
+ }
+}

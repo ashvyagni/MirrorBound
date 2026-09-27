@@ -144,12 +144,15 @@ def build_save(session_id: str, campaign, player, twin, name: str = "",
             "stones": dict(player.inventory.stones),
             "socketed": {w: s for w, s in player.inventory.socketed.items() if s},
             "attributes": player.attributes.to_save(),
+            "hunger": player.hunger.to_save(),
         },
         "twin": {
             "weapons": list(twin.inventory.weapons),
             "equippedWeapon": twin.inventory.equipped_weapon,
             "offhandWeapon": twin.inventory.offhand_weapon,
             "fitted": {w: list(m) for w, m in twin.inventory.fitted.items() if m},
+            "consumables": dict(twin.inventory.consumables),
+            "hunger": twin.hunger.to_save(),
         },
         # What the run learned. Opaque here on purpose -- see the module docstring.
         "agent": agent or {},
@@ -303,6 +306,11 @@ def _to_v4(data: dict[str, Any]) -> dict[str, Any]:
     player.setdefault("fitted", {})
     player.setdefault("stones", {})
     player.setdefault("socketed", {})
+    # A run that arrives from before hunger existed arrives fed, which is both
+    # the kind thing and the only defensible default: the alternative is a player
+    # loading a save and immediately taking a penalty for a walk they took in a
+    # build where walking cost nothing.
+    player.setdefault("hunger", None)
     if "attributes" not in player:
         try:
             level = max(1, int(player.get("level", 1)))
@@ -361,6 +369,7 @@ def apply_save(data: dict[str, Any], player, twin) -> None:
     from mirrorbound.game.progression.materials import MATERIALS
     from mirrorbound.game.progression.skills import SKILLS
     from mirrorbound.game.progression.stones import STONES
+    from mirrorbound.game.progression.survival import Hunger
 
     p = data.get("player", {})
     player.level = max(1, int(p.get("level", 1)))
@@ -368,6 +377,7 @@ def apply_save(data: dict[str, Any], player, twin) -> None:
     player.skill_points = max(0, int(p.get("skillPoints", 0)))
     player.unlocked_skills = {s for s in p.get("unlockedSkills", []) if s in SKILLS}
     player.attributes = Attributes.from_save(p.get("attributes"))
+    player.hunger = Hunger.from_save(p.get("hunger"))
 
     inv = player.inventory
     inv.weapons = [w for w in p.get("weapons", []) if w in WEAPONS] or list(inv.weapons)
@@ -406,6 +416,9 @@ def apply_save(data: dict[str, Any], player, twin) -> None:
     offhand = t.get("offhandWeapon")
     twin.inventory.offhand_weapon = offhand if offhand in twin.inventory.weapons and offhand != twin.inventory.equipped_weapon else ""
     twin.inventory.fitted = _restore_fittings(t.get("fitted"), twin.inventory)
+    twin.inventory.consumables = {k: int(v) for k, v in (t.get("consumables") or {}).items()
+                                  if k in CONSUMABLES and int(v) > 0}
+    twin.hunger = Hunger.from_save(t.get("hunger"))
 
     player.recompute_max_health()
     player.health = player.max_health

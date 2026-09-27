@@ -146,6 +146,32 @@ export const BIOMES = {
     ambient: 'dust',
     fog: 0x191428,
   },
+  /**
+   * Above the treeline: old snow over bare rock.
+   *
+   * Sixteen values, and that is the entire cost of a new biome -- the ground is
+   * drawn procedurally per material from this palette rather than stamped from a
+   * tileset, so `tundra` needed no art at all. `grass` here is the snow, because
+   * `grass` is whatever the soft material of a place is; the tundra's region
+   * paints stone as its base and snow as the blotches over it, which is the
+   * reverse of everywhere else.
+   */
+  tundra: {
+    grass: ['#d8e2ea', '#d4dfe8', '#dae4ec'],
+    grassDark: '#aebecd',
+    grassLight: '#f2f7fb',
+    dirt: '#8f9aa6',
+    dirtLight: '#a9b4bf',
+    path: '#9aa6b2',
+    stone: '#7e8a96',
+    stoneLight: '#a2aeba',
+    wall: '#4a545e',
+    wallTop: '#8d99a5',
+    water: '#5c7f96',
+    waterLight: '#9cc4d8',
+    ambient: 'dust',
+    fog: 0x2b3540,
+  },
   crypt: {
     grass: ['#3b3b49', '#3c3c4a', '#3a3a48'],
     grassDark: '#2c2c38',
@@ -385,6 +411,20 @@ export const HUD_ART = {
     y: 216, width: 200,
     /** The hexagonal plate the number sits in, and where it overlaps the bar. */
     plateX: 200, plateSize: 42,
+    inset: { left: 0.045, right: 0.045, top: 0.26, bottom: 0.26 },
+  },
+  /**
+   * How long since you last ate, under the level bar.
+   *
+   * Short and low in the stack on purpose. Hunger is not a resource spent in a
+   * fight -- it moves over a region, not over an exchange -- so giving it the
+   * same width as health would have it competing for the glance that health and
+   * mana are there to win. What it has instead is *colour*: the three bands are
+   * three fills, so the thing worth noticing is a change of hue rather than a
+   * level to read.
+   */
+  hunger: {
+    y: 252, width: 140,
     inset: { left: 0.045, right: 0.045, top: 0.26, bottom: 0.26 },
   },
   minimap: {

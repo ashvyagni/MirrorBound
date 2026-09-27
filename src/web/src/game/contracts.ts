@@ -43,6 +43,34 @@ export interface WeaponInfo {
   /** What the next tier costs, or null when it is finished. */
   upgradeCost?: { gold: number; shards: number; essence: number } | null;
   hasPerk?: boolean;
+  /** Forge slots this weapon has, from its bench tier. Only on carried weapons. */
+  slots?: number;
+  /** Materials worked into it, in the order they were fitted. */
+  fitted?: string[];
+  /** Whether it is finished enough to hold a relic stone. */
+  hasSocket?: boolean;
+  /** The stone set into it, or empty. */
+  socketed?: string;
+}
+
+/** Ore and fuel carried. Mined, never bought. */
+export interface MaterialStack {
+  id: string;
+  count: number;
+  name: string;
+  tier: number;
+  description: string;
+  fuel: boolean;
+}
+
+/** A relic stone carried but not yet socketed. */
+export interface StoneStack {
+  id: string;
+  count: number;
+  name: string;
+  tier: number;
+  description: string;
+  socketNote: string;
 }
 
 export interface AbilitySlot {
@@ -85,6 +113,8 @@ export interface Inventory {
   abilitySlots: string[];
   consumables: ConsumableStack[];
   resources: Record<string, number>;
+  materials: MaterialStack[];
+  stones: StoneStack[];
   relics: RelicInfo[];
 }
 
@@ -99,6 +129,41 @@ export interface SkillNode {
   unlocked: boolean;
   available: boolean;
   reason: string;
+  /** The attribute this node waits on, or empty when it is ungated. */
+  gateAttribute: string;
+  /** How much of it the node wants. 0 when ungated. */
+  gateValue: number;
+}
+
+/** One of the five attributes, as the server reports it. */
+export interface AttributeSnap {
+  id: string;
+  name: string;
+  /** The skill branch this attribute gates. */
+  branch: SkillNode['category'];
+  description: string;
+  /** The ore that trains it. */
+  ore: string;
+  points: number;
+  max: number;
+}
+
+/**
+ * How long since you last ate.
+ *
+ * Three bands rather than a falling number: `fed` is a small bonus, `fine` is
+ * nothing, `hungry` is the penalty. `frozen` is true while a boss is in the
+ * room -- the drain and the penalty both stop there, so a fight that was tuned
+ * is the fight you get.
+ */
+export interface HungerSnap {
+  value: number;
+  max: number;
+  band: 'fed' | 'fine' | 'hungry';
+  frozen: boolean;
+  damageMult: number;
+  damageTakenMult: number;
+  speedMult: number;
 }
 
 export interface PlayerStats {
@@ -108,6 +173,12 @@ export interface PlayerStats {
   critChance: number;
   damageTakenMult: number;
   manaRegen: number;
+  /** Cooldown scaling from Finesse and whatever is fitted. Below 1 is faster. */
+  attackSpeedMult: number;
+  /** Fraction of a target's armour the weapon in hand ignores. */
+  pierce: number;
+  /** Whether a hit can knock the player out of a swing. */
+  steadfast: boolean;
 }
 
 export type PlayerState =
@@ -147,6 +218,10 @@ export interface PlayerSnap extends EntityBase {
   skillTree?: SkillNode[];
   unlockedSkills?: string[];
   stats?: PlayerStats;
+  hunger: HungerSnap;
+  /** Present on detail snapshots only, like the tree it gates. */
+  attributes?: AttributeSnap[];
+  attributePoints?: number;
 }
 
 export interface TwinIntent {
@@ -194,6 +269,16 @@ export interface EnemySnap extends EntityBase {
   targetId: string | null;
   windingUp: boolean;
   windup: number;
+  /**
+   * A resting colour for the sprite, as 0xRRGGBB, or 0 for the art as drawn.
+   *
+   * The five wild animals are all the Gloom Hound's sheet at different sizes in
+   * different colours. Applied where the view would otherwise clear the tint, so
+   * the damage flash and the wind-up telegraph still read over the top of it.
+   */
+  tint: number;
+  /** True for something that is food rather than a fight. */
+  livestock: boolean;
   /**
    * The player weapon this enemy is fighting with, if it was armed with one.
    *
@@ -296,6 +381,23 @@ export interface SwitchSnap {
   thrown: boolean;
 }
 
+/**
+ * Ore in the ground: a boulder you stand next to and work.
+ *
+ * Drawn from the `stone` sheet's big-rock frames, tinted by material -- §35 wants
+ * composition before new art, and an ore vein seen from above is a rock.
+ */
+export interface VeinSnap {
+  id: string;
+  material: string;
+  x: number;
+  y: number;
+  remaining: number;
+  total: number;
+  radius: number;
+  variant: number;
+}
+
 /** A village, standing on a region's own ground. */
 export interface SettlementSnap {
   id: string;
@@ -339,6 +441,14 @@ export interface RoomFull {
   settlements: SettlementSnap[];
   /** Plates to stand on. Empty outside a puzzle room. */
   switches: SwitchSnap[];
+  /**
+   * Ore in this room's ground.
+   *
+   * The positions and materials arrive here, on the room payload, because they
+   * never change. What is *left* in each one arrives on every snapshot as
+   * `GameSnapshot.veins`, because that is the only part that moves.
+   */
+  veins: VeinSnap[];
   /**
    * Distinct sprite names this room's spawn table will use, sorted.
    *
@@ -602,6 +712,15 @@ export interface GameSnapshot {
    * travel, whether respec is offered, and what a checkpoint notice says.
    */
   settlement: string | null;
+  /**
+   * How much is left in each vein in the room, every tick.
+   *
+   * Only `remaining`, because only `remaining` moves -- where the veins are and
+   * what is in them ride the room payload. A few hundred bytes against an
+   * eleven-kilobyte snapshot, and much cheaper than marking the whole room dirty
+   * on every swing of a pick.
+   */
+  veins: Array<{ id: string; remaining: number }>;
   lastError: string | null;
   /** Detail snapshots only, and only after a save was written or removed:
    *  the list is a directory read, not something to re-send at 20Hz. */
@@ -639,6 +758,13 @@ export type CommandAction =
   // A smith works a carried weapon up a tier, paid for in gold, shards and
   // essence -- which is what gives the last two somewhere to go.
   | 'UPGRADE_WEAPON'
+  // v1.2. MINE takes one swing at the vein the player is standing at and is the
+  // only one of these the interact key sends. The rest spend what it gives:
+  // TRAIN_ATTRIBUTE buys a point from a trainer in ore, SPEND_ATTRIBUTE puts an
+  // earned point into one of the five, and the last four are the smith's bench --
+  // ore worked into a weapon, and the one socket a finished weapon has.
+  | 'MINE' | 'TRAIN_ATTRIBUTE' | 'SPEND_ATTRIBUTE'
+  | 'FIT_MATERIAL' | 'STRIP_WEAPON' | 'SOCKET_STONE' | 'UNSOCKET_STONE'
   // Save slots. SAVE writes the slot the run is already playing; SAVE_AS makes
   // a new named one, LOAD_SAVE restarts the run from one, DELETE_SAVE throws
   // one away and RESET_DATA throws away every slot this profile has.
@@ -673,4 +799,11 @@ export interface CommandMessage {
   bossOffhand?: string;
   /** 0..1: how much of the player the Mirror starts out having learned. */
   bossSkill?: number;
+  /** MINE: the vein the client believes it is pointing at. The server resolves
+   *  the nearest one in reach and refuses a mismatch rather than working a
+   *  different rock. */
+  veinId?: string;
+  attributeId?: string;
+  materialId?: string;
+  stoneId?: string;
 }

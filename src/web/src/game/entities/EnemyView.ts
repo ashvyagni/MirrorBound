@@ -410,6 +410,12 @@ export class EnemyView extends EntityView {
       this.sprite.setScale(this.#baseScale * 1.06, this.#baseScale * 0.96);
     } else {
       this.sprite.clearTint().setTintMode(Phaser.TintModes.MULTIPLY);
+      // A creature's own colour, where the tint would otherwise be cleared. The
+      // five wild animals share one sheet with the Gloom Hound and are told
+      // apart by this and by their size, so it has to survive a frame with no
+      // status on it -- and it has to lose to the flash and the telegraph, which
+      // are the two things the player is reading in a fight.
+      if (this.snap.tint) this.sprite.setTint(this.snap.tint);
       if (this.snap.statusEffects.includes('slow')) this.sprite.setTint(0x9fe3ff);
       if (this.snap.statusEffects.includes('burn')) this.sprite.setTint(0xffa060);
       this.sprite.setScale(this.#baseScale);

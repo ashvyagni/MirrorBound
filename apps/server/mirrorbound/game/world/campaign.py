@@ -207,6 +207,32 @@ KILN_TERRACES = AreaDef(
     difficulty=1.25,
 )
 
+# --- the country nobody had to go through (v1.2) -------------------------------
+#
+# Two regions off the campaign's spine. Neither gates anything and neither has to
+# be entered to finish the game, which is the whole point of them: the brief asks
+# for an overworld with somewhere to go besides the next objective, and a place
+# you *must* visit is an objective wearing a field's clothes.
+#
+# Each is the home of one of the two new terrains, and each has an economy the
+# spine does not: the Downs are where the herds are, and the Rimefell is the only
+# place above ground with mithril in it.
+
+WINDWARD_DOWNS = AreaDef(
+    id="windward_downs", name="The Windward Downs", kind="region", biome="grove",
+    subtitle="Pasture that is still being kept, by somebody, for something.",
+    terrain="grassfield", map_x=0.34, map_y=0.94,
+    width=2816, height=1664,
+)
+
+RIMEFELL = AreaDef(
+    id="rimefell", name="The Rimefell", kind="region", biome="tundra",
+    subtitle="Above the last of the trees. The wolves here hunt in threes.",
+    terrain="tundra", map_x=0.24, map_y=0.26,
+    width=2560, height=1792,
+    difficulty=1.2,
+)
+
 # --- the descents ------------------------------------------------------------
 
 WAKEWOOD_CRYPT = AreaDef(
@@ -288,6 +314,7 @@ THE_PROVING = AreaDef(
 AREAS: dict[str, AreaDef] = {
     a.id: a for a in (HOLLOWREACH_VALE, WAKEWOOD, GREENMOOR, DROWNED_FLATS,
                       EMBERFALL_BASIN, KILN_TERRACES,
+                      WINDWARD_DOWNS, RIMEFELL,
                       WAKEWOOD_CRYPT, STONECOUNT_BARROW, GLASSWORK, ASHEN_DEEP,
                       MIRROR_SANCTUM, THE_PROVING)
 }
@@ -334,6 +361,18 @@ CROSSINGS: tuple[Crossing, ...] = (
         name="The Cut", kind="pass",
         a="emberfall_basin", a_side="north", b="kiln_terraces",
         a_along=0.72, b_along=0.50, width=180.0,
+    ),
+    # v1.2. Two ways off the spine, both unlocked from the start: what makes
+    # optional country optional is that nothing is waiting for you to earn it.
+    Crossing(
+        name="Ewesford", kind="bridge",
+        a="greenmoor", a_side="south", b="windward_downs",
+        a_along=0.30, b_along=0.36, width=200.0,
+    ),
+    Crossing(
+        name="The Windgate", kind="pass",
+        a="wakewood", a_side="north", b="rimefell",
+        a_along=0.44, b_along=0.52, width=170.0,
     ),
 )
 

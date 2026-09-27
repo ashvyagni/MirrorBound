@@ -14,10 +14,13 @@ from typing import Any, Protocol
 from mirrorbound.game.combat.weapons import BARE_HANDS, TWIN_STARTING_WEAPON, WeaponDef, get_weapon
 from mirrorbound.game.entities.entity import Entity, Vec2
 from mirrorbound.game.inventory import Inventory
+from mirrorbound.game.progression.survival import Hunger
 
 INTENT_TYPES = (
     "FOLLOW", "PROTECT", "INTERCEPT", "FLANK", "ATTACK", "RETREAT",
     "DISTRACT", "COMBO", "REPOSITION", "HEAL", "EXPLORE", "ASSIST",
+    #: v1.2. Break off and eat something, because it is hungry and it has food.
+    "EAT",
 )
 
 
@@ -71,6 +74,11 @@ class Twin(Entity):
     #: Set from the player's tree each tick; see Covering Fire and Close Order.
     _recovery_bonus: float = 0.0
     _damage_bonus: float = 0.0
+    #: The twin gets hungry on the same terms the player does, and it is the
+    #: better half of the feature: a companion that wanders off to eat is
+    #: something you can watch decide, where a companion that quietly holds a
+    #: number is not.
+    hunger: Hunger = field(default_factory=Hunger)
     mana: float = 50.0
     max_mana: float = 50.0
     mana_regen: float = 6.0
@@ -154,6 +162,7 @@ class Twin(Entity):
         return self.available and self.attack_cooldown <= 0
 
     def start_attack(self) -> None:
+        self.hunger.acted()
         self.attack_cooldown = self.weapon.cooldown * 1.1
         self.set_state("attack" if self.weapon.is_melee else "cast")
 
@@ -214,6 +223,7 @@ class Twin(Entity):
             "kills": self.kills,
             "damageDealt": round(self.damage_dealt),
             "damageTaken": round(self.damage_taken),
+            "hunger": self.hunger.to_dict(),
             "downedFor": round(max(0.0, self.downed_timer), 1) if self.downed else 0,
             "attackCooldown": round(max(0.0, self.attack_cooldown), 2),
         })

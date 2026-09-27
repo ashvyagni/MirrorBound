@@ -96,16 +96,19 @@ it('the purse travels with the conversation and is refreshed by the server', asy
   // The purse is one object now: a smith needs shards and essence too, and
   // what you already carry, so it can offer to work on it.
   expect(conversations[0]!.purse.gold).toBe(500);
-  expect(conversations[0]!.purse.owned).not.toContain('iron_sword');
+  // The bow, not the sword: the recorded fixture is a player mid-run and they
+  // are already carrying a sword, which is what the shop has to dim.
+  expect(conversations[0]!.purse.owned).toContain('iron_sword');
+  expect(conversations[0]!.purse.owned).not.toContain('hunter_bow');
 
   // Buying is a request; ownership only arrives with the server's inventory.
   purses.length = 0;
   snap.player.inventory!.gold = 455;
-  snap.player.inventory!.weapons.push({ ...snap.player.weapon!, id: 'iron_sword' });
+  snap.player.inventory!.weapons.push({ ...snap.player.weapon!, id: 'hunter_bow' });
   await act(async () => eventBus.emit('game:snapshot', structuredClone(snap)));
   expect(purses.at(-1)!.purse.gold).toBe(455);
-  expect(purses.at(-1)!.purse.owned).toContain('iron_sword');
-  expect(purses.at(-1)!.purse.carried.some((w) => w.id === 'iron_sword')).toBe(true);
+  expect(purses.at(-1)!.purse.owned).toContain('hunter_bow');
+  expect(purses.at(-1)!.purse.carried.some((w) => w.id === 'hunter_bow')).toBe(true);
 });
 
 it('leaving a conversation never shows the pause screen, even for a frame', async () => {

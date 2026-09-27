@@ -6,6 +6,7 @@ import { STATUSBARS_TEXTURE_KEY } from '../animation/statusBarsAtlas.generated';
 import { VITALS_TEXTURE_KEY } from '../animation/vitalsAtlas.generated';
 import { HUD, HUD_ART, PALETTE, PIXEL_FONT } from '../constants';
 import type { VitalsSnapshot } from '../state/Vitals';
+import type { HungerSnap } from '../contracts';
 import { fitWidth } from './fit';
 
 /** One trough: the art, the fill inside it, and the pale edge chasing it. */
@@ -21,7 +22,7 @@ interface Bar {
 }
 
 /** Everything `#buildBar` needs to know that differs between the two sheets. */
-type BarFrame = 'hp' | 'mp' | 'twinHealth' | 'twinMana' | 'levelTrough';
+type BarFrame = 'hp' | 'mp' | 'twinHealth' | 'twinMana' | 'levelTrough' | 'hungerTrough';
 
 /**
  * Which sheet each trough comes from, and which way round it is composited.
@@ -39,6 +40,9 @@ const BAR_ART: Record<BarFrame, { texture: string; fillOver: boolean }> = {
   twinHealth: { texture: VITALS_TEXTURE_KEY, fillOver: true },
   twinMana: { texture: VITALS_TEXTURE_KEY, fillOver: true },
   levelTrough: { texture: VITALS_TEXTURE_KEY, fillOver: true },
+  // The same drawn trough as the level bar, at a different width. §35: a second
+  // empty capsule would be a new sheet to draw the same shape.
+  hungerTrough: { texture: VITALS_TEXTURE_KEY, fillOver: true },
 };
 
 /** The colour each trough fills with. */
@@ -51,6 +55,22 @@ const BAR_TINT: Record<BarFrame, number> = {
   // colour: it is not a resource, and reading it should not mean checking
   // which of the two above it is not.
   levelTrough: PALETTE.arcane,
+  // Replaced per band by `#setHunger`; this is the resting one.
+  hungerTrough: PALETTE.gold,
+};
+
+/**
+ * What each hunger band fills with.
+ *
+ * Colour is how this bar communicates, because its *level* is not the
+ * interesting fact -- being under a quarter is. Gold while you are fed, plain
+ * taupe in the middle where nothing is happening, and ember when it starts
+ * costing you something.
+ */
+const HUNGER_TINT: Record<'fed' | 'fine' | 'hungry', number> = {
+  fed: PALETTE.healthGreen,
+  fine: PALETTE.gold,
+  hungry: PALETTE.ember,
 };
 
 /**
@@ -73,6 +93,8 @@ const CHASE_TIME = 0.18;
 export class Portrait {
   #face!: Phaser.GameObjects.Sprite;
   #bars: Bar[] = [];
+  #hunger: Bar | null = null;
+  #hungerPulsing = false;
   /** The twin's pair, built once and hidden until there is a twin. */
   #twinBars: Bar[] = [];
   #twinArt: Phaser.GameObjects.GameObject[] = [];
@@ -111,6 +133,7 @@ export class Portrait {
     }
     this.#buildTwinBars();
     this.#buildLevel();
+    this.#buildHunger();
   }
 
   get texts(): readonly Phaser.GameObjects.Text[] { return this.#texts; }
@@ -156,6 +179,43 @@ export class Portrait {
       .setOrigin(0.5, 0.5);
     this.#objects.push(plate, this.#levelText);
     this.#texts.push(this.#levelText);
+  }
+
+  /** The hunger trough, under the level bar. */
+  #buildHunger(): void {
+    const { bars, hunger } = HUD_ART;
+    this.#hunger = this.#buildBar(bars.x, hunger.y, 'hungerTrough', hunger.width);
+  }
+
+  /**
+   * Show how long since the player ate, and which band that puts them in.
+   *
+   * The pulse is only ever on `hungry`, and it is the bar's whole job: the drain
+   * is slow enough that nobody watches it, so the moment it starts costing
+   * something has to announce itself once rather than be noticed eventually.
+   * Frozen -- which is what happens at a boss door -- stops the pulse, because a
+   * blinking bar during the fight it has been suspended for would be a lie.
+   */
+  #setHunger(snap: HungerSnap | undefined): void {
+    if (!this.#hunger || !snap) return;
+    const tint = HUNGER_TINT[snap.band] ?? PALETTE.gold;
+    this.#hunger.fill.setFillStyle(tint);
+    this.#hunger.chase.setFillStyle(tint);
+    this.#hunger.target = Phaser.Math.Clamp(snap.value / Math.max(1, snap.max), 0, 1);
+
+    const shouldPulse = snap.band === 'hungry' && !snap.frozen;
+    if (shouldPulse === this.#hungerPulsing) return;
+    this.#hungerPulsing = shouldPulse;
+    this.scene.tweens.killTweensOf(this.#hunger.art);
+    if (shouldPulse) {
+      this.#hunger.art.setAlpha(1);
+      this.scene.tweens.add({
+        targets: this.#hunger.art, alpha: { from: 1, to: 0.45 },
+        duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+      });
+    } else {
+      this.#hunger.art.setAlpha(1);
+    }
   }
 
   #showTwin(on: boolean): void {
@@ -255,6 +315,8 @@ export class Portrait {
     const level = String(Math.max(1, Math.round(vitals.level)));
     if (this.#levelText.text !== level) this.#levelText.setText(level);
 
+    this.#setHunger(vitals.hunger);
+
     const twin = vitals.twin;
     this.#showTwin(twin !== null);
     if (twin) {
@@ -269,7 +331,9 @@ export class Portrait {
   step(deltaSeconds: number): void {
     this.#stepFace(deltaSeconds);
 
-    for (const bar of [...this.#bars, ...this.#twinBars, this.#level]) {
+    const troughs = [...this.#bars, ...this.#twinBars, this.#level];
+    if (this.#hunger) troughs.push(this.#hunger);
+    for (const bar of troughs) {
       // The fill snaps to the truth; only the pale edge lags. A fill that
       // lagged too would leave the bar disagreeing with the game about whether
       // there is any health left.

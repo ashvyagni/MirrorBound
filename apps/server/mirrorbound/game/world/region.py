@@ -12,13 +12,15 @@ sides that lead somewhere. A region's boundary is a real barrier -- a river, a
 flood, a wall of rock -- with one narrow way through it, so leaving is something
 you find rather than a seam you walk into.
 
-Four terrains, and each one is a different walk:
+Seven terrains, and each one is a different walk:
 
     grassland   open, long sight lines, little cover; the fields going back
+    grassfield  open and *lived in*: pasture, herds, and what hunts them
     forest      dense, short sight lines, cover everywhere; where an ambush works
     road        a made thing with a surface, going somewhere, and abandoned
     marsh       standing water with the tops of walls in it; the drowned road
     pass        climbing, and narrow, because the rock decides where you may walk
+    tundra      high, bare and cold; nothing to hide behind and wolves in threes
 
 The terrain is what the brief's §2 asks for -- regions with a purpose rather than
 procedural filler -- so each one composes its ground out of the same primitives
@@ -103,6 +105,28 @@ ENCOUNTERS: dict[str, tuple[tuple[str, float, float], ...]] = {
         ("acolyte", 0.32, 0.36), ("acolyte", 0.70, 0.34),
         ("brute", 0.50, 0.24),
     ),
+    # Pasture. The one terrain where most of what moves is not hostile: a herd
+    # to eat and the two things that make eating it a decision. The tiger sees
+    # you at four hundred and twenty units, which is further than anything else
+    # in the game, so the open ground that makes a grassland safe makes this one
+    # dangerous.
+    "grassfield": (
+        ("cow", 0.22, 0.30), ("cow", 0.28, 0.24), ("cow", 0.20, 0.38),
+        ("sheep", 0.70, 0.72), ("sheep", 0.76, 0.66), ("sheep", 0.66, 0.78),
+        ("sheep", 0.74, 0.80),
+        ("tiger", 0.52, 0.52),
+        ("hound", 0.84, 0.28),
+    ),
+    # Above the treeline. Bare, so nothing ambushes -- and the wolves come in
+    # threes, which is the only pack in the game. One alone is unremarkable, and
+    # that is the point: the encounter is the number of them.
+    "tundra": (
+        ("winter_wolf", 0.34, 0.40), ("winter_wolf", 0.40, 0.34),
+        ("winter_wolf", 0.30, 0.32),
+        ("sheep", 0.72, 0.64), ("sheep", 0.78, 0.70),
+        ("acolyte", 0.56, 0.24),
+        ("shardling", 0.60, 0.76),
+    ),
     # Standing water: things that do not mind it, and artillery that can shoot
     # across it. The slowest ground in the game, so what lives here is what
     # punishes being slow.
@@ -124,6 +148,10 @@ CACHES: dict[str, tuple[tuple[str, float, float], ...]] = {
     "road": (("shards", 0.12, 0.78), ("health_potion", 0.46, 0.18)),
     "pass": (("shards", 0.16, 0.66), ("essence", 0.86, 0.44), ("health_potion", 0.60, 0.78)),
     "marsh": (("shards", 0.18, 0.72), ("essence", 0.80, 0.28), ("mana_potion", 0.44, 0.80)),
+    "grassfield": (("essence", 0.12, 0.66), ("health_potion", 0.86, 0.34),
+                   ("bread", 0.48, 0.18)),
+    "tundra": (("shards", 0.14, 0.30), ("essence", 0.88, 0.62),
+               ("health_potion", 0.50, 0.84), ("cooked_meat", 0.24, 0.72)),
 }
 
 
@@ -203,9 +231,15 @@ def _paint_ground(room: Room, terrain: str, rng: DeterministicRNG) -> None:
     is. Everything else here is texture.
     """
     cols, rows = room.width // TILE, room.height // TILE
-    base = {"grassland": T_GRASS, "forest": T_GRASS,
-            "road": T_STONE, "pass": T_STONE}.get(terrain, T_GRASS)
-    accent = T_DIRT
+    base = {"grassland": T_GRASS, "forest": T_GRASS, "grassfield": T_GRASS,
+            "road": T_STONE, "pass": T_STONE, "tundra": T_STONE}.get(terrain, T_GRASS)
+    # The tundra's bare ground is the exception: grass blotched over stone reads
+    # as a meadow with paving in it, and what is wanted is old snow over rock. So
+    # the accent goes the other way and the biome palette does the rest -- the
+    # floor is drawn from colours rather than from a tileset (see `BIOMES` in the
+    # client's constants), which is what makes a new biome sixteen hex values
+    # instead of a sheet of art.
+    accent = T_GRASS if terrain == "tundra" else T_DIRT
     tiles = [[base for _ in range(cols)] for _ in range(rows)]
 
     # Blotches of bare ground, grown from seeds, so the floor is not flat.
@@ -553,8 +587,12 @@ def _dress(room: Room, terrain: str, rng: DeterministicRNG, settlement=None) -> 
                 if put(kind, room.clamp(anchor + offset, margin), blocking, variants):
                     break
 
-    if terrain == "grassland":
+    if terrain in ("grassland", "grassfield"):
         _dress_grassland(area, rng, clump, scatter, border, verge, beside)
+        if terrain == "grassfield":
+            _dress_pasture(area, rng, clump, scatter, verge)
+    elif terrain == "tundra":
+        _dress_tundra(area, rng, clump, scatter, border)
     elif terrain == "forest":
         _dress_forest(area, rng, clump, scatter, border, verge, beside)
     elif terrain == "road":
@@ -565,6 +603,39 @@ def _dress(room: Room, terrain: str, rng: DeterministicRNG, settlement=None) -> 
         _dress_pass(area, rng, clump, scatter, border, verge, beside)
 
     room.decor.sort(key=lambda d: d.y)
+
+
+def _dress_pasture(area, rng, clump, scatter, verge) -> None:
+    """What a grassland has when somebody still keeps animals on it.
+
+    Laid over the grassland dressing rather than replacing it, because a pasture
+    *is* a field -- what makes it different is that it is maintained. More fence
+    than anywhere else in the game, troughs, and the hay it is all for.
+    """
+    for _ in range(rng.randint(3, 5)):
+        clump("fence_post", 1, rng.randint(6, 10), 150, blocking=True, variants=1)
+    clump("crate", 2, rng.randint(1, 2), 70, blocking=True, variants=2)
+    clump("cart_wheel", 2, rng.randint(1, 2), 90, blocking=True, variants=1)
+    verge("grass_tuft", int(8 * area), blocking=False, variants=3)
+    scatter("flowers", int(10 * area), variants=4, scale_range=(0.7, 1.0))
+
+
+def _dress_tundra(area, rng, clump, scatter, border) -> None:
+    """Above the treeline: what is left when nothing grows tall.
+
+    The mechanic is the absence. A tundra has no cover, so the wolves that live
+    here are fought in the open by both sides -- which is the opposite bargain to
+    the forest and is made entirely out of what is *not* placed. Rock at the
+    boundary to say the ground is climbing, a few dead trunks to say it did once
+    grow, and nothing else.
+    """
+    border("rock_big", int(5 * area), depth=TILE * 4.0, blocking=True, variants=2)
+    border("rock", int(8 * area), depth=TILE * 5.0, blocking=True, variants=3)
+    clump("rock", 3, rng.randint(2, 4), 120, blocking=True, variants=3)
+    clump("fallen_trunk", rng.randint(1, 2), 1, 50, blocking=True, variants=1)
+    clump("stump", 2, rng.randint(1, 2), 90, blocking=True, variants=2)
+    scatter("rubble", int(9 * area), blocking=False, variants=3)
+    scatter("grass_tuft", int(7 * area), variants=3, scale_range=(0.5, 0.8))
 
 
 def _dress_grassland(area, rng, clump, scatter, border, verge, beside) -> None:

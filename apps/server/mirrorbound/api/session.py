@@ -44,7 +44,8 @@ from mirrorbound.game.enemy_ai.mirror import MirrorController
 from mirrorbound.game.entities.enemy import ARCHETYPES, armed_with
 from mirrorbound.game.entities.entity import Vec2
 from mirrorbound.game.entities.player import PlayerInput
-from mirrorbound.game.inventory import CONSUMABLES
+from mirrorbound.game.inventory import CONSUMABLES, COOKS_INTO
+from mirrorbound.game.progression.survival import MAX_HUNGER
 from mirrorbound.game.movement.collision import CollisionSystem
 from mirrorbound.game.movement.movement import MovementSystem
 from mirrorbound.game.state import GameState
@@ -1011,9 +1012,19 @@ class GameSession:
             player.mana = player.max_mana
             player.status_effects.clear()
             player.slow_factor = 1.0
+            # A hearth is a fire and a meal. Both bars are filled and everything
+            # raw in the bag is cooked -- which is the whole cooking system, and
+            # it needed no new command, no new NPC and no new screen because the
+            # village already had the one thing a cook needs.
+            player.hunger.eat(MAX_HUNGER)
+            cooked = self._cook_at_hearth(player)
             if not state.twin.dormant:
                 state.twin.health = state.twin.max_health
                 state.twin.mana = state.twin.max_mana
+                state.twin.hunger.eat(MAX_HUNGER)
+            if cooked:
+                state.emit("FOOD_COOKED", npc=npc_id, cooked=cooked,
+                           position=player.position.to_dict())
             self._checkpoint()
         state.emit("NPC_TALK", npc=npc_id, name=npc.definition.name, role=npc.definition.role,
                    lines=list(lines), stock=[e.to_dict() for e in npc.definition.stock],
@@ -1196,6 +1207,25 @@ class GameSession:
     def _request_from_twin(self, weapon_id: str) -> None:
         transfer_weapon(self.state, weapon_id, to_twin=False)
 
+    @staticmethod
+    def _cook_at_hearth(player) -> int:
+        """Turn everything raw in the bag into the cooked version. Returns how many.
+
+        All of it at once, rather than one at a time: the interesting decision is
+        whether to walk back to a hearth, and making the player press a button
+        eleven times once they are there does not add a second one.
+        """
+        inventory = player.inventory
+        cooked = 0
+        for raw, done in COOKS_INTO.items():
+            count = inventory.consumables.get(raw, 0)
+            if count <= 0:
+                continue
+            inventory.consumables.pop(raw, None)
+            inventory.add_consumable(done, count)
+            cooked += count
+        return cooked
+
     def _use_item(self, item_id: str) -> None:
         """Begin drinking. Nothing is consumed and nothing is restored yet --
         that happens in `_finish_drink` when the timer runs out, so a drink cut
@@ -1226,7 +1256,13 @@ class GameSession:
             before = player.mana
             player.mana = min(player.max_mana, player.mana + float(spec["mana"]))
             mana = player.mana - before
+        # Food goes through the same path as a potion: it is eaten standing still,
+        # it is interrupted by being hit, and Steady Hand lets you do it walking.
+        # Which is right -- eating in a fight should cost you the same thing
+        # drinking does.
+        fed = player.hunger.eat(float(spec.get("nourish", 0))) if spec.get("nourish") else 0.0
         state.emit("ITEM_USED", actor=player.id, item=item_id, healed=round(healed, 1), mana=round(mana, 1),
+                   fed=round(fed, 1), hunger=player.hunger.to_dict(),
                    position=player.position.to_dict())
 
     def _finish_channel(self, ability_id: str) -> None:
@@ -1356,6 +1392,7 @@ class GameSession:
         update_villagers(state.room.villagers, dt)
         self._watch_settlement()
         self._room_logic()
+        self._hunger_watch()
         self.style.advance(state.tick)
 
     def _update_twin(self, dt: float) -> None:
@@ -1399,6 +1436,21 @@ class GameSession:
 
     def _player_model_dict(self) -> dict:
         return self.pipeline.snapshot(top_k=3, spatial_top_n=6).to_json_dict()
+
+    def _hunger_watch(self) -> None:
+        """Suspend hunger while a boss is in the room.
+
+        The freeze is the load-bearing half. v1.1 measured the regional bosses at
+        0.67 and 0.89 clear after fixing their telegraphs, and a combat-and-defence
+        debuff multiplies straight into those numbers with nothing in the
+        measurement able to see it -- a player walking in hungry would be fighting
+        a different fight from the one that was tuned and would have no way to
+        know. So it stops at the door.
+        """
+        state = self.state
+        boss_here = any(e.enemy_def.boss for e in state.get_active_enemies())
+        state.player.hunger.frozen = boss_here
+        state.twin.hunger.frozen = boss_here
 
     def _room_logic(self) -> None:
         state = self.state

@@ -343,6 +343,43 @@ FERRYMAN_KELL = NpcDef(
 )
 
 
+DROVER_ESK = NpcDef(
+    # The Downs' one inhabitant, and the reason the region is a place rather than
+    # a field with animals in it. She is not in a village and there is no village
+    # for her to be in: somebody is still keeping this pasture, and the question
+    # of who the herds are *for* is the whole of what she is here to not answer.
+    id="drover_esk", name="Esk", role="folk", fx=0.20, fy=0.28, sprite="villager",
+    lines={
+        "intro": (
+            "You'll be from the Reach. Everyone's from the Reach.",
+            "Two hundred head and no market to drive them to. Been that way since the water came.",
+            "So I keep them. Somebody has to keep something.",
+            "Cats come off the high ground when the wind turns. Mind yourself out past the fence.",
+        ),
+        "cleared_wakewood_crypt": (
+            "Wind's changed since you went down there. The herd's calmer.",
+            "Take one if you're hungry. I'd rather feed you than a tiger.",
+        ),
+    },
+)
+
+WARDEN_BREK = NpcDef(
+    # Above the treeline, in a place nobody keeps. He is not guarding anything and
+    # says so; what he is doing is the answer to why a tundra is on the map at
+    # all, which is that the Kiln's ore has to come from somewhere upstream.
+    id="warden_brek", name="Brek", role="folk", fx=0.22, fy=0.74, sprite="villager",
+    lines={
+        "intro": (
+            "You came up the Windgate. In this. On purpose.",
+            "There's nothing up here to guard. I'm not guarding. I'm counting.",
+            "Every load of white metal the Kiln ever fired came off this fell, and the fell is "
+            "not getting any bigger.",
+            "Wolves work in threes. If you see one, you have not seen one.",
+        ),
+    },
+)
+
+
 #: Who stands in each settlement, by settlement id.
 VILLAGE_NPCS: dict[str, tuple[NpcDef, ...]] = {
     "hollow_reach": (ELDER_MARA, SMITH_OREN, APOTHECARY_SIV, HEARTH, FARMER_BRAM, WATCH_WREN),
@@ -356,6 +393,11 @@ VILLAGE_NPCS: dict[str, tuple[NpcDef, ...]] = {
 #: campaign's only gate.
 REGION_NPCS: dict[str, tuple[NpcDef, ...]] = {
     "drowned_flats": (FERRYMAN_KELL,),
+    # v1.2's optional country. One person each, which is what makes a region
+    # somewhere somebody is rather than a terrain with loot in it -- and both of
+    # them explain their own region rather than pointing at the next one.
+    "windward_downs": (DROVER_ESK,),
+    "rimefell": (WARDEN_BREK,),
 }
 
 
