@@ -146,6 +146,14 @@ export interface AttributeSnap {
   ore: string;
   points: number;
   max: number;
+  /**
+   * What the next point costs, in ore, or `{}` at the ceiling.
+   *
+   * Computed by the server because the price depends on how far the attribute
+   * has already been raised -- a client that reimplemented the curve would be a
+   * second copy of a rule to drift from the first.
+   */
+  trainCost: Record<string, number>;
 }
 
 /**

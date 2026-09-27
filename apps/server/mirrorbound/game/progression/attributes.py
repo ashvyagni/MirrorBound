@@ -188,6 +188,16 @@ class Attributes:
         return out
 
     def to_dict(self) -> list[dict]:
+        """The five, with what the next point in each would cost.
+
+        The price is computed here rather than on the client because it depends on
+        how far the attribute has already been raised, and a client that
+        reimplemented the curve would be a second copy of a rule to drift from the
+        first. The trainer screen draws what this says and the server charges what
+        it charges; the two cannot disagree.
+        """
+        from mirrorbound.game.progression.materials import training_cost
+
         return [
             {
                 "id": a.id,
@@ -197,6 +207,8 @@ class Attributes:
                 "ore": a.ore,
                 "points": self.get(a.id),
                 "max": MAX_ATTRIBUTE,
+                "trainCost": (training_cost(a.ore, self.get(a.id))
+                              if self.get(a.id) < MAX_ATTRIBUTE else {}),
             }
             for a in ATTRIBUTES.values()
         ]

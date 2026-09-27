@@ -1,6 +1,6 @@
 import type {
-  AbilitySlot, AreaLink, AreaSnap, CommandMessage, GameSnapshot, Inventory, JournalSnap, ServerEvent,
-  SkillNode,
+  AbilitySlot, AreaLink, AreaSnap, AttributeSnap, CommandMessage, GameSnapshot, Inventory,
+  JournalSnap, ServerEvent, SkillNode,
 } from './contracts';
 import type { Purse } from '../ui/store';
 import type { ConnectionStatus, PlayerSnapshot } from './types';
@@ -186,6 +186,10 @@ export interface GameEventMap {
     points: number;
     /** Empty when unlearning is allowed; otherwise why it is not. */
     respecBlockedBy: string;
+    /** The five attributes, which gate the tree's deep tiers. */
+    attributes: readonly AttributeSnap[];
+    /** Attribute points earned and not yet placed. */
+    attributePoints: number;
   };
   /** Pause or resume. The play scene stops; the HUD does not. */
   'game:pause': { paused: boolean };

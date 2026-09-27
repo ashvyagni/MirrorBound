@@ -10,8 +10,8 @@
 import { useSyncExternalStore } from 'react';
 
 import type {
-  CampaignSnap, CommandMessage, GameSnapshot, Inventory, NpcSnap, PlayerStats, RoomFull,
-  ServerEvent, SkillNode, WeaponInfo,
+  AttributeSnap, CampaignSnap, CommandMessage, GameSnapshot, Inventory, NpcSnap, PlayerStats,
+  RoomFull, ServerEvent, SkillNode, StoneStack, WeaponInfo,
 } from '@/game/contracts';
 import { isRoomFull } from '@/game/contracts';
 import { eventBus } from '@/game/EventBus';
@@ -25,6 +25,16 @@ export interface Purse {
   essence: number;
   owned: string[];
   carried: WeaponInfo[];
+  /** What is in hand, so the forge knows what it is working on. */
+  equipped: string;
+  /** Ore carried, by material id: what the forge and the trainer spend. */
+  materials: Record<string, number>;
+  /** Relic stones carried but not set into anything. */
+  stones: StoneStack[];
+  /** The five attributes and what the next point in each costs. */
+  attributes: AttributeSnap[];
+  /** Attribute points earned and not yet placed. */
+  attributePoints: number;
 }
 
 export type Screen =
@@ -44,7 +54,12 @@ export interface Conversation {
 export interface UiState {
   snapshot: GameSnapshot | null;
   room: RoomFull | null;
-  playerDetail: { inventory: Inventory | null; skillTree: SkillNode[]; weapon: WeaponInfo | null; stats: PlayerStats | null; unlockedSkills: string[] };
+  playerDetail: {
+    inventory: Inventory | null; skillTree: SkillNode[]; weapon: WeaponInfo | null;
+    stats: PlayerStats | null; unlockedSkills: string[];
+    /** The five attributes, cached like the tree: both ride the detail snapshot. */
+    attributes: AttributeSnap[]; attributePoints: number;
+  };
   twinDetail: { inventory: Inventory | null; weapon: WeaponInfo | null };
   connection: ConnectionStatus;
   attempt: number;
@@ -85,7 +100,10 @@ export interface UiState {
 let state: UiState = {
   snapshot: null,
   room: null,
-  playerDetail: { inventory: null, skillTree: [], weapon: null, stats: null, unlockedSkills: [] },
+  playerDetail: {
+    inventory: null, skillTree: [], weapon: null, stats: null, unlockedSkills: [],
+    attributes: [], attributePoints: 0,
+  },
   twinDetail: { inventory: null, weapon: null },
   connection: 'connecting',
   attempt: 0,
@@ -234,7 +252,14 @@ function purse(): Purse {
 }
 
 
-function purseOf(inventory: Inventory | null | undefined): Purse {
+/**
+ * `attributes` is passed in when the caller has a fresher copy than the store
+ * does -- the snapshot handler builds a purse from the inventory it just
+ * received, before the patch is applied, and reading `state` there would price
+ * the trainer off the previous tick.
+ */
+function purseOf(inventory: Inventory | null | undefined,
+                 attributes?: AttributeSnap[], attributePoints?: number): Purse {
   return {
     gold: inventory?.gold ?? 0,
     shards: inventory?.resources?.shards ?? 0,
@@ -244,6 +269,15 @@ function purseOf(inventory: Inventory | null | undefined): Purse {
       ...(inventory?.relics ?? []).map((r) => r.id),
     ],
     carried: inventory?.weapons ?? [],
+    equipped: inventory?.equippedWeapon ?? '',
+    materials: Object.fromEntries(
+      (inventory?.materials ?? []).map((m) => [m.id, m.count])),
+    stones: inventory?.stones ?? [],
+    // Off the cached detail rather than off `inventory`, because the attributes
+    // arrive on the player and the ore arrives on the inventory, and the shop
+    // reads both through one object.
+    attributes: attributes ?? state.playerDetail.attributes ?? [],
+    attributePoints: attributePoints ?? state.playerDetail.attributePoints ?? 0,
   };
 }
 
@@ -298,6 +332,8 @@ eventBus.on('game:snapshot', (snap) => {
       weapon: snap.player.weapon ?? state.playerDetail.weapon,
       stats: snap.player.stats ?? state.playerDetail.stats,
       unlockedSkills: snap.player.unlockedSkills ?? state.playerDetail.unlockedSkills,
+      attributes: snap.player.attributes ?? state.playerDetail.attributes,
+      attributePoints: snap.player.attributePoints ?? state.playerDetail.attributePoints,
     };
     // An open shop has to stay honest about what you can afford, and the gold
     // only changes on the detail snapshots this block runs for.
@@ -306,7 +342,9 @@ eventBus.on('game:snapshot', (snap) => {
     // `set(patch)` has not run yet, so the store still holds the previous one
     // and a shop refreshed from it would show the price you could afford a
     // moment ago.
-    eventBus.emit('hud:purse', { purse: purseOf(snap.player.inventory) });
+    eventBus.emit('hud:purse', {
+      purse: purseOf(snap.player.inventory, snap.player.attributes, snap.player.attributePoints),
+    });
   }
   if (snap.twin.inventory) {
     patch.twinDetail = { inventory: snap.twin.inventory, weapon: snap.twin.weapon ?? state.twinDetail.weapon };

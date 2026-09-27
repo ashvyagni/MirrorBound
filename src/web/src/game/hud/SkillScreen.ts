@@ -4,7 +4,7 @@ import { CONTROLS_TEXTURE_KEY } from '../animation/controlsAtlas.generated';
 import { GLYPHS_TEXTURE_KEY } from '../animation/glyphsAtlas.generated';
 import { SKILLNODES_TEXTURE_KEY } from '../animation/skillNodesAtlas.generated';
 import { HUD, PALETTE, PIXEL_FONT, RENDER_SCALE, VIEW } from '../constants';
-import type { SkillNode } from '../contracts';
+import type { AttributeSnap, SkillNode } from '../contracts';
 import { eventBus } from '../EventBus';
 import { controlArt } from './controlArt';
 import { fitInside } from './fit';
@@ -36,7 +36,7 @@ const HEIGHT = 1010;
 const L = {
   pad: 40,
   /** Top of the branch headings. */
-  headTop: -336,
+  headTop: -356,
   /** First node's centre. */
   nodeTop: -238,
   nodeStep: 132,
@@ -80,6 +80,8 @@ export class SkillScreen {
   #nodes: readonly SkillNode[] = [];
   #points = 0;
   #blocked = '';
+  #attributes: readonly AttributeSnap[] = [];
+  #attributePoints = 0;
 
   constructor(private readonly scene: Phaser.Scene) {}
 
@@ -153,10 +155,13 @@ export class SkillScreen {
   }
 
   /** New tree, new points, new reason. Redrawn whole; it is a few dozen objects. */
-  set(nodes: readonly SkillNode[], points: number, respecBlockedBy: string): void {
+  set(nodes: readonly SkillNode[], points: number, respecBlockedBy: string,
+      attributes: readonly AttributeSnap[] = [], attributePoints = 0): void {
     this.#nodes = nodes;
     this.#points = points;
     this.#blocked = respecBlockedBy;
+    this.#attributes = attributes;
+    this.#attributePoints = attributePoints;
     if (this.open) this.#render();
   }
 
@@ -165,9 +170,17 @@ export class SkillScreen {
     this.#rows = [];
     this.#texts = this.#texts.filter((text) => text.scene);
 
-    this.#subtitle.setText(this.#points > 0
-      ? `${this.#points} POINT${this.#points > 1 ? 'S' : ''} TO SPEND`
-      : 'LEVEL UP TO EARN POINTS');
+    // Two currencies, and the subtitle has to say which is which: skill points
+    // come from levelling and attribute points mostly come out of the ground, so
+    // "2 points" on its own would be the least useful true sentence available.
+    const parts: string[] = [];
+    if (this.#points > 0) parts.push(`${this.#points} SKILL PT${this.#points > 1 ? 'S' : ''}`);
+    if (this.#attributePoints > 0) {
+      parts.push(`${this.#attributePoints} ATTRIBUTE PT${this.#attributePoints > 1 ? 'S' : ''}`);
+    }
+    this.#subtitle.setText(parts.length
+      ? parts.join('   ')
+      : 'LEVEL UP, OR MINE AND TRAIN, TO EARN POINTS');
     this.#respecLabel.setColor(this.#blocked ? HUD.dimInk : HUD.ink);
 
     const span = this.#right - this.#left;
@@ -187,8 +200,15 @@ export class SkillScreen {
       this.#add(emblem);
       this.#add(this.#row(x + colLeft + 38, L.headTop, branch.label.toUpperCase(),
         HUD.labelSize, HUD.ink, 0));
-      this.#add(this.#row(x + colLeft + 38, L.headTop + 28, branch.blurb.toUpperCase(),
+      this.#add(this.#row(x + colLeft + 38, L.headTop + 24, branch.blurb.toUpperCase(),
         HUD.hintSize - 3, HUD.dimInk, 0));
+      // The attribute that gates this branch, on the branch it gates.
+      //
+      // Not a screen of its own. An attribute exists to open the deep nodes of
+      // one branch, and putting the five in a separate panel would mean reading
+      // "requires 5 Might" here and going somewhere else to find out what Might
+      // is at -- which is the question the line was raising.
+      this.#attribute(branch.id, x + colLeft, L.headTop + 54, colWidth);
 
       const column = this.#nodes
         .filter((n) => n.category === branch.id)
@@ -207,6 +227,47 @@ export class SkillScreen {
         this.#node(node, x + colLeft, y, colWidth);
       });
     });
+  }
+
+  /**
+   * One attribute, with a way to spend a point into it.
+   *
+   * The `+` appears only when there is something to spend and the attribute is
+   * not already at its ceiling -- and when it is absent the number is still
+   * there, because "what is my Might" is a question worth answering whether or
+   * not the answer can change right now.
+   */
+  #attribute(branch: SkillNode['category'], x: number, y: number, colWidth: number): void {
+    const attribute = this.#attributes.find((a) => a.branch === branch);
+    if (!attribute) return;
+
+    const capped = attribute.points >= attribute.max;
+    const spendable = this.#attributePoints > 0 && !capped;
+    this.#add(this.#row(x, y, `${attribute.name.toUpperCase()}  ${attribute.points}`,
+      HUD.hintSize, attribute.points > 0 ? HUD.activeInk : HUD.dimInk, 0));
+
+    if (!spendable) {
+      if (capped) {
+        this.#add(this.#row(x + colWidth - 48, y, 'MAX', HUD.hintSize - 4, HUD.dimInk, 1));
+      }
+      return;
+    }
+    const plus = this.#row(x + colWidth - 48, y, '+', HUD.labelSize, HUD.ink, 0.5);
+    this.#add(plus);
+    const hit = this.scene.add.zone(x + colWidth - 48, y, 44, 36).setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+    hit.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OVER, () => {
+      this.#detail.setText(attribute.description.toUpperCase());
+      plus.setColor(HUD.activeInk);
+    });
+    hit.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OUT, () => plus.setColor(HUD.ink));
+    hit.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => {
+      eventBus.emit('hud:pointer-used', {});
+      eventBus.emit('ui:command', {
+        type: 'COMMAND', action: 'SPEND_ATTRIBUTE', attributeId: attribute.id,
+      });
+    });
+    this.#add(hit);
   }
 
   #node(node: SkillNode, x: number, y: number, colWidth: number): void {

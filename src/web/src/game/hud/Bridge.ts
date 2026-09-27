@@ -4,7 +4,8 @@ import type { Recharging } from './CooldownRail';
 import type { WeaponId } from '../animation/weaponClips';
 import { BIOMES, type BiomeName } from '../constants';
 import type {
-  AreaLink, AreaSnap, CommandMessage, GameSnapshot, Inventory, JournalSnap, PlayerSnap, SkillNode,
+  AreaLink, AreaSnap, AttributeSnap, CommandMessage, GameSnapshot, Inventory, JournalSnap,
+  PlayerSnap, SkillNode,
   Vec2,
 } from '../contracts';
 import { eventBus } from '../EventBus';
@@ -69,6 +70,8 @@ export class Bridge {
   #counts: Record<string, number> = {};
   #potionIndex = 0;
   #skills: readonly SkillNode[] = [];
+  #attributes: readonly AttributeSnap[] = [];
+  #attributePoints = 0;
   #skillKey = '';
   #areas: readonly AreaSnap[] = [];
   #campaignKey = '';
@@ -363,6 +366,13 @@ export class Bridge {
   #emitSkills(snap: GameSnapshot): void {
     const tree = snap.player.skillTree;
     if (tree) this.#skills = tree;
+    // Cached like the tree, and for the same reason: both ride the detail
+    // snapshot, and the screen can be opened on any of the nineteen frames in
+    // between that do not carry them.
+    if (snap.player.attributes) this.#attributes = snap.player.attributes;
+    if (snap.player.attributePoints !== undefined) {
+      this.#attributePoints = snap.player.attributePoints;
+    }
     if (this.#skills.length === 0) return;
 
     // The three rules the server enforces, spelled out so a disabled button
@@ -376,7 +386,8 @@ export class Bridge {
       : this.#somethingIsFighting(snap) ? 'Not in a fight'
       : '';
 
-    const key = `${snap.player.skillPoints}|${blocked}|`
+    const key = `${snap.player.skillPoints}|${blocked}|${this.#attributePoints}|`
+      + this.#attributes.map((a) => a.points).join(',') + '|'
       + this.#skills.map((n) => `${n.unlocked ? 1 : 0}${n.available ? 1 : 0}`).join('');
     if (key === this.#skillKey) return;
     this.#skillKey = key;
@@ -384,6 +395,8 @@ export class Bridge {
       nodes: this.#skills,
       points: snap.player.skillPoints,
       respecBlockedBy: blocked,
+      attributes: this.#attributes,
+      attributePoints: this.#attributePoints,
     });
   }
 

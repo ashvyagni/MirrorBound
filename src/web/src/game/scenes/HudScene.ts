@@ -243,8 +243,8 @@ export class HudScene extends Phaser.Scene {
       eventBus.on('game:fullscreen', ({ active }) => this.#settings.setFullscreen(active)),
       eventBus.on('run:changed', (run) => this.#map.set(run)),
       eventBus.on('campaign:changed', ({ areas, canTravel, links }) => this.#map.setCampaign(areas, canTravel, links)),
-      eventBus.on('skills:changed', ({ nodes, points, respecBlockedBy }) =>
-        this.#skills.set(nodes, points, respecBlockedBy)),
+      eventBus.on('skills:changed', ({ nodes, points, respecBlockedBy, attributes, attributePoints }) =>
+        this.#skills.set(nodes, points, respecBlockedBy, attributes, attributePoints)),
       eventBus.on('journal:changed', ({ journal }) => this.#journal.set(journal)),
       eventBus.on('inventory:changed', ({ inventory, abilities }) =>
         this.#inventory.set(inventory, abilities)),

@@ -7,7 +7,7 @@ import { weaponIcon } from '../animation/abilityIcons';
 import { weaponSheetFor } from '../animation/weaponClips';
 import { CONTROLS_TEXTURE_KEY } from '../animation/controlsAtlas.generated';
 import { HUD, PIXEL_FONT, RENDER_SCALE, VIEW } from '../constants';
-import type { ShopEntry, WeaponInfo } from '../contracts';
+import type { AttributeSnap, ShopEntry, WeaponInfo } from '../contracts';
 import type { Purse } from '../../ui/store';
 import { eventBus } from '../EventBus';
 import { controlArt } from './controlArt';
@@ -95,6 +95,40 @@ const SPEAKER_HEIGHT = 66;
 const HEAD_ROOM = 22;
 
 /** The shop column. */
+/**
+ * Who will sell you an attribute point.
+ *
+ * The same three `game/world/actions.py` accepts, and duplicated here rather
+ * than sent because it decides whether a *section* is drawn at all -- a screen
+ * that renders an empty heading and waits for the server to refuse every row in
+ * it is worse than one that does not draw the heading.
+ */
+const TRAINER_ROLES = new Set(['weaponsmith', 'apothecary', 'elder']);
+
+/**
+ * What the smith says each ore does, in one line.
+ *
+ * Shortened from `materials.py`'s `forge_note`, which is the authoritative copy.
+ * Duplicated rather than sent because it is fixed text about a fixed table and
+ * threading eight strings through the wire to say what the ore list already
+ * implies would be a contract change for a caption.
+ */
+const ORE_NOTE: Readonly<Record<string, string>> = {
+  iron: 'Heavier. Hits harder, recovers slower.',
+  gold: 'Conducts. Spells cost less.',
+  silver: 'Answers. Sharper, and your twin reads it.',
+  obsidian: 'Splits armour. Chips when it lands wrong.',
+  mithril: 'Quick. Swings faster, pushes nothing.',
+  diamond: 'Holds its edge. A telling blow tells for more.',
+  adamantine: 'Immovable. Nothing knocks you out of a swing.',
+};
+
+/** Which weapon families each ore is wrong in. Mirrors `MaterialDef.spoils`. */
+const ORE_SPOILS: Readonly<Record<string, readonly string[]>> = {
+  gold: ['sword', 'pike'],
+  obsidian: ['staff'],
+};
+
 const SHOP_W = 620;
 const ROW_H = 92;
 const PAD = 34;
@@ -110,7 +144,10 @@ export class DialogueScreen {
   #bubbleH = BUBBLE_MIN_H;
   #gold = 0;
   #owned = new Set<string>();
-  #purse: Purse = { gold: 0, shards: 0, essence: 0, owned: [], carried: [] };
+  #purse: Purse = {
+    gold: 0, shards: 0, essence: 0, owned: [], carried: [],
+    equipped: '', materials: {}, stones: [], attributes: [], attributePoints: 0,
+  };
 
   constructor(private readonly scene: Phaser.Scene) {}
 
@@ -167,6 +204,37 @@ export class DialogueScreen {
 
   #isSmith(conversation: Conversation): boolean {
     return conversation.role === 'weaponsmith';
+  }
+
+  /** Who will teach you something, which is the same three the server accepts. */
+  #isTrainer(conversation: Conversation): boolean {
+    return TRAINER_ROLES.has(conversation.role);
+  }
+
+  /**
+   * The weapon the forge is working on: the one in hand.
+   *
+   * The server will fit ore into any weapon you own, and the screen deliberately
+   * offers only the equipped one. A weapon picker here would mean listing every
+   * carried weapon against every carried ore, which is a grid; and "the smith
+   * works on what you are holding" is both a shorter sentence and one the player
+   * already has a way to answer, because what to carry is a decision the game
+   * makes them make anyway.
+   */
+  #inHand(): WeaponInfo | undefined {
+    if (!this.#conversation || !this.#isSmith(this.#conversation)) return undefined;
+    return this.#purse.carried.find((w) => w.id === this.#purse.equipped);
+  }
+
+  /** Ore that could go into the weapon in hand, if it has room. */
+  #fittable(): { id: string; count: number }[] {
+    const weapon = this.#inHand();
+    if (!weapon) return [];
+    const free = (weapon.slots ?? 0) - (weapon.fitted?.length ?? 0);
+    if (free <= 0) return [];
+    return Object.entries(this.#purse.materials)
+      .filter(([id, count]) => count > 0 && id !== 'coal')
+      .map(([id, count]) => ({ id, count }));
   }
 
   /** What this smith can still work on: carried weapons below their last tier. */
@@ -346,8 +414,18 @@ export class DialogueScreen {
   #renderShop(talk: Conversation): void {
     const stock = talk.stock;
     const bench = this.#benchable();
+    const forge = this.#fittable();
+    const hand = this.#inHand();
+    const socketable = hand?.hasSocket ? this.#purse.stones : [];
+    const socketed = hand?.socketed ?? '';
+    const training = this.#isTrainer(talk)
+      ? this.#purse.attributes.filter((a) => a.points < a.max) : [];
     const h = VIEW.height * RENDER_SCALE;
-    const totalH = (stock.length + bench.length) * ROW_H + 96 + (bench.length ? 44 : 0);
+    const sections = [bench.length, forge.length, socketable.length + (socketed ? 1 : 0),
+                      training.length].filter((n) => n > 0).length;
+    const totalH = (stock.length + bench.length + forge.length + training.length
+                    + socketable.length + (socketed ? 1 : 0)) * ROW_H
+      + 96 + sections * 44;
     // Below the minimap and above the hotbar: the two pieces of chrome that
     // own the corners this column runs between.
     const top = h * 0.2;
@@ -382,6 +460,47 @@ export class DialogueScreen {
       y += 32;
       bench.forEach((weapon) => {
         this.#benchRow(weapon, left, right, y);
+        y += ROW_H;
+      });
+    }
+    if (forge.length && hand) {
+      // The forge, and it says which weapon it is working on in the heading --
+      // because it is working on the one in hand, and a player who has not
+      // noticed that would otherwise put mithril in the wrong sword.
+      y += 12;
+      const used = hand.fitted?.length ?? 0;
+      this.#text(this.#shop, left, y, `INTO YOUR ${hand.name.toUpperCase()}`, 20, HUD.activeInk, 0);
+      this.#text(this.#shop, right, y, `${used}/${hand.slots ?? 0} SLOTS`, 16, HUD.dimInk, 1);
+      y += 32;
+      forge.forEach((ore) => {
+        this.#forgeRow(ore.id, ore.count, hand, left, right, y);
+        y += ROW_H;
+      });
+    }
+    if (hand && (socketable.length || socketed)) {
+      y += 12;
+      this.#text(this.#shop, left, y, 'THE SOCKET', 20, HUD.activeInk, 0);
+      y += 32;
+      if (socketed) {
+        this.#socketRow(socketed, hand, left, right, y, true);
+        y += ROW_H;
+      } else {
+        socketable.forEach((stone) => {
+          this.#socketRow(stone.id, hand, left, right, y, false, stone.name, stone.socketNote);
+          y += ROW_H;
+        });
+      }
+    }
+    if (training.length) {
+      y += 12;
+      this.#text(this.#shop, left, y, 'WHAT YOU CAN BE TAUGHT', 20, HUD.activeInk, 0);
+      this.#text(this.#shop, right, y,
+        this.#purse.attributePoints > 0
+          ? `${this.#purse.attributePoints} UNSPENT — OPEN SKILLS`
+          : 'PAID FOR IN ORE', 16, HUD.dimInk, 1);
+      y += 32;
+      training.forEach((attribute) => {
+        this.#trainRow(attribute, left, right, y);
         y += ROW_H;
       });
     }
@@ -469,6 +588,85 @@ export class DialogueScreen {
       () => eventBus.emit('ui:command', {
         type: 'COMMAND', action: 'UPGRADE_WEAPON',
         npcId: this.#conversation!.npcId, weaponId: weapon.id,
+      }));
+  }
+
+  /** One ore, and what fitting it into the weapon in hand would do. */
+  #forgeRow(material: string, count: number, weapon: WeaponInfo,
+            left: number, right: number, y: number): void {
+    const row = this.#add(this.#shop, this.scene.add.image(0, y,
+      controlArt(this.scene, CONTROLS_TEXTURE_KEY, 'button', right - left, ROW_H - 14)));
+    row.setOrigin(0.5, 0.5).setAlpha(0.7);
+
+    const note = ORE_NOTE[material] ?? 'Changes how it behaves.';
+    const wrong = (ORE_SPOILS[material] ?? []).includes(weapon.family);
+    this.#text(this.#shop, left + 16, y - 14,
+      `${material.toUpperCase()}  ×${count}`, 20, wrong ? '#c46a7a' : HUD.ink, 0);
+    this.#text(this.#shop, left + 16, y + 13,
+      wrong ? `WRONG METAL FOR A ${weapon.family.toUpperCase()}` : note.toUpperCase(),
+      15, HUD.dimInk, 0);
+
+    this.#button(this.#shop, right - 78, y, 'WORK IT', 150,
+      () => eventBus.emit('ui:command', {
+        type: 'COMMAND', action: 'FIT_MATERIAL', npcId: this.#conversation!.npcId,
+        weaponId: weapon.id, materialId: material,
+      }));
+  }
+
+  /** The one socket a finished weapon has: what is in it, or what could be. */
+  #socketRow(stone: string, weapon: WeaponInfo, left: number, right: number, y: number,
+             filled: boolean, name = '', note = ''): void {
+    const row = this.#add(this.#shop, this.scene.add.image(0, y,
+      controlArt(this.scene, CONTROLS_TEXTURE_KEY, 'button', right - left, ROW_H - 14)));
+    row.setOrigin(0.5, 0.5).setAlpha(0.7);
+
+    this.#text(this.#shop, left + 16, y - 14,
+      (name || stone).replace(/_/g, ' ').toUpperCase(), 20, HUD.ink, 0);
+    this.#text(this.#shop, left + 16, y + 13,
+      filled ? 'COMES BACK OUT WHOLE — UNLIKE ORE' : note.toUpperCase(), 15, HUD.dimInk, 0);
+
+    this.#button(this.#shop, right - 78, y, filled ? 'TAKE OUT' : 'SET IT', 150,
+      () => eventBus.emit('ui:command', {
+        type: 'COMMAND',
+        action: filled ? 'UNSOCKET_STONE' : 'SOCKET_STONE',
+        npcId: this.#conversation!.npcId, weaponId: weapon.id,
+        ...(filled ? {} : { stoneId: stone }),
+      }));
+  }
+
+  /**
+   * One attribute, and the ore the next point in it costs.
+   *
+   * The point is bought here and *placed* on the skill screen, which is two
+   * steps on purpose: the price depends on where the attribute already is, so
+   * collapsing them would mean paying a Vigour price for a point you then put
+   * into Focus.
+   */
+  #trainRow(attribute: AttributeSnap, left: number, right: number, y: number): void {
+    const cost = Object.entries(attribute.trainCost);
+    const afford = cost.every(([ore, n]) => (this.#purse.materials[ore] ?? 0) >= Number(n));
+
+    const row = this.#add(this.#shop, this.scene.add.image(0, y,
+      controlArt(this.scene, CONTROLS_TEXTURE_KEY, 'button', right - left, ROW_H - 14)));
+    row.setOrigin(0.5, 0.5).setAlpha(0.7);
+
+    this.#text(this.#shop, left + 16, y - 14,
+      `${attribute.name.toUpperCase()}  ${attribute.points}`, 20, HUD.ink, 0);
+    this.#text(this.#shop, left + 16, y + 13,
+      `OPENS ${attribute.branch}`, 15, HUD.dimInk, 0);
+
+    const price = cost.map(([ore, n]) => `${Number(n)} ${ore.toUpperCase()}`).join(' + ');
+    if (!afford) {
+      const plate = this.#add(this.#shop, this.scene.add.image(right - 78, y,
+        controlArt(this.scene, CONTROLS_TEXTURE_KEY, 'button', 200, 46)));
+      plate.setOrigin(0.5, 0.5).setAlpha(0.4);
+      this.#text(this.#shop, right - 78, y, price, 15, '#c46a7a');
+      return;
+    }
+    this.#button(this.#shop, right - 78, y, price, 200,
+      () => eventBus.emit('ui:command', {
+        type: 'COMMAND', action: 'TRAIN_ATTRIBUTE',
+        npcId: this.#conversation!.npcId, attributeId: attribute.id,
       }));
   }
 

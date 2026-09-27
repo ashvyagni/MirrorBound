@@ -575,7 +575,11 @@
     "max": 20,
     "name": "Vigour",
     "ore": "iron",
-    "points": 1
+    "points": 1,
+    "trainCost": {
+     "coal": 1,
+     "iron": 2
+    }
    },
    {
     "branch": "COMBAT",
@@ -584,7 +588,11 @@
     "max": 20,
     "name": "Might",
     "ore": "adamantine",
-    "points": 0
+    "points": 0,
+    "trainCost": {
+     "adamantine": 1,
+     "coal": 1
+    }
    },
    {
     "branch": "MOBILITY",
@@ -593,7 +601,11 @@
     "max": 20,
     "name": "Finesse",
     "ore": "mithril",
-    "points": 0
+    "points": 0,
+    "trainCost": {
+     "coal": 1,
+     "mithril": 1
+    }
    },
    {
     "branch": "MAGIC",
@@ -602,7 +614,11 @@
     "max": 20,
     "name": "Focus",
     "ore": "gold",
-    "points": 0
+    "points": 0,
+    "trainCost": {
+     "coal": 1,
+     "gold": 1
+    }
    },
    {
     "branch": "MIRROR",
@@ -611,7 +627,11 @@
     "max": 20,
     "name": "Bond",
     "ore": "silver",
-    "points": 0
+    "points": 0,
+    "trainCost": {
+     "coal": 1,
+     "silver": 1
+    }
    }
   ],
   "channelling": null,

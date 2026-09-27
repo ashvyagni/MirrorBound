@@ -158,9 +158,31 @@ export class InventoryScreen {
       this.#stack(relic.id, relic.name, 0, rightX, y, relic.description);
       y += L.rowStep;
     }
+    // Relic stones, under the relics they are not. A relic is a trinket you
+    // carry and a stone is something a smith sets into a weapon, so they are
+    // listed apart even though both are rare and passive -- a player who cannot
+    // tell which of the two is which will spend an hour looking for the slot.
+    for (const stone of inv.stones ?? []) {
+      this.#stack(stone.id, stone.name, stone.count, rightX, y,
+        `${stone.socketNote} (TAKE IT TO A SMITH)`);
+      y += L.rowStep;
+    }
     this.#add(this.#row(rightX, y + 10,
       `GOLD ${inv.gold}   ·   ESSENCE ${inv.resources.essence ?? 0}   ·   SHARDS ${inv.resources.shards ?? 0}`,
       HUD.hintSize - 1, HUD.ink, 0));
+
+    // --- ore ----------------------------------------------------------------
+    //
+    // A single line rather than a row each. Ore is bulk: what a player needs off
+    // this screen is "have I got enough iron", which is a number, and eight rows
+    // of icons would push the weapons off the panel to answer it less clearly.
+    const ore = (inv.materials ?? []).filter((m) => m.count > 0);
+    this.#add(this.#row(rightX, y + 40, 'ORE', HUD.hintSize - 1, HUD.dimInk, 0));
+    this.#add(this.#row(rightX, y + 68,
+      ore.length
+        ? ore.map((m) => `${m.name.toUpperCase()} ${m.count}`).join('   ·   ')
+        : 'NOTHING MINED YET — LOOK FOR BOULDERS WITH METAL IN THEM',
+      HUD.hintSize - 2, ore.length ? HUD.ink : HUD.dimInk, 0));
   }
 
   /** One hand: what is in it, and the two ability keys it grants. */
