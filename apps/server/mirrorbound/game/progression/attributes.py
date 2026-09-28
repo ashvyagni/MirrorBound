@@ -80,7 +80,21 @@ ATTRIBUTES: dict[str, AttributeDef] = {
         AttributeDef(
             "might", "Might", "COMBAT",
             "What a swing weighs. Harder hits and more of a shove behind them.",
-            ore="adamantine", weapon_damage_mult=0.03, knockback_mult=0.04),
+            # Obsidian, not adamantine, and the reason is arithmetic rather than
+            # theme. A tier-4 vein gives up **one** unit and the whole campaign
+            # holds about two of them, which is exactly right for a material you
+            # fit into a weapon once and wrong for one you buy twenty points with:
+            # Might's tier-3 gate costs 6 adamantine against a 2.3 supply, so the
+            # Combat branch's bottom half was unreachable through ore at all.
+            # Measured, not noticed -- see `test_every_attribute_gate_is_reachable`,
+            # which is the assertion that was missing.
+            #
+            # Obsidian is tier 3 (7 for the gate against a ~21 supply), and it puts
+            # the Combat attribute in pass, ruins and crypt rock: the deep half of
+            # the campaign, which is the right place to buy depth in fighting.
+            # Adamantine now does what diamond does -- one stone, a lot of walking,
+            # and a weapon that behaves differently for it.
+            ore="obsidian", weapon_damage_mult=0.03, knockback_mult=0.04),
         AttributeDef(
             "finesse", "Finesse", "MOBILITY",
             "Speed of hand. Faster swings and a better chance of finding the gap.",

@@ -30,10 +30,12 @@ from mirrorbound.game.entities.enemy import BRUTE, HOUND, Enemy
 from mirrorbound.game.entities.entity import Vec2
 from mirrorbound.game.entities.player import Player
 from mirrorbound.game.progression.attributes import (
-    ATTRIBUTES, BRANCH_ATTRIBUTE, MAX_ATTRIBUTE, POINTS_PER_LEVEL, Attributes, bonuses_for,
+    ATTRIBUTES, BRANCH_ATTRIBUTE, MAX_ATTRIBUTE, POINTS_PER_LEVEL, TIER_GATE,
+    Attributes, bonuses_for,
 )
 from mirrorbound.game.progression.materials import (
-    MATERIALS, VEIN_TABLE, forge_bonuses, slots_for_tier, training_cost, yield_for,
+    MATERIALS, VEIN_TABLE, VEINS_PER_DUNGEON_ROOM, VEINS_PER_REGION,
+    expected_yield, forge_bonuses, slots_for_tier, training_cost, yield_for,
 )
 from mirrorbound.game.progression.skills import SKILLS, can_unlock, gate_on
 from mirrorbound.game.world import save as save_system
@@ -73,6 +75,136 @@ def test_the_first_two_tiers_are_open_and_the_last_two_are_not():
         else:
             assert needed > 0 and attribute, f"{node.id} is deep and ungated"
             assert ATTRIBUTES[attribute].branch == node.category
+
+
+def campaign_ore() -> dict[str, float]:
+    """Expected ore from mining out every vein in the campaign, once.
+
+    Read off the same three tables the game places veins from -- `VEIN_TABLE`,
+    `YIELD_BY_TIER` and the counts -- rather than by driving a playthrough, so it
+    stays a statement about the *content* and fails the moment the content moves.
+
+    Deliberately generous: it assumes the player finds and exhausts every vein in
+    all eight regions and every dungeon room, and never spends a unit on a weapon.
+    Anything this budget cannot buy, nobody can buy.
+    """
+    got: dict[str, float] = {}
+    places = [(area.terrain, VEINS_PER_REGION) if area.kind == "region"
+              else (area.biome, VEINS_PER_DUNGEON_ROOM * len(area.sequence))
+              for area in AREAS.values() if area.kind in ("region", "dungeon")]
+    for key, veins in places:
+        for material, amount in expected_yield(key, veins).items():
+            got[material] = got.get(material, 0.0) + amount
+    return got
+
+
+def bill_to(ore: str, target: int) -> dict[str, int]:
+    """What taking one attribute from nothing to `target` costs, all in."""
+    total: dict[str, int] = {}
+    for point in range(target):
+        for item, qty in training_cost(ore, point).items():
+            total[item] = total.get(item, 0) + qty
+    return total
+
+
+def test_every_attribute_gate_is_reachable_by_mining():
+    """The assertion that was missing, and it caught a real one.
+
+    Might was fed by **adamantine** on the reasoning that the Combat attribute
+    should cost the hardest metal in the game. The arithmetic says otherwise: a
+    tier-4 vein gives up one unit and the whole campaign holds about two, against
+    a tier-3 gate costing six -- so the bottom half of the Combat branch, the one
+    an action-RPG player wants most, could not be bought with ore at all. It is
+    obsidian now.
+
+    The general lesson is structural, which is why this test checks all five
+    rather than that one: a tier-4 material is a *fitting* material. One or two
+    units over a campaign is exactly enough to change what a weapon is, and
+    nowhere near enough to buy twenty points of anything.
+    """
+    supply = campaign_ore()
+    gate = TIER_GATE[3]
+    for attribute in ATTRIBUTES.values():
+        cost = bill_to(attribute.ore, gate)
+        have = supply.get(attribute.ore, 0.0)
+        assert have >= cost[attribute.ore], (
+            f"{attribute.name} needs {cost[attribute.ore]} {attribute.ore} to reach its "
+            f"tier-3 gate and the whole campaign yields {have:.1f} -- "
+            f"{attribute.branch}'s deep tiers are unreachable"
+        )
+        # And with real headroom, not by a rounding error: a gate you can only
+        # clear by exhausting the map is a gate nobody clears.
+        assert have >= cost[attribute.ore] * 1.5, (
+            f"{attribute.name} needs {cost[attribute.ore]} of {have:.1f} available "
+            f"{attribute.ore} -- reachable only by mining almost everything"
+        )
+
+
+def test_no_attribute_is_fed_by_a_tier_four_material():
+    """The rule behind the test above, stated so a later edit trips on it."""
+    for attribute in ATTRIBUTES.values():
+        assert MATERIALS[attribute.ore].tier <= 3, (
+            f"{attribute.name} is fed by {attribute.ore}, which is tier "
+            f"{MATERIALS[attribute.ore].tier}: one unit a vein cannot buy an attribute"
+        )
+
+
+def test_coal_is_what_finally_limits_how_deep_you_go():
+    """A nice accident worth keeping: the commonest ore is the binding one.
+
+    Every bill has coal on it, so taking all five attributes to the tier-4 gate
+    costs more coal than the ground holds however much iron and silver is left
+    over. Total investment is therefore capped by the thing that is everywhere,
+    which means the cap is felt as "I have dug enough" rather than "I never found
+    the rare one".
+    """
+    supply = campaign_ore()
+    coal_for_tier_three = sum(bill_to(a.ore, TIER_GATE[3]).get("coal", 0) for a in ATTRIBUTES.values())
+    coal_for_tier_four = sum(bill_to(a.ore, TIER_GATE[4]).get("coal", 0) for a in ATTRIBUTES.values())
+    assert coal_for_tier_three < supply["coal"], "tier 3 across the board must be affordable"
+    assert coal_for_tier_four > supply["coal"], "tier 4 across the board must not be"
+
+
+def test_no_branch_opens_far_later_than_the_others():
+    """No playstyle should wait twice as long as the rest for its deep tiers.
+
+    The five attributes are fed by five ores, and the ores are placed by terrain,
+    so how early a branch opens is decided by *where its ore is* -- which nobody
+    chose on purpose. Measuring it found gold only in marsh, road, ruins and
+    pasture, all late on the campaign's spine: at the Warden a player could be at
+    Bond 10 and Might 7 and still stuck on Focus 3, so the Magic branch alone
+    needed level-up points to reach a gate the other four bought with ore.
+
+    Gold is in crypt rock now (grave goods, at weight 1), which is the midpoint
+    where it was needed. This asserts the property rather than the fix: by the time
+    the ore of the *whole spine* is in the bag, no branch may be more than one gate
+    behind the best of them.
+    """
+    spine = ("hollowreach_vale", "wakewood", "wakewood_crypt", "greenmoor",
+             "stonecount_barrow", "drowned_flats", "emberfall_basin",
+             "glasswork", "kiln_terraces")
+    supply: dict[str, float] = {}
+    for area_id in spine:
+        area = AREAS[area_id]
+        key, veins = ((area.terrain, VEINS_PER_REGION) if area.kind == "region"
+                      else (area.biome, VEINS_PER_DUNGEON_ROOM * len(area.sequence)))
+        for material, amount in expected_yield(key, veins).items():
+            supply[material] = supply.get(material, 0.0) + amount
+
+    def points_affordable(ore: str) -> int:
+        have, spent, points = supply.get(ore, 0.0), 0.0, 0
+        while spent + training_cost(ore, points)[ore] <= have:
+            spent += training_cost(ore, points)[ore]
+            points += 1
+        return points
+
+    reach = {a.id: points_affordable(a.ore) for a in ATTRIBUTES.values()}
+    gate = TIER_GATE[3]
+    behind = {name: n for name, n in reach.items() if n < gate}
+    assert not behind, (
+        f"by the end of the spine these branches still cannot buy their tier-3 "
+        f"gate of {gate} with ore: {behind} (all five: {reach})"
+    )
 
 
 def test_a_tier_three_node_is_refused_until_the_attribute_is_there():

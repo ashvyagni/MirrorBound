@@ -240,14 +240,24 @@ One per skill branch, and each one is bought with one specific ore. Max 20 each.
 | Attribute | Branch | Ore | At 10 points |
 |---|---|---|---|
 | **Vigour** | Survival | iron | +80 max health, hunger bites 40% slower |
-| **Might** | Combat | adamantine | +30% weapon damage, +40% knockback |
+| **Might** | Combat | obsidian | +30% weapon damage, +40% knockback |
 | **Finesse** | Mobility | mithril | +15% attack speed, +8% crit chance |
 | **Focus** | Magic | gold | +60 max mana, +30% spell damage |
 | **Bond** | Mirror | silver | Twin hits 30% harder and learns 20% faster |
 
-Training costs rise per point and **coal is on every bill** — the first point in Vigour is one
-iron and one coal, the tenth is ten iron and five coal. Coal is the commonest thing in the
-ground and it is what stops the rare ores being the only thing worth mining.
+Training costs rise per point, and **rarer ore buys more per unit**: Vigour to 5 is 15 iron,
+Might to 5 is 7 obsidian. **Coal is on every bill** — the first point in anything is one coal, the
+tenth is five — which is what stops the rare ores being the only thing worth mining, and what
+finally caps how deep you can go: taking all five attributes to the tier-4 gate costs more coal
+than the ground holds, however much iron is left over.
+
+Note what is *not* on that list. Diamond and adamantine, the two tier-4 materials, buy no
+attribute at all. A tier-4 vein gives up one unit and the whole campaign holds about two of each,
+which is exactly enough to change what a weapon is and nowhere near enough to buy twenty points
+of anything — so they are fitting materials only. (Might was fed by adamantine when this was
+first written, which made the Combat branch's deep tiers unreachable by mining. Found by
+arithmetic rather than by play; the test that now guards it is
+`test_every_attribute_gate_is_reachable_by_mining`.)
 
 | Skill tier | Needs |
 |---|---|

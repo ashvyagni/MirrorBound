@@ -149,6 +149,8 @@ class Hunger:
 
     @property
     def damage_mult(self) -> float:
+        if self.frozen:
+            return 0.0
         band = self.band
         if band == "fed":
             return FED_DAMAGE_MULT
@@ -156,11 +158,13 @@ class Hunger:
 
     @property
     def damage_taken_mult(self) -> float:
-        return HUNGRY_DAMAGE_TAKEN_MULT if self.hungry else 0.0
+        return 0.0 if self.frozen else (HUNGRY_DAMAGE_TAKEN_MULT if self.hungry else 0.0)
 
     @property
     def speed_mult(self) -> float:
         """Walking well, or not. Small: this is a bonus, not a sprint button."""
+        if self.frozen:
+            return 0.0
         return FED_SPEED_MULT if self.fed else (HUNGRY_SPEED_MULT if self.hungry else 0.0)
 
     # --- serialisation ---------------------------------------------------------

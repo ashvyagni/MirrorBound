@@ -25,6 +25,17 @@ RELIC_DROPS = ("ember_heart", "wolf_fang", "mirror_eye")
 class LootSystem:
     def __init__(self, rng: DeterministicRNG):
         self.rng = rng.spawn("loot")
+        #: Relic stones roll on their own stream, not on the loot one.
+        #:
+        #: AGENTS.md's reason for sub-streams stated at a finer grain than usual:
+        #: rolling stones from `self.rng` meant every kill drew one to three extra
+        #: values before the *next* kill's gold, potion and weapon rolls, so adding
+        #: stones silently reshuffled every loot sequence a seed had ever produced.
+        #: Same seed, same result -- so not a determinism break -- but it moved the
+        #: v1.1 drops a run was measured against, which is the thing the rule exists
+        #: to stop. On its own stream, the gold/potion/weapon sequence for a seed is
+        #: bit-identical to the one before stones existed.
+        self.stone_rng = rng.spawn("stones")
 
     def drop_for(self, state: GameState, enemy: Enemy) -> list[Pickup]:
         table = enemy.enemy_def.loot
@@ -111,8 +122,8 @@ class LootSystem:
             options = STONES_BY_TIER.get(tier, ())
             if not options:
                 continue
-            if campaign.stone_luck.roll(tier, self.rng.chance):
-                drops.append(leave(self.rng.choice(list(options))))
+            if campaign.stone_luck.roll(tier, self.stone_rng.chance):
+                drops.append(leave(self.stone_rng.choice(list(options))))
         return drops
 
     def collect(self, state: GameState) -> None:

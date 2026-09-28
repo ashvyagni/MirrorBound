@@ -336,6 +336,40 @@ def test_hunger_freezes_while_a_boss_is_in_the_room():
     assert not state.player.hunger.frozen
 
 
+def test_a_frozen_bar_gives_no_bonus_either_way():
+    """The half of the freeze that was missing, and measurement is what found it.
+
+    The original argument was that a player walking into a boss room *hungry*
+    would be fighting a different fight from the one that was tuned, with no way
+    to tell. That argument is symmetric, and the first version only applied one
+    side of it: the drain stopped and the Hungry penalty lifted, while a player
+    who arrived Fed carried +6% damage and +5% pace through the whole fight.
+
+    Re-running the playtest probe against the pre-v1.2 commit with the same seeds
+    and the same weapons priced it: the Glasswork went 0.89 -> 1.00 clear and the
+    Stonecount 0.94 -> 1.00, for a bot that had changed in no other way. So a boss
+    fight is now the tuned fight whatever you last ate.
+    """
+    for value in (MAX_HUNGER, MAX_HUNGER * 0.5, 1.0):
+        hunger = Hunger(value=value)
+        live = (hunger.damage_mult, hunger.damage_taken_mult, hunger.speed_mult)
+        hunger.frozen = True
+        assert (hunger.damage_mult, hunger.damage_taken_mult, hunger.speed_mult) == (0.0, 0.0, 0.0), (
+            f"a frozen bar at {value} still modifies the fight (was {live})")
+        # The band itself still reads, because the bar is still full or empty and
+        # the HUD says so; it is only the multipliers that are suspended.
+        hunger.frozen = False
+        assert (hunger.damage_mult, hunger.damage_taken_mult, hunger.speed_mult) == live
+
+
+def test_being_fed_is_worth_something_when_it_is_allowed_to_be():
+    """The other side of the same coin: the freeze must not have quietly deleted
+    the bonus everywhere, which would make cooking pointless."""
+    fed, fine = Hunger(value=MAX_HUNGER), Hunger(value=MAX_HUNGER * 0.5)
+    assert fed.damage_mult > fine.damage_mult == 0.0
+    assert fed.speed_mult > 0.0
+
+
 # --- food ----------------------------------------------------------------------
 
 def test_no_food_heals_anything():

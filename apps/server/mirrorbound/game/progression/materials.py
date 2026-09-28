@@ -165,8 +165,17 @@ VEIN_TABLE: dict[str, tuple[tuple[str, int], ...]] = {
     # of a dungeon.
     "grove": (("coal", 3), ("iron", 4), ("silver", 2)),
     "ruins": (("coal", 2), ("iron", 3), ("gold", 3), ("obsidian", 2)),
+    # Gold in a burial crypt is grave goods, and its absence was the odd thing --
+    # but the reason it is here is measured rather than thematic. Gold was only in
+    # marsh, road, ruins and pasture, all late on the spine, so Focus was the one
+    # attribute that stalled: at the Warden a probe could reach Bond 10 and Might
+    # 7 and still be stuck on Focus 3. One branch opening half as fast as the other
+    # four is an accident that penalises one playstyle, and a crypt is exactly the
+    # midpoint where it needed to move. Weight 1, deliberately small: it takes the
+    # Magic branch to its gate rather than making gold plentiful.
+    # `test_no_branch_opens_far_later_than_the_others` is the guard.
     "crypt": (("coal", 2), ("silver", 3), ("obsidian", 3), ("mithril", 2),
-              ("diamond", 1), ("adamantine", 1)),
+              ("gold", 1), ("diamond", 1), ("adamantine", 1)),
 }
 
 #: How many veins a place holds.
@@ -183,6 +192,27 @@ YIELD_BY_TIER: dict[int, int] = {1: 4, 2: 3, 3: 2, 4: 1}
 
 def yield_for(material_id: str) -> int:
     return YIELD_BY_TIER.get(get_material(material_id).tier, 1)
+
+
+def expected_yield(place_key: str, veins: int) -> dict[str, float]:
+    """How much of each material `veins` veins in a `place_key` place should give.
+
+    The inverse of the placement rule, and the only way to ask "is this gate
+    affordable" without playing the game. It exists here rather than in a tool
+    because two callers need it and they must not be able to disagree: the
+    playtest probe builds its trained player from this, and
+    `test_every_attribute_gate_is_reachable_by_mining` asserts against it -- a
+    probe measuring a build the test believes impossible would be worse than no
+    probe at all.
+
+    Expected value, not a roll. It answers a question about the content, so it
+    takes no RNG and returns fractions.
+    """
+    rows = VEIN_TABLE.get(place_key)
+    if not rows or veins <= 0:
+        return {}
+    weight = sum(w for _, w in rows)
+    return {material: (w / weight) * veins * yield_for(material) for material, w in rows}
 
 
 # --- training -----------------------------------------------------------------
