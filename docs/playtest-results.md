@@ -13,9 +13,15 @@ are **floors**, not humans. Absolute clear rates are pessimistic; what the probe
 is good for is comparing encounters with each other, comparing the two kinds of
 player, and catching a fight nobody can survive.
 
-- **bare** — no attributes, no fittings, no stones. Identical to what this probe
-  always did, kept that way so v1.1's published numbers stay comparable rather
-  than being quietly replaced.
+The table below is a regeneration of 2026-10-25 (252 cases, 0 crashes), run twice
+back to back with byte-identical results — every clear rate, health and time in it
+is reproducible from seeds 1, 5 and 19.
+
+- **bare** — no attributes, no fittings, no stones. What this probe *is* is identical
+  to what it always was — the same bot, built the same way, kept that way so v1.1's
+  published numbers are measured against the same player rather than being quietly
+  replaced. What it *returns* is not identical: the bare column sits within ±0.06 of
+  the pre-v1.2 baseline, mixed in both directions (see the drift table below).
 - **built** — the same bot, having spent its level-up points and the ore the
   campaign spine would have yielded by that point (`REACHED_BY` × `expected_yield`),
   spread evenly across the five attributes up to the tier-3 gate, leftovers fitted
@@ -28,10 +34,10 @@ player, and catching a fight nobody can survive.
 |---|---|---|---|---|---|---|---|
 | opening (crypt, room 1) | 1 | 0.97 | 1.00 | 0.97 | 1.00 | 11.1 | 11.0 |
 | depths (crypt, elite) | 3 | 1.00 | 1.00 | 0.99 | 1.00 | 12.0 | 11.3 |
-| barrow (the Stonecount) | 5 | 1.00 | 1.00 | 0.99 | 0.99 | 18.0 | 15.6 |
+| barrow (the Stonecount) | 5 | 1.00 | 1.00 | 0.99 | 0.99 | 17.8 | 17.0 |
 | glasswork (the Shardmother) | 6 | 0.94 | 1.00 | 0.75 | 0.84 | 26.7 | 24.2 |
 | ashen deep (the Warden) | 7 | 0.61 | 0.94 | 0.61 | 0.94 | 18.6 | 16.0 |
-| sanctum (the Mirror) | 8 | 0.00 | 0.00 | 0.00 | 0.00 | 15.1 | 17.8 |
+| sanctum (the Mirror) | 8 | 0.00 | 0.00 | 0.00 | 0.00 | 14.4 | 17.7 |
 
 **The shape is the result, not the absolute numbers.** Building changes the
 opening by nothing worth having (0.97 → 1.00 — it was never being hit) and changes
@@ -77,6 +83,11 @@ Frozen now means no effect in either direction, so a boss fight is the tuned fig
 whatever you last ate. The Fed bonus still applies to the rest of the game, which
 is most of it.
 
+Provenance for the two columns this file cannot regenerate: `pre-v1.2` comes from
+`ecc453a` (the commit before the first v1.2 change) and `v1.2 with the bonus
+riding` from `682a6a0^` (the state before the freeze was made symmetric). Those two
+commits are where those numbers come from and where they can be regenerated.
+
 **Magic opened half as fast as every other branch.** Gold was only in marsh, road,
 ruins and pasture, all late on the campaign's spine: at the Warden a probe could
 reach Bond 10 and Might 7 and still be stuck on Focus 3, so the Magic branch alone
@@ -111,8 +122,6 @@ armoured archetypes took reciprocal health cuts — SLIME 115→92 at 0.20, BRUT
 in it the numbers are unchanged to the decimal.
 
 ## v1.1 Phase 7 (historical, for comparison)
-
-## v1.1 Phase 7
 
 | Encounter | Level | Clear | Died | Health left | Seconds |
 |---|---|---|---|---|---|

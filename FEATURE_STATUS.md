@@ -5,16 +5,18 @@ game, not a claim that every menu, campaign edge case or platform has been fully
 Status below is based on the current executable paths, not on older roadmap text or the
 presence of unused art.
 
-**Validation at this revision:** 784 server tests, 61 frontend tests, TypeScript clean. The
+**Validation at this revision:** 790 server tests, 61 frontend tests, TypeScript clean. The
 whole campaign is walked start-to-finish by an automated test on three seeds
 (`tests/integration/test_campaign_walkthrough.py`). Difficulty is measured rather than felt
 — see [docs/playtest-results.md](docs/playtest-results.md) — and simulation cost is measured
 before and after the larger world in [docs/perf-baseline.md](docs/perf-baseline.md).
 
-**The one thing to read before trusting a number here:** every measured difficulty figure was
-taken with a scripted probe that does not mine, train an attribute, fit a material or socket a
-stone. Those figures therefore describe a player with none of v1.2's numbers. That is the honest
-floor, not the expected experience.
+**The one thing to read before trusting a number here:** every measured difficulty figure comes
+from one scripted probe run twice. The **bare** column describes a player with none of v1.2's
+numbers — no attributes, no fittings, no stones — and the **built** column spends them: it mines,
+trains an attribute, fits a material and sockets what the walk to each encounter would have
+yielded. The bare column is the honest floor, not the expected experience; both columns are in
+[docs/playtest-results.md](docs/playtest-results.md).
 
 ## What v1.2 changed
 
@@ -25,7 +27,7 @@ floor, not the expected experience.
 | Materials | None | **8 ores** in the ground, placed by terrain; trained into attributes or fitted into weapons |
 | The forge | A three-tier damage bench | The bench also carries **1/1/2/3 fitting slots** and 3 stone sockets at tier 3 |
 | Relic stones | None | **7 stones** over 3 tiers at 1/200, 1/1000, 1/10000, with a saved pity floor and a guaranteed tier-3 from each regional boss |
-| Armour | Enemies had none | An `armour` field, with exactly reciprocal health cuts so v1.1's measured fights are unchanged |
+| Armour | Enemies had none | An `armour` field, with exactly reciprocal health cuts, so effective health against a weapon with no obsidian is unchanged |
 | World | 6 regions, all on the campaign's spine | **8 regions**; the Windward Downs and the Rimefell are off it entirely and ungated |
 | Biomes | grove / ruins / crypt | plus **grassfield** and **tundra** |
 | Wild life | Everything was hostile and undead | **5 animals**: cows and sheep that graze and flee, tigers, shadepelts and winter wolves that hunt |
@@ -99,9 +101,11 @@ Named because each one had shipped and none was visible from reading the code:
 
 - **The Mirror is not beaten by the scripted probe**, and was not in 0.1.0 either. It needs
   human play; the bot brings no skills and no potions to it.
-- **Nothing in v1.2's progression layer is measured against play.** The probe does not mine,
-  train, fit or socket, so it reports the difficulty of a player who ignored the entire
-  expansion. The gate arithmetic is asserted by test; the *feel* of it is not.
+- **v1.2's numbers are untested by human play.** The probe now measures a built player as well as
+  a bare one, so it can say what the layer is *worth*; it still cannot say whether ore yields are
+  worth the training costs, whether a fitted weapon reads as a *different* weapon or just a worse
+  one, or whether the twin's quarter-share of gold is felt as a loss. The gate arithmetic is
+  asserted by test; the *feel* of it is not.
 - **Early-game difficulty is unmeasured.** The probe is a perfect dodger and the opening
   deliberately sends creatures one at a time, so it reports full health and that figure says
   nothing about a human.
@@ -145,7 +149,7 @@ Named because each one had shipped and none was visible from reading the code:
 | Feature | What is implemented | Limits / follow-up |
 |---|---|---|
 | Campaign | Eight regions and five dungeons joined at seven crossings, with Hollow Reach and Emberfall inside two of the regions. The Windward Downs and the Rimefell are off the spine and ungated. | Two of the eight regions are optional content rather than a second chapter; no additional campaign acts. |
-| Dungeon generation | Handcrafted templates selected and decorated by seeded RNG; grove, ruins, crypt, grassfield and tundra biomes, each drawn from a procedural palette rather than a tileset. Ore veins placed last, after the player spawn is decided, on open ground away from roads, water, walls, settlements and doors. | Deterministic route tests cover both villages across five seeds; combat probes cover three seeds and four encounters. See PLAYTEST_RESULTS.md. |
+| Dungeon generation | Handcrafted templates selected and decorated by seeded RNG; grove, ruins, crypt, grassfield and tundra biomes, each drawn from a procedural palette rather than a tileset. Ore veins placed last, after the player spawn is decided, on open ground away from roads, water, walls, settlements and doors. | Deterministic route tests cover both villages across five seeds; combat probes cover three seeds and six encounters. See [docs/playtest-results.md](docs/playtest-results.md). |
 | Tutorial opening | Start unarmed; guaranteed iron sword at a dungeon entrance; authored first combat room. | Teaching remains mostly implicit; no guided interactive tutorial. |
 | Room progression | Combat gates, room clear rewards, backtracking, exit portals and area discovery. | Travel now refuses an area whose prerequisite is not cleared; the chain is the progression. The older behaviour granted skipped areas and their rewards, which made the campaign a menu. |
 | NPCs | Elder Mara, Oren, Siv and the Hearth; proximity interaction and server-authored dialogue. | Linear click-through conversations, not branching conversations. |
@@ -155,7 +159,7 @@ Named because each one had shipped and none was visible from reading the code:
 | Hearth | Restores health/mana, clears player statuses, restores an awakened twin, fills both hunger bars, cooks all raw meat in **both** bags, and saves. | Default browser identity now persists and appears in the URL; explicit session links select other checkpoints. |
 | Movement | Walk/run, normalized directional input, room/decor collision and knockback. | AI uses deterministic cached grid routes around server collision geometry. Presentation prediction can still briefly disagree with authoritative position under latency. |
 | Aiming | Mouse-directed attack/cast intent, server-controlled facing and outcomes. | No controller or touch input. |
-| Basic combat | Unarmed swipes, three-hit sword chain, bow arrows, explosive fire bolts and slowing frost bolts. | A 60-case repeatable combat probe and browser smoke tests are available. Human difficulty and latency testing remain ongoing. |
+| Basic combat | Unarmed swipes, three-hit sword chain, bow arrows, explosive fire bolts and slowing frost bolts. | A 252-case repeatable combat probe (`tools/playtest/playtest.py`) and browser smoke tests are available. Human difficulty and latency testing remain ongoing. |
 | Carried equipment | Four equipable weapons; main/offhand selection and swapping; first pickups equip automatically. | No armor equipment, durability, randomized affixes or expanded weapon progression. |
 | Abilities | Sword: Aegis + Shadow Dash. Bow: Arrow Volley + Mending Light. Ember staff: Flame Burst + Flame Pillar. Frost staff: Binding Nova + Arcane Bolt. | Two abilities per weapon; four keys with two weapons. Empty hands provide dash. Free slot reassignment is obsolete. |
 | Resource rules | Mana costs/regeneration, cooldowns, dash invulnerability, slow/burn/shield effects, interrupted healing channel. | Flame Pillar resolves after its interruptible wind-up; burn can finish enemies through the normal reward pipeline. Bespoke visual feedback remains uneven. |
@@ -263,7 +267,7 @@ All ten requested areas received implementation or a concrete testing pass:
     around props, dash/knockback movement uses substeps, scaled foundation footprints drive
     physics/debug drawing, and burn can award a final kill. Mirror riposte gives at least
     0.30 seconds to react. The repeatable combat and route test results are in
-    [PLAYTEST_RESULTS.md](PLAYTEST_RESULTS.md).
+    [docs/playtest-results.md](docs/playtest-results.md).
 
 These changes cross client rendering/input, contracts, API orchestration, game simulation and
 save boundaries. Vendor and companion transaction rules were extracted into game/world/actions.py;
@@ -274,10 +278,11 @@ Python still owns outcomes and no agent directly mutates game state.
 - **Difficulty tuning:** the scripted player is a baseline, not a human playtest population.
   Compare learned builds, two-weapon combinations, potions, latency and full campaign pacing.
   The Mirror remains substantially harder than the opening/Warden probes.
-- **v1.2's numbers are untested by play.** Ore yields against training costs, the tier-3 gate
+- **v1.2's numbers are untested by human play.** Ore yields against training costs, the tier-3 gate
   landing at the right point in a campaign, whether a fitted weapon reads as a *different* weapon
   or just a worse one, and whether the twin's quarter-share of gold is felt as a loss. Each is a
-  balance question a test cannot answer, and the probe does not exercise any of them.
+  balance question a test cannot answer, and the probe — which measures clear rates against a
+  stated build, not whether any of it feels right — cannot answer them either.
 - **The twin's learning is not measured over a session.** Its three new dimensions converge under
   unit-test conditions; nobody has watched whether a real hour of play produces a twin whose
   drinking habits look like the player's.
@@ -311,7 +316,7 @@ requirements for this slice.
 
 ## Validation for the v1.2 expansion
 
-- **784 server tests** and **61 frontend tests** pass; TypeScript clean.
+- **790 server tests** and **61 frontend tests** pass; TypeScript clean.
 - New suites: `test_materials.py` (37), `test_stones.py` (25), `test_wild.py` (32),
   `test_twin_autonomy.py` (46) and `src/web/tests/mining.test.ts` (7).
 - The gate inequality is asserted directly (`test_materials.py`): 19 attribute points from 20
@@ -346,4 +351,7 @@ requirements for this slice.
 - Route tests cover both villages at seeds 1, 5, 19, 42 and 2024, plus a deterministic blocked route.
 - Isolated integration tests cover vendor range, dormant twin exclusion, transferred/empty-handed
   equipment saves, timed regroup, ending restoration, delayed/interrupted damage and collision substeps.
-- The 60-case combat probe and its reproducible invocation are recorded in PLAYTEST_RESULTS.md.
+- The 60-case combat probe (four weapons, four encounters) ran for the gameplay-hardening commit
+  and is not recorded in the tree today. It has been superseded by the 252-case bare-and-built
+  probe, described in [docs/playtest-results.md](docs/playtest-results.md) and run with
+  `tools/playtest/playtest.py`.
